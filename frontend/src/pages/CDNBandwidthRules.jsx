@@ -1,0 +1,452 @@
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { PlayIcon } from '@heroicons/react/24/outline'
+import api from '../services/api'
+import toast from 'react-hot-toast'
+
+export default function CDNBandwidthRules() {
+  const queryClient = useQueryClient()
+  const [showModal, setShowModal] = useState(false)
+  const [editingRule, setEditingRule] = useState(null)
+  const [formData, setFormData] = useState({
+    name: '',
+    start_time: '16:00',
+    end_time: '23:00',
+    days_of_week: [0, 1, 2, 3, 4, 5, 6],
+    speed_multiplier: 50,
+    cdn_ids: [],
+    priority: 10,
+    enabled: true,
+    auto_apply: true,
+  })
+
+  const { data: rules, isLoading } = useQuery({
+    queryKey: ['cdn-bandwidth-rules'],
+    queryFn: () => api.get('/cdn-bandwidth-rules').then(res => res.data.data || [])
+  })
+
+  const { data: cdns } = useQuery({
+    queryKey: ['cdns'],
+    queryFn: () => api.get('/cdns').then(res => res.data.data || [])
+  })
+
+  const createMutation = useMutation({
+    mutationFn: (data) => api.post('/cdn-bandwidth-rules', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['cdn-bandwidth-rules'])
+      toast.success('CDN bandwidth rule created')
+      closeModal()
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to create rule')
+    }
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...data }) => api.put(`/cdn-bandwidth-rules/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['cdn-bandwidth-rules'])
+      toast.success('CDN bandwidth rule updated')
+      closeModal()
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to update rule')
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.delete(`/cdn-bandwidth-rules/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['cdn-bandwidth-rules'])
+      toast.success('Rule deleted')
+    }
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, enabled }) => api.put(`/cdn-bandwidth-rules/${id}`, { enabled }),
+    onSuccess: () => queryClient.invalidateQueries(['cdn-bandwidth-rules'])
+  })
+
+  const applyNowMutation = useMutation({
+    mutationFn: (id) => api.post(`/cdn-bandwidth-rules/${id}/apply`),
+    onSuccess: (res) => {
+      toast.success(`CDN rule applied to ${res.data.applied_count} queues`)
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to apply rule')
+    }
+  })
+
+  const daysOfWeek = [
+    { value: 0, label: 'Sun' },
+    { value: 1, label: 'Mon' },
+    { value: 2, label: 'Tue' },
+    { value: 3, label: 'Wed' },
+    { value: 4, label: 'Thu' },
+    { value: 5, label: 'Fri' },
+    { value: 6, label: 'Sat' },
+  ]
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingRule(null)
+    setFormData({
+      name: '',
+      start_time: '16:00',
+      end_time: '23:00',
+      days_of_week: [0, 1, 2, 3, 4, 5, 6],
+      speed_multiplier: 50,
+      cdn_ids: [],
+      priority: 10,
+      enabled: true,
+      auto_apply: true,
+    })
+  }
+
+  const openEdit = (rule) => {
+    setEditingRule(rule)
+    setFormData({
+      name: rule.name,
+      start_time: rule.start_time || '16:00',
+      end_time: rule.end_time || '23:00',
+      days_of_week: rule.days_of_week || [0, 1, 2, 3, 4, 5, 6],
+      speed_multiplier: rule.speed_multiplier || 100,
+      cdn_ids: rule.cdn_ids || [],
+      priority: rule.priority || 10,
+      enabled: rule.enabled,
+      auto_apply: rule.auto_apply || false,
+    })
+    setShowModal(true)
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (formData.cdn_ids.length === 0) {
+      toast.error('Please select at least one CDN')
+      return
+    }
+    if (editingRule) {
+      updateMutation.mutate({ id: editingRule.id, ...formData })
+    } else {
+      createMutation.mutate(formData)
+    }
+  }
+
+  const toggleDay = (day) => {
+    const days = formData.days_of_week.includes(day)
+      ? formData.days_of_week.filter(d => d !== day)
+      : [...formData.days_of_week, day].sort()
+    setFormData({ ...formData, days_of_week: days })
+  }
+
+  const getDaysLabel = (days) => {
+    if (!days || days.length === 0) return 'Never'
+    if (days.length === 7) return 'Every day'
+    if (JSON.stringify([...days].sort()) === JSON.stringify([1, 2, 3, 4, 5])) return 'Weekdays'
+    if (JSON.stringify([...days].sort()) === JSON.stringify([0, 6])) return 'Weekends'
+    return days.map(d => daysOfWeek.find(dw => dw.value === d)?.label).join(', ')
+  }
+
+  const getCDNNames = (cdnIds) => {
+    if (!cdnIds || cdnIds.length === 0) return 'No CDNs selected'
+    const names = cdnIds.map(id => cdns?.find(c => c.id === id)?.name).filter(Boolean)
+    return names.length > 0 ? names.join(', ') : 'No CDNs selected'
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">CDN Bandwidth Rules</h1>
+          <p className="text-sm text-gray-500 mt-1">Configure time-based CDN speed adjustments (e.g., reduce CDN speed during peak hours)</p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Add Rule
+        </button>
+      </div>
+
+      {/* Info Card */}
+      <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg">
+        <h3 className="font-medium text-orange-900">Time-Based CDN Bandwidth Rules</h3>
+        <p className="text-sm text-orange-700 mt-1">
+          Create rules to adjust CDN speeds during peak hours. For example, reduce CDN traffic to 50% during evening hours (16:00-23:00) to prioritize regular user traffic.
+          Enable Auto Apply to have rules activate automatically on schedule.
+        </p>
+      </div>
+
+      {/* Rules Table */}
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CDNs</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Schedule</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Speed</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {(rules || []).map(rule => (
+              <tr key={rule.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">{rule.name}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {getCDNNames(rule.cdn_ids)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <div>
+                    <div>{rule.start_time} - {rule.end_time}</div>
+                    <div className="text-xs">{getDaysLabel(rule.days_of_week)}</div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <span className={`font-medium ${rule.speed_multiplier > 100 ? 'text-green-600' : rule.speed_multiplier < 100 ? 'text-orange-600' : 'text-gray-600'}`}>
+                    {rule.speed_multiplier}%
+                  </span>
+                  {rule.speed_multiplier < 100 && (
+                    <span className="text-xs text-gray-400 ml-1">
+                      ({100 - rule.speed_multiplier}% reduction)
+                    </span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleMutation.mutate({ id: rule.id, enabled: !rule.enabled })}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
+                        rule.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                          rule.enabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                    {rule.auto_apply && (
+                      <span className="px-1.5 py-0.5 text-[10px] bg-green-100 text-green-700 rounded font-medium">AUTO</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <button
+                    onClick={() => applyNowMutation.mutate(rule.id)}
+                    disabled={applyNowMutation.isPending}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200 mr-2"
+                    title="Apply Now"
+                  >
+                    <PlayIcon className="w-3 h-3 mr-1" />
+                    Apply
+                  </button>
+                  <button
+                    onClick={() => openEdit(rule)}
+                    className="text-blue-600 hover:text-blue-900 mr-3"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Delete this rule?')) {
+                        deleteMutation.mutate(rule.id)
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {(rules || []).length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No CDN bandwidth rules configured. Click "Add Rule" to create one.
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={closeModal}></div>
+            <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                {editingRule ? 'Edit CDN Bandwidth Rule' : 'Add CDN Bandwidth Rule'}
+              </h3>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Rule Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="e.g., Peak Hours CDN Limit, Evening CDN Reduction"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                    <input
+                      type="time"
+                      value={formData.start_time}
+                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">End Time</label>
+                    <input
+                      type="time"
+                      value={formData.end_time}
+                      onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Days of Week</label>
+                  <div className="flex flex-wrap gap-2">
+                    {daysOfWeek.map(day => (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => toggleDay(day.value)}
+                        className={`px-3 py-1 text-sm rounded-md ${
+                          formData.days_of_week.includes(day.value)
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {day.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    CDN Speed: <span className={`font-bold ${formData.speed_multiplier > 100 ? 'text-green-600' : formData.speed_multiplier < 100 ? 'text-orange-600' : 'text-gray-600'}`}>{formData.speed_multiplier}%</span>
+                    {formData.speed_multiplier < 100 && (
+                      <span className="font-normal text-gray-500 ml-1">({100 - formData.speed_multiplier}% reduction)</span>
+                    )}
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="300"
+                    step="10"
+                    value={formData.speed_multiplier}
+                    onChange={(e) => setFormData({ ...formData, speed_multiplier: parseInt(e.target.value) })}
+                    className="mt-2 w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>10%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                    <span>200%</span>
+                    <span>300%</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    100% = no change, 50% = half speed, 300% = triple speed
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Apply to CDNs <span className="text-red-500">*</span>
+                  </label>
+                  <div className={`max-h-32 overflow-y-auto border rounded-md p-2 ${formData.cdn_ids.length === 0 ? 'border-red-300 bg-red-50' : ''}`}>
+                    {(cdns || []).map(cdn => (
+                      <label key={cdn.id} className="flex items-center py-1">
+                        <input
+                          type="checkbox"
+                          checked={formData.cdn_ids.includes(cdn.id)}
+                          onChange={(e) => {
+                            const ids = e.target.checked
+                              ? [...formData.cdn_ids, cdn.id]
+                              : formData.cdn_ids.filter(id => id !== cdn.id)
+                            setFormData({ ...formData, cdn_ids: ids })
+                          }}
+                          className="rounded border-gray-300 text-blue-600"
+                        />
+                        <span
+                          className="ml-2 text-sm text-gray-700 flex items-center"
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full mr-2"
+                            style={{ backgroundColor: cdn.color || '#EF4444' }}
+                          ></span>
+                          {cdn.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-red-500 mt-1">Select at least one CDN (required)</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.enabled}
+                      onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.auto_apply}
+                      onChange={(e) => setFormData({ ...formData, auto_apply: e.target.checked })}
+                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Auto Apply (apply automatically on schedule)</span>
+                  </label>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    {editingRule ? 'Update' : 'Create'} Rule
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

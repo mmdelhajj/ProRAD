@@ -1,0 +1,15 @@
+[Unit]
+Description=ProxPanel Remote Support Tunnel
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/proxpanel/tunnel-service.sh
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=always
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target

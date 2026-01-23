@@ -1,0 +1,981 @@
+package handlers
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/proisp/backend/internal/config"
+	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/middleware"
+	"github.com/proisp/backend/internal/models"
+	"github.com/proisp/backend/internal/security"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type ResellerHandler struct {
+	cfg *config.Config
+}
+
+func NewResellerHandler(cfg *config.Config) *ResellerHandler {
+	return &ResellerHandler{cfg: cfg}
+}
+
+// List returns all resellers
+func (h *ResellerHandler) List(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "25"))
+	search := c.Query("search", "")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	query := database.DB.Model(&models.Reseller{}).Preload("User").Preload("Parent.User")
+
+	// Filter by parent for resellers
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		query = query.Where("parent_id = ?", *user.ResellerID)
+	}
+
+	// Search filter
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Joins("JOIN users ON users.id = resellers.user_id").
+			Where("resellers.name ILIKE ? OR users.username ILIKE ? OR users.email ILIKE ?",
+				searchPattern, searchPattern, searchPattern)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var resellers []models.Reseller
+	query.Order("name ASC").Offset(offset).Limit(limit).Find(&resellers)
+
+	// Get subscriber counts for each reseller
+	for i := range resellers {
+		var count int64
+		database.DB.Model(&models.Subscriber{}).Where("reseller_id = ?", resellers[i].ID).Count(&count)
+		resellers[i].User.Phone = "" // Use this to pass count temporarily
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    resellers,
+		"meta": fiber.Map{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"totalPages": (total + int64(limit) - 1) / int64(limit),
+		},
+	})
+}
+
+// Get returns a single reseller
+func (h *ResellerHandler) Get(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	var reseller models.Reseller
+	if err := database.DB.Preload("User").Preload("Parent.User").Preload("Children.User").First(&reseller, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	// Get stats
+	var stats struct {
+		TotalSubscribers  int64   `json:"total_subscribers"`
+		ActiveSubscribers int64   `json:"active_subscribers"`
+		TotalRevenue      float64 `json:"total_revenue"`
+	}
+
+	database.DB.Model(&models.Subscriber{}).Where("reseller_id = ?", id).Count(&stats.TotalSubscribers)
+	database.DB.Model(&models.Subscriber{}).Where("reseller_id = ? AND status = ?", id, models.SubscriberStatusActive).Count(&stats.ActiveSubscribers)
+	database.DB.Model(&models.Transaction{}).Where("reseller_id = ? AND type IN (?, ?)", id, models.TransactionTypeNew, models.TransactionTypeRenewal).
+		Select("COALESCE(SUM(ABS(amount)), 0)").Scan(&stats.TotalRevenue)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    reseller,
+		"stats":   stats,
+	})
+}
+
+// CreateResellerRequest represents create reseller request
+type CreateResellerRequest struct {
+	Username        string  `json:"username"`
+	Password        string  `json:"password"`
+	Email           string  `json:"email"`
+	Phone           string  `json:"phone"`
+	Name            string  `json:"name"`
+	FullName        string  `json:"fullname"`
+	Company         string  `json:"company"`
+	Address         string  `json:"address"`
+	Credit          float64 `json:"credit"`
+	CreditLimit     float64 `json:"credit_limit"`
+	Balance         float64 `json:"balance"`
+	ParentID        *uint   `json:"parent_id"`
+	PermissionGroup *uint   `json:"permission_group"`
+	IsActive        *bool   `json:"is_active"`
+}
+
+// Create creates a new reseller
+func (h *ResellerHandler) Create(c *fiber.Ctx) error {
+	var req CreateResellerRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Validate required fields - accept name from any of these fields
+	resellerName := req.Name
+	if resellerName == "" {
+		resellerName = req.FullName
+	}
+	if resellerName == "" {
+		resellerName = req.Company
+	}
+
+	if req.Username == "" || req.Password == "" || resellerName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Username, password, and name are required",
+		})
+	}
+
+	// Use the determined name
+	req.Name = resellerName
+
+	// Check if username exists
+	var existingCount int64
+	database.DB.Model(&models.User{}).Where("username = ?", req.Username).Count(&existingCount)
+	if existingCount > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Username already exists",
+		})
+	}
+
+	// Hash password
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+
+	// Determine full name - use FullName if provided, otherwise use Name
+	fullName := req.Name
+	if req.FullName != "" {
+		fullName = req.FullName
+	}
+
+	// Determine company name - use Company if provided, otherwise use Name
+	companyName := req.Name
+	if req.Company != "" {
+		companyName = req.Company
+	}
+
+	// Create user
+	user := models.User{
+		Username:      req.Username,
+		Password:      string(hashedPassword),
+		PasswordPlain: security.EncryptPassword(req.Password),
+		Email:         req.Email,
+		Phone:         req.Phone,
+		FullName:      fullName,
+		UserType:      models.UserTypeReseller,
+		IsActive:      true,
+	}
+
+	if err := database.DB.Create(&user).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create user",
+		})
+	}
+
+	// Set parent reseller
+	currentUser := middleware.GetCurrentUser(c)
+	parentID := req.ParentID
+	if currentUser.UserType == models.UserTypeReseller && currentUser.ResellerID != nil {
+		parentID = currentUser.ResellerID
+	}
+
+	// Determine credit - use CreditLimit if provided, otherwise use Credit
+	credit := req.Credit
+	if req.CreditLimit > 0 {
+		credit = req.CreditLimit
+	}
+
+	// Determine is_active
+	isActive := true
+	if req.IsActive != nil {
+		isActive = *req.IsActive
+	}
+
+	// Create reseller
+	reseller := models.Reseller{
+		UserID:          user.ID,
+		Name:            companyName,
+		Address:         req.Address,
+		Balance:         req.Balance,
+		Credit:          credit,
+		ParentID:        parentID,
+		PermissionGroup: req.PermissionGroup,
+		IsActive:        isActive,
+	}
+
+	if err := database.DB.Create(&reseller).Error; err != nil {
+		// Rollback user creation
+		database.DB.Delete(&user)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create reseller",
+		})
+	}
+
+	// Update user with reseller ID
+	database.DB.Model(&user).Update("reseller_id", reseller.ID)
+
+	// Create audit log
+	auditLog := models.AuditLog{
+		UserID:      currentUser.ID,
+		Username:    currentUser.Username,
+		UserType:    currentUser.UserType,
+		Action:      models.AuditActionCreate,
+		EntityType:  "reseller",
+		EntityID:    reseller.ID,
+		EntityName:  reseller.Name,
+		Description: "Created new reseller",
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	database.DB.Preload("User").First(&reseller, reseller.ID)
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"message": "Reseller created successfully",
+		"data":    reseller,
+	})
+}
+
+// Update updates a reseller
+func (h *ResellerHandler) Update(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	var reseller models.Reseller
+	if err := database.DB.Preload("User").First(&reseller, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	var req map[string]interface{}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Update reseller fields
+	resellerUpdates := make(map[string]interface{})
+	if val, ok := req["company"]; ok {
+		resellerUpdates["name"] = val
+	}
+	if val, ok := req["name"]; ok {
+		resellerUpdates["name"] = val
+	}
+	if val, ok := req["address"]; ok {
+		resellerUpdates["address"] = val
+	}
+	if val, ok := req["credit_limit"]; ok {
+		resellerUpdates["credit"] = val
+	}
+	if val, ok := req["credit"]; ok {
+		resellerUpdates["credit"] = val
+	}
+	if val, ok := req["parent_id"]; ok {
+		resellerUpdates["parent_id"] = val
+	}
+	if val, ok := req["is_active"]; ok {
+		resellerUpdates["is_active"] = val
+	}
+	if val, ok := req["permission_group"]; ok {
+		resellerUpdates["permission_group"] = val
+	}
+	if len(resellerUpdates) > 0 {
+		database.DB.Model(&reseller).Updates(resellerUpdates)
+	}
+
+	// Update user fields
+	userUpdates := make(map[string]interface{})
+	if val, ok := req["email"]; ok {
+		userUpdates["email"] = val
+	}
+	if val, ok := req["phone"]; ok {
+		userUpdates["phone"] = val
+	}
+	if val, ok := req["fullname"]; ok {
+		userUpdates["full_name"] = val
+	}
+	if val, ok := req["full_name"]; ok {
+		userUpdates["full_name"] = val
+	}
+	if password, ok := req["password"].(string); ok && password != "" {
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		userUpdates["password"] = string(hashedPassword)
+		userUpdates["password_plain"] = security.EncryptPassword(password)
+	}
+	// Allow username change - check if new username is unique
+	if newUsername, ok := req["username"].(string); ok && newUsername != "" && newUsername != reseller.User.Username {
+		var existingCount int64
+		database.DB.Model(&models.User{}).Where("username = ? AND id != ?", newUsername, reseller.User.ID).Count(&existingCount)
+		if existingCount > 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"message": "Username already exists",
+			})
+		}
+		userUpdates["username"] = newUsername
+	}
+	if len(userUpdates) > 0 {
+		database.DB.Model(&reseller.User).Updates(userUpdates)
+	}
+
+	// Create audit log
+	user := middleware.GetCurrentUser(c)
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionUpdate,
+		EntityType:  "reseller",
+		EntityID:    reseller.ID,
+		EntityName:  reseller.Name,
+		Description: "Updated reseller",
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	database.DB.Preload("User").First(&reseller, id)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Reseller updated successfully",
+		"data":    reseller,
+	})
+}
+
+// Delete deletes a reseller
+func (h *ResellerHandler) Delete(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	var reseller models.Reseller
+	if err := database.DB.First(&reseller, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	// Check if reseller has subscribers
+	var subscriberCount int64
+	database.DB.Model(&models.Subscriber{}).Where("reseller_id = ?", id).Count(&subscriberCount)
+	if subscriberCount > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot delete reseller with subscribers",
+		})
+	}
+
+	// Check if reseller has sub-resellers
+	var childCount int64
+	database.DB.Model(&models.Reseller{}).Where("parent_id = ?", id).Count(&childCount)
+	if childCount > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot delete reseller with sub-resellers",
+		})
+	}
+
+	// Delete reseller and user
+	database.DB.Delete(&reseller)
+	database.DB.Delete(&models.User{}, reseller.UserID)
+
+	// Create audit log
+	user := middleware.GetCurrentUser(c)
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionDelete,
+		EntityType:  "reseller",
+		EntityID:    reseller.ID,
+		EntityName:  reseller.Name,
+		Description: "Deleted reseller",
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Reseller deleted successfully",
+	})
+}
+
+// Transfer transfers money to reseller
+func (h *ResellerHandler) Transfer(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	var req struct {
+		Amount float64 `json:"amount"`
+		Note   string  `json:"note"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	if req.Amount <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Amount must be positive",
+		})
+	}
+
+	var reseller models.Reseller
+	if err := database.DB.First(&reseller, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	user := middleware.GetCurrentUser(c)
+
+	// Check if admin or parent reseller
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		var sourceReseller models.Reseller
+		database.DB.First(&sourceReseller, *user.ResellerID)
+
+		if sourceReseller.Balance < req.Amount {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"message": "Insufficient balance",
+			})
+		}
+
+		// Deduct from source
+		database.DB.Model(&sourceReseller).Update("balance", database.DB.Raw("balance - ?", req.Amount))
+
+		// Create transaction for source
+		database.DB.Create(&models.Transaction{
+			Type:             models.TransactionTypeTransfer,
+			Amount:           -req.Amount,
+			BalanceBefore:    sourceReseller.Balance,
+			BalanceAfter:     sourceReseller.Balance - req.Amount,
+			ResellerID:       sourceReseller.ID,
+			TargetResellerID: &reseller.ID,
+			Description:      fmt.Sprintf("Transfer to %s: %s", reseller.Name, req.Note),
+			IPAddress:        c.IP(),
+			CreatedBy:        user.ID,
+		})
+	}
+
+	// Add to target
+	database.DB.Model(&reseller).Update("balance", database.DB.Raw("balance + ?", req.Amount))
+
+	// Create transaction for target
+	database.DB.Create(&models.Transaction{
+		Type:          models.TransactionTypeTransfer,
+		Amount:        req.Amount,
+		BalanceBefore: reseller.Balance,
+		BalanceAfter:  reseller.Balance + req.Amount,
+		ResellerID:    reseller.ID,
+		Description:   fmt.Sprintf("Transfer received: %s", req.Note),
+		IPAddress:     c.IP(),
+		CreatedBy:     user.ID,
+	})
+
+	// Create audit log
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionTransfer,
+		EntityType:  "reseller",
+		EntityID:    reseller.ID,
+		EntityName:  reseller.Name,
+		Description: fmt.Sprintf("Transferred $%.2f", req.Amount),
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Transfer successful",
+	})
+}
+
+// Withdraw withdraws money from reseller
+func (h *ResellerHandler) Withdraw(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	var req struct {
+		Amount float64 `json:"amount"`
+		Note   string  `json:"note"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	if req.Amount <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Amount must be positive",
+		})
+	}
+
+	var reseller models.Reseller
+	if err := database.DB.First(&reseller, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	if reseller.Balance < req.Amount {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Insufficient balance",
+		})
+	}
+
+	user := middleware.GetCurrentUser(c)
+
+	// Deduct from reseller
+	database.DB.Model(&reseller).Update("balance", database.DB.Raw("balance - ?", req.Amount))
+
+	// Create transaction
+	database.DB.Create(&models.Transaction{
+		Type:          models.TransactionTypeWithdraw,
+		Amount:        -req.Amount,
+		BalanceBefore: reseller.Balance,
+		BalanceAfter:  reseller.Balance - req.Amount,
+		ResellerID:    reseller.ID,
+		Description:   fmt.Sprintf("Withdrawal: %s", req.Note),
+		IPAddress:     c.IP(),
+		CreatedBy:     user.ID,
+	})
+
+	// If parent reseller, add to parent
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		var sourceReseller models.Reseller
+		database.DB.First(&sourceReseller, *user.ResellerID)
+
+		database.DB.Model(&sourceReseller).Update("balance", database.DB.Raw("balance + ?", req.Amount))
+
+		database.DB.Create(&models.Transaction{
+			Type:             models.TransactionTypeWithdraw,
+			Amount:           req.Amount,
+			BalanceBefore:    sourceReseller.Balance,
+			BalanceAfter:     sourceReseller.Balance + req.Amount,
+			ResellerID:       sourceReseller.ID,
+			TargetResellerID: &reseller.ID,
+			Description:      fmt.Sprintf("Withdrawal from %s: %s", reseller.Name, req.Note),
+			IPAddress:        c.IP(),
+			CreatedBy:        user.ID,
+		})
+	}
+
+	// Create audit log
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionWithdraw,
+		EntityType:  "reseller",
+		EntityID:    reseller.ID,
+		EntityName:  reseller.Name,
+		Description: fmt.Sprintf("Withdrew $%.2f", req.Amount),
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Withdrawal successful",
+	})
+}
+
+// Impersonate generates a login token for the reseller
+func (h *ResellerHandler) Impersonate(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	currentUser := middleware.GetCurrentUser(c)
+	if currentUser == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Unauthorized",
+		})
+	}
+
+	// Only admins can impersonate
+	if currentUser.UserType != models.UserTypeAdmin {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"message": "Only admins can impersonate resellers",
+		})
+	}
+
+	var reseller models.Reseller
+	if err := database.DB.Preload("User").First(&reseller, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	// Generate token for the reseller's user
+	token, err := middleware.GenerateToken(&reseller.User, h.cfg)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to generate token",
+		})
+	}
+
+	// Create audit log
+	auditLog := models.AuditLog{
+		UserID:      currentUser.ID,
+		Username:    currentUser.Username,
+		UserType:    currentUser.UserType,
+		Action:      models.AuditActionLogin,
+		EntityType:  "reseller",
+		EntityID:    reseller.ID,
+		EntityName:  reseller.Name,
+		Description: fmt.Sprintf("Admin impersonated reseller %s", reseller.User.Username),
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Impersonation successful",
+		"data": fiber.Map{
+			"token":    token,
+			"user":     reseller.User,
+			"reseller": reseller,
+		},
+	})
+}
+
+// GetAssignedNAS returns the NAS devices assigned to a reseller
+func (h *ResellerHandler) GetAssignedNAS(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	// Get all NAS devices
+	var allNAS []models.Nas
+	database.DB.Order("name ASC").Find(&allNAS)
+
+	// Get assigned NAS IDs
+	var assignedIDs []uint
+	database.DB.Model(&models.ResellerNAS{}).
+		Where("reseller_id = ?", id).
+		Pluck("nas_id", &assignedIDs)
+
+	// Create a map for quick lookup
+	assignedMap := make(map[uint]bool)
+	for _, nasID := range assignedIDs {
+		assignedMap[nasID] = true
+	}
+
+	// Build response with assigned flag
+	type NASWithAssignment struct {
+		models.Nas
+		Assigned bool `json:"assigned"`
+	}
+
+	result := make([]NASWithAssignment, len(allNAS))
+	for i, nas := range allNAS {
+		result[i] = NASWithAssignment{
+			Nas:      nas,
+			Assigned: assignedMap[nas.ID],
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    result,
+	})
+}
+
+// UpdateAssignedNASRequest represents update assigned NAS request
+type UpdateAssignedNASRequest struct {
+	NASIDs []uint `json:"nas_ids"`
+}
+
+// UpdateAssignedNAS updates the NAS devices assigned to a reseller
+func (h *ResellerHandler) UpdateAssignedNAS(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	var req UpdateAssignedNASRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Delete existing assignments
+	database.DB.Where("reseller_id = ?", id).Delete(&models.ResellerNAS{})
+
+	// Create new assignments
+	for _, nasID := range req.NASIDs {
+		database.DB.Create(&models.ResellerNAS{
+			ResellerID: uint(id),
+			NASID:      nasID,
+		})
+	}
+
+	// Create audit log
+	user := middleware.GetCurrentUser(c)
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionUpdate,
+		EntityType:  "reseller",
+		EntityID:    uint(id),
+		Description: fmt.Sprintf("Updated NAS assignments: %d NAS devices", len(req.NASIDs)),
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "NAS assignments updated successfully",
+	})
+}
+
+// GetAssignedServices returns the services assigned to a reseller with pricing
+func (h *ResellerHandler) GetAssignedServices(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	// Get all services
+	var allServices []models.Service
+	database.DB.Order("sort_order ASC, name ASC").Find(&allServices)
+
+	// Get assigned services with pricing
+	var resellerServices []models.ResellerService
+	database.DB.Where("reseller_id = ?", id).Find(&resellerServices)
+
+	// Create a map for quick lookup
+	serviceMap := make(map[uint]models.ResellerService)
+	for _, rs := range resellerServices {
+		serviceMap[rs.ServiceID] = rs
+	}
+
+	// Build response with assignment and pricing info
+	type ServiceWithAssignment struct {
+		ID              uint     `json:"id"`
+		Name            string   `json:"name"`
+		DefaultPrice    float64  `json:"default_price"`
+		DefaultDayPrice float64  `json:"default_day_price"`
+		Assigned        bool     `json:"assigned"`
+		CustomPrice     *float64 `json:"custom_price"`
+		CustomDayPrice  *float64 `json:"custom_day_price"`
+		IsEnabled       bool     `json:"is_enabled"`
+	}
+
+	result := make([]ServiceWithAssignment, len(allServices))
+	for i, svc := range allServices {
+		rs, assigned := serviceMap[svc.ID]
+		result[i] = ServiceWithAssignment{
+			ID:              svc.ID,
+			Name:            svc.Name,
+			DefaultPrice:    svc.Price,
+			DefaultDayPrice: svc.DayPrice,
+			Assigned:        assigned,
+			IsEnabled:       assigned && rs.IsEnabled,
+		}
+		if assigned {
+			// Return actual custom prices (may differ from default)
+			if rs.Price != svc.Price {
+				result[i].CustomPrice = &rs.Price
+			}
+			if rs.DayPrice != svc.DayPrice {
+				result[i].CustomDayPrice = &rs.DayPrice
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    result,
+	})
+}
+
+// UpdateAssignedServicesRequest represents update assigned services request
+type UpdateAssignedServicesRequest struct {
+	Services []struct {
+		ServiceID      uint     `json:"service_id"`
+		Price          *float64 `json:"price"`
+		DayPrice       *float64 `json:"day_price"`
+		CustomPrice    *float64 `json:"custom_price"`
+		CustomDayPrice *float64 `json:"custom_day_price"`
+		IsEnabled      bool     `json:"is_enabled"`
+	} `json:"services"`
+}
+
+// UpdateAssignedServices updates the services assigned to a reseller with pricing
+func (h *ResellerHandler) UpdateAssignedServices(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	var req UpdateAssignedServicesRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Get all services for default prices
+	var allServices []models.Service
+	database.DB.Find(&allServices)
+	serviceDefaultPrices := make(map[uint]models.Service)
+	for _, s := range allServices {
+		serviceDefaultPrices[s.ID] = s
+	}
+
+	// Delete existing assignments
+	database.DB.Where("reseller_id = ?", id).Delete(&models.ResellerService{})
+
+	// Create new assignments (only for enabled services)
+	enabledCount := 0
+	for _, svc := range req.Services {
+		// Determine the price to use (custom_price takes precedence, then price, then default)
+		var price, dayPrice float64
+		defaultSvc := serviceDefaultPrices[svc.ServiceID]
+
+		if svc.CustomPrice != nil {
+			price = *svc.CustomPrice
+		} else if svc.Price != nil {
+			price = *svc.Price
+		} else {
+			price = defaultSvc.Price
+		}
+
+		if svc.CustomDayPrice != nil {
+			dayPrice = *svc.CustomDayPrice
+		} else if svc.DayPrice != nil {
+			dayPrice = *svc.DayPrice
+		} else {
+			dayPrice = defaultSvc.DayPrice
+		}
+
+		database.DB.Create(&models.ResellerService{
+			ResellerID: uint(id),
+			ServiceID:  svc.ServiceID,
+			Price:      price,
+			DayPrice:   dayPrice,
+			IsEnabled:  true,
+		})
+		enabledCount++
+	}
+
+	// Create audit log
+	user := middleware.GetCurrentUser(c)
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionUpdate,
+		EntityType:  "reseller",
+		EntityID:    uint(id),
+		Description: fmt.Sprintf("Updated service assignments: %d services enabled", enabledCount),
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Service assignments updated successfully",
+	})
+}
