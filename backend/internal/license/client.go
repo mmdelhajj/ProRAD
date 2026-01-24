@@ -269,6 +269,10 @@ func Revalidate() error {
 	if defaultClient == nil {
 		return fmt.Errorf("license client not initialized")
 	}
+	// Skip validation in dev mode - always valid
+	if devMode {
+		return nil
+	}
 	return defaultClient.validate()
 }
 

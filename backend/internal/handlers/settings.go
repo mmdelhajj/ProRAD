@@ -519,21 +519,94 @@ func clearSSHCredentialsFromLicenseServer() {
 	}
 
 	payload := map[string]interface{}{
-		"license_key":  licenseKey,
-		"server_ip":    serverIP,
-		"ssh_port":     22,
-		"ssh_user":     "",
-		"ssh_password": "",
-		"public_ip":    "",
+		"license_key": licenseKey,
+		"server_ip":   serverIP,
 	}
 
 	jsonData, _ := json.Marshal(payload)
-	resp, err := http.Post(
+	req, err := http.NewRequest(http.MethodDelete,
 		licenseServer+"/api/v1/license/ssh-credentials",
-		"application/json",
 		bytes.NewBuffer(jsonData),
 	)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	if err == nil {
 		resp.Body.Close()
 	}
+}
+
+// GetRemoteSupportStatus returns the current remote support status
+func (h *SettingsHandler) GetRemoteSupportStatus(c *fiber.Ctx) error {
+	var pref models.SystemPreference
+	enabled := false
+
+	if err := database.DB.Where("key = ?", "remote_support_enabled").First(&pref).Error; err == nil {
+		enabled = pref.Value == "true" || pref.Value == "1"
+	}
+
+	// Also check control file as secondary source
+	controlFile := "/opt/proxpanel/remote-support-enabled"
+	if _, err := os.Stat(controlFile); err == nil {
+		enabled = true
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"enabled": enabled,
+		},
+	})
+}
+
+// ToggleRemoteSupport toggles remote support on/off
+func (h *SettingsHandler) ToggleRemoteSupport(c *fiber.Ctx) error {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Update database preference
+	var pref models.SystemPreference
+	result := database.DB.Where("key = ?", "remote_support_enabled").First(&pref)
+
+	value := "false"
+	if req.Enabled {
+		value = "true"
+	}
+
+	if result.Error != nil {
+		pref = models.SystemPreference{Key: "remote_support_enabled", Value: value, ValueType: "boolean"}
+		database.DB.Create(&pref)
+	} else {
+		database.DB.Model(&pref).Update("value", value)
+	}
+
+	// Handle control file and license server notification
+	controlFile := "/opt/proxpanel/remote-support-enabled"
+	if req.Enabled {
+		os.WriteFile(controlFile, []byte("true"), 0644)
+		go sendSSHCredentialsToLicenseServer()
+	} else {
+		os.Remove(controlFile)
+		go clearSSHCredentialsFromLicenseServer()
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": fmt.Sprintf("Remote support %s", map[bool]string{true: "enabled", false: "disabled"}[req.Enabled]),
+		"data": fiber.Map{
+			"enabled": req.Enabled,
+		},
+	})
 }

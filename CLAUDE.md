@@ -3,6 +3,38 @@
 ## Overview
 Enterprise ISP Billing & RADIUS Management System for 30,000+ subscribers.
 
+## Server Infrastructure (IMPORTANT)
+
+| Server | IP | Purpose |
+|--------|-----|---------|
+| **License Server** | 109.110.185.33 | License validation, admin panel, SSH tunnels to customers |
+| **Main/Dev Server** | 109.110.185.115 | Development, ProISP main application |
+| **Customer Servers** | Various (e.g., 10.0.0.203) | Customer installations |
+
+**CRITICAL NOTES:**
+- The License Server runs ONLY on 109.110.185.33 - NEVER deploy license server containers on .115
+- `license.proxpanel.com` DNS points to 109.110.185.33
+- License server uses `network_mode: host` for direct tunnel port access
+- SSH tunnels are managed automatically by the TunnelManager service (no manual scripts needed)
+
+### License Server Access (on 109.110.185.33)
+```bash
+# SSH to license server
+ssh root@109.110.185.33
+
+# Check license server containers
+docker ps | grep license
+
+# Access license database
+docker exec -it proxpanel-license-db psql -U proxpanel -d proxpanel_license
+
+# View activations
+docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c "SELECT a.*, c.name FROM activations a JOIN licenses l ON a.license_id = l.id JOIN customers c ON l.customer_id = c.id;"
+
+# Test SSH tunnel to customer (port = tunnel_port from activations table)
+sshpass -p 'PASSWORD' ssh -p TUNNEL_PORT root@127.0.0.1 "hostname"
+```
+
 ## Tech Stack
 - **Backend**: Go 1.21+, Fiber v2.52, GORM, PostgreSQL 16, Redis 7
 - **Frontend**: React 18, Vite, Tailwind CSS, TanStack Query, Zustand
@@ -110,6 +142,114 @@ docker-compose down && docker-compose up -d
 
 ## Recent Work
 - **QuotaSync Service Fix** (Jan 2025): Fixed issue where users weren't being marked offline when PPPoE session ended. The QuotaSync service now properly updates `is_online` status in the subscribers table.
+- **Remote Support Endpoints** (Jan 2026): Added `/api/system/remote-support/status` (GET) and `/api/system/remote-support/toggle` (POST) endpoints to `internal/handlers/settings.go` for frontend remote support toggle functionality.
+- **Remote Support Security Fix** (Jan 2026): When Remote Support is disabled, SSH credentials are now properly cleared from license server using DELETE `/api/v1/license/ssh-credentials` endpoint.
+- **Automatic TunnelManager** (Jan 2026): Implemented automatic SSH tunnel management service. No manual scripts needed - tunnels are created/destroyed automatically based on Remote Support status.
+
+## Remote Support / SSH Tunnel Setup
+
+### How It Works (Fully Automatic)
+
+The license server includes a **TunnelManager** service that automatically manages SSH tunnels:
+
+1. **Customer enables Remote Support** in ProxPanel settings
+2. Customer's ProxPanel sends SSH credentials to license server (`POST /api/v1/license/ssh-credentials`)
+3. TunnelManager detects new credentials and creates SSH tunnel automatically
+4. Admin can connect via SSH WebSocket terminal in admin dashboard
+5. **Customer disables Remote Support** → credentials cleared → tunnel stopped automatically
+
+**No manual scripts required!** The TunnelManager handles everything.
+
+### License Server Configuration (on 109.110.185.33)
+
+The license server runs with `network_mode: host` so tunnel ports are directly accessible.
+
+**Key Files:**
+- `/opt/proxpanel-license/internal/services/tunnel_manager.go` - Automatic tunnel management
+- `/opt/proxpanel-license/internal/handlers/ssh.go` - SSH WebSocket handler
+
+**TunnelManager Features:**
+- Syncs every 30 seconds to detect new/removed SSH credentials
+- Automatically creates SSH tunnels for activations with credentials
+- Updates `tunnel_last_seen` heartbeat in database
+- Restarts dead tunnels automatically
+- Stops tunnels when credentials are cleared
+
+### Verify Tunnel Status
+```bash
+# Check tunnel ports listening
+ss -tlnp | grep -E '2000[0-9]'
+
+# Check TunnelManager logs
+docker logs proxpanel-license-server 2>&1 | grep TunnelManager
+
+# Check activation tunnel status in database
+docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c \
+    "SELECT server_ip, tunnel_port, tunnel_last_seen, is_active FROM activations WHERE tunnel_port > 0;"
+```
+
+### Manual Tunnel (Legacy/Fallback)
+If automatic tunnels don't work, you can still create manual tunnels:
+```bash
+# Listen on 0.0.0.0 so accessible from license server container
+sshpass -p 'PASSWORD' ssh -o StrictHostKeyChecking=no \
+    -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+    -N -L 0.0.0.0:20002:127.0.0.1:22 root@CUSTOMER_IP
+```
+
+## Customer Installation Requirements
+
+### docker-compose.yml Critical Settings
+
+**API container must have these volume mounts for updates to work:**
+```yaml
+api:
+  volumes:
+    - ./backend/proisp-api/proisp-api:/app/proisp-api:ro
+    - /opt:/opt  # Required for backup/update functionality
+```
+
+**Environment variables required:**
+```yaml
+environment:
+  - SERVER_IP=${SERVER_IP}  # MUST be set to customer's actual IP, not Docker internal IP
+  - LICENSE_KEY=${LICENSE_KEY}
+  - LICENSE_SERVER=${LICENSE_SERVER}
+```
+
+### Fresh Install Checklist
+1. Clear hardware_id on license server: `UPDATE licenses SET hardware_id = NULL WHERE license_key = 'XXX';`
+2. Ensure SERVER_IP is set in customer's .env file
+3. After container restart, nginx may need reload: `docker exec proxpanel-frontend nginx -s reload`
+4. Check license validation in logs: `docker logs proxpanel-api | grep -i license`
+
+## License Server Rebuild (on 109.110.185.33)
+```bash
+cd /opt/proxpanel-license
+docker compose build license-server
+docker compose down
+docker compose up -d
+```
+
+## Troubleshooting
+
+### 502 Bad Gateway after container restart
+Nginx caches DNS. After restarting API container:
+```bash
+docker exec proxpanel-frontend nginx -s reload
+```
+
+### License "bound to different hardware"
+Clear hardware binding on license server:
+```bash
+docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c "UPDATE licenses SET hardware_id = NULL WHERE license_key = 'XXX';"
+```
+
+### SSH connection from admin panel fails
+1. Check tunnel is listening: `ss -tlnp | grep TUNNEL_PORT`
+2. Check tunnel_last_seen is recent (< 2 minutes): `docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c "SELECT tunnel_last_seen FROM activations WHERE tunnel_port > 0;"`
+3. Check TunnelManager logs: `docker logs proxpanel-license-server 2>&1 | grep TunnelManager`
+4. Verify license server is in host network mode: `docker inspect proxpanel-license-server | grep NetworkMode`
 
 ## Data Flow
 
