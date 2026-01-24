@@ -1,0 +1,732 @@
+-- ProISP Database Schema
+-- This file is used for migrations instead of GORM AutoMigrate to support code obfuscation
+
+-- Extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Permissions
+CREATE TABLE IF NOT EXISTS permissions (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Permission Groups
+CREATE TABLE IF NOT EXISTS permission_groups (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Permission Group Permissions (many-to-many)
+CREATE TABLE IF NOT EXISTS permission_group_permissions (
+    permission_group_id INTEGER REFERENCES permission_groups(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (permission_group_id, permission_id)
+);
+
+-- NAS (Network Access Servers)
+CREATE TABLE IF NOT EXISTS nas (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    ip_address VARCHAR(50) NOT NULL UNIQUE,
+    secret VARCHAR(255) NOT NULL,
+    type VARCHAR(50) DEFAULT 'mikrotik',
+    api_port INTEGER DEFAULT 8728,
+    api_user VARCHAR(100),
+    api_password VARCHAR(255),
+    description VARCHAR(255),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Switches
+CREATE TABLE IF NOT EXISTS switches (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    location VARCHAR(255),
+    parent_id INTEGER REFERENCES switches(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Services
+CREATE TABLE IF NOT EXISTS services (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    commercial_name VARCHAR(100),
+    description TEXT,
+    download_speed BIGINT NOT NULL,
+    upload_speed BIGINT NOT NULL,
+    download_speed_str VARCHAR(50),
+    upload_speed_str VARCHAR(50),
+    burst_download BIGINT DEFAULT 0,
+    burst_upload BIGINT DEFAULT 0,
+    burst_threshold BIGINT DEFAULT 0,
+    burst_time INTEGER DEFAULT 0,
+    daily_quota BIGINT DEFAULT 0,
+    monthly_quota BIGINT DEFAULT 0,
+    time_quota INTEGER DEFAULT 0,
+    fup1_threshold BIGINT DEFAULT 0,
+    fup1_download_speed BIGINT DEFAULT 0,
+    fup1_upload_speed BIGINT DEFAULT 0,
+    fup2_threshold BIGINT DEFAULT 0,
+    fup2_download_speed BIGINT DEFAULT 0,
+    fup2_upload_speed BIGINT DEFAULT 0,
+    fup3_threshold BIGINT DEFAULT 0,
+    fup3_download_speed BIGINT DEFAULT 0,
+    fup3_upload_speed BIGINT DEFAULT 0,
+    monthly_fup1_threshold BIGINT DEFAULT 0,
+    monthly_fup1_download_speed BIGINT DEFAULT 0,
+    monthly_fup1_upload_speed BIGINT DEFAULT 0,
+    monthly_fup2_threshold BIGINT DEFAULT 0,
+    monthly_fup2_download_speed BIGINT DEFAULT 0,
+    monthly_fup2_upload_speed BIGINT DEFAULT 0,
+    monthly_fup3_threshold BIGINT DEFAULT 0,
+    monthly_fup3_download_speed BIGINT DEFAULT 0,
+    monthly_fup3_upload_speed BIGINT DEFAULT 0,
+    price DECIMAL(15,2) NOT NULL,
+    day_price DECIMAL(15,2) DEFAULT 0,
+    reset_price DECIMAL(15,2) DEFAULT 0,
+    expiry_value INTEGER DEFAULT 30,
+    expiry_unit INTEGER DEFAULT 1,
+    entire_month BOOLEAN DEFAULT false,
+    monthly_account BOOLEAN DEFAULT false,
+    time_from_hour INTEGER DEFAULT 0,
+    time_from_minute INTEGER DEFAULT 0,
+    time_to_hour INTEGER DEFAULT 0,
+    time_to_minute INTEGER DEFAULT 0,
+    time_download_ratio INTEGER DEFAULT 100,
+    time_upload_ratio INTEGER DEFAULT 100,
+    pool_name VARCHAR(100),
+    address_list_in VARCHAR(100),
+    address_list_out VARCHAR(100),
+    queue_type VARCHAR(50) DEFAULT 'simple',
+    is_active BOOLEAN DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Users
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    password_plain VARCHAR(255),
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    full_name VARCHAR(255),
+    user_type INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
+    last_login TIMESTAMP,
+    two_factor_enabled BOOLEAN DEFAULT false,
+    two_factor_secret VARCHAR(255),
+    reseller_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Resellers
+CREATE TABLE IF NOT EXISTS resellers (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    balance DECIMAL(15,2) DEFAULT 0,
+    credit DECIMAL(15,2) DEFAULT 0,
+    address VARCHAR(500),
+    parent_id INTEGER REFERENCES resellers(id),
+    permission_group INTEGER,
+    bandwidth_rule_id INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Update users foreign key
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_reseller_id_fkey;
+ALTER TABLE users ADD CONSTRAINT users_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES resellers(id) ON DELETE SET NULL;
+
+-- Reseller Services
+CREATE TABLE IF NOT EXISTS reseller_services (
+    id SERIAL PRIMARY KEY,
+    reseller_id INTEGER NOT NULL,
+    service_id INTEGER NOT NULL,
+    price DECIMAL(15,2) NOT NULL,
+    day_price DECIMAL(15,2) DEFAULT 0,
+    is_enabled BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(reseller_id, service_id)
+);
+
+-- Reseller NAS
+CREATE TABLE IF NOT EXISTS reseller_nas (
+    id SERIAL PRIMARY KEY,
+    reseller_id INTEGER NOT NULL,
+    nas_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(reseller_id, nas_id)
+);
+
+-- Subscribers
+CREATE TABLE IF NOT EXISTS subscribers (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    password_plain VARCHAR(255),
+    full_name VARCHAR(255),
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    address VARCHAR(500),
+    region VARCHAR(100),
+    building VARCHAR(100),
+    nationality VARCHAR(100),
+    note TEXT,
+    service_id INTEGER NOT NULL,
+    status INTEGER DEFAULT 1,
+    expiry_date TIMESTAMP,
+    due_date TIMESTAMP,
+    price DECIMAL(15,2),
+    override_price BOOLEAN DEFAULT false,
+    auto_renew BOOLEAN DEFAULT false,
+    daily_download_used BIGINT DEFAULT 0,
+    daily_upload_used BIGINT DEFAULT 0,
+    monthly_download_used BIGINT DEFAULT 0,
+    monthly_upload_used BIGINT DEFAULT 0,
+    fup_level INTEGER DEFAULT 0,
+    monthly_fup_level INTEGER DEFAULT 0,
+    last_daily_reset TIMESTAMP,
+    last_monthly_reset TIMESTAMP,
+    last_session_download BIGINT DEFAULT 0,
+    last_session_upload BIGINT DEFAULT 0,
+    last_quota_sync TIMESTAMP,
+    last_bypass_cdn_bytes BIGINT DEFAULT 0,
+    daily_quota_used BIGINT DEFAULT 0,
+    monthly_quota_used BIGINT DEFAULT 0,
+    last_quota_reset TIMESTAMP,
+    mac_address VARCHAR(50),
+    ip_address VARCHAR(50),
+    static_ip VARCHAR(50),
+    save_mac BOOLEAN DEFAULT true,
+    nas_id INTEGER,
+    switch_id INTEGER,
+    latitude DECIMAL(10,8),
+    longitude DECIMAL(11,8),
+    reseller_id INTEGER NOT NULL,
+    collector_id INTEGER,
+    is_online BOOLEAN DEFAULT false,
+    last_seen TIMESTAMP,
+    session_id VARCHAR(100),
+    simultaneous_sessions INTEGER DEFAULT 1,
+    auto_recharge BOOLEAN DEFAULT false,
+    auto_recharge_days INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscribers_mac ON subscribers(mac_address);
+CREATE INDEX IF NOT EXISTS idx_subscribers_online ON subscribers(is_online);
+CREATE INDEX IF NOT EXISTS idx_subscribers_reseller ON subscribers(reseller_id);
+
+-- Subscriber Bandwidth Rules
+CREATE TABLE IF NOT EXISTS subscriber_bandwidth_rules (
+    id SERIAL PRIMARY KEY,
+    subscriber_id INTEGER NOT NULL,
+    rule_type VARCHAR(20) NOT NULL,
+    enabled BOOLEAN DEFAULT true,
+    download_speed INTEGER DEFAULT 0,
+    upload_speed INTEGER DEFAULT 0,
+    cdn_id INTEGER DEFAULT 0,
+    cdn_name VARCHAR(100),
+    duration VARCHAR(20),
+    expires_at TIMESTAMP,
+    priority INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- RADIUS Tables
+CREATE TABLE IF NOT EXISTS radcheck (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(64) NOT NULL DEFAULT '',
+    attribute VARCHAR(64) NOT NULL DEFAULT '',
+    op CHAR(2) NOT NULL DEFAULT ':=',
+    value VARCHAR(253) NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_radcheck_username ON radcheck(username);
+
+CREATE TABLE IF NOT EXISTS radreply (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(64) NOT NULL DEFAULT '',
+    attribute VARCHAR(64) NOT NULL DEFAULT '',
+    op CHAR(2) NOT NULL DEFAULT ':=',
+    value VARCHAR(253) NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_radreply_username ON radreply(username);
+
+CREATE TABLE IF NOT EXISTS radgroupcheck (
+    id SERIAL PRIMARY KEY,
+    groupname VARCHAR(64) NOT NULL DEFAULT '',
+    attribute VARCHAR(64) NOT NULL DEFAULT '',
+    op CHAR(2) NOT NULL DEFAULT ':=',
+    value VARCHAR(253) NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS radgroupreply (
+    id SERIAL PRIMARY KEY,
+    groupname VARCHAR(64) NOT NULL DEFAULT '',
+    attribute VARCHAR(64) NOT NULL DEFAULT '',
+    op CHAR(2) NOT NULL DEFAULT ':=',
+    value VARCHAR(253) NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS radusergroup (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(64) NOT NULL DEFAULT '',
+    groupname VARCHAR(64) NOT NULL DEFAULT '',
+    priority INTEGER DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_radusergroup_username ON radusergroup(username);
+
+CREATE TABLE IF NOT EXISTS radacct (
+    radacctid BIGSERIAL PRIMARY KEY,
+    acctsessionid VARCHAR(64) NOT NULL DEFAULT '',
+    acctuniqueid VARCHAR(32) NOT NULL UNIQUE DEFAULT '',
+    username VARCHAR(64) NOT NULL DEFAULT '',
+    realm VARCHAR(64) DEFAULT '',
+    nasipaddress VARCHAR(15) NOT NULL DEFAULT '',
+    nasportid VARCHAR(50),
+    nasporttype VARCHAR(32),
+    acctstarttime TIMESTAMP,
+    acctupdatetime TIMESTAMP,
+    acctstoptime TIMESTAMP,
+    acctinterval INTEGER,
+    acctsessiontime INTEGER,
+    acctauthentic VARCHAR(32),
+    connectinfo_start VARCHAR(50),
+    connectinfo_stop VARCHAR(50),
+    acctinputoctets BIGINT,
+    acctoutputoctets BIGINT,
+    calledstationid VARCHAR(50) DEFAULT '',
+    callingstationid VARCHAR(50) DEFAULT '',
+    acctterminatecause VARCHAR(32) DEFAULT '',
+    servicetype VARCHAR(32),
+    framedprotocol VARCHAR(32),
+    framedipaddress VARCHAR(15) DEFAULT '',
+    framedipv6address VARCHAR(45) DEFAULT '',
+    framedipv6prefix VARCHAR(45) DEFAULT '',
+    framedinterfaceid VARCHAR(44) DEFAULT '',
+    delegatedipv6prefix VARCHAR(45) DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_radacct_username ON radacct(username);
+CREATE INDEX IF NOT EXISTS idx_radacct_start ON radacct(acctstarttime);
+CREATE INDEX IF NOT EXISTS idx_radacct_stop ON radacct(acctstoptime);
+
+CREATE TABLE IF NOT EXISTS radpostauth (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(64) NOT NULL DEFAULT '',
+    pass VARCHAR(64) NOT NULL DEFAULT '',
+    reply VARCHAR(32) NOT NULL DEFAULT '',
+    authdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    class VARCHAR(64) DEFAULT ''
+);
+
+-- Transactions
+CREATE TABLE IF NOT EXISTS transactions (
+    id SERIAL PRIMARY KEY,
+    type VARCHAR(50) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    balance_before DECIMAL(15,2),
+    balance_after DECIMAL(15,2),
+    description VARCHAR(500),
+    old_service_name VARCHAR(100),
+    new_service_name VARCHAR(100),
+    service_name VARCHAR(100),
+    reseller_id INTEGER NOT NULL,
+    subscriber_id INTEGER,
+    target_reseller_id INTEGER,
+    ip_address VARCHAR(50),
+    user_agent VARCHAR(255),
+    created_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+CREATE INDEX IF NOT EXISTS idx_transactions_reseller ON transactions(reseller_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
+
+-- Invoices
+CREATE TABLE IF NOT EXISTS invoices (
+    id SERIAL PRIMARY KEY,
+    invoice_number VARCHAR(50) NOT NULL UNIQUE,
+    subscriber_id INTEGER NOT NULL,
+    reseller_id INTEGER NOT NULL,
+    sub_total DECIMAL(15,2),
+    discount DECIMAL(15,2) DEFAULT 0,
+    tax DECIMAL(15,2) DEFAULT 0,
+    total DECIMAL(15,2) NOT NULL,
+    amount_paid DECIMAL(15,2) DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'pending',
+    due_date TIMESTAMP,
+    paid_date TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Invoice Items
+CREATE TABLE IF NOT EXISTS invoice_items (
+    id SERIAL PRIMARY KEY,
+    invoice_id INTEGER NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    unit_price DECIMAL(15,2) NOT NULL,
+    total DECIMAL(15,2) NOT NULL
+);
+
+-- Payments
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    invoice_id INTEGER,
+    subscriber_id INTEGER NOT NULL,
+    reseller_id INTEGER NOT NULL,
+    collector_id INTEGER,
+    amount DECIMAL(15,2) NOT NULL,
+    method VARCHAR(50) DEFAULT 'cash',
+    reference VARCHAR(100),
+    notes TEXT,
+    status VARCHAR(20) DEFAULT 'completed',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Prepaid Cards
+CREATE TABLE IF NOT EXISTS prepaid_cards (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    pin VARCHAR(20),
+    service_id INTEGER NOT NULL,
+    reseller_id INTEGER NOT NULL,
+    value DECIMAL(15,2) NOT NULL,
+    days INTEGER DEFAULT 30,
+    quota_refill BIGINT DEFAULT 0,
+    is_used BOOLEAN DEFAULT false,
+    used_by INTEGER,
+    used_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    expiry_date TIMESTAMP,
+    batch_id VARCHAR(50),
+    batch_number INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_prepaid_used ON prepaid_cards(is_used);
+CREATE INDEX IF NOT EXISTS idx_prepaid_batch ON prepaid_cards(batch_id);
+
+-- Static IP Prices
+CREATE TABLE IF NOT EXISTS static_ip_prices (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(15,2) NOT NULL,
+    days INTEGER DEFAULT 30,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Static IP Rentals
+CREATE TABLE IF NOT EXISTS static_ip_rentals (
+    id SERIAL PRIMARY KEY,
+    subscriber_id INTEGER NOT NULL,
+    ip_address VARCHAR(50) NOT NULL UNIQUE,
+    price_id INTEGER NOT NULL,
+    start_date TIMESTAMP,
+    expiry_date TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Audit Logs
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER,
+    username VARCHAR(100),
+    user_type INTEGER,
+    action VARCHAR(50) NOT NULL,
+    entity_type VARCHAR(50),
+    entity_id INTEGER,
+    entity_name VARCHAR(100),
+    old_value JSONB,
+    new_value JSONB,
+    description VARCHAR(500),
+    ip_address VARCHAR(50),
+    user_agent VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
+
+-- Notifications
+CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'info',
+    is_active BOOLEAN DEFAULT true,
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tickets
+CREATE TABLE IF NOT EXISTS tickets (
+    id SERIAL PRIMARY KEY,
+    ticket_number VARCHAR(20) NOT NULL UNIQUE,
+    subject VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'open',
+    priority VARCHAR(20) DEFAULT 'normal',
+    category VARCHAR(50),
+    creator_type VARCHAR(20),
+    subscriber_id INTEGER,
+    reseller_id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMP
+);
+
+-- Ticket Replies
+CREATE TABLE IF NOT EXISTS ticket_replies (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER NOT NULL,
+    message TEXT NOT NULL,
+    user_id INTEGER,
+    is_internal BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Communication Templates
+CREATE TABLE IF NOT EXISTS communication_templates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    subject VARCHAR(255),
+    body TEXT NOT NULL,
+    variables TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Communication Rules
+CREATE TABLE IF NOT EXISTS communication_rules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    trigger_event VARCHAR(50) NOT NULL,
+    channel VARCHAR(20) NOT NULL DEFAULT 'sms',
+    days_before INTEGER DEFAULT 0,
+    template TEXT,
+    enabled BOOLEAN DEFAULT true,
+    send_to_reseller BOOLEAN DEFAULT false,
+    reseller_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Communication Logs
+CREATE TABLE IF NOT EXISTS communication_logs (
+    id SERIAL PRIMARY KEY,
+    type VARCHAR(20) NOT NULL,
+    recipient VARCHAR(255) NOT NULL,
+    subject VARCHAR(255),
+    message TEXT,
+    status VARCHAR(20) DEFAULT 'pending',
+    error_message VARCHAR(500),
+    subscriber_id INTEGER,
+    reseller_id INTEGER,
+    rule_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_comm_type ON communication_logs(type);
+CREATE INDEX IF NOT EXISTS idx_comm_created ON communication_logs(created_at);
+
+-- Daily Quotas
+CREATE TABLE IF NOT EXISTS daily_quotas (
+    id SERIAL PRIMARY KEY,
+    subscriber_id INTEGER NOT NULL,
+    date VARCHAR(10) NOT NULL,
+    download BIGINT DEFAULT 0,
+    upload BIGINT DEFAULT 0,
+    total BIGINT DEFAULT 0,
+    UNIQUE(subscriber_id, date)
+);
+
+-- Monthly Quotas
+CREATE TABLE IF NOT EXISTS monthly_quotas (
+    id SERIAL PRIMARY KEY,
+    subscriber_id INTEGER NOT NULL,
+    month VARCHAR(7) NOT NULL,
+    download BIGINT DEFAULT 0,
+    upload BIGINT DEFAULT 0,
+    total BIGINT DEFAULT 0,
+    UNIQUE(subscriber_id, month)
+);
+
+-- System Preferences
+CREATE TABLE IF NOT EXISTS system_preferences (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(100) NOT NULL UNIQUE,
+    value TEXT,
+    value_type VARCHAR(20) DEFAULT 'string'
+);
+
+-- Sessions
+CREATE TABLE IF NOT EXISTS sessions (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL,
+    subscriber_id INTEGER,
+    nas_id INTEGER,
+    nas_ip_address VARCHAR(50),
+    framed_ip_address VARCHAR(50),
+    calling_station_id VARCHAR(50),
+    acct_session_id VARCHAR(100) UNIQUE,
+    session_time BIGINT,
+    input_octets BIGINT,
+    output_octets BIGINT,
+    status VARCHAR(20) DEFAULT 'online',
+    start_time TIMESTAMP,
+    update_time TIMESTAMP,
+    stop_time TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_username ON sessions(username);
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
+
+-- CDNs
+CREATE TABLE IF NOT EXISTS cdns (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description VARCHAR(255),
+    subnets TEXT,
+    color VARCHAR(20) DEFAULT '#EF4444',
+    nas_ids VARCHAR(500),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Service CDNs
+CREATE TABLE IF NOT EXISTS service_cdns (
+    id SERIAL PRIMARY KEY,
+    service_id INTEGER NOT NULL,
+    cdn_id INTEGER NOT NULL,
+    speed_limit BIGINT DEFAULT 0,
+    bypass_quota BOOLEAN DEFAULT false,
+    pcq_enabled BOOLEAN DEFAULT false,
+    pcq_limit INTEGER DEFAULT 50,
+    pcq_total_limit INTEGER DEFAULT 2000,
+    pcq_nas_id INTEGER,
+    pcq_target_pools VARCHAR(500),
+    is_active BOOLEAN DEFAULT true,
+    time_from_hour INTEGER DEFAULT 0,
+    time_from_minute INTEGER DEFAULT 0,
+    time_to_hour INTEGER DEFAULT 0,
+    time_to_minute INTEGER DEFAULT 0,
+    time_speed_ratio INTEGER DEFAULT 100,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(service_id, cdn_id)
+);
+
+-- Bandwidth Rules
+CREATE TABLE IF NOT EXISTS bandwidth_rules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    trigger_type VARCHAR(20) NOT NULL DEFAULT 'time',
+    start_time VARCHAR(10),
+    end_time VARCHAR(10),
+    days_of_week JSON,
+    upload_multiplier INTEGER DEFAULT 100,
+    download_multiplier INTEGER DEFAULT 100,
+    service_ids JSON,
+    priority INTEGER DEFAULT 10,
+    enabled BOOLEAN DEFAULT true,
+    auto_apply BOOLEAN DEFAULT false
+);
+
+-- CDN Bandwidth Rules
+CREATE TABLE IF NOT EXISTS cdn_bandwidth_rules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    start_time VARCHAR(10),
+    end_time VARCHAR(10),
+    days_of_week JSON,
+    speed_multiplier INTEGER DEFAULT 100,
+    cdn_ids JSON,
+    service_ids JSON,
+    priority INTEGER DEFAULT 10,
+    enabled BOOLEAN DEFAULT true,
+    auto_apply BOOLEAN DEFAULT false
+);
+
+-- Backup Schedules
+CREATE TABLE IF NOT EXISTS backup_schedules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL DEFAULT 'full',
+    schedule VARCHAR(50) NOT NULL,
+    retention_days INTEGER DEFAULT 7,
+    destination VARCHAR(255),
+    is_active BOOLEAN DEFAULT true,
+    last_run TIMESTAMP,
+    next_run TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Backup Logs
+CREATE TABLE IF NOT EXISTS backup_logs (
+    id SERIAL PRIMARY KEY,
+    schedule_id INTEGER,
+    type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    file_path VARCHAR(500),
+    file_size BIGINT,
+    error_message TEXT,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP
+);
+
+-- Create default admin user if not exists
+INSERT INTO users (username, password, password_plain, full_name, user_type, is_active)
+SELECT 'admin', '$2b$12$tW4cu0NtwPZKSJNlHzf4CeVCnTCS6viDdw6mBfvBKwgUr1jMFPD9.', 'admin123', 'Administrator', 4, true
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');
+
+-- Create default reseller for admin if not exists
+INSERT INTO resellers (user_id, name, balance, is_active)
+SELECT u.id, 'Main Admin', 999999999, true
+FROM users u
+WHERE u.username = 'admin'
+AND NOT EXISTS (SELECT 1 FROM resellers WHERE user_id = u.id);
+
+-- Update admin user with reseller_id
+UPDATE users SET reseller_id = (SELECT id FROM resellers WHERE name = 'Main Admin' LIMIT 1)
+WHERE username = 'admin' AND reseller_id IS NULL;
