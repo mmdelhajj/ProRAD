@@ -148,6 +148,8 @@ docker-compose down && docker-compose up -d
 - **Tier Management CRUD** (Jan 2026): Added full CRUD for license tiers in admin panel (`/admin/tiers`). Can now edit tier name, display_name, max_subscribers, prices, and duration_days.
 - **Update System Fix v1.0.53** (Jan 2026): Fixed 500 error after updates. Root cause: API container couldn't run `docker restart` (no docker CLI). Solution: Uses Docker Engine API via Unix socket + host-level systemd fallback service.
 - **Tier Duration Auto-Extend** (Jan 2026): When changing a license's tier, the expiration date now automatically extends based on `tier.duration_days`.
+- **Tunnel Port Auto-Assignment** (Jan 2026): Fixed tunnel port not being assigned on fresh installs. The `UpdateSSHCredentials` handler now auto-assigns tunnel_port (starting from 20000) when SSH credentials are saved if no port was previously assigned.
+- **Tier Expiration Priority Fix** (Jan 2026): Fixed issue where tier expiration was being overwritten by frontend. Added `tierExpirySet` flag in admin.go - when a tier is selected, its `duration_days` takes priority over any manually sent `expires_at` value from frontend.
 
 ## Remote Support / SSH Tunnel Setup
 
