@@ -145,6 +145,9 @@ docker-compose down && docker-compose up -d
 - **Remote Support Endpoints** (Jan 2026): Added `/api/system/remote-support/status` (GET) and `/api/system/remote-support/toggle` (POST) endpoints to `internal/handlers/settings.go` for frontend remote support toggle functionality.
 - **Remote Support Security Fix** (Jan 2026): When Remote Support is disabled, SSH credentials are now properly cleared from license server using DELETE `/api/v1/license/ssh-credentials` endpoint.
 - **Automatic TunnelManager** (Jan 2026): Implemented automatic SSH tunnel management service. No manual scripts needed - tunnels are created/destroyed automatically based on Remote Support status.
+- **Tier Management CRUD** (Jan 2026): Added full CRUD for license tiers in admin panel (`/admin/tiers`). Can now edit tier name, display_name, max_subscribers, prices, and duration_days.
+- **Update System Fix v1.0.53** (Jan 2026): Fixed 500 error after updates. Root cause: API container couldn't run `docker restart` (no docker CLI). Solution: Uses Docker Engine API via Unix socket + host-level systemd fallback service.
+- **Tier Duration Auto-Extend** (Jan 2026): When changing a license's tier, the expiration date now automatically extends based on `tier.duration_days`.
 
 ## Remote Support / SSH Tunnel Setup
 
@@ -197,6 +200,63 @@ sshpass -p 'PASSWORD' ssh -o StrictHostKeyChecking=no \
     -N -L 0.0.0.0:20002:127.0.0.1:22 root@CUSTOMER_IP
 ```
 
+## Update System (v1.0.53+)
+
+### How Updates Work
+1. Customer clicks "Check for Updates" in Settings
+2. API calls license server `/api/v1/update/check`
+3. If update available, customer clicks "Install Update"
+4. Update handler downloads package, verifies checksum, extracts files
+5. Copies new binaries and frontend to `/opt/proxpanel/`
+6. Restarts containers via Docker API (or systemd fallback)
+
+### Update Restart Mechanism (3-layer fallback)
+1. **Docker API via Socket** - Primary method, calls Docker Engine API directly through `/var/run/docker.sock`
+2. **Docker CLI** - Fallback if API fails, runs `docker restart` command
+3. **Host Systemd Service** - Final fallback, watches for `.update-complete` flag file
+
+### Key Files
+- `backend/internal/handlers/system_update.go` - Update handler with Docker API restart
+- `/etc/systemd/system/proxpanel-update-watcher.path` - Watches for update completion
+- `/etc/systemd/system/proxpanel-update-watcher.service` - Restarts containers on host
+
+### Fresh Install Includes
+- `docker.io` installed in API container (CLI fallback works)
+- Update watcher systemd units auto-installed
+- Docker socket mounted at `/var/run/docker.sock`
+
+### Manual Update Watcher Setup (for existing installs)
+```bash
+# Create update watcher service
+cat > /etc/systemd/system/proxpanel-update-watcher.service << 'EOF'
+[Unit]
+Description=ProxPanel Update Watcher
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'if [ -f /opt/proxpanel/.update-complete ]; then cd /opt/proxpanel && docker-compose restart && rm -f /opt/proxpanel/.update-complete; fi'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/proxpanel-update-watcher.path << 'EOF'
+[Unit]
+Description=Watch for ProxPanel update completion
+
+[Path]
+PathExists=/opt/proxpanel/.update-complete
+Unit=proxpanel-update-watcher.service
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now proxpanel-update-watcher.path
+```
+
 ## Customer Installation Requirements
 
 ### docker-compose.yml Critical Settings
@@ -222,6 +282,27 @@ environment:
 2. Ensure SERVER_IP is set in customer's .env file
 3. After container restart, nginx may need reload: `docker exec proxpanel-frontend nginx -s reload`
 4. Check license validation in logs: `docker logs proxpanel-api | grep -i license`
+
+## License Server Admin Panel
+
+### Tier Management
+Access at `https://license.proxpanel.com/admin/tiers`
+
+**Tier Model Fields:**
+- `name` - Internal name (starter, professional, enterprise)
+- `display_name` - Shown to customers
+- `max_subscribers` - Subscriber limit for this tier
+- `price_monthly`, `price_yearly`, `price_lifetime` - Pricing options
+- `duration_days` - License duration when tier is assigned (default: 365)
+
+**When tier is changed on a license:**
+- `max_subscribers` is updated from tier
+- `expires_at` is extended by `tier.duration_days` from NOW
+
+### Key License Server Files
+- `/opt/proxpanel-license/internal/handlers/admin.go` - Admin CRUD handlers
+- `/opt/proxpanel-license/internal/models/models.go` - Tier, License, Customer models
+- `/opt/proxpanel-license/web/admin/src/pages/Tiers.jsx` - Tier management UI
 
 ## License Server Rebuild (on 109.110.185.33)
 ```bash

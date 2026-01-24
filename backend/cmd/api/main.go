@@ -286,6 +286,11 @@ func main() {
 	systemUpdate.Get("/status", systemUpdateHandler.GetUpdateStatus)
 	systemUpdate.Post("/start", systemUpdateHandler.StartUpdate)
 
+	// Remote Support routes (Admin only)
+	remoteSupport := protected.Group("/system/remote-support", middleware.AdminOnly())
+	remoteSupport.Get("/status", settingsHandler.GetRemoteSupportStatus)
+	remoteSupport.Post("/toggle", settingsHandler.ToggleRemoteSupport)
+
 	// User management routes (Admin only)
 	users := protected.Group("/users", middleware.AdminOnly())
 	users.Get("/", userHandler.List)

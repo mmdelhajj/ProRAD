@@ -23,7 +23,7 @@ RUN if [ "$BUILD_MODE" = "dev" ]; then \
       CGO_ENABLED=0 GOOS=linux go build -o /radius ./cmd/radius; \
     else \
       echo "Building PRODUCTION RADIUS version (obfuscated)..." && \
-      CGO_ENABLED=0 GOOS=linux garble -tiny -literals -seed=random build -ldflags "-s -w" -o /radius ./cmd/radius; \
+      CGO_ENABLED=0 GOOS=linux garble -tiny -seed=random build -ldflags "-s -w" -o /radius ./cmd/radius; \
     fi
 
 # Final stage

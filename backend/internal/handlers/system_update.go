@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -569,7 +571,13 @@ func (h *SystemUpdateHandler) performUpdate(version string) {
 	h.updateStatus.NeedsRestart = true
 	h.mutex.Unlock()
 
-	// Trigger service restart
+	// Write flag file for host-level systemd service to trigger restart
+	// This is a fallback in case the Docker API restart fails
+	flagFile := filepath.Join(h.installDir, ".update-complete")
+	os.WriteFile(flagFile, []byte(version), 0644)
+	log.Printf("Update: Written flag file %s for host-level restart", flagFile)
+
+	// Trigger service restart (via Docker API)
 	go h.restartServices()
 }
 
@@ -639,17 +647,90 @@ func (h *SystemUpdateHandler) reportUpdateStatus(fromVersion, toVersion, status,
 func (h *SystemUpdateHandler) restartServices() {
 	time.Sleep(1 * time.Second)
 
+	allSuccess := true
+
+	// Use Docker API via socket to restart containers
+	// This works even without docker CLI installed in container
+
 	// Restart frontend to pick up new dist files
-	exec.Command("docker", "restart", "proxpanel-frontend").Run()
+	log.Println("Update: Restarting proxpanel-frontend...")
+	if err := h.restartContainerViaSocket("proxpanel-frontend"); err != nil {
+		log.Printf("Update: Failed to restart frontend via socket: %v, trying CLI fallback", err)
+		if err := exec.Command("docker", "restart", "proxpanel-frontend").Run(); err != nil {
+			log.Printf("Update: CLI fallback also failed: %v", err)
+			allSuccess = false
+		}
+	}
 	time.Sleep(2 * time.Second)
 
 	// Restart RADIUS to pick up new binary
-	exec.Command("docker", "restart", "proxpanel-radius").Run()
+	log.Println("Update: Restarting proxpanel-radius...")
+	if err := h.restartContainerViaSocket("proxpanel-radius"); err != nil {
+		log.Printf("Update: Failed to restart radius via socket: %v, trying CLI fallback", err)
+		if err := exec.Command("docker", "restart", "proxpanel-radius").Run(); err != nil {
+			log.Printf("Update: CLI fallback also failed: %v", err)
+			allSuccess = false
+		}
+	}
 	time.Sleep(1 * time.Second)
+
+	// If all restarts succeeded, remove the flag file so host service doesn't also restart
+	if allSuccess {
+		flagFile := filepath.Join(h.installDir, ".update-complete")
+		os.Remove(flagFile)
+		log.Println("Update: All services restarted successfully, removed flag file")
+	} else {
+		log.Println("Update: Some restarts failed, leaving flag file for host-level service")
+	}
 
 	// Restart API last - this will use the new binary
 	// The current request will complete, then container restarts with new code
-	exec.Command("docker", "restart", "proxpanel-api").Run()
+	log.Println("Update: Restarting proxpanel-api...")
+	if err := h.restartContainerViaSocket("proxpanel-api"); err != nil {
+		log.Printf("Update: Failed to restart api via socket: %v, trying CLI fallback", err)
+		exec.Command("docker", "restart", "proxpanel-api").Run()
+	}
+}
+
+// restartContainerViaSocket restarts a container using Docker Engine API via Unix socket
+func (h *SystemUpdateHandler) restartContainerViaSocket(containerName string) error {
+	socketPath := "/var/run/docker.sock"
+
+	// Check if socket exists
+	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
+		return fmt.Errorf("docker socket not found at %s", socketPath)
+	}
+
+	// Create HTTP client that connects via Unix socket
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	// POST /containers/{name}/restart
+	url := fmt.Sprintf("http://docker/containers/%s/restart?t=10", containerName)
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("docker API returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Update: Successfully restarted container %s", containerName)
+	return nil
 }
 
 // performRollback restores the system to the backup state after a failed update

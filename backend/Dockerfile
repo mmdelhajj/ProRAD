@@ -25,7 +25,7 @@ RUN if [ "$BUILD_MODE" = "dev" ]; then \
       CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/proisp/backend/internal/license.buildMode=dev -X github.com/proisp/backend/internal/security.buildMode=dev" -o /api ./cmd/api; \
     else \
       echo "Building PRODUCTION version (obfuscated)..." && \
-      CGO_ENABLED=0 GOOS=linux garble -tiny -literals -seed=random build -ldflags "-s -w" -o /api ./cmd/api; \
+      CGO_ENABLED=0 GOOS=linux garble -tiny -seed=random build -ldflags "-s -w" -o /api ./cmd/api; \
     fi
 
 # Final stage
