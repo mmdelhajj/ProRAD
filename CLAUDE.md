@@ -1,135 +1,51 @@
-# ProISP Project Context
+# ProxPanel Project Memory
 
-## Overview
-Enterprise ISP Billing & RADIUS Management System for 30,000+ subscribers.
+## CRITICAL - DO NOT BREAK THESE
 
-## Tech Stack
-- **Backend**: Go 1.21+, Fiber v2.52, GORM, PostgreSQL 16, Redis 7
-- **Frontend**: React 18, Vite, Tailwind CSS, TanStack Query, Zustand
-- **Infrastructure**: Docker, Nginx, Custom RADIUS server
-- **MikroTik**: RouterOS API integration
+### tunnel-service.sh
+- Shebang MUST be `#!/bin/bash` (no backslash before !)
+- SSH_PID must be `$!` (no backslash)
+- JSON parsing uses `sed -n 's/.*"tunnel_port":\([0-9]*\).*/\1/p'`
+- grep for success uses `grep -q '"success":true'`
 
-## Project Structure
-```
-/root/proisp/
-├── backend/
-│   ├── cmd/
-│   │   ├── api/main.go        # API server (port 8080)
-│   │   └── radius/main.go     # RADIUS server (1812/1813)
-│   ├── internal/
-│   │   ├── config/            # Environment config
-│   │   ├── database/          # PostgreSQL + Redis
-│   │   ├── handlers/          # 30+ API handlers
-│   │   ├── middleware/        # Auth, audit, rate limiting
-│   │   ├── mikrotik/          # RouterOS API client
-│   │   ├── models/            # GORM models
-│   │   ├── radius/            # RADIUS server + CoA
-│   │   └── services/          # Background services
-│   └── pkg/
-├── frontend/
-│   ├── src/
-│   │   ├── pages/             # 30+ pages
-│   │   ├── components/        # Reusable components
-│   │   ├── services/api.js    # API client
-│   │   └── store/             # Zustand state
-├── automation/                 # E2E testing scripts
-├── docker-compose.yml
-└── nginx.conf
-```
+### nginx.conf (frontend)
+- MUST have `/api/` proxy_pass to backend
+- Without this, API calls return 405
 
-## Key Files
+### schema.sql
+- Admin password hash must be complete bcrypt hash
+- Current working hash: `$2b$12$tW4cu0NtwPZKSJNlHzf4CeVCnTCS6viDdw6mBfvBKwgUr1jMFPD9.`
 
-### Backend Services
-- `internal/services/quota_sync.go` - Syncs bandwidth every 30s, enforces FUP
-- `internal/services/bandwidth_rule_service.go` - Time-based speed rules
-- `internal/mikrotik/client.go` - MikroTik API client
-- `internal/radius/server.go` - RADIUS auth/acct (MS-CHAPv2, PAP)
-- `internal/radius/coa.go` - Change-of-Authorization
+### Package Structure
+- Frontend files go in `frontend/dist/` NOT `frontend/`
+- Package must contain: VERSION, backend/, frontend/, docker-compose.yml, tunnel-service.sh
 
-### Key Handlers
-- `internal/handlers/subscriber.go` - Subscriber CRUD + actions
-- `internal/handlers/service.go` - Service plans
-- `internal/handlers/nas.go` - NAS/Router management
-- `internal/handlers/session.go` - Active sessions
+## Build Process
+Always use: `./build-package.sh [version]`
+This ensures all files stay in sync.
 
-### Models
-- `internal/models/subscriber.go` - PPPoE users, quota tracking
-- `internal/models/service.go` - Plans with FUP tiers
-- `internal/models/nas.go` - MikroTik devices
-- `internal/models/billing.go` - Transactions, invoices
+## Git Repos
+- License Server: https://github.com/mmdelhajj/NEWRADIUS-PROXRAD
+- ProISP App: https://github.com/mmdelhajj/Proxradnew
 
-## Docker Containers
-| Container | Port | Purpose |
-|-----------|------|---------|
-| proisp-api | 8080 | Go API server |
-| proisp-db | 5432 | PostgreSQL |
-| proisp-redis | 6379 | Redis cache |
-| proisp-radius | 1812/1813 UDP | RADIUS server |
-| proisp-frontend | 3000 | React app |
-| proisp-nginx | 80/443 | Reverse proxy |
+## Servers
+- License Server: 109.110.185.33
+- Test Customer: 10.0.0.203
 
-## Common Commands
-```bash
-# Build and restart API
-docker-compose build api && docker-compose up -d api
+## History of Fixes (Reference)
 
-# View API logs
-docker logs -f proisp-api
+### Jan 24, 2026
+- Fixed tunnel-service.sh shebang and regex bugs
+- Added delete buttons for licenses and activations
+- Set up Git repos and build script
+- Fixed nginx API proxy configuration
+- Fixed admin password hash in schema.sql
 
-# View RADIUS logs
-docker logs -f proisp-radius
+### Known Working Versions
+- Package 1.0.54 - tunnel fixes applied
 
-# Database access
-docker exec -it proisp-db psql -U proisp -d proisp
+## TODO Features (Not Yet Implemented)
+- [ ] Remote Support toggle in Settings UI
+- [ ] Check Update button in Settings UI  
+- [ ] Check License button in Settings UI
 
-# Check running containers
-docker ps | grep proisp
-
-# Restart all services
-docker-compose down && docker-compose up -d
-```
-
-## Key Database Tables
-- `subscribers` - Users (username, password, quota, is_online, fup_level)
-- `services` - Plans (speed, daily/monthly FUP tiers)
-- `nas` - MikroTik devices (ip, api credentials, radius secret)
-- `rad_check` / `rad_reply` - RADIUS attributes
-- `rad_acct` - Accounting records
-- `transactions` - Billing history
-- `users` - Admin/reseller accounts
-
-## System Features
-- Multi-tier FUP (3 daily + 3 monthly levels)
-- Time-based speed windows (free hours)
-- Reseller hierarchy with balance management
-- Prepaid card system
-- Account sharing detection (TTL analysis)
-- Customer self-service portal
-- Automated invoicing
-- Audit logging
-
-## Recent Work
-- **QuotaSync Service Fix** (Jan 2025): Fixed issue where users weren't being marked offline when PPPoE session ended. The QuotaSync service now properly updates `is_online` status in the subscribers table.
-
-## Data Flow
-
-### QuotaSync (every 30 seconds)
-1. Query online subscribers from DB
-2. Group by NAS IP
-3. Get session data from MikroTik API
-4. Calculate bandwidth delta
-5. Update quota in database
-6. Check FUP thresholds → apply speed limits
-7. Mark users offline if session ended
-
-### RADIUS Authentication
-1. PPPoE request → RADIUS server
-2. Validate credentials (MS-CHAPv2/PAP)
-3. Check MAC binding, expiry
-4. Return speed limits from radreply
-5. MikroTik creates queue
-
-### FUP Enforcement
-1. Quota threshold crossed
-2. Update radreply with new speed
-3. Apply via: MikroTik API → CoA → Disconnect fallback
