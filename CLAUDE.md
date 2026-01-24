@@ -49,3 +49,16 @@ This ensures all files stay in sync.
 - [ ] Check Update button in Settings UI  
 - [ ] Check License button in Settings UI
 
+
+### Jan 24, 2026 - Later
+- Added Remote Support toggle to Settings/License tab
+- Added Check Update button to Settings/License tab
+- Added Check License button to Settings/License tab
+- Created remote_support.go handler
+- Added licenseApi and systemApi to api.js
+- Built package 1.0.55 with all new features
+
+### Package 1.0.55 Features
+- Remote Support: Toggle tunnel on/off from UI
+- Check Update: Check for available updates
+- Check License: Revalidate license with server
