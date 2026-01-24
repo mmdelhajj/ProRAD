@@ -299,3 +299,19 @@ export const cdnApi = {
 export const publicApi = {
   getBranding: () => axios.get('/api/branding'),
 }
+
+
+// License API
+export const licenseApi = {
+  getInfo: () => api.get("/license"),
+  getStatus: () => api.get("/license/status"),
+  revalidate: () => api.post("/license/revalidate"),
+}
+
+// System Update API
+export const systemApi = {
+  checkUpdate: () => api.get("/system/update/check"),
+  applyUpdate: (version) => api.post("/system/update/apply", { version }),
+  getRemoteSupportStatus: () => api.get("/system/remote-support/status"),
+  toggleRemoteSupport: (enabled) => api.post("/system/remote-support/toggle", { enabled }),
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { settingsApi } from '../services/api'
+import api, { settingsApi, licenseApi, systemApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import { setTimezone } from '../utils/timezone'
@@ -29,6 +29,13 @@ export default function Settings() {
   const [twoFACode, setTwoFACode] = useState('')
   const [disablePassword, setDisablePassword] = useState('')
   const [disableCode, setDisableCode] = useState('')
+
+  // Remote support and update state
+  const [updateInfo, setUpdateInfo] = useState(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [remoteSupportEnabled, setRemoteSupportEnabled] = useState(false)
+  const [togglingSupport, setTogglingSupport] = useState(false)
+  const [revalidating, setRevalidating] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -141,6 +148,65 @@ export default function Settings() {
     queryFn: () => api.get('/license').then(res => res.data.data),
     enabled: activeTab === 'license'
   })
+
+  // Remote Support status query
+  const { data: remoteSupportData, refetch: refetchRemoteSupport } = useQuery({
+    queryKey: ['remote-support-status'],
+    queryFn: () => systemApi.getRemoteSupportStatus().then(res => res.data.data),
+    enabled: activeTab === 'license'
+  })
+
+  useEffect(() => {
+    if (remoteSupportData) {
+      setRemoteSupportEnabled(remoteSupportData.enabled)
+    }
+  }, [remoteSupportData])
+
+  // Handler functions for license tab
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true)
+    try {
+      const res = await systemApi.checkUpdate()
+      setUpdateInfo(res.data.data)
+      if (res.data.data?.update_available) {
+        toast.success('Update available: '  + res.data.data.latest_version)
+      } else {
+        toast.success('You are on the latest version')
+      }
+    } catch (err) {
+      toast.error('Failed to check for updates')
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
+  const handleToggleRemoteSupport = async () => {
+    setTogglingSupport(true)
+    try {
+      const newState = !remoteSupportEnabled
+      await systemApi.toggleRemoteSupport(newState)
+      setRemoteSupportEnabled(newState)
+      refetchRemoteSupport()
+      toast.success('Remote support ' + (newState ? 'enabled' : 'disabled'))
+    } catch (err) {
+      toast.error('Failed to toggle remote support')
+    } finally {
+      setTogglingSupport(false)
+    }
+  }
+
+  const handleRevalidateLicense = async () => {
+    setRevalidating(true)
+    try {
+      await licenseApi.revalidate()
+      queryClient.invalidateQueries(['license'])
+      toast.success('License revalidated successfully')
+    } catch (err) {
+      toast.error('Failed to revalidate license')
+    } finally {
+      setRevalidating(false)
+    }
+  }
 
   const tabs = [
     { id: 'branding', label: 'Branding' },
@@ -764,6 +830,68 @@ export default function Settings() {
                     <h4 className="font-medium text-blue-900 mb-2">Need to upgrade or renew?</h4>
                     <p className="text-sm text-blue-700">
                       Contact support to upgrade your plan or renew your license.
+
+                  {/* System Actions */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Check License */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Validate License</h4>
+                      <p className="text-sm text-gray-600 mb-3">Revalidate your license with the server</p>
+                      <button
+                        onClick={handleRevalidateLicense}
+                        disabled={revalidating}
+                        className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {revalidating ? "Validating..." : "Check License"}
+                      </button>
+                    </div>
+
+                    {/* Check Update */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">System Updates</h4>
+                      <p className="text-sm text-gray-600 mb-3">Check for available updates</p>
+                      <button
+                        onClick={handleCheckUpdate}
+                        disabled={checkingUpdate}
+                        className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {checkingUpdate ? "Checking..." : "Check for Updates"}
+                      </button>
+                      {updateInfo && (
+                        <div className={`mt-3 p-2 rounded text-sm ${updateInfo.update_available ? "bg-yellow-50 text-yellow-800" : "bg-green-50 text-green-800"}`}>
+                          {updateInfo.update_available 
+                            ? `Update available: v${updateInfo.latest_version}`
+                            : `Up to date: v${updateInfo.current_version}`
+                          }
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Remote Support */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Remote Support</h4>
+                      <p className="text-sm text-gray-600 mb-3">Allow support team to access your server</p>
+                      <button
+                        onClick={handleToggleRemoteSupport}
+                        disabled={togglingSupport}
+                        className={`w-full px-4 py-2 text-sm font-medium text-white rounded-md disabled:opacity-50 ${
+                          remoteSupportEnabled 
+                            ? "bg-red-600 hover:bg-red-700" 
+                            : "bg-purple-600 hover:bg-purple-700"
+                        }`}
+                      >
+                        {togglingSupport 
+                          ? "Processing..." 
+                          : remoteSupportEnabled 
+                            ? "Disable Remote Support" 
+                            : "Enable Remote Support"
+                        }
+                      </button>
+                      <div className={`mt-3 p-2 rounded text-sm ${remoteSupportEnabled ? "bg-green-50 text-green-800" : "bg-gray-50 text-gray-600"}`}>
+                        Status: {remoteSupportEnabled ? "Enabled" : "Disabled"}
+                      </div>
+                    </div>
+                  </div>
                     </p>
                   </div>
                 </div>
