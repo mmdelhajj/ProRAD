@@ -156,6 +156,8 @@ docker-compose down && docker-compose up -d
 - **Frontend Build Source Lock** (Jan 2026): License server build system uses pre-built frontend from `/root/proisp/frontend/dist`. This ensures consistent design across all builds. The v1.0.54 frontend is the stable version used for all new builds.
 - **Database Schema Migration Fix** (Jan 2026): Fixed schema incompatibility when upgrading older installations. The v1.0.58+ code expects `nas_devices` table (not `nas`) with additional columns. Migration steps documented in Troubleshooting section.
 - **GORM Relation Fix** (Jan 2026): Fixed "unsupported relations" error causing subscriber list to return 500. Changed Subscriber model relations (`Service`, `Nas`, `Switch`, `Reseller`) from `gorm:"-"` to proper `gorm:"foreignKey:..."` tags. This allows GORM Preload to work correctly.
+- **CoA Port Default Changed** (Jan 2026): Changed default CoA port from 3799 to 1700 (MikroTik default). Updated in backend model, handler, and frontend form.
+- **radclient Requirement** (Jan 2026): The API container needs `freeradius-utils` installed for CoA to work. Without it, TimeSpeed service disconnects users when trying to apply rate limits. Install with: `docker exec proxpanel-api apt-get install -y freeradius-utils`
 
 ## Remote Support / SSH Tunnel Setup
 
@@ -263,6 +265,47 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now proxpanel-update-watcher.path
+```
+
+## Build System (License Server)
+
+### How Builds Work
+The build system runs on the **license server (109.110.185.33)** and uses LOCAL files only - it does NOT pull from any external server.
+
+**Source locations on license server:**
+| Component | Path |
+|-----------|------|
+| Backend | `/root/proisp/backend/` |
+| Frontend | `/root/proisp/frontend/dist/` (pre-built) |
+
+### Build Process (when clicking "Start Build")
+1. Create temp directory
+2. `go build ./cmd/api/` → Compile API binary
+3. `go build ./cmd/radius/` → Compile RADIUS binary
+4. Copy `/root/proisp/frontend/dist/` (does NOT run npm build)
+5. Create `proxpanel-vX.X.X.tar.gz` package
+6. Save to database with checksum
+
+### Updating Build Source
+To include new changes in builds, **manually copy** to license server:
+```bash
+# Sync entire project
+scp -r /root/proisp/* root@109.110.185.33:/root/proisp/
+
+# Or sync specific files
+scp /root/proisp/backend/internal/models/*.go root@109.110.185.33:/root/proisp/backend/internal/models/
+scp -r /root/proisp/frontend/dist/* root@109.110.185.33:/root/proisp/frontend/dist/
+```
+
+### Package Contents
+```
+proxpanel-vX.X.X.tar.gz
+├── backend/proisp-api/proisp-api      # API binary
+├── backend/proisp-radius/proisp-radius # RADIUS binary
+├── frontend/dist/                      # React app
+├── frontend/nginx.conf
+├── docker-compose.yml
+└── VERSION
 ```
 
 ## Customer Installation Requirements
