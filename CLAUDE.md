@@ -162,6 +162,7 @@ docker-compose down && docker-compose up -d
 - **Build System Auto-Install Packages** (Jan 2026): Updated build system to include `freeradius-utils` and `iputils-ping` in docker-compose.yml. New builds will auto-install these packages when API container starts.
 - **API Auto-Install Packages on Startup** (Jan 2026): Added `ensureRequiredPackages()` function to `cmd/api/main.go` that automatically installs `freeradius-utils` and `iputils-ping` if not present. This ensures UPDATE customers (who only get new binaries, not new docker-compose.yml) also get these packages installed.
 - **QuotaSync Pointer Fix** (Jan 2026): Fixed build errors in `quota_sync.go` after changing Subscriber's `Service` field from value to pointer type. Added nil checks before accessing `sub.Service` in `restoreOriginalSpeedIfNeeded`, `checkAndEnforceFUP`, and `checkAndApplyTimeBasedSpeed` functions.
+- **Auto-Disconnect on Service Change** (Jan 2026): When a subscriber's service is changed, if they're online, they are automatically disconnected via CoA (with MikroTik API fallback) so they reconnect and get a new IP from the new service's pool. This is necessary because IP addresses are assigned at PPPoE connection time and cannot be changed mid-session.
 
 ## Remote Support / SSH Tunnel Setup
 

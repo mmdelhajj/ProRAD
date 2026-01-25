@@ -678,6 +678,7 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 	// Store old values for RADIUS and MikroTik updates
 	oldUsername := subscriber.Username
 	oldStaticIP := subscriber.StaticIP
+	oldServiceID := subscriber.ServiceID
 
 	updates := make(map[string]interface{})
 	for _, field := range allowedFields {
@@ -828,6 +829,40 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 				}
 			}()
 		}
+	}
+
+	// Auto-disconnect user if service changed (so they reconnect with new pool IP)
+	// Reload subscriber to get updated values
+	database.DB.First(&subscriber, id)
+	if subscriber.ServiceID != oldServiceID && subscriber.IsOnline && subscriber.NasID != nil {
+		go func(username string, nasID uint) {
+			var nas models.Nas
+			if err := database.DB.First(&nas, nasID).Error; err != nil {
+				log.Printf("ServiceChange: Failed to get NAS for disconnect: %v", err)
+				return
+			}
+
+			// Send CoA Disconnect-Request to force reconnection with new pool
+			coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+			if err := coaClient.DisconnectUser(username, ""); err != nil {
+				log.Printf("ServiceChange: CoA disconnect failed for %s: %v, trying MikroTik API", username, err)
+
+				// Fallback: try MikroTik API to remove PPPoE session
+				client := mikrotik.NewClient(
+					fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+					nas.APIUsername,
+					nas.APIPassword,
+				)
+				if err := client.DisconnectUser(username); err != nil {
+					log.Printf("ServiceChange: MikroTik API disconnect also failed for %s: %v", username, err)
+				} else {
+					log.Printf("ServiceChange: Disconnected %s via MikroTik API (service changed)", username)
+				}
+				client.Close()
+			} else {
+				log.Printf("ServiceChange: Disconnected %s via CoA (service changed, will reconnect with new pool)", username)
+			}
+		}(subscriber.Username, *subscriber.NasID)
 	}
 
 	database.DB.Preload("Service").Preload("Reseller.User").First(&subscriber, id)
