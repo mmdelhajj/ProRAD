@@ -416,6 +416,9 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		monthlyUploadLimit = subscriber.Service.MonthlyQuota
 	}
 
+	// Decrypt password for display in edit form
+	subscriber.PasswordPlain = security.DecryptPassword(subscriber.PasswordPlain)
+
 	return c.JSON(fiber.Map{
 		"success":  true,
 		"data":     subscriber,
@@ -821,10 +824,15 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 	// Handle password update
 	var passwordToUpdate string
 	if password, ok := req["password"].(string); ok && password != "" {
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-		updates["password"] = string(hashedPassword)
-		updates["password_plain"] = security.EncryptPassword(password)
-		passwordToUpdate = password
+		// Skip if password is already encrypted (user didn't change it)
+		if strings.HasPrefix(password, "ENC:") {
+			// Don't update password - it's the encrypted value from the form
+		} else {
+			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			updates["password"] = string(hashedPassword)
+			updates["password_plain"] = security.EncryptPassword(password)
+			passwordToUpdate = password
+		}
 	}
 
 	if err := database.DB.Model(&subscriber).Updates(updates).Error; err != nil {
@@ -2009,6 +2017,33 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 						client.Close()
 					}
 				}
+			}
+			success++
+
+		case "delete":
+			actionName = "Bulk deleted"
+			// Disconnect from MikroTik if online
+			if sub.NasID != nil && *sub.NasID > 0 {
+				var nas models.Nas
+				if err := database.DB.First(&nas, *sub.NasID).Error; err == nil && nas.IPAddress != "" {
+					client := mikrotik.NewClient(
+						fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+						nas.APIUsername,
+						nas.APIPassword,
+					)
+					client.DisconnectUser(sub.Username)
+					client.Close()
+				}
+			}
+			// Delete RADIUS entries
+			database.DB.Where("username = ?", sub.Username).Delete(&models.RadCheck{})
+			database.DB.Where("username = ?", sub.Username).Delete(&models.RadReply{})
+			database.DB.Where("username = ?", sub.Username).Delete(&models.RadAcct{})
+			// Delete subscriber (soft delete if model supports it, otherwise hard delete)
+			if err := database.DB.Delete(&sub).Error; err != nil {
+				log.Printf("BulkAction: Failed to delete subscriber %d: %v", sub.ID, err)
+				failed++
+				continue
 			}
 			success++
 

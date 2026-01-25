@@ -184,10 +184,17 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		return
 	}
 
-	// Decrypt password if encrypted
-	plainPassword := security.DecryptPassword(subscriber.PasswordPlain)
+	// Get password from radcheck table (Cleartext-Password)
+	var radcheck models.RadCheck
+	var plainPassword string
+	if err := database.DB.Where("username = ? AND attribute = ?", username, "Cleartext-Password").First(&radcheck).Error; err == nil {
+		plainPassword = radcheck.Value
+	} else {
+		// Fallback: try to decrypt from subscriber.PasswordPlain
+		plainPassword = security.DecryptPassword(subscriber.PasswordPlain)
+	}
 	if plainPassword == "" {
-		log.Printf("Auth reject (password decryption failed): %s", username)
+		log.Printf("Auth reject (password not found): %s", username)
 		s.logPostAuth(username, callingStationID, "Access-Reject")
 		w.Write(r.Response(radius.CodeAccessReject))
 		return
@@ -401,16 +408,27 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 		}
 		database.DB.Create(&acct)
 
-		// Update subscriber online status
-		go func() {
-			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Updates(map[string]interface{}{
+		// Look up NAS by IP to get nas_id
+		var nas models.Nas
+		var nasID *uint
+		if err := database.DB.Where("ip_address = ?", nasIP.String()).First(&nas).Error; err == nil {
+			nasID = &nas.ID
+		}
+
+		// Update subscriber online status with nas_id
+		go func(nasIDPtr *uint) {
+			updates := map[string]interface{}{
 				"is_online":   true,
 				"ip_address":  framedIP.String(),
 				"session_id":  sessionID,
 				"last_seen":   now,
 				"mac_address": callingStationID,
-			})
-		}()
+			}
+			if nasIDPtr != nil {
+				updates["nas_id"] = *nasIDPtr
+			}
+			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Updates(updates)
+		}(nasID)
 
 	case rfc2866.AcctStatusType_Value_Stop:
 		// Session stop

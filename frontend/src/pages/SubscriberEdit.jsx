@@ -652,27 +652,45 @@ export default function SubscriberEdit() {
                 </div>
                 <div>
                   <label className="label">Password</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="input pr-10"
-                      placeholder={isNew ? '' : 'Leave blank to keep current'}
-                      required={isNew}
-                      autoComplete="new-password"
-                    />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="input pr-10"
+                        placeholder={isNew ? '' : 'Leave blank to keep current'}
+                        required={isNew}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? (
+                          <EyeSlashIcon className="h-5 w-5" />
+                        ) : (
+                          <EyeIcon className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+                        const length = 8 + Math.floor(Math.random() * 3)
+                        let password = ''
+                        for (let i = 0; i < length; i++) {
+                          password += chars.charAt(Math.floor(Math.random() * chars.length))
+                        }
+                        setFormData(prev => ({ ...prev, password }))
+                        setShowPassword(true)
+                      }}
+                      className="btn btn-secondary whitespace-nowrap"
                     >
-                      {showPassword ? (
-                        <EyeSlashIcon className="h-5 w-5" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5" />
-                      )}
+                      Generate
                     </button>
                   </div>
                 </div>
@@ -785,11 +803,17 @@ export default function SubscriberEdit() {
                     type="text"
                     name="mac_address"
                     value={formData.mac_address}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase()
+                      if (val === '' || /^[0-9A-F:-]*$/.test(val)) {
+                        setFormData(prev => ({ ...prev, mac_address: val }))
+                      }
+                    }}
                     className={`input ${!isNew ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    placeholder="AA:BB:CC:DD:EE:FF"
+                    placeholder="Leave empty - auto-saves on first connect"
                     disabled={!isNew}
                   />
+                  <p className="text-xs text-gray-500 mt-1">Leave empty to auto-capture MAC on first connection</p>
                 </div>
                 <label className="flex items-center gap-3">
                   <input
