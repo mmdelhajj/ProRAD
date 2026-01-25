@@ -163,7 +163,7 @@ func (h *NasHandler) Create(c *fiber.Ctx) error {
 		nas.AcctPort = 1813
 	}
 	if nas.CoAPort == 0 {
-		nas.CoAPort = 3799
+		nas.CoAPort = 1700
 	}
 	if nas.APIPort == 0 {
 		nas.APIPort = 8728

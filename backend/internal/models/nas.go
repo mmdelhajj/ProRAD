@@ -30,7 +30,7 @@ type Nas struct {
 	Secret          string         `gorm:"column:secret;size:100;not null" json:"secret"`
 	AuthPort        int            `gorm:"column:auth_port;default:1812" json:"auth_port"`
 	AcctPort        int            `gorm:"column:acct_port;default:1813" json:"acct_port"`
-	CoAPort         int            `gorm:"column:coa_port;default:3799" json:"coa_port"`
+	CoAPort         int            `gorm:"column:coa_port;default:1700" json:"coa_port"`
 
 	// Mikrotik API
 	APIUsername     string         `gorm:"column:api_username;size:100" json:"api_username"`
