@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/license"
 	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/mikrotik"
 	"github.com/proisp/backend/internal/models"
@@ -488,6 +489,28 @@ func (h *SubscriberHandler) Create(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"message": "Username, password, and service are required",
+		})
+	}
+
+	// Check subscriber limit with license server
+	var currentSubCount int64
+	database.DB.Model(&models.Subscriber{}).Count(&currentSubCount)
+
+	allowed, msg, err := license.VerifySubscriberCount(int(currentSubCount))
+	if err != nil {
+		log.Printf("Warning: Subscriber verification error: %v", err)
+		// Fall back to local check
+		allowed, _, maxSubs, _ := license.CanAddSubscriber(int(currentSubCount))
+		if !allowed {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": fmt.Sprintf("Subscriber limit reached (%d/%d). Please upgrade your license.", currentSubCount, maxSubs),
+			})
+		}
+	} else if !allowed {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"message": msg,
 		})
 	}
 

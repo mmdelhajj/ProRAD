@@ -23,7 +23,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Build date - set at compile time: -ldflags "-X main.buildDate=2026-01-25"
+var buildDate string
+
+// Maximum days binary can run without update
+const maxBinaryAgeDays = 30
+
 func main() {
+	// Check binary expiry first
+	if err := checkBinaryExpiry(); err != nil {
+		log.Fatalf("Binary expired: %v - Please update to latest version", err)
+	}
+
 	// Ensure required system packages are installed (for CoA and ping features)
 	ensureRequiredPackages()
 
@@ -592,4 +603,30 @@ func ensureRequiredPackages() {
 	} else {
 		log.Printf("Successfully installed: %v", needInstall)
 	}
+}
+
+// checkBinaryExpiry checks if the binary has exceeded its maximum age
+func checkBinaryExpiry() error {
+	if buildDate == "" {
+		// No build date set - allow in dev mode
+		return nil
+	}
+
+	built, err := time.Parse("2006-01-02", buildDate)
+	if err != nil {
+		return nil // Invalid date format - allow
+	}
+
+	daysSinceBuild := int(time.Since(built).Hours() / 24)
+	if daysSinceBuild > maxBinaryAgeDays {
+		return fmt.Errorf("binary built on %s has expired (%d days old, max %d days) - please update to latest version",
+			buildDate, daysSinceBuild, maxBinaryAgeDays)
+	}
+
+	daysRemaining := maxBinaryAgeDays - daysSinceBuild
+	if daysRemaining <= 7 {
+		log.Printf("WARNING: Binary will expire in %d days. Please update soon.", daysRemaining)
+	}
+
+	return nil
 }

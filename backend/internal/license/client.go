@@ -179,6 +179,88 @@ func GetMaxSubscribers() int {
 	return 0
 }
 
+// CanAddSubscriber checks if adding a new subscriber is allowed
+// Returns: allowed, currentCount, maxAllowed, error
+func CanAddSubscriber(currentCount int) (bool, int, int, error) {
+	if defaultClient == nil {
+		return false, 0, 0, fmt.Errorf("license client not initialized")
+	}
+
+	// In dev mode, always allow
+	if devMode {
+		return true, currentCount, 999999, nil
+	}
+
+	maxSubscribers := GetMaxSubscribers()
+	if maxSubscribers == 0 {
+		// No limit set - allow
+		return true, currentCount, 0, nil
+	}
+
+	if currentCount >= maxSubscribers {
+		return false, currentCount, maxSubscribers, nil
+	}
+
+	return true, currentCount, maxSubscribers, nil
+}
+
+// VerifySubscriberCount verifies subscriber count with license server (remote check)
+func VerifySubscriberCount(currentCount int) (bool, string, error) {
+	if defaultClient == nil {
+		return false, "", fmt.Errorf("license client not initialized")
+	}
+
+	// In dev mode, always allow
+	if devMode {
+		return true, "", nil
+	}
+
+	serverIP, _ := getOutboundIP()
+
+	req := map[string]interface{}{
+		"license_key":       defaultClient.config.LicenseKey,
+		"server_ip":         serverIP,
+		"subscriber_count":  currentCount,
+		"action":            "add_subscriber",
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return false, "", err
+	}
+
+	resp, err := defaultClient.httpClient.Post(
+		defaultClient.config.ServerURL+"/api/v1/license/verify-subscriber",
+		"application/json",
+		bytes.NewBuffer(body),
+	)
+	if err != nil {
+		// On network error, fall back to local check
+		log.Printf("Warning: Could not verify with license server: %v, using local check", err)
+		allowed, _, _, _ := CanAddSubscriber(currentCount)
+		return allowed, "", nil
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool   `json:"success"`
+		Allowed bool   `json:"allowed"`
+		Message string `json:"message"`
+		Max     int    `json:"max_subscribers"`
+		Current int    `json:"current_count"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, "", err
+	}
+
+	if !result.Allowed {
+		return false, result.Message, nil
+	}
+
+	return true, "", nil
+}
+
 // InGracePeriod returns whether we're in the grace period
 func InGracePeriod() bool {
 	if defaultClient == nil {
