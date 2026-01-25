@@ -159,6 +159,7 @@ docker-compose down && docker-compose up -d
 - **CoA Port Default Changed** (Jan 2026): Changed default CoA port from 3799 to 1700 (MikroTik default). Updated in backend model, handler, and frontend form.
 - **radclient Requirement** (Jan 2026): The API container needs `freeradius-utils` installed for CoA to work. Without it, TimeSpeed service disconnects users when trying to apply rate limits. Install with: `docker exec proxpanel-api apt-get install -y freeradius-utils`
 - **Ping Requirement** (Jan 2026): The API container needs `iputils-ping` installed for subscriber ping feature to work. Install with: `docker exec proxpanel-api apt-get install -y iputils-ping`
+- **Build System Auto-Install Packages** (Jan 2026): Updated build system to include `freeradius-utils` and `iputils-ping` in docker-compose.yml. New builds will auto-install these packages when API container starts.
 
 ## Remote Support / SSH Tunnel Setup
 
