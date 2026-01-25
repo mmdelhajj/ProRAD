@@ -152,6 +152,8 @@ docker-compose down && docker-compose up -d
 - **Tier Expiration Priority Fix** (Jan 2026): Fixed issue where tier expiration was being overwritten by frontend. Added `tierExpirySet` flag in admin.go - when a tier is selected, its `duration_days` takes priority over any manually sent `expires_at` value from frontend.
 - **Update Publish Feature** (Jan 2026): Added ability to publish any version as the current update for customers. Admin can click "Publish" on any version in the Updates page to make it the active update. Useful for rolling back to older versions if issues are found with new releases. Added `is_published` column to updates table.
 - **Build Auto-Version Suggestion** (Jan 2026): Build page now automatically suggests the next version number. If latest version is v1.0.56, it pre-fills v1.0.57. Shows "Latest version: X" below the input field.
+- **Build Page Publish Button** (Jan 2026): Added "Publish to Customers" button directly on the Build page. After a successful build, a green publish button appears so admin doesn't need to go to Updates page separately.
+- **Frontend Build Source Lock** (Jan 2026): License server build system uses pre-built frontend from `/root/proisp/frontend/dist`. This ensures consistent design across all builds. The v1.0.54 frontend is the stable version used for all new builds.
 
 ## Remote Support / SSH Tunnel Setup
 
