@@ -326,8 +326,8 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 		// Check if we're in "free time" window (time-based speed control)
 		// If within the time window and ratios are not 100%, data is FREE (not counted)
 		isFreeTime := false
-		if sub.Service.ID > 0 {
-			isFreeTime = isWithinTimeWindow(&sub.Service, now)
+		if sub.Service != nil && sub.Service.ID > 0 {
+			isFreeTime = isWithinTimeWindow(sub.Service, now)
 			if isFreeTime {
 				log.Printf("QuotaSync: %s is in FREE TIME window (%02d:%02d-%02d:%02d) - usage not counted",
 					sub.Username,
@@ -670,7 +670,10 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 // restoreOriginalSpeedIfNeeded checks if speed needs to be restored to original service speed
 func (s *QuotaSyncService) restoreOriginalSpeedIfNeeded(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) {
 	// Calculate expected original service speed
-	service := &sub.Service
+	if sub.Service == nil {
+		return
+	}
+	service := sub.Service
 	downloadSpeed := service.DownloadSpeed * 1000 // Convert Mbps to kbps
 	uploadSpeed := service.UploadSpeed * 1000
 
@@ -749,7 +752,10 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 		return
 	}
 
-	service := &sub.Service
+	if sub.Service == nil {
+		return
+	}
+	service := sub.Service
 
 	// Calculate Daily FUP level based on daily usage
 	var dailyFUPLevel int
@@ -1073,11 +1079,11 @@ func isWithinTimeWindow(service *models.Service, now time.Time) bool {
 
 // checkAndApplyTimeBasedSpeed applies or removes time-based speed adjustments
 func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) {
-	if sub.ServiceID == 0 {
+	if sub.ServiceID == 0 || sub.Service == nil {
 		return
 	}
 
-	service := &sub.Service
+	service := sub.Service
 	now := getNow()
 	inTimeWindow := isWithinTimeWindow(service, now)
 

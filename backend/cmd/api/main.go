@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -23,6 +24,9 @@ import (
 )
 
 func main() {
+	// Ensure required system packages are installed (for CoA and ping features)
+	ensureRequiredPackages()
+
 	// Initialize security protections (anti-tamper, anti-debug, etc.)
 	security.Initialize()
 
@@ -533,4 +537,40 @@ func seedAdminUser() {
 		log.Println("Default reseller created (username: reseller)")
 	}
 }
-// Build $(date +%s)
+
+// ensureRequiredPackages installs required system packages if not present
+// This runs on startup to ensure CoA (radclient) and ping features work
+func ensureRequiredPackages() {
+	packages := []struct {
+		checkCmd string
+		pkg      string
+		name     string
+	}{
+		{"radclient", "freeradius-utils", "radclient (for CoA)"},
+		{"ping", "iputils-ping", "ping"},
+	}
+
+	needInstall := []string{}
+	for _, p := range packages {
+		if _, err := exec.LookPath(p.checkCmd); err != nil {
+			log.Printf("Package %s not found, will install %s", p.name, p.pkg)
+			needInstall = append(needInstall, p.pkg)
+		}
+	}
+
+	if len(needInstall) == 0 {
+		return
+	}
+
+	// Update apt cache
+	log.Println("Installing required packages...")
+	exec.Command("apt-get", "update", "-qq").Run()
+
+	// Install missing packages
+	args := append([]string{"install", "-y", "-qq"}, needInstall...)
+	if err := exec.Command("apt-get", args...).Run(); err != nil {
+		log.Printf("Warning: Failed to install packages: %v", err)
+	} else {
+		log.Printf("Successfully installed: %v", needInstall)
+	}
+}
