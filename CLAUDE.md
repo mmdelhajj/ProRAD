@@ -124,7 +124,7 @@ docker-compose down && docker-compose up -d
 ## Key Database Tables
 - `subscribers` - Users (username, password, quota, is_online, fup_level)
 - `services` - Plans (speed, daily/monthly FUP tiers)
-- `nas` - MikroTik devices (ip, api credentials, radius secret)
+- `nas_devices` - MikroTik devices (ip, api credentials, radius secret) - renamed from `nas` in v1.0.58+
 - `rad_check` / `rad_reply` - RADIUS attributes
 - `rad_acct` - Accounting records
 - `transactions` - Billing history
@@ -154,6 +154,7 @@ docker-compose down && docker-compose up -d
 - **Build Auto-Version Suggestion** (Jan 2026): Build page now automatically suggests the next version number. If latest version is v1.0.56, it pre-fills v1.0.57. Shows "Latest version: X" below the input field.
 - **Build Page Publish Button** (Jan 2026): Added "Publish to Customers" button directly on the Build page. After a successful build, a green publish button appears so admin doesn't need to go to Updates page separately.
 - **Frontend Build Source Lock** (Jan 2026): License server build system uses pre-built frontend from `/root/proisp/frontend/dist`. This ensures consistent design across all builds. The v1.0.54 frontend is the stable version used for all new builds.
+- **Database Schema Migration Fix** (Jan 2026): Fixed schema incompatibility when upgrading older installations. The v1.0.58+ code expects `nas_devices` table (not `nas`) with additional columns. Migration steps documented in Troubleshooting section.
 
 ## Remote Support / SSH Tunnel Setup
 
@@ -337,6 +338,41 @@ docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c "UPDA
 2. Check tunnel_last_seen is recent (< 2 minutes): `docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c "SELECT tunnel_last_seen FROM activations WHERE tunnel_port > 0;"`
 3. Check TunnelManager logs: `docker logs proxpanel-license-server 2>&1 | grep TunnelManager`
 4. Verify license server is in host network mode: `docker inspect proxpanel-license-server | grep NetworkMode`
+
+### Database schema mismatch after upgrade (v1.0.58+)
+If RADIUS crashes with "relation nas_devices does not exist" or NAS creation returns 400:
+```bash
+# 1. Rename nas table to nas_devices
+docker exec proxpanel-db psql -U proxpanel -d proxpanel -c "ALTER TABLE nas RENAME TO nas_devices;"
+
+# 2. Add missing columns to nas_devices
+docker exec proxpanel-db psql -U proxpanel -d proxpanel -c "
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS short_name VARCHAR(50);
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS auth_port INTEGER DEFAULT 1812;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS acct_port INTEGER DEFAULT 1813;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS coa_port INTEGER DEFAULT 3799;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS api_username VARCHAR(100);
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS api_ssl_port INTEGER DEFAULT 8729;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS use_ssl BOOLEAN DEFAULT false;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS subscriber_pools VARCHAR(500);
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS allowed_realms VARCHAR(500);
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT false;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS version VARCHAR(50);
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS active_sessions INTEGER DEFAULT 0;
+ALTER TABLE nas_devices ADD COLUMN IF NOT EXISTS total_users INTEGER DEFAULT 0;
+"
+
+# 3. Add deleted_at to backup_schedules if missing
+docker exec proxpanel-db psql -U proxpanel -d proxpanel -c "ALTER TABLE backup_schedules ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;"
+
+# 4. Copy api_user to api_username if data exists
+docker exec proxpanel-db psql -U proxpanel -d proxpanel -c "UPDATE nas_devices SET api_username = api_user WHERE api_username IS NULL AND api_user IS NOT NULL;"
+
+# 5. Restart containers
+docker restart proxpanel-api proxpanel-radius
+docker exec proxpanel-frontend nginx -s reload
+```
 
 ## Data Flow
 
