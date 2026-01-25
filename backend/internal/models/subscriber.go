@@ -34,7 +34,7 @@ type Subscriber struct {
 
 	// Service & Billing
 	ServiceID       uint             `gorm:"column:service_id;not null" json:"service_id"`
-	Service         Service          `gorm:"-" json:"service"`
+	Service         *Service         `gorm:"foreignKey:ServiceID" json:"service"`
 	Status          SubscriberStatus `gorm:"column:status;default:1" json:"status"`
 	ExpiryDate      time.Time        `gorm:"column:expiry_date" json:"expiry_date"`
 	DueDate         *time.Time       `gorm:"column:due_date" json:"due_date"`
@@ -65,17 +65,17 @@ type Subscriber struct {
 	StaticIP        string  `gorm:"column:static_ip;size:50" json:"static_ip"`
 	SaveMAC         bool    `gorm:"column:save_mac;default:true" json:"save_mac"`
 	NasID           *uint   `gorm:"column:nas_id" json:"nas_id"`
-	Nas             *Nas    `gorm:"-" json:"nas,omitempty"`
+	Nas             *Nas    `gorm:"foreignKey:NasID" json:"nas,omitempty"`
 
 	// Location
 	SwitchID        *uint   `gorm:"column:switch_id" json:"switch_id"`
-	Switch          *Switch `gorm:"-" json:"switch,omitempty"`
+	Switch          *Switch `gorm:"foreignKey:SwitchID" json:"switch,omitempty"`
 	Latitude        float64 `gorm:"column:latitude;type:decimal(10,8)" json:"latitude"`
 	Longitude       float64 `gorm:"column:longitude;type:decimal(11,8)" json:"longitude"`
 
 	// Ownership
 	ResellerID      uint     `gorm:"column:reseller_id;not null;index" json:"reseller_id"`
-	Reseller        Reseller `gorm:"-" json:"reseller"`
+	Reseller        *Reseller `gorm:"foreignKey:ResellerID" json:"reseller"`
 	CollectorID     *uint    `gorm:"column:collector_id" json:"collector_id"`
 
 	// Session

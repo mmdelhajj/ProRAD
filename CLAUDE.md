@@ -155,6 +155,7 @@ docker-compose down && docker-compose up -d
 - **Build Page Publish Button** (Jan 2026): Added "Publish to Customers" button directly on the Build page. After a successful build, a green publish button appears so admin doesn't need to go to Updates page separately.
 - **Frontend Build Source Lock** (Jan 2026): License server build system uses pre-built frontend from `/root/proisp/frontend/dist`. This ensures consistent design across all builds. The v1.0.54 frontend is the stable version used for all new builds.
 - **Database Schema Migration Fix** (Jan 2026): Fixed schema incompatibility when upgrading older installations. The v1.0.58+ code expects `nas_devices` table (not `nas`) with additional columns. Migration steps documented in Troubleshooting section.
+- **GORM Relation Fix** (Jan 2026): Fixed "unsupported relations" error causing subscriber list to return 500. Changed Subscriber model relations (`Service`, `Nas`, `Switch`, `Reseller`) from `gorm:"-"` to proper `gorm:"foreignKey:..."` tags. This allows GORM Preload to work correctly.
 
 ## Remote Support / SSH Tunnel Setup
 
@@ -373,6 +374,24 @@ docker exec proxpanel-db psql -U proxpanel -d proxpanel -c "UPDATE nas_devices S
 docker restart proxpanel-api proxpanel-radius
 docker exec proxpanel-frontend nginx -s reload
 ```
+
+### RADIUS "unknown NAS" / PPPoE timeout
+If MikroTik shows "radius timeout" and RADIUS logs show `unknown NAS: X.X.X.X`:
+```bash
+# 1. Check RADIUS logs for the unknown IP
+docker logs proxpanel-radius 2>&1 | grep "unknown NAS"
+
+# 2. Add NAS via database (or use UI: NAS/Routers → Add NAS)
+docker exec proxpanel-db psql -U proxpanel -d proxpanel -c \
+  "INSERT INTO nas_devices (name, ip_address, secret, is_active) VALUES ('RouterName', 'X.X.X.X', 'YourSecret', true);"
+
+# 3. Restart RADIUS to reload secrets
+docker restart proxpanel-radius
+
+# 4. Verify NAS is loaded
+docker logs proxpanel-radius 2>&1 | grep "Loaded"
+```
+**Note**: The NAS IP must be the MikroTik's interface IP that sends RADIUS packets (not the server IP). When changing networks, update NAS IP accordingly.
 
 ## Data Flow
 
