@@ -150,6 +150,8 @@ docker-compose down && docker-compose up -d
 - **Tier Duration Auto-Extend** (Jan 2026): When changing a license's tier, the expiration date now automatically extends based on `tier.duration_days`.
 - **Tunnel Port Auto-Assignment** (Jan 2026): Fixed tunnel port not being assigned on fresh installs. The `UpdateSSHCredentials` handler now auto-assigns tunnel_port (starting from 20000) when SSH credentials are saved if no port was previously assigned.
 - **Tier Expiration Priority Fix** (Jan 2026): Fixed issue where tier expiration was being overwritten by frontend. Added `tierExpirySet` flag in admin.go - when a tier is selected, its `duration_days` takes priority over any manually sent `expires_at` value from frontend.
+- **Update Publish Feature** (Jan 2026): Added ability to publish any version as the current update for customers. Admin can click "Publish" on any version in the Updates page to make it the active update. Useful for rolling back to older versions if issues are found with new releases. Added `is_published` column to updates table.
+- **Build Auto-Version Suggestion** (Jan 2026): Build page now automatically suggests the next version number. If latest version is v1.0.56, it pre-fills v1.0.57. Shows "Latest version: X" below the input field.
 
 ## Remote Support / SSH Tunnel Setup
 
