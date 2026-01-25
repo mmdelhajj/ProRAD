@@ -182,6 +182,21 @@ docker-compose down && docker-compose up -d
   - Uses Docker Engine API via Unix socket with CLI fallback
   - Files: `internal/handlers/settings.go` (RestartServices), `frontend/src/pages/Settings.jsx`
 - **Critical System Routes Bypass License** (Jan 2026): Created `criticalSystem` route group that requires auth but bypasses license checks. This allows admins to restart services and revalidate license even when license is blocked/expired. Routes: `POST /api/system/restart-services`, `POST /api/license/revalidate`
+- **NAS ID Fix for Service Change Disconnect** (Jan 2026): Fixed issue where users weren't being disconnected after service change because `nas_id` wasn't set on PPPoE session start. Modified RADIUS accounting handler to look up NAS by IP and set `nas_id` when session starts.
+- **Bulk Delete Subscribers** (Jan 2026): Added "delete" action to subscriber bulk action handler. Admin can now select multiple subscribers and delete them at once.
+- **RADIUS License Enforcement** (Jan 2026): RADIUS server now requires valid license to start. Checks license every hour and shuts down if license becomes invalid. File: `cmd/radius/main.go`
+- **Binary Expiry Protection** (Jan 2026): Binaries expire 30 days after build date. Set at compile time with `-ldflags "-X main.buildDate=YYYY-MM-DD"`. Prevents use of old/stolen binaries indefinitely.
+- **Telemetry Alerts System** (Jan 2026): License server heartbeat now detects suspicious activity and creates alerts:
+  - Multi-IP detection (same license from different IPs)
+  - Subscriber limit exceeded
+  - Outdated software versions
+  - Admin can view/resolve alerts at `/admin/alerts`
+  - Files: `internal/handlers/license.go` (checkAndCreateAlerts), `internal/handlers/admin.go` (GetAlerts, ResolveAlert)
+- **Subscriber Count Enforcement** (Jan 2026): License server verifies subscriber count before allowing new subscribers. Functions: `license.CanAddSubscriber()`, `license.VerifySubscriberCount()`. Endpoint: `POST /api/v1/license/verify-subscriber`
+- **Security Alerts Page** (Jan 2026): Added `/admin/alerts` page to license server admin panel. Shows security alerts with severity colors, filtering by type/severity, and resolve button.
+- **Change Server Feature** (Jan 2026): Improved license management UI with "Change Server" button and server info modal. Shows current server IP, hostname, hardware ID, version, subscriber count, last seen. Click to reset hardware binding and allow activation on new server.
+- **Admin Profile & Change Password** (Jan 2026): Added `/admin/profile` page to license server. Admins can view account info, update email/name, and change password. Endpoints: `GET/PUT /admin/profile`, `POST /admin/change-password`
+- **Suspend/Activate Customers** (Jan 2026): Added customer suspension feature to license server. Suspending a customer also suspends all their licenses. Status column shows Active/Suspended badge. Endpoint: `POST /admin/customers/:id/suspend`
 
 ## Remote Support / SSH Tunnel Setup
 
