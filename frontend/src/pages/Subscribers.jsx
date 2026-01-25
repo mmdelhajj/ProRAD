@@ -437,6 +437,7 @@ export default function Subscribers() {
           break
         case 'change_service':
           setActionModal({ type: 'changeService', subscriber: sub })
+          setActionValue(sub?.service_id?.toString() || '')
           break
         case 'rename':
           setActionModal({ type: 'rename', subscriber: sub })

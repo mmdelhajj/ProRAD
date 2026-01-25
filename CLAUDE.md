@@ -160,9 +160,28 @@ docker-compose down && docker-compose up -d
 - **radclient Requirement** (Jan 2026): The API container needs `freeradius-utils` installed for CoA to work. Without it, TimeSpeed service disconnects users when trying to apply rate limits. Install with: `docker exec proxpanel-api apt-get install -y freeradius-utils`
 - **Ping Requirement** (Jan 2026): The API container needs `iputils-ping` installed for subscriber ping feature to work. Install with: `docker exec proxpanel-api apt-get install -y iputils-ping`
 - **Build System Auto-Install Packages** (Jan 2026): Updated build system to include `freeradius-utils` and `iputils-ping` in docker-compose.yml. New builds will auto-install these packages when API container starts.
-- **API Auto-Install Packages on Startup** (Jan 2026): Added `ensureRequiredPackages()` function to `cmd/api/main.go` that automatically installs `freeradius-utils` and `iputils-ping` if not present. This ensures UPDATE customers (who only get new binaries, not new docker-compose.yml) also get these packages installed.
+- **API Auto-Install Packages on Startup** (Jan 2026): Added `ensureRequiredPackages()` function to `cmd/api/main.go` that automatically installs `freeradius-utils`, `iputils-ping`, and `postgresql-client` if not present. This ensures UPDATE customers (who only get new binaries, not new docker-compose.yml) also get these packages installed.
 - **QuotaSync Pointer Fix** (Jan 2026): Fixed build errors in `quota_sync.go` after changing Subscriber's `Service` field from value to pointer type. Added nil checks before accessing `sub.Service` in `restoreOriginalSpeedIfNeeded`, `checkAndEnforceFUP`, and `checkAndApplyTimeBasedSpeed` functions.
-- **Auto-Disconnect on Service Change** (Jan 2026): When a subscriber's service is changed, if they're online, they are automatically disconnected via CoA (with MikroTik API fallback) so they reconnect and get a new IP from the new service's pool. This is necessary because IP addresses are assigned at PPPoE connection time and cannot be changed mid-session.
+- **Auto-Disconnect on Service Change** (Jan 2026): When a subscriber's service is changed, if they're online, they are automatically disconnected via CoA (with MikroTik API fallback) so they reconnect and get a new IP from the new service's pool. This is necessary because IP addresses are assigned at PPPoE connection time and cannot be changed mid-session. **Important:** This is implemented in both the regular Update handler AND the ChangeService handler.
+- **GORM Explicit Foreign Key Fix** (Jan 2026): Fixed "unsupported relations for schema Subscriber" error that broke QuotaSync, Preload, and subscriber list. The issue was using `gorm:"-"` which tells GORM to ignore the relation entirely. Fix: Use explicit foreign key tags like `gorm:"foreignKey:ServiceID;references:ID"` which work with garble obfuscation because the relationship is fully specified without relying on reflection.
+- **Enterprise Security Stack** (Jan 2026): Implemented comprehensive security protection:
+  - **Encrypted Backups**: All backups use AES-256-GCM encryption with license-derived key. Customers cannot read backup files without the encryption key.
+  - **Database Encryption**: Sensitive fields encrypted with license server key. Key fetched on startup and cached 24h.
+  - **Anti-Debug Protection**: Detects debuggers (gdb, lldb, strace, etc.) and terminates if found.
+  - **Anti-Tamper**: Binary integrity checks detect modifications.
+  - **License-Bound Encryption**: Encryption key provided by license server - different key per customer.
+  - Files: `internal/security/encryption.go`, `internal/security/antidebug.go`, `internal/security/antitamper.go`
+- **Token-Based Backup Download** (Jan 2026): Fixed "Missing authorization header" error when downloading backups from browser. The browser's `window.open()` doesn't include auth headers, so implemented a token-based system:
+  - Frontend requests temporary download token via `GET /api/backups/:filename/token` (authenticated)
+  - Backend returns one-time-use token valid for 5 minutes
+  - Frontend opens `GET /api/backups/public-download/:token` (no auth required)
+  - Files: `internal/handlers/backup.go` (GetDownloadToken, PublicDownload), `frontend/src/pages/Backups.jsx`, `frontend/src/services/api.js`
+- **Restart Services Button** (Jan 2026): Added "Service Management" section to Settings → License tab with buttons to restart API or all services. Allows customers to fix issues themselves without contacting support.
+  - Restart API - restarts just the API container
+  - Restart All Services - restarts API, RADIUS, and Frontend containers
+  - Uses Docker Engine API via Unix socket with CLI fallback
+  - Files: `internal/handlers/settings.go` (RestartServices), `frontend/src/pages/Settings.jsx`
+- **Critical System Routes Bypass License** (Jan 2026): Created `criticalSystem` route group that requires auth but bypasses license checks. This allows admins to restart services and revalidate license even when license is blocked/expired. Routes: `POST /api/system/restart-services`, `POST /api/license/revalidate`
 
 ## Remote Support / SSH Tunnel Setup
 

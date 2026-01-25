@@ -34,7 +34,7 @@ type Subscriber struct {
 
 	// Service & Billing
 	ServiceID       uint             `gorm:"column:service_id;not null" json:"service_id"`
-	Service         *Service         `gorm:"foreignKey:ServiceID" json:"service"`
+	Service         *Service         `gorm:"foreignKey:ServiceID;references:ID" json:"service"`
 	Status          SubscriberStatus `gorm:"column:status;default:1" json:"status"`
 	ExpiryDate      time.Time        `gorm:"column:expiry_date" json:"expiry_date"`
 	DueDate         *time.Time       `gorm:"column:due_date" json:"due_date"`
@@ -65,17 +65,17 @@ type Subscriber struct {
 	StaticIP        string  `gorm:"column:static_ip;size:50" json:"static_ip"`
 	SaveMAC         bool    `gorm:"column:save_mac;default:true" json:"save_mac"`
 	NasID           *uint   `gorm:"column:nas_id" json:"nas_id"`
-	Nas             *Nas    `gorm:"foreignKey:NasID" json:"nas,omitempty"`
+	Nas             *Nas    `gorm:"foreignKey:NasID;references:ID" json:"nas,omitempty"`
 
 	// Location
 	SwitchID        *uint   `gorm:"column:switch_id" json:"switch_id"`
-	Switch          *Switch `gorm:"foreignKey:SwitchID" json:"switch,omitempty"`
+	Switch          *Switch `gorm:"foreignKey:SwitchID;references:ID" json:"switch,omitempty"`
 	Latitude        float64 `gorm:"column:latitude;type:decimal(10,8)" json:"latitude"`
 	Longitude       float64 `gorm:"column:longitude;type:decimal(11,8)" json:"longitude"`
 
 	// Ownership
 	ResellerID      uint     `gorm:"column:reseller_id;not null;index" json:"reseller_id"`
-	Reseller        *Reseller `gorm:"foreignKey:ResellerID" json:"reseller"`
+	Reseller        *Reseller `gorm:"foreignKey:ResellerID;references:ID" json:"reseller"`
 	CollectorID     *uint    `gorm:"column:collector_id" json:"collector_id"`
 
 	// Session
@@ -100,7 +100,7 @@ type Switch struct {
 	Name      string         `gorm:"column:name;size:100;not null" json:"name"`
 	Location  string         `gorm:"column:location;size:255" json:"location"`
 	ParentID  *uint          `gorm:"column:parent_id" json:"parent_id"`
-	Parent    *Switch        `gorm:"-" json:"parent,omitempty"`
+	Parent    *Switch        `gorm:"foreignKey:ParentID;references:ID" json:"parent,omitempty"`
 	CreatedAt time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`
@@ -118,7 +118,7 @@ const (
 type SubscriberBandwidthRule struct {
 	ID            uint                        `gorm:"column:id;primaryKey" json:"id"`
 	SubscriberID  uint                        `gorm:"column:subscriber_id;not null;index" json:"subscriber_id"`
-	Subscriber    *Subscriber                 `gorm:"-" json:"-"`
+	Subscriber    *Subscriber                 `gorm:"foreignKey:SubscriberID;references:ID" json:"-"`
 	RuleType      SubscriberBandwidthRuleType `gorm:"column:rule_type;size:20;not null" json:"rule_type"`
 	Enabled       bool                        `gorm:"column:enabled;default:true" json:"enabled"`
 	DownloadSpeed int                         `gorm:"column:download_speed;default:0" json:"download_speed"`

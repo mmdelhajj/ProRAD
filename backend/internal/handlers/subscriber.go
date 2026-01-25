@@ -69,8 +69,8 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 
 	offset := (page - 1) * limit
 
-	// Build query
-	query := database.DB.Model(&models.Subscriber{}).Preload("Service").Preload("Reseller.User")
+	// Build query (no Preload - manually load relations to avoid garble/GORM issues)
+	query := database.DB.Model(&models.Subscriber{})
 
 	// Filter by reseller for non-admin users
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
@@ -131,10 +131,71 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	// Fetch subscribers
 	var subscribers []models.Subscriber
 	if err := query.Offset(offset).Limit(limit).Find(&subscribers).Error; err != nil {
+		log.Printf("ERROR: Failed to fetch subscribers: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
-			"message": "Failed to fetch subscribers",
+			"message": "Failed to fetch subscribers: " + err.Error(),
 		})
+	}
+	log.Printf("DEBUG: Fetched %d subscribers", len(subscribers))
+
+	// Manually load Service and Reseller relations (to avoid garble/GORM Preload issues)
+	if len(subscribers) > 0 {
+		// Collect unique IDs
+		serviceIDs := make(map[uint]bool)
+		resellerIDs := make(map[uint]bool)
+		for _, s := range subscribers {
+			if s.ServiceID > 0 {
+				serviceIDs[s.ServiceID] = true
+			}
+			if s.ResellerID > 0 {
+				resellerIDs[s.ResellerID] = true
+			}
+		}
+
+		// Load services
+		var services []models.Service
+		if len(serviceIDs) > 0 {
+			ids := make([]uint, 0, len(serviceIDs))
+			for id := range serviceIDs {
+				ids = append(ids, id)
+			}
+			if err := database.DB.Where("id IN ?", ids).Find(&services).Error; err != nil {
+				log.Printf("ERROR: Failed to load services: %v", err)
+			}
+		}
+		log.Printf("DEBUG: Loaded %d services", len(services))
+		serviceMap := make(map[uint]*models.Service)
+		for i := range services {
+			serviceMap[services[i].ID] = &services[i]
+		}
+
+		// Load resellers
+		var resellers []models.Reseller
+		if len(resellerIDs) > 0 {
+			ids := make([]uint, 0, len(resellerIDs))
+			for id := range resellerIDs {
+				ids = append(ids, id)
+			}
+			if err := database.DB.Where("id IN ?", ids).Find(&resellers).Error; err != nil {
+				log.Printf("ERROR: Failed to load resellers: %v", err)
+			}
+		}
+		log.Printf("DEBUG: Loaded %d resellers", len(resellers))
+		resellerMap := make(map[uint]*models.Reseller)
+		for i := range resellers {
+			resellerMap[resellers[i].ID] = &resellers[i]
+		}
+
+		// Assign to subscribers
+		for i := range subscribers {
+			if svc, ok := serviceMap[subscribers[i].ServiceID]; ok {
+				subscribers[i].Service = svc
+			}
+			if res, ok := resellerMap[subscribers[i].ResellerID]; ok {
+				subscribers[i].Reseller = res
+			}
+		}
 	}
 
 	// Calculate stats
@@ -185,11 +246,37 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 	}
 
 	var subscriber models.Subscriber
-	if err := database.DB.Preload("Service").Preload("Reseller.User").Preload("Nas").Preload("Switch").First(&subscriber, id).Error; err != nil {
+	if err := database.DB.First(&subscriber, id).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
 			"message": "Subscriber not found",
 		})
+	}
+
+	// Manually load relations (to avoid garble/GORM Preload issues)
+	if subscriber.ServiceID > 0 {
+		var service models.Service
+		if database.DB.First(&service, subscriber.ServiceID).Error == nil {
+			subscriber.Service = &service
+		}
+	}
+	if subscriber.ResellerID > 0 {
+		var reseller models.Reseller
+		if database.DB.First(&reseller, subscriber.ResellerID).Error == nil {
+			subscriber.Reseller = &reseller
+		}
+	}
+	if subscriber.NasID != nil && *subscriber.NasID > 0 {
+		var nas models.Nas
+		if database.DB.First(&nas, *subscriber.NasID).Error == nil {
+			subscriber.Nas = &nas
+		}
+	}
+	if subscriber.SwitchID != nil && *subscriber.SwitchID > 0 {
+		var sw models.Switch
+		if database.DB.First(&sw, *subscriber.SwitchID).Error == nil {
+			subscriber.Switch = &sw
+		}
 	}
 
 	// Check access permission
@@ -834,38 +921,55 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 	// Auto-disconnect user if service changed (so they reconnect with new pool IP)
 	// Reload subscriber to get updated values
 	database.DB.First(&subscriber, id)
-	if subscriber.ServiceID != oldServiceID && subscriber.IsOnline && subscriber.NasID != nil {
+	if subscriber.ServiceID != oldServiceID && subscriber.NasID != nil {
+		// Service changed - disconnect user via MikroTik API so they reconnect with new pool
 		go func(username string, nasID uint) {
 			var nas models.Nas
 			if err := database.DB.First(&nas, nasID).Error; err != nil {
-				log.Printf("ServiceChange: Failed to get NAS for disconnect: %v", err)
+				log.Printf("ServiceChange: Failed to find NAS %d for disconnect: %v", nasID, err)
 				return
 			}
 
-			// Send CoA Disconnect-Request to force reconnection with new pool
-			coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
-			if err := coaClient.DisconnectUser(username, ""); err != nil {
-				log.Printf("ServiceChange: CoA disconnect failed for %s: %v, trying MikroTik API", username, err)
+			log.Printf("ServiceChange: Service changed for %s, disconnecting from NAS %s", username, nas.IPAddress)
 
-				// Fallback: try MikroTik API to remove PPPoE session
-				client := mikrotik.NewClient(
-					fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
-					nas.APIUsername,
-					nas.APIPassword,
-				)
-				if err := client.DisconnectUser(username); err != nil {
-					log.Printf("ServiceChange: MikroTik API disconnect also failed for %s: %v", username, err)
+			// Try MikroTik API first (most reliable for PPPoE)
+			client := mikrotik.NewClient(
+				fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+				nas.APIUsername,
+				nas.APIPassword,
+			)
+			if err := client.DisconnectUser(username); err != nil {
+				log.Printf("ServiceChange: MikroTik API disconnect failed for %s: %v, trying CoA", username, err)
+
+				// Fallback: try CoA Disconnect-Request
+				coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+				if err := coaClient.DisconnectUser(username, ""); err != nil {
+					log.Printf("ServiceChange: CoA disconnect also failed for %s: %v", username, err)
 				} else {
-					log.Printf("ServiceChange: Disconnected %s via MikroTik API (service changed)", username)
+					log.Printf("ServiceChange: Disconnected %s via CoA (service changed)", username)
 				}
-				client.Close()
 			} else {
-				log.Printf("ServiceChange: Disconnected %s via CoA (service changed, will reconnect with new pool)", username)
+				log.Printf("ServiceChange: Disconnected %s via MikroTik API (service changed, will reconnect with new pool)", username)
 			}
+			client.Close()
 		}(subscriber.Username, *subscriber.NasID)
 	}
 
-	database.DB.Preload("Service").Preload("Reseller.User").First(&subscriber, id)
+	database.DB.First(&subscriber, id)
+
+	// Manually load relations
+	if subscriber.ServiceID > 0 {
+		var service models.Service
+		if database.DB.First(&service, subscriber.ServiceID).Error == nil {
+			subscriber.Service = &service
+		}
+	}
+	if subscriber.ResellerID > 0 {
+		var reseller models.Reseller
+		if database.DB.First(&reseller, subscriber.ResellerID).Error == nil {
+			subscriber.Reseller = &reseller
+		}
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -1982,7 +2086,7 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 	}
 
 	// Build query based on filters
-	query := database.DB.Model(&models.Subscriber{}).Preload("Service").Preload("Reseller.User")
+	query := database.DB.Model(&models.Subscriber{})
 
 	// Filter by reseller
 	if req.ResellerID > 0 {
@@ -2225,8 +2329,7 @@ func (h *SubscriberHandler) ListArchived(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	query := database.DB.Unscoped().Model(&models.Subscriber{}).
-		Where("deleted_at IS NOT NULL").
-		Preload("Service").Preload("Reseller.User")
+		Where("deleted_at IS NOT NULL")
 
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
 		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
@@ -2957,6 +3060,42 @@ func (h *SubscriberHandler) ChangeService(c *fiber.Ctx) error {
 		UserAgent:   c.Get("User-Agent"),
 	}
 	database.DB.Create(&auditLog)
+
+	// Auto-disconnect user so they reconnect with new service pool IP
+	// Reload subscriber to get NasID
+	database.DB.First(&subscriber, id)
+	if subscriber.NasID != nil {
+		go func(username string, nasID uint) {
+			var nas models.Nas
+			if err := database.DB.First(&nas, nasID).Error; err != nil {
+				log.Printf("ChangeService: Failed to find NAS %d for disconnect: %v", nasID, err)
+				return
+			}
+
+			log.Printf("ChangeService: Service changed for %s, disconnecting from NAS %s", username, nas.IPAddress)
+
+			// Try MikroTik API first (most reliable for PPPoE)
+			client := mikrotik.NewClient(
+				fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+				nas.APIUsername,
+				nas.APIPassword,
+			)
+			if err := client.DisconnectUser(username); err != nil {
+				log.Printf("ChangeService: MikroTik API disconnect failed for %s: %v, trying CoA", username, err)
+
+				// Fallback: try CoA Disconnect-Request
+				coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+				if err := coaClient.DisconnectUser(username, ""); err != nil {
+					log.Printf("ChangeService: CoA disconnect also failed for %s: %v", username, err)
+				} else {
+					log.Printf("ChangeService: Disconnected %s via CoA", username)
+				}
+			} else {
+				log.Printf("ChangeService: Disconnected %s via MikroTik API (will reconnect with new pool)", username)
+			}
+			client.Close()
+		}(subscriber.Username, *subscriber.NasID)
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,

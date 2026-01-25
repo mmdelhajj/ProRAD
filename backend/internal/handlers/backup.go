@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,6 +23,18 @@ import (
 	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/services"
 )
+
+// Download tokens for secure file downloads
+var (
+	downloadTokens     = make(map[string]downloadTokenInfo)
+	downloadTokenMutex sync.RWMutex
+)
+
+type downloadTokenInfo struct {
+	Filename  string
+	ExpiresAt time.Time
+	UserID    uint
+}
 
 type BackupHandler struct {
 	backupDir string
@@ -339,7 +353,7 @@ func (h *BackupHandler) decryptBackup(inputPath, outputPath string) error {
 	return nil
 }
 
-// Download downloads a backup file
+// Download downloads a backup file (authenticated)
 func (h *BackupHandler) Download(c *fiber.Ctx) error {
 	filename := c.Params("filename")
 	if filename == "" {
@@ -361,6 +375,119 @@ func (h *BackupHandler) Download(c *fiber.Ctx) error {
 	}
 
 	return c.Download(filePath, filename)
+}
+
+// GetDownloadToken generates a temporary download token
+func (h *BackupHandler) GetDownloadToken(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	filename := c.Params("filename")
+	if filename == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Filename is required",
+		})
+	}
+
+	// Sanitize filename
+	filename = filepath.Base(filename)
+	filePath := filepath.Join(h.backupDir, filename)
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Backup not found",
+		})
+	}
+
+	// Generate random token
+	tokenBytes := make([]byte, 32)
+	rand.Read(tokenBytes)
+	token := hex.EncodeToString(tokenBytes)
+
+	// Store token with 5 minute expiry
+	downloadTokenMutex.Lock()
+	downloadTokens[token] = downloadTokenInfo{
+		Filename:  filename,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
+		UserID:    user.ID,
+	}
+	downloadTokenMutex.Unlock()
+
+	// Clean up expired tokens
+	go cleanupExpiredTokens()
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"token":   token,
+		"url":     fmt.Sprintf("/api/backups/public-download/%s", token),
+	})
+}
+
+// PublicDownload downloads a backup using a temporary token (no auth required)
+func (h *BackupHandler) PublicDownload(c *fiber.Ctx) error {
+	token := c.Params("token")
+	if token == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Token is required",
+		})
+	}
+
+	// Look up token
+	downloadTokenMutex.RLock()
+	info, exists := downloadTokens[token]
+	downloadTokenMutex.RUnlock()
+
+	if !exists {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid or expired download token",
+		})
+	}
+
+	// Check expiry
+	if time.Now().After(info.ExpiresAt) {
+		downloadTokenMutex.Lock()
+		delete(downloadTokens, token)
+		downloadTokenMutex.Unlock()
+		return c.Status(fiber.StatusGone).JSON(fiber.Map{
+			"success": false,
+			"message": "Download token has expired",
+		})
+	}
+
+	// Delete token after use (one-time use)
+	downloadTokenMutex.Lock()
+	delete(downloadTokens, token)
+	downloadTokenMutex.Unlock()
+
+	// Serve the file
+	filePath := filepath.Join(h.backupDir, info.Filename)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Backup file not found",
+		})
+	}
+
+	return c.Download(filePath, info.Filename)
+}
+
+// cleanupExpiredTokens removes expired download tokens
+func cleanupExpiredTokens() {
+	downloadTokenMutex.Lock()
+	defer downloadTokenMutex.Unlock()
+
+	now := time.Now()
+	for token, info := range downloadTokens {
+		if now.After(info.ExpiresAt) {
+			delete(downloadTokens, token)
+		}
+	}
 }
 
 // Restore restores from a backup

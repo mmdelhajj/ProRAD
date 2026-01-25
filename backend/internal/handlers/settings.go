@@ -2,10 +2,15 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -609,4 +614,131 @@ func (h *SettingsHandler) ToggleRemoteSupport(c *fiber.Ctx) error {
 			"enabled": req.Enabled,
 		},
 	})
+}
+
+// RestartServices restarts the specified service containers
+func (h *SettingsHandler) RestartServices(c *fiber.Ctx) error {
+	var req struct {
+		Services []string `json:"services"` // api, radius, frontend, all
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Default to restarting API if no services specified
+	if len(req.Services) == 0 {
+		req.Services = []string{"api"}
+	}
+
+	// Map service names to container names
+	containerMap := map[string]string{
+		"api":      "proxpanel-api",
+		"radius":   "proxpanel-radius",
+		"frontend": "proxpanel-frontend",
+	}
+
+	// Handle "all" option
+	if len(req.Services) == 1 && req.Services[0] == "all" {
+		req.Services = []string{"frontend", "radius", "api"} // API last since it handles this request
+	}
+
+	results := make(map[string]string)
+	var lastErr error
+
+	for _, svc := range req.Services {
+		containerName, ok := containerMap[svc]
+		if !ok {
+			results[svc] = "unknown service"
+			continue
+		}
+
+		// Skip API restart if it's not the last item (we need to respond first)
+		if svc == "api" && len(req.Services) > 1 && req.Services[len(req.Services)-1] != "api" {
+			continue
+		}
+
+		err := restartContainerViaSocket(containerName)
+		if err != nil {
+			// Fallback to docker CLI
+			if execErr := exec.Command("docker", "restart", containerName).Run(); execErr != nil {
+				results[svc] = fmt.Sprintf("failed: %v", err)
+				lastErr = err
+			} else {
+				results[svc] = "restarted (CLI)"
+			}
+		} else {
+			results[svc] = "restarted"
+		}
+	}
+
+	// If API restart was requested, do it in background after response
+	for _, svc := range req.Services {
+		if svc == "api" {
+			go func() {
+				time.Sleep(500 * time.Millisecond) // Give time for response to be sent
+				restartContainerViaSocket("proxpanel-api")
+			}()
+			results["api"] = "restarting..."
+			break
+		}
+	}
+
+	if lastErr != nil {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"message": "Some services failed to restart",
+			"data":    results,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Services restarted successfully",
+		"data":    results,
+	})
+}
+
+// restartContainerViaSocket restarts a container using Docker Engine API via Unix socket
+func restartContainerViaSocket(containerName string) error {
+	socketPath := "/var/run/docker.sock"
+
+	// Check if socket exists
+	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
+		return fmt.Errorf("docker socket not found at %s", socketPath)
+	}
+
+	// Create HTTP client that connects via Unix socket
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	// POST /containers/{name}/restart
+	url := fmt.Sprintf("http://docker/containers/%s/restart?t=10", containerName)
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("docker API returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Successfully restarted container %s", containerName)
+	return nil
 }

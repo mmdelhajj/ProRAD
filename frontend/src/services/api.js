@@ -277,6 +277,7 @@ export const backupApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   download: (filename) => api.get(`/backups/${filename}/download`, { responseType: 'blob' }),
+  getDownloadToken: (filename) => api.get(`/backups/${filename}/token`),
   restore: (filename) => api.post(`/backups/${filename}/restore`),
   delete: (filename) => api.delete(`/backups/${filename}`),
   // Schedules
@@ -311,6 +312,7 @@ export const settingsApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   deleteLogo: () => api.delete('/settings/logo'),
+  restartServices: (services) => api.post('/system/restart-services', { services }),
 }
 
 export const cdnApi = {

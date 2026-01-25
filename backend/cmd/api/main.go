@@ -55,6 +55,18 @@ func main() {
 		log.Printf("Warning: License initialization failed: %v", err)
 	}
 
+	// Initialize database encryption with license key
+	encryptionKey := license.GetEncryptionKey()
+	if encryptionKey != "" {
+		if err := security.InitializeEncryption(encryptionKey); err != nil {
+			log.Printf("Warning: Encryption initialization failed: %v", err)
+		} else {
+			log.Println("Database encryption initialized successfully")
+		}
+	} else {
+		log.Println("Warning: No encryption key from license server - sensitive data will not be encrypted")
+	}
+
 	// Start quota sync service (syncs MikroTik bytes to database every 30 seconds)
 	quotaSyncService := services.NewQuotaSyncService(30 * time.Second)
 	quotaSyncService.Start()
@@ -145,6 +157,7 @@ func main() {
 	// Public routes
 	api.Post("/auth/login", authHandler.Login)
 	api.Get("/branding", settingsHandler.GetBranding)
+	api.Get("/backups/public-download/:token", backupHandler.PublicDownload)
 
 	// Serve uploaded files (logos, etc.)
 	app.Static("/uploads", "/app/uploads")
@@ -163,6 +176,11 @@ func main() {
 	customerProtected.Get("/tickets/:id", customerHandler.GetTicket)
 	customerProtected.Post("/tickets", customerHandler.CreateTicket)
 	customerProtected.Post("/tickets/:id/reply", customerHandler.ReplyTicket)
+
+	// Critical system routes - auth only, NO license check (for fixing license/restart issues)
+	criticalSystem := api.Group("", middleware.AuthRequired(cfg))
+	criticalSystem.Post("/system/restart-services", middleware.AdminOnly(), settingsHandler.RestartServices)
+	criticalSystem.Post("/license/revalidate", middleware.AdminOnly(), licenseHandler.RevalidateLicense)
 
 	// Protected routes - with license write access check for non-GET requests
 	protected := api.Group("", middleware.AuthRequired(cfg), license.RequireWriteAccess(), middleware.AuditLogger())
@@ -279,10 +297,9 @@ func main() {
 	// Server time (accessible to all authenticated users for clock display)
 	protected.Get("/server-time", settingsHandler.GetServerTime)
 
-	// License info (Admin only)
+	// License info (Admin only) - revalidate moved to criticalSystem group to bypass license check
 	protected.Get("/license", middleware.AdminOnly(), licenseHandler.GetLicenseInfo)
 	protected.Get("/license/status", licenseHandler.GetLicenseStatus)
-	protected.Post("/license/revalidate", middleware.AdminOnly(), licenseHandler.RevalidateLicense)
 
 	// System Update routes (Admin only)
 	systemUpdate := protected.Group("/system/update", middleware.AdminOnly())
@@ -407,6 +424,7 @@ func main() {
 	backups.Post("/", backupHandler.Create)
 	backups.Post("/upload", backupHandler.Upload)
 	backups.Get("/:filename/download", backupHandler.Download)
+	backups.Get("/:filename/token", backupHandler.GetDownloadToken)
 	backups.Post("/:filename/restore", backupHandler.Restore)
 	backups.Delete("/:filename", backupHandler.Delete)
 	// Backup schedules
@@ -548,6 +566,7 @@ func ensureRequiredPackages() {
 	}{
 		{"radclient", "freeradius-utils", "radclient (for CoA)"},
 		{"ping", "iputils-ping", "ping"},
+		{"pg_dump", "postgresql-client", "pg_dump (for backups)"},
 	}
 
 	needInstall := []string{}

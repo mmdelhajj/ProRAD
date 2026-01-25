@@ -174,8 +174,17 @@ export default function Backups() {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to run backup'),
   })
 
-  const handleDownload = (filename) => {
-    window.open(`/api/backups/${filename}/download`, '_blank')
+  const handleDownload = async (filename) => {
+    try {
+      const { data } = await backupApi.getDownloadToken(filename)
+      if (data.success && data.url) {
+        window.open(data.url, '_blank')
+      } else {
+        toast.error('Failed to get download token')
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to download backup')
+    }
   }
 
   const handleUpload = (e) => {

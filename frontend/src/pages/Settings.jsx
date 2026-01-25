@@ -879,6 +879,56 @@ export default function Settings() {
                     </div>
                   )}
 
+                  {/* Service Management Card */}
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <h4 className="font-medium text-gray-900">Service Management</h4>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-sm text-gray-600 mb-4">
+                        Restart services if you experience issues after updates or configuration changes.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              toast.loading('Restarting API service...', { id: 'restart' })
+                              await settingsApi.restartServices(['api'])
+                              toast.success('API service is restarting. Page will reload in 10 seconds.', { id: 'restart' })
+                              setTimeout(() => window.location.reload(), 10000)
+                            } catch (err) {
+                              toast.error(err.response?.data?.message || 'Failed to restart service', { id: 'restart' })
+                            }
+                          }}
+                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Restart API
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              toast.loading('Restarting all services...', { id: 'restart' })
+                              await settingsApi.restartServices(['all'])
+                              toast.success('All services are restarting. Page will reload in 15 seconds.', { id: 'restart' })
+                              setTimeout(() => window.location.reload(), 15000)
+                            } catch (err) {
+                              toast.error(err.response?.data?.message || 'Failed to restart services', { id: 'restart' })
+                            }
+                          }}
+                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Restart All Services
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* License Details */}
                   <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">

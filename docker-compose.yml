@@ -58,6 +58,9 @@ services:
       - API_PORT=8080
       - GIN_MODE=release
       - PROISP_PASSWORD_KEY=${PROISP_PASSWORD_KEY:-679e3d2269c858cf06bb7ddb3c7a1e5014f55a3eadc9dba9932bb9718d60f4f4}
+      - LICENSE_SERVER=https://license.proxpanel.com
+      - LICENSE_KEY=DEV-PROXPANEL-2026
+      - SERVER_IP=109.110.185.115
     ports:
       - "8080:8080"
     depends_on:
