@@ -221,6 +221,11 @@ docker-compose down && docker-compose up -d
   - Migration: `ALTER TABLE service_cdns ADD COLUMN IF NOT EXISTS time_based_speed_enabled BOOLEAN DEFAULT false;`
 - **Reset FUP Daily Only** (Jan 2026): Fixed Reset FUP bulk action to only reset daily quotas (fup_level, daily_quota_used, daily_download_used, daily_upload_used). Monthly counters (monthly_fup_level, monthly_quota_used, etc.) now only reset on Renew action, as intended.
   - File: `internal/handlers/subscriber.go` (BulkAction reset_fup case)
+- **Backup Scheduler Timezone Fix** (Jan 2026): Fixed backup scheduler to use configured timezone (from `system_preferences.system_timezone`) instead of server UTC time. Backups now run at the correct local time. Also calculates and sets `next_run_at` when creating/updating schedules.
+  - Files: `internal/services/backup_scheduler.go`, `internal/handlers/backup.go`
+- **Backup Schedules Schema Update** (Jan 2026): Updated `backup_schedules` table with new columns for FTP support and scheduling. Renamed old columns to match new model.
+  - Migration: Rename `schedule` to `frequency`, `retention_days` to `retention`, `last_run` to `last_run_at`, `next_run` to `next_run_at`
+  - Add columns: `day_of_week`, `day_of_month`, `time_of_day`, `storage_type`, `ftp_enabled`, `ftp_host`, `ftp_port`, `ftp_username`, `ftp_password`, `ftp_path`, `ftp_passive`, `ftp_tls`, `last_status`, `last_error`, `last_backup_file`
 
 ## Remote Support / SSH Tunnel Setup
 
