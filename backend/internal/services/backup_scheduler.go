@@ -647,7 +647,7 @@ func (s *BackupSchedulerService) EncryptFile(inputPath, outputPath string) error
 	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
 
 	// Write encrypted file with magic header
-	header := []byte("PROXPANEL_ENCRYPTED_V1\n")
+	header := []byte("PROXPANEL_ENCRYPTED_BACKUP_V1\n")
 	output := append(header, ciphertext...)
 
 	if err := os.WriteFile(outputPath, output, 0600); err != nil {
@@ -666,7 +666,7 @@ func (s *BackupSchedulerService) DecryptFile(inputPath, outputPath string) error
 	}
 
 	// Check and remove magic header
-	header := []byte("PROXPANEL_ENCRYPTED_V1\n")
+	header := []byte("PROXPANEL_ENCRYPTED_BACKUP_V1\n")
 	if len(data) < len(header) || string(data[:len(header)]) != string(header) {
 		return fmt.Errorf("invalid encrypted file format")
 	}
@@ -716,13 +716,13 @@ func IsEncrypted(filePath string) bool {
 	}
 	defer file.Close()
 
-	header := make([]byte, 23) // Length of "PROXPANEL_ENCRYPTED_V1\n"
+	header := make([]byte, 30) // Length of "PROXPANEL_ENCRYPTED_BACKUP_V1\n"
 	n, err := file.Read(header)
-	if err != nil || n < 23 {
+	if err != nil || n < 30 {
 		return false
 	}
 
-	return string(header) == "PROXPANEL_ENCRYPTED_V1\n"
+	return string(header) == "PROXPANEL_ENCRYPTED_BACKUP_V1\n"
 }
 
 // GetEncryptionKeyHash returns a hash of the encryption key for verification
