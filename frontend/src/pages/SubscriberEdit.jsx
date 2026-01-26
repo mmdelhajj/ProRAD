@@ -72,6 +72,10 @@ export default function SubscriberEdit() {
     email: '',
     phone: '',
     address: '',
+    region: '',
+    building: '',
+    nationality: '',
+    country: '',
     service_id: '',
     nas_id: '',
     reseller_id: '',
@@ -249,6 +253,10 @@ export default function SubscriberEdit() {
         email: subscriber.email || '',
         phone: subscriber.phone || '',
         address: subscriber.address || '',
+        region: subscriber.region || '',
+        building: subscriber.building || '',
+        nationality: subscriber.nationality || '',
+        country: subscriber.country || '',
         service_id: subscriber.service_id || '',
         nas_id: subscriber.nas_id || '',
         reseller_id: subscriber.reseller_id || '',
@@ -789,6 +797,190 @@ export default function SubscriberEdit() {
                     className="input"
                     rows={3}
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Region</label>
+                    <input
+                      type="text"
+                      name="region"
+                      value={formData.region}
+                      onChange={handleChange}
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Building</label>
+                    <input
+                      type="text"
+                      name="building"
+                      value={formData.building}
+                      onChange={handleChange}
+                      className="input"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Nationality</label>
+                    <select
+                      name="nationality"
+                      value={formData.nationality}
+                      onChange={handleChange}
+                      className="input"
+                    >
+                      <option value="">Select Nationality</option>
+                      <option value="Afghan">Afghan</option>
+                      <option value="Albanian">Albanian</option>
+                      <option value="Algerian">Algerian</option>
+                      <option value="Argentine">Argentine</option>
+                      <option value="Australian">Australian</option>
+                      <option value="Austrian">Austrian</option>
+                      <option value="Bahraini">Bahraini</option>
+                      <option value="Bangladeshi">Bangladeshi</option>
+                      <option value="Belgian">Belgian</option>
+                      <option value="Brazilian">Brazilian</option>
+                      <option value="Canadian">Canadian</option>
+                      <option value="Chinese">Chinese</option>
+                      <option value="Colombian">Colombian</option>
+                      <option value="Czech">Czech</option>
+                      <option value="Danish">Danish</option>
+                      <option value="Egyptian">Egyptian</option>
+                      <option value="Finnish">Finnish</option>
+                      <option value="French">French</option>
+                      <option value="German">German</option>
+                      <option value="Greek">Greek</option>
+                      <option value="Hong Konger">Hong Konger</option>
+                      <option value="Hungarian">Hungarian</option>
+                      <option value="Indian">Indian</option>
+                      <option value="Indonesian">Indonesian</option>
+                      <option value="Iranian">Iranian</option>
+                      <option value="Iraqi">Iraqi</option>
+                      <option value="Irish">Irish</option>
+                      <option value="Israeli">Israeli</option>
+                      <option value="Italian">Italian</option>
+                      <option value="Japanese">Japanese</option>
+                      <option value="Jordanian">Jordanian</option>
+                      <option value="Kuwaiti">Kuwaiti</option>
+                      <option value="Lebanese">Lebanese</option>
+                      <option value="Libyan">Libyan</option>
+                      <option value="Malaysian">Malaysian</option>
+                      <option value="Mexican">Mexican</option>
+                      <option value="Moroccan">Moroccan</option>
+                      <option value="Dutch">Dutch</option>
+                      <option value="New Zealander">New Zealander</option>
+                      <option value="Nigerian">Nigerian</option>
+                      <option value="Norwegian">Norwegian</option>
+                      <option value="Omani">Omani</option>
+                      <option value="Pakistani">Pakistani</option>
+                      <option value="Palestinian">Palestinian</option>
+                      <option value="Filipino">Filipino</option>
+                      <option value="Polish">Polish</option>
+                      <option value="Portuguese">Portuguese</option>
+                      <option value="Qatari">Qatari</option>
+                      <option value="Romanian">Romanian</option>
+                      <option value="Russian">Russian</option>
+                      <option value="Saudi">Saudi</option>
+                      <option value="Singaporean">Singaporean</option>
+                      <option value="South African">South African</option>
+                      <option value="South Korean">South Korean</option>
+                      <option value="Spanish">Spanish</option>
+                      <option value="Sudanese">Sudanese</option>
+                      <option value="Swedish">Swedish</option>
+                      <option value="Swiss">Swiss</option>
+                      <option value="Syrian">Syrian</option>
+                      <option value="Taiwanese">Taiwanese</option>
+                      <option value="Thai">Thai</option>
+                      <option value="Tunisian">Tunisian</option>
+                      <option value="Turkish">Turkish</option>
+                      <option value="Ukrainian">Ukrainian</option>
+                      <option value="Emirati">Emirati</option>
+                      <option value="British">British</option>
+                      <option value="American">American</option>
+                      <option value="Vietnamese">Vietnamese</option>
+                      <option value="Yemeni">Yemeni</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Country</label>
+                    <select
+                      name="country"
+                      value={formData.country}
+                      onChange={handleChange}
+                      className="input"
+                    >
+                      <option value="">Select Country</option>
+                      <option value="Afghanistan">Afghanistan</option>
+                      <option value="Albania">Albania</option>
+                      <option value="Algeria">Algeria</option>
+                      <option value="Argentina">Argentina</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Austria">Austria</option>
+                      <option value="Bahrain">Bahrain</option>
+                      <option value="Bangladesh">Bangladesh</option>
+                      <option value="Belgium">Belgium</option>
+                      <option value="Brazil">Brazil</option>
+                      <option value="Canada">Canada</option>
+                      <option value="China">China</option>
+                      <option value="Colombia">Colombia</option>
+                      <option value="Czech Republic">Czech Republic</option>
+                      <option value="Denmark">Denmark</option>
+                      <option value="Egypt">Egypt</option>
+                      <option value="Finland">Finland</option>
+                      <option value="France">France</option>
+                      <option value="Germany">Germany</option>
+                      <option value="Greece">Greece</option>
+                      <option value="Hong Kong">Hong Kong</option>
+                      <option value="Hungary">Hungary</option>
+                      <option value="India">India</option>
+                      <option value="Indonesia">Indonesia</option>
+                      <option value="Iran">Iran</option>
+                      <option value="Iraq">Iraq</option>
+                      <option value="Ireland">Ireland</option>
+                      <option value="Israel">Israel</option>
+                      <option value="Italy">Italy</option>
+                      <option value="Japan">Japan</option>
+                      <option value="Jordan">Jordan</option>
+                      <option value="Kuwait">Kuwait</option>
+                      <option value="Lebanon">Lebanon</option>
+                      <option value="Libya">Libya</option>
+                      <option value="Malaysia">Malaysia</option>
+                      <option value="Mexico">Mexico</option>
+                      <option value="Morocco">Morocco</option>
+                      <option value="Netherlands">Netherlands</option>
+                      <option value="New Zealand">New Zealand</option>
+                      <option value="Nigeria">Nigeria</option>
+                      <option value="Norway">Norway</option>
+                      <option value="Oman">Oman</option>
+                      <option value="Pakistan">Pakistan</option>
+                      <option value="Palestine">Palestine</option>
+                      <option value="Philippines">Philippines</option>
+                      <option value="Poland">Poland</option>
+                      <option value="Portugal">Portugal</option>
+                      <option value="Qatar">Qatar</option>
+                      <option value="Romania">Romania</option>
+                      <option value="Russia">Russia</option>
+                      <option value="Saudi Arabia">Saudi Arabia</option>
+                      <option value="Singapore">Singapore</option>
+                      <option value="South Africa">South Africa</option>
+                      <option value="South Korea">South Korea</option>
+                      <option value="Spain">Spain</option>
+                      <option value="Sudan">Sudan</option>
+                      <option value="Sweden">Sweden</option>
+                      <option value="Switzerland">Switzerland</option>
+                      <option value="Syria">Syria</option>
+                      <option value="Taiwan">Taiwan</option>
+                      <option value="Thailand">Thailand</option>
+                      <option value="Tunisia">Tunisia</option>
+                      <option value="Turkey">Turkey</option>
+                      <option value="Ukraine">Ukraine</option>
+                      <option value="United Arab Emirates">United Arab Emirates</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="United States">United States</option>
+                      <option value="Vietnam">Vietnam</option>
+                      <option value="Yemen">Yemen</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>

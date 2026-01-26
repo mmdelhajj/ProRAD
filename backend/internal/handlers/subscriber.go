@@ -454,6 +454,7 @@ type CreateSubscriberRequest struct {
 	Region               string  `json:"region"`
 	Building             string  `json:"building"`
 	Nationality          string  `json:"nationality"`
+	Country              string  `json:"country"`
 	Note                 string  `json:"note"`
 	ServiceID            uint    `json:"service_id"`
 	ExpiryDays           int     `json:"expiry_days"`
@@ -611,6 +612,7 @@ func (h *SubscriberHandler) Create(c *fiber.Ctx) error {
 		Region:               req.Region,
 		Building:             req.Building,
 		Nationality:          req.Nationality,
+		Country:              req.Country,
 		Note:                 req.Note,
 		ServiceID:            req.ServiceID,
 		Status:               models.SubscriberStatusActive,
@@ -782,7 +784,7 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 	// Update allowed fields (username and mac_address are NOT allowed to be changed after creation)
 	allowedFields := []string{
 		"full_name", "email", "phone", "address", "region", "building",
-		"nationality", "note", "service_id", "switch_id", "nas_id",
+		"nationality", "country", "note", "service_id", "switch_id", "nas_id",
 		"latitude", "longitude", "save_mac", "auto_recharge", "auto_recharge_days",
 		"status", "static_ip", "simultaneous_sessions", "expiry_date",
 		"auto_renew", "reseller_id",

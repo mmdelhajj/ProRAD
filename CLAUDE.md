@@ -241,6 +241,13 @@ docker-compose down && docker-compose up -d
 - **v1.0.75 Released** (Jan 2026): Built and published v1.0.75 with subscriber Usage tab fix.
 - **Service Time-Based Speed Toggle Fix** (Jan 2026): Fixed Time-Based Speed Control toggle not saving. The `time_based_speed_enabled` field was missing from the service handler's request struct and allowed fields list.
   - File: `internal/handlers/service.go` (CreateServiceRequest struct, allowedFields list, Create handler)
+- **Subscriber Customer Info Fields** (Jan 2026): Added comprehensive customer info fields to subscriber edit page:
+  - Region (text input)
+  - Building (text input)
+  - Nationality (dropdown with 70+ nationalities)
+  - Country (dropdown with 70+ countries)
+  - Files: `internal/models/subscriber.go`, `internal/handlers/subscriber.go`, `frontend/src/pages/SubscriberEdit.jsx`
+  - Migration: `ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS country VARCHAR(100);`
 
 ## Remote Support / SSH Tunnel Setup
 

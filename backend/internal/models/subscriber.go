@@ -30,6 +30,7 @@ type Subscriber struct {
 	Region          string           `gorm:"column:region;size:100" json:"region"`
 	Building        string           `gorm:"column:building;size:100" json:"building"`
 	Nationality     string           `gorm:"column:nationality;size:100" json:"nationality"`
+	Country         string           `gorm:"column:country;size:100" json:"country"`
 	Note            string           `gorm:"column:note;type:text" json:"note"`
 
 	// Service & Billing
