@@ -3197,10 +3197,11 @@ func (c *Client) Ping(ip string, count int) (*PingResult, error) {
 	// Set timeout for ping operation
 	c.conn.SetDeadline(time.Now().Add(time.Duration(count*2+5) * time.Second))
 
-	// Run ping command via MikroTik API
+	// Run ping command via MikroTik API with fast interval
 	c.sendWord("/ping")
 	c.sendWord("=address=" + ip)
 	c.sendWord("=count=" + strconv.Itoa(count))
+	c.sendWord("=interval=200ms")
 	c.sendWord("")
 
 	// Read ping responses
@@ -3227,9 +3228,40 @@ func (c *Client) Ping(ip string, count int) (*PingResult, error) {
 
 				if strings.HasPrefix(attr, "=time=") {
 					// Got a reply - parse RTT
+					// MikroTik formats: "301us", "94ms514us", "1s200ms", "5ms"
 					timeStr := strings.TrimPrefix(attr, "=time=")
-					timeStr = strings.TrimSuffix(timeStr, "ms")
-					if rtt, err := strconv.ParseFloat(timeStr, 64); err == nil {
+					var rtt float64
+
+					// Check for combined format like "94ms514us"
+					if strings.Contains(timeStr, "ms") && strings.Contains(timeStr, "us") {
+						// Format: NNmsNNNus
+						parts := strings.Split(timeStr, "ms")
+						if len(parts) == 2 {
+							ms, _ := strconv.ParseFloat(parts[0], 64)
+							usStr := strings.TrimSuffix(parts[1], "us")
+							us, _ := strconv.ParseFloat(usStr, 64)
+							rtt = ms + us/1000.0
+						}
+					} else if strings.HasSuffix(timeStr, "us") {
+						// Microseconds only - convert to milliseconds
+						timeStr = strings.TrimSuffix(timeStr, "us")
+						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
+							rtt = val / 1000.0
+						}
+					} else if strings.HasSuffix(timeStr, "ms") {
+						// Milliseconds only
+						timeStr = strings.TrimSuffix(timeStr, "ms")
+						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
+							rtt = val
+						}
+					} else if strings.HasSuffix(timeStr, "s") {
+						// Seconds - convert to milliseconds
+						timeStr = strings.TrimSuffix(timeStr, "s")
+						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
+							rtt = val * 1000.0
+						}
+					}
+					if rtt > 0 {
 						rtts = append(rtts, rtt)
 						received++
 					}
