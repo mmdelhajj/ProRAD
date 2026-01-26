@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Subscribers from './pages/Subscribers'
 import SubscriberEdit from './pages/SubscriberEdit'
+import SubscriberImport from './pages/SubscriberImport'
 import Services from './pages/Services'
 import Nas from './pages/Nas'
 import Resellers from './pages/Resellers'
@@ -61,6 +62,7 @@ function App() {
                 <Route path="/subscribers" element={<Subscribers />} />
                 <Route path="/subscribers/new" element={<SubscriberEdit />} />
                 <Route path="/subscribers/:id" element={<SubscriberEdit />} />
+                <Route path="/subscribers/import" element={<SubscriberImport />} />
                 <Route path="/services" element={<Services />} />
                 <Route path="/nas" element={<Nas />} />
                 <Route path="/resellers" element={<Resellers />} />

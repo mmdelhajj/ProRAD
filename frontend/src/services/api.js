@@ -192,6 +192,7 @@ export const subscriberApi = {
   bulkImport: (formData) => api.post('/subscribers/bulk-import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
+  importExcel: (data) => api.post('/subscribers/import-excel', data),
   bulkUpdate: (data) => api.post('/subscribers/bulk-update', data),
   bulkAction: (data) => api.post('/subscribers/bulk-action', data),
   // Bandwidth rules

@@ -4162,3 +4162,293 @@ func (h *SubscriberHandler) DeleteBandwidthRule(c *fiber.Ctx) error {
 		"message": "Bandwidth rule deleted",
 	})
 }
+
+// BulkImportExcelItem represents a single subscriber in Excel bulk import
+type BulkImportExcelItem struct {
+	Username    string `json:"username"`
+	FullName    string `json:"full_name"`
+	Password    string `json:"password"`
+	Service     string `json:"service"`
+	Expiry      string `json:"expiry"`
+	Phone       string `json:"phone"`
+	Address     string `json:"address"`
+	Region      string `json:"region"`
+	Building    string `json:"building"`
+	Nationality string `json:"nationality"`
+	Country     string `json:"country"`
+	MACAddress  string `json:"mac_address"`
+	Note        string `json:"note"`
+	Reseller    string `json:"reseller"`
+	Blocked     string `json:"blocked"`
+}
+
+// BulkImportExcelRequest represents the request for Excel bulk import
+type BulkImportExcelRequest struct {
+	Data  []BulkImportExcelItem `json:"data"`
+	NasID uint                  `json:"nas_id"`
+}
+
+// BulkImportExcelResult represents result for each row in Excel import
+type BulkImportExcelResult struct {
+	Row      int    `json:"row"`
+	Username string `json:"username"`
+	Status   string `json:"status"`
+	Message  string `json:"message"`
+}
+
+// BulkImportExcel imports multiple subscribers from Excel data (parsed by frontend)
+func (h *SubscriberHandler) BulkImportExcel(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Unauthorized",
+		})
+	}
+
+	// Only admin can bulk import
+	if user.UserType != models.UserTypeAdmin {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"message": "Only admin can bulk import",
+		})
+	}
+
+	var req BulkImportExcelRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	if len(req.Data) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "No data to import",
+		})
+	}
+
+	// Check license limit
+	var currentCount int64
+	database.DB.Model(&models.Subscriber{}).Count(&currentCount)
+	canAdd, _, maxAllowed, err := license.CanAddSubscriber(int(currentCount))
+	if err != nil || !canAdd {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"message": fmt.Sprintf("Cannot add subscribers. License limit is %d, current count is %d", maxAllowed, currentCount),
+		})
+	}
+	// Check if we can add all the requested subscribers
+	if int(currentCount)+len(req.Data) > maxAllowed {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"message": fmt.Sprintf("Cannot add %d subscribers. License limit is %d, current count is %d", len(req.Data), maxAllowed, currentCount),
+		})
+	}
+
+	// Cache services and resellers for lookup
+	var services []models.Service
+	database.DB.Find(&services)
+	serviceMap := make(map[string]models.Service)
+	for _, s := range services {
+		serviceMap[strings.ToLower(s.Name)] = s
+	}
+
+	var resellers []models.Reseller
+	database.DB.Find(&resellers)
+	resellerMap := make(map[string]uint)
+	for _, r := range resellers {
+		resellerMap[strings.ToLower(r.Name)] = r.ID
+	}
+
+	results := make([]BulkImportExcelResult, 0, len(req.Data))
+	successCount := 0
+	failCount := 0
+
+	for i, item := range req.Data {
+		rowNum := i + 3 // Row 1 is header, Row 2 is description, data starts at Row 3
+		result := BulkImportExcelResult{
+			Row:      rowNum,
+			Username: item.Username,
+		}
+
+		// Validate required fields
+		if item.Username == "" {
+			result.Status = "failed"
+			result.Message = "Username is required"
+			results = append(results, result)
+			failCount++
+			continue
+		}
+
+		if item.Password == "" {
+			result.Status = "failed"
+			result.Message = "Password is required"
+			results = append(results, result)
+			failCount++
+			continue
+		}
+
+		if item.Service == "" {
+			result.Status = "failed"
+			result.Message = "Service is required"
+			results = append(results, result)
+			failCount++
+			continue
+		}
+
+		// Find service
+		service, ok := serviceMap[strings.ToLower(item.Service)]
+		if !ok {
+			result.Status = "failed"
+			result.Message = fmt.Sprintf("Service '%s' not found", item.Service)
+			results = append(results, result)
+			failCount++
+			continue
+		}
+
+		// Check if username exists
+		var existingCount int64
+		database.DB.Model(&models.Subscriber{}).Where("username = ?", item.Username).Count(&existingCount)
+		if existingCount > 0 {
+			result.Status = "failed"
+			result.Message = "Username already exists"
+			results = append(results, result)
+			failCount++
+			continue
+		}
+
+		// Parse expiry date
+		var expiryDate time.Time
+		if item.Expiry != "" {
+			parsed, err := time.Parse("2006-01-02", item.Expiry)
+			if err != nil {
+				// Try other formats
+				parsed, err = time.Parse("02/01/2006", item.Expiry)
+				if err != nil {
+					parsed, err = time.Parse("01/02/2006", item.Expiry)
+					if err != nil {
+						result.Status = "failed"
+						result.Message = fmt.Sprintf("Invalid expiry date format: %s", item.Expiry)
+						results = append(results, result)
+						failCount++
+						continue
+					}
+				}
+			}
+			expiryDate = parsed
+		} else {
+			// Default to 30 days from now
+			expiryDate = time.Now().AddDate(0, 0, 30)
+		}
+
+		// Find reseller
+		var resellerID uint = 0
+		if item.Reseller != "" {
+			if rid, ok := resellerMap[strings.ToLower(item.Reseller)]; ok {
+				resellerID = rid
+			}
+		}
+
+		// Determine status
+		status := models.SubscriberStatusActive
+		if item.Blocked == "1" || strings.ToLower(item.Blocked) == "true" || strings.ToLower(item.Blocked) == "yes" {
+			status = models.SubscriberStatusStopped
+		}
+
+		// Encrypt password
+		encryptedPassword := security.EncryptPassword(item.Password)
+
+		// Create subscriber
+		subscriber := models.Subscriber{
+			Username:      item.Username,
+			Password:      item.Password, // Plain for RADIUS PAP
+			PasswordPlain: encryptedPassword,
+			FullName:      item.FullName,
+			Email:         "",
+			Phone:         item.Phone,
+			Address:       item.Address,
+			Region:        item.Region,
+			Building:      item.Building,
+			Nationality:   item.Nationality,
+			Country:       item.Country,
+			Note:          item.Note,
+			ServiceID:     service.ID,
+			Status:        status,
+			ExpiryDate:    expiryDate,
+			Price:         service.Price,
+			ResellerID:    resellerID,
+			MACAddress:    strings.ToUpper(item.MACAddress),
+			SaveMAC:       item.MACAddress != "",
+			NasID:         &req.NasID,
+		}
+
+		if err := database.DB.Create(&subscriber).Error; err != nil {
+			result.Status = "failed"
+			result.Message = fmt.Sprintf("Database error: %v", err)
+			results = append(results, result)
+			failCount++
+			continue
+		}
+
+		// Create RADIUS check attributes
+		radCheck := []models.RadCheck{
+			{Username: subscriber.Username, Attribute: "Cleartext-Password", Op: ":=", Value: item.Password},
+			{Username: subscriber.Username, Attribute: "Expiration", Op: ":=", Value: expiryDate.Format("Jan 02 2006 15:04:05")},
+			{Username: subscriber.Username, Attribute: "Simultaneous-Use", Op: ":=", Value: "1"},
+		}
+		database.DB.Create(&radCheck)
+
+		// Create RADIUS reply attributes
+		var radReply []models.RadReply
+		uploadSpeed := service.UploadSpeedStr
+		downloadSpeed := service.DownloadSpeedStr
+		if uploadSpeed == "" && service.UploadSpeed > 0 {
+			uploadSpeed = fmt.Sprintf("%dM", service.UploadSpeed)
+		}
+		if downloadSpeed == "" && service.DownloadSpeed > 0 {
+			downloadSpeed = fmt.Sprintf("%dM", service.DownloadSpeed)
+		}
+		if uploadSpeed != "" || downloadSpeed != "" {
+			rateLimit := fmt.Sprintf("%s/%s", uploadSpeed, downloadSpeed)
+			radReply = append(radReply, models.RadReply{Username: subscriber.Username, Attribute: "Mikrotik-Rate-Limit", Op: "=", Value: rateLimit})
+		}
+		if service.PoolName != "" {
+			radReply = append(radReply, models.RadReply{Username: subscriber.Username, Attribute: "Framed-Pool", Op: "=", Value: service.PoolName})
+		}
+		if len(radReply) > 0 {
+			database.DB.Create(&radReply)
+		}
+
+		result.Status = "success"
+		result.Message = "Imported successfully"
+		results = append(results, result)
+		successCount++
+	}
+
+	// Create audit log
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionCreate,
+		EntityType:  "subscriber",
+		EntityID:    0,
+		EntityName:  "Bulk Import",
+		Description: fmt.Sprintf("Bulk imported %d subscribers (%d success, %d failed)", len(req.Data), successCount, failCount),
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": fmt.Sprintf("Import completed: %d success, %d failed", successCount, failCount),
+		"data": fiber.Map{
+			"total":   len(req.Data),
+			"success": successCount,
+			"failed":  failCount,
+			"results": results,
+		},
+	})
+}

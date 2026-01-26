@@ -791,8 +791,15 @@ export default function Subscribers() {
             className="btn btn-secondary btn-sm flex items-center gap-1"
           >
             <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-            Import
+            Import CSV
           </button>
+          <Link
+            to="/subscribers/import"
+            className="btn btn-secondary btn-sm flex items-center gap-1"
+          >
+            <DocumentArrowUpIcon className="w-3.5 h-3.5" />
+            Import Excel
+          </Link>
           <button
             onClick={() => refetch()}
             className="btn btn-secondary btn-sm flex items-center gap-1"

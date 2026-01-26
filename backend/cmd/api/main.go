@@ -223,6 +223,7 @@ func main() {
 	subscribers.Get("/:id", subscriberHandler.Get)
 	subscribers.Post("/", middleware.ResellerOrAdmin(), subscriberHandler.Create)
 	subscribers.Post("/bulk-import", middleware.ResellerOrAdmin(), subscriberHandler.BulkImport)
+	subscribers.Post("/import-excel", middleware.AdminOnly(), subscriberHandler.BulkImportExcel)
 	subscribers.Post("/bulk-update", middleware.ResellerOrAdmin(), subscriberHandler.BulkUpdate)
 	subscribers.Post("/bulk-action", middleware.ResellerOrAdmin(), subscriberHandler.BulkAction)
 	subscribers.Post("/change-bulk", middleware.AdminOnly(), subscriberHandler.ChangeBulk)
