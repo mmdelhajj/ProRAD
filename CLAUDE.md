@@ -215,6 +215,12 @@ docker-compose down && docker-compose up -d
   - Handler: `internal/handlers/subscriber.go` (Ping handler updated to use MikroTik client)
 - **Ticket GORM Relations Fix** (Jan 2026): Fixed 404 error when opening tickets. The Ticket and TicketReply models had `gorm:"-"` on relations which prevented GORM Preload from loading related data. Changed to proper foreign key tags.
   - File: `internal/models/audit.go` (Ticket, TicketReply structs)
+- **Time-Based Speed Toggle** (Jan 2026): Added on/off toggle for Time-Based Speed Control on both Services and CDN (Night Boost). Added `time_based_speed_enabled` column to `services` and `service_cdns` tables. When disabled, time-based speed changes are skipped.
+  - Files: `internal/models/service.go`, `internal/models/cdn.go`, `internal/services/quota_sync.go`, `frontend/src/pages/Services.jsx`
+  - Migration: `ALTER TABLE services ADD COLUMN IF NOT EXISTS time_based_speed_enabled BOOLEAN DEFAULT false;`
+  - Migration: `ALTER TABLE service_cdns ADD COLUMN IF NOT EXISTS time_based_speed_enabled BOOLEAN DEFAULT false;`
+- **Reset FUP Daily Only** (Jan 2026): Fixed Reset FUP bulk action to only reset daily quotas (fup_level, daily_quota_used, daily_download_used, daily_upload_used). Monthly counters (monthly_fup_level, monthly_quota_used, etc.) now only reset on Renew action, as intended.
+  - File: `internal/handlers/subscriber.go` (BulkAction reset_fup case)
 
 ## Remote Support / SSH Tunnel Setup
 
