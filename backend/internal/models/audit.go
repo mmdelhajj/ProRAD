@@ -67,18 +67,18 @@ type Ticket struct {
 	// Creator (can be subscriber, reseller, or admin)
 	CreatorType   string        `gorm:"column:creator_type;size:20" json:"creator_type"` // subscriber, reseller, admin
 	SubscriberID  *uint         `gorm:"column:subscriber_id" json:"subscriber_id"`
-	Subscriber    *Subscriber   `gorm:"-" json:"subscriber,omitempty"`
+	Subscriber    *Subscriber   `gorm:"foreignKey:SubscriberID;references:ID" json:"subscriber,omitempty"`
 	ResellerID    *uint         `gorm:"column:reseller_id" json:"reseller_id"`
-	Reseller      *Reseller     `gorm:"-" json:"reseller,omitempty"`
+	Reseller      *Reseller     `gorm:"foreignKey:ResellerID;references:ID" json:"reseller,omitempty"`
 	CreatedBy     *uint         `gorm:"column:created_by" json:"created_by"`
-	CreatedByUser *User         `gorm:"-" json:"created_by_user,omitempty"`
+	CreatedByUser *User         `gorm:"foreignKey:CreatedBy;references:ID" json:"created_by_user,omitempty"`
 
 	// Assignment
 	AssignedTo   *uint         `gorm:"column:assigned_to" json:"assigned_to"`
-	AssignedUser *User         `gorm:"-" json:"assigned_user,omitempty"`
+	AssignedUser *User         `gorm:"foreignKey:AssignedTo;references:ID" json:"assigned_user,omitempty"`
 
 	// Replies
-	Replies      []TicketReply `gorm:"-" json:"replies"`
+	Replies      []TicketReply `gorm:"foreignKey:TicketID;references:ID" json:"replies"`
 
 	CreatedAt    time.Time     `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt    time.Time     `gorm:"column:updated_at" json:"updated_at"`
@@ -91,7 +91,7 @@ type TicketReply struct {
 	TicketID   uint      `gorm:"column:ticket_id;not null;index" json:"ticket_id"`
 	Message    string    `gorm:"column:message;type:text;not null" json:"message"`
 	UserID     uint      `gorm:"column:user_id" json:"user_id"`
-	User       *User     `gorm:"-" json:"user,omitempty"`
+	User       *User     `gorm:"foreignKey:UserID;references:ID" json:"user,omitempty"`
 	IsInternal bool      `gorm:"column:is_internal;default:false" json:"is_internal"` // Internal notes not visible to customer
 	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
 }
