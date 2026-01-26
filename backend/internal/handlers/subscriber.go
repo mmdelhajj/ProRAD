@@ -1809,6 +1809,8 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 		})
 	}
 
+	log.Printf("BulkAction: action=%s, ids=%v", req.Action, req.IDs)
+
 	if len(req.IDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
@@ -1998,16 +2000,18 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 
 		case "reset_fup":
 			actionName = "Bulk reset FUP"
-			database.DB.Model(&sub).Updates(map[string]interface{}{
-				"fup_level":             0,
-				"monthly_fup_level":     0,
-				"daily_quota_used":      0,
-				"monthly_quota_used":    0,
-				"daily_download_used":   0,
-				"daily_upload_used":     0,
-				"monthly_download_used": 0,
-				"monthly_upload_used":   0,
+			// Only reset DAILY FUP - monthly resets on renew
+			updateResult := database.DB.Model(&sub).Updates(map[string]interface{}{
+				"fup_level":           0,
+				"daily_quota_used":    0,
+				"daily_download_used": 0,
+				"daily_upload_used":   0,
 			})
+			if updateResult.Error != nil {
+				log.Printf("Reset FUP: DB update error for %s: %v", sub.Username, updateResult.Error)
+			} else {
+				log.Printf("Reset FUP: DB updated %d rows for %s (ID=%d)", updateResult.RowsAffected, sub.Username, sub.ID)
+			}
 			// Update RADIUS reply to reset rate limit to full speed
 			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").Delete(&models.RadReply{})
 			fullSpeedLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
@@ -2091,9 +2095,12 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 	}
 	database.DB.Create(&auditLog)
 
+	responseMessage := fmt.Sprintf("%s %d subscribers (%d failed)", actionName, success, failed)
+	log.Printf("BulkAction response: actionName=%s, message=%s", actionName, responseMessage)
+
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": fmt.Sprintf("%s %d subscribers (%d failed)", actionName, success, failed),
+		"message": responseMessage,
 		"data": fiber.Map{
 			"success": success,
 			"failed":  failed,
