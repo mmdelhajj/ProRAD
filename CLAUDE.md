@@ -226,6 +226,9 @@ docker-compose down && docker-compose up -d
 - **Backup Schedules Schema Update** (Jan 2026): Updated `backup_schedules` table with new columns for FTP support and scheduling. Renamed old columns to match new model.
   - Migration: Rename `schedule` to `frequency`, `retention_days` to `retention`, `last_run` to `last_run_at`, `next_run` to `next_run_at`
   - Add columns: `day_of_week`, `day_of_month`, `time_of_day`, `storage_type`, `ftp_enabled`, `ftp_host`, `ftp_port`, `ftp_username`, `ftp_password`, `ftp_path`, `ftp_passive`, `ftp_tls`, `last_status`, `last_error`, `last_backup_file`
+- **Backup Encryption Header Fix** (Jan 2026): Fixed "invalid encrypted backup format" error when restoring backups. The `backup_scheduler.go` used a different encryption header (`PROXPANEL_ENCRYPTED_V1\n`) than `backup.go` (`PROXPANEL_ENCRYPTED_BACKUP_V1\n`). Aligned both to use the same 30-character header.
+  - File: `internal/services/backup_scheduler.go` (EncryptFile function)
+- **v1.0.74 Released** (Jan 2026): Built and published v1.0.74 with backup scheduler timezone fix. Customers can update via Settings → License → Check for Updates.
 
 ## Remote Support / SSH Tunnel Setup
 
