@@ -210,9 +210,11 @@ docker-compose down && docker-compose up -d
   - File: `internal/mikrotik/client.go` (GetLiveTorch function - tx/rx parsing)
 - **Torch Protocol Detection Fix** (Jan 2026): Fixed torch showing "-" for protocol. Added logic to infer TCP protocol when ports are present but protocol wasn't detected. Also filters out MikroTik aggregate/summary rows that don't have valid addresses.
   - File: `internal/mikrotik/client.go` (GetLiveTorch function)
-- **MikroTik Ping Feature** (Jan 2026): Fixed ping showing 100% packet loss. The ping was running from Docker container which doesn't have routes to PPPoE client network. Now ping executes through MikroTik router using RouterOS `/ping` API command. Results are formatted in Windows-like style with RTT statistics.
+- **MikroTik Ping Feature** (Jan 2026): Fixed ping showing 100% packet loss. The ping was running from Docker container which doesn't have routes to PPPoE client network. Now ping executes through MikroTik router using RouterOS `/ping` API command. Results are formatted in Windows-like style with RTT statistics. Handles all MikroTik time formats (`301us`, `94ms514us`, `5ms`). Uses 200ms interval for fast results (~1 second).
   - Backend: `internal/mikrotik/client.go` (Ping function, PingResult struct)
   - Handler: `internal/handlers/subscriber.go` (Ping handler updated to use MikroTik client)
+- **Ticket GORM Relations Fix** (Jan 2026): Fixed 404 error when opening tickets. The Ticket and TicketReply models had `gorm:"-"` on relations which prevented GORM Preload from loading related data. Changed to proper foreign key tags.
+  - File: `internal/models/audit.go` (Ticket, TicketReply structs)
 
 ## Remote Support / SSH Tunnel Setup
 
