@@ -17,7 +17,17 @@ func NewPermissionHandler() *PermissionHandler {
 // ListGroups returns all permission groups
 func (h *PermissionHandler) ListGroups(c *fiber.Ctx) error {
 	var groups []models.PermissionGroup
-	database.DB.Preload("Permissions").Order("name").Find(&groups)
+	database.DB.Order("name").Find(&groups)
+
+	// Manually load permissions for each group (Preload doesn't work with gorm:"-")
+	for i := range groups {
+		var permissions []models.Permission
+		database.DB.Table("permissions").
+			Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+			Where("pgp.permission_group_id = ?", groups[i].ID).
+			Find(&permissions)
+		groups[i].Permissions = permissions
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -30,12 +40,20 @@ func (h *PermissionHandler) GetGroup(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	var group models.PermissionGroup
-	if err := database.DB.Preload("Permissions").First(&group, id).Error; err != nil {
+	if err := database.DB.First(&group, id).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
 			"message": "Permission group not found",
 		})
 	}
+
+	// Manually load permissions (Preload doesn't work with gorm:"-")
+	var permissions []models.Permission
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", group.ID).
+		Find(&permissions)
+	group.Permissions = permissions
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -144,14 +162,24 @@ func (h *PermissionHandler) UpdateGroup(c *fiber.Ctx) error {
 
 	database.DB.Model(&group).Updates(updates)
 
-	// Update permissions (including clearing all if empty array)
-	var permissions []models.Permission
-	if len(req.PermissionIDs) > 0 {
-		database.DB.Where("id IN ?", req.PermissionIDs).Find(&permissions)
-	}
-	database.DB.Model(&group).Association("Permissions").Replace(permissions)
+	// Update permissions using junction table (Association doesn't work with gorm:"-")
+	// First delete all existing permissions for this group
+	database.DB.Exec("DELETE FROM permission_group_permissions WHERE permission_group_id = ?", group.ID)
 
-	database.DB.Preload("Permissions").First(&group, group.ID)
+	// Then insert new permissions
+	if len(req.PermissionIDs) > 0 {
+		for _, permID := range req.PermissionIDs {
+			database.DB.Exec("INSERT INTO permission_group_permissions (permission_group_id, permission_id) VALUES (?, ?)", group.ID, permID)
+		}
+	}
+
+	// Load permissions manually for response
+	var permissions []models.Permission
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", group.ID).
+		Find(&permissions)
+	group.Permissions = permissions
 
 	return c.JSON(fiber.Map{
 		"success": true,

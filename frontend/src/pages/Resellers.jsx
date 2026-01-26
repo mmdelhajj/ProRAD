@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resellerApi, permissionApi, nasApi, serviceApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
+import api from '../services/api'
 import {
   useReactTable,
   getCoreRowModel,
@@ -178,9 +180,20 @@ export default function Resellers() {
     mutationFn: (id) => resellerApi.impersonate(id),
     onSuccess: (response) => {
       const { token, user } = response.data.data
-      // Store the token and redirect
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
+      // Manually update localStorage in Zustand's format
+      const authState = {
+        state: {
+          user: user,
+          token: token,
+          isAuthenticated: true,
+          isCustomer: false,
+          customerData: null,
+        },
+        version: 0
+      }
+      localStorage.setItem('proisp-auth', JSON.stringify(authState))
+      // Also set the API header
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
       toast.success(`Logged in as ${user.username}`)
       // Reload to apply new auth
       window.location.href = '/'

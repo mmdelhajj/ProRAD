@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { serviceApi, cdnApi, nasApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,6 +20,7 @@ import clsx from 'clsx'
 
 export default function Services() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const [showModal, setShowModal] = useState(false)
   const [editingService, setEditingService] = useState(null)
   const [formData, setFormData] = useState({
@@ -548,29 +550,33 @@ export default function Services() {
         header: 'Actions',
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
-              title="Edit"
-            >
-              <PencilIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                if (confirm('Are you sure you want to delete this service?')) {
-                  deleteMutation.mutate(row.original.id)
-                }
-              }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-              title="Delete"
-            >
-              <TrashIcon className="w-4 h-4" />
-            </button>
+            {hasPermission('services.edit') && (
+              <button
+                onClick={() => openModal(row.original)}
+                className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+                title="Edit"
+              >
+                <PencilIcon className="w-4 h-4" />
+              </button>
+            )}
+            {hasPermission('services.delete') && (
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to delete this service?')) {
+                    deleteMutation.mutate(row.original.id)
+                  }
+                }}
+                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                title="Delete"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ),
       },
     ],
-    [deleteMutation]
+    [deleteMutation, hasPermission]
   )
 
   const table = useReactTable({
@@ -586,10 +592,12 @@ export default function Services() {
           <h1 className="text-2xl font-bold text-gray-900">Services</h1>
           <p className="text-gray-500">Manage internet service plans</p>
         </div>
-        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
-          <PlusIcon className="w-4 h-4" />
-          Add Service
-        </button>
+        {hasPermission('services.create') && (
+          <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
+            <PlusIcon className="w-4 h-4" />
+            Add Service
+          </button>
+        )}
       </div>
 
       <div className="card">

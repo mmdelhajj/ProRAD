@@ -68,9 +68,17 @@ export default function SubscriberImport() {
         const ws = wb.Sheets[wsname]
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 })
 
-        // Skip header row (row 0) and description row (row 1), data starts at row 2
+        // Skip header row (row 0), auto-detect if row 1 is description or data
         const headers = data[0] || []
-        const rows = data.slice(2).filter(row => row.some(cell => cell !== undefined && cell !== ''))
+
+        // Check if row 1 looks like a description row (contains words like "required", "optional", etc.)
+        const row1 = data[1] || []
+        const row1Text = row1.join(' ').toLowerCase()
+        const isDescriptionRow = row1Text.includes('required') || row1Text.includes('optional') ||
+                                  row1Text.includes('format') || row1Text.includes('example')
+
+        const dataStartRow = isDescriptionRow ? 2 : 1
+        const rows = data.slice(dataStartRow).filter(row => row.some(cell => cell !== undefined && cell !== ''))
 
         // Map column names to indices (case-insensitive)
         const colMap = {}
@@ -91,7 +99,7 @@ export default function SubscriberImport() {
           }
 
           return {
-            row: idx + 3, // Excel row number (1-indexed, after header and description)
+            row: idx + dataStartRow + 1, // Excel row number (1-indexed)
             username: getCell(['username', 'user']),
             full_name: getCell(['fullname', 'name', 'full_name']),
             password: getCell(['password', 'pass']),

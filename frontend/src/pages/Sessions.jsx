@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sessionApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import { formatDateTime } from '../utils/timezone'
 import {
   useReactTable,
@@ -39,6 +40,7 @@ function formatDuration(seconds) {
 
 export default function Sessions() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const [search, setSearch] = useState('')
 
   const { data: sessions, isLoading, refetch } = useQuery({
@@ -156,21 +158,23 @@ export default function Sessions() {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
-          <button
-            onClick={() => {
-              if (confirm('Disconnect this session?')) {
-                disconnectMutation.mutate(row.original.id)
-              }
-            }}
-            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-            title="Disconnect"
-          >
-            <XCircleIcon className="w-5 h-5" />
-          </button>
+          hasPermission('subscribers.disconnect') ? (
+            <button
+              onClick={() => {
+                if (confirm('Disconnect this session?')) {
+                  disconnectMutation.mutate(row.original.id)
+                }
+              }}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+              title="Disconnect"
+            >
+              <XCircleIcon className="w-5 h-5" />
+            </button>
+          ) : null
         ),
       },
     ],
-    [disconnectMutation]
+    [disconnectMutation, hasPermission]
   )
 
   const table = useReactTable({

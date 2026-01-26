@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { subscriberApi, serviceApi, nasApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import { formatDate } from '../utils/timezone'
 import {
   useReactTable,
@@ -86,6 +87,7 @@ const formatBytes = (bytes) => {
 export default function Subscribers() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const fileInputRef = useRef(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(25)
@@ -786,30 +788,36 @@ export default function Subscribers() {
             <ArrowDownTrayIcon className="w-3.5 h-3.5" />
             Export
           </button>
-          <button
-            onClick={() => setShowBulkImport(true)}
-            className="btn btn-secondary btn-sm flex items-center gap-1"
-          >
-            <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-            Import CSV
-          </button>
-          <Link
-            to="/subscribers/import"
-            className="btn btn-secondary btn-sm flex items-center gap-1"
-          >
-            <DocumentArrowUpIcon className="w-3.5 h-3.5" />
-            Import Excel
-          </Link>
+          {hasPermission('subscribers.create') && (
+            <button
+              onClick={() => setShowBulkImport(true)}
+              className="btn btn-secondary btn-sm flex items-center gap-1"
+            >
+              <ArrowUpTrayIcon className="w-3.5 h-3.5" />
+              Import CSV
+            </button>
+          )}
+          {hasPermission('subscribers.create') && (
+            <Link
+              to="/subscribers/import"
+              className="btn btn-secondary btn-sm flex items-center gap-1"
+            >
+              <DocumentArrowUpIcon className="w-3.5 h-3.5" />
+              Import Excel
+            </Link>
+          )}
           <button
             onClick={() => refetch()}
             className="btn btn-secondary btn-sm flex items-center gap-1"
           >
             <ArrowPathIcon className="w-3.5 h-3.5" />
           </button>
-          <Link to="/subscribers/new" className="btn btn-primary btn-sm flex items-center gap-1">
-            <PlusIcon className="w-3.5 h-3.5" />
-            Add
-          </Link>
+          {hasPermission('subscribers.create') && (
+            <Link to="/subscribers/new" className="btn btn-primary btn-sm flex items-center gap-1">
+              <PlusIcon className="w-3.5 h-3.5" />
+              Add
+            </Link>
+          )}
         </div>
       </div>
 
@@ -1024,109 +1032,131 @@ export default function Subscribers() {
           <div className="w-px h-6 bg-gray-300 mx-1" />
 
           {/* Bulk Action Buttons - disabled when nothing selected */}
-          <button
-            onClick={() => executeBulkAction('renew')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <ClockIcon className="w-4 h-4" />
-            Renew
-          </button>
+          {hasPermission('subscribers.renew') && (
+            <button
+              onClick={() => executeBulkAction('renew')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <ClockIcon className="w-4 h-4" />
+              Renew
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('reset_fup')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-            Reset FUP
-          </button>
+          {hasPermission('subscribers.reset_fup') && (
+            <button
+              onClick={() => executeBulkAction('reset_fup')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              Reset FUP
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('enable')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <PlayIcon className="w-4 h-4" />
-            Activate
-          </button>
+          {hasPermission('subscribers.inactivate') && (
+            <button
+              onClick={() => executeBulkAction('enable')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <PlayIcon className="w-4 h-4" />
+              Activate
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('disable')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <PauseIcon className="w-4 h-4" />
-            Deactivate
-          </button>
+          {hasPermission('subscribers.inactivate') && (
+            <button
+              onClick={() => executeBulkAction('disable')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <PauseIcon className="w-4 h-4" />
+              Deactivate
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('disconnect')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <XCircleIcon className="w-4 h-4" />
-            Disconnect
-          </button>
+          {hasPermission('subscribers.disconnect') && (
+            <button
+              onClick={() => executeBulkAction('disconnect')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <XCircleIcon className="w-4 h-4" />
+              Disconnect
+            </button>
+          )}
 
           <div className="w-px h-6 bg-gray-300 mx-1" />
 
           {/* Single-select only buttons */}
-          <button
-            onClick={() => executeAction('rename')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <IdentificationIcon className="w-4 h-4" />
-            Rename
-          </button>
+          {hasPermission('subscribers.rename') && (
+            <button
+              onClick={() => executeAction('rename')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <IdentificationIcon className="w-4 h-4" />
+              Rename
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('add_days')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <CalendarDaysIcon className="w-4 h-4" />
-            Add Days
-          </button>
+          {hasPermission('subscribers.add_days') && (
+            <button
+              onClick={() => executeAction('add_days')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <CalendarDaysIcon className="w-4 h-4" />
+              Add Days
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('change_service')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <ArrowsRightLeftIcon className="w-4 h-4" />
-            Change Service
-          </button>
+          {hasPermission('subscribers.change_service') && (
+            <button
+              onClick={() => executeAction('change_service')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <ArrowsRightLeftIcon className="w-4 h-4" />
+              Change Service
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('refill')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <BanknotesIcon className="w-4 h-4" />
-            Refill
-          </button>
+          {hasPermission('subscribers.refill_quota') && (
+            <button
+              onClick={() => executeAction('refill')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <BanknotesIcon className="w-4 h-4" />
+              Refill
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('ping')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <WifiIcon className="w-4 h-4" />
-            Ping
-          </button>
+          {hasPermission('subscribers.ping') && (
+            <button
+              onClick={() => executeAction('ping')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+            >
+              <WifiIcon className="w-4 h-4" />
+              Ping
+            </button>
+          )}
 
           <div className="w-px h-6 bg-gray-300 mx-1" />
 
-          <button
-            onClick={() => executeBulkAction('delete')}
-            disabled={selectedCount === 0}
-            className="btn btn-sm flex items-center gap-1 bg-red-50 text-red-600 hover:bg-red-100 border-red-200 disabled:opacity-40"
-          >
-            <TrashIcon className="w-4 h-4" />
-            Delete
-          </button>
+          {hasPermission('subscribers.delete') && (
+            <button
+              onClick={() => executeBulkAction('delete')}
+              disabled={selectedCount === 0}
+              className="btn btn-sm flex items-center gap-1 bg-red-50 text-red-600 hover:bg-red-100 border-red-200 disabled:opacity-40"
+            >
+              <TrashIcon className="w-4 h-4" />
+              Delete
+            </button>
+          )}
 
           {/* Selection counter */}
           {selectedCount > 0 && (

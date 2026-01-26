@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { subscriberApi, serviceApi, nasApi, resellerApi, cdnApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import { formatDateTime } from '../utils/timezone'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -29,6 +30,7 @@ export default function SubscriberEdit() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const isNew = !id || id === 'new'
   const [showPassword, setShowPassword] = useState(false)
 
@@ -1181,13 +1183,15 @@ export default function SubscriberEdit() {
             <Link to="/subscribers" className="btn-secondary">
               Cancel
             </Link>
-            <button
-              type="submit"
-              disabled={saveMutation.isLoading}
-              className="btn-primary"
-            >
-              {saveMutation.isLoading ? 'Saving...' : isNew ? 'Create Subscriber' : 'Save Changes'}
-            </button>
+            {hasPermission(isNew ? 'subscribers.create' : 'subscribers.edit') && (
+              <button
+                type="submit"
+                disabled={saveMutation.isLoading}
+                className="btn-primary"
+              >
+                {saveMutation.isLoading ? 'Saving...' : isNew ? 'Create Subscriber' : 'Save Changes'}
+              </button>
+            )}
           </div>
         </form>
       )}

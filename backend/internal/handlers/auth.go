@@ -187,15 +187,13 @@ func getResellerPermissions(resellerID uint) []string {
 		return nil
 	}
 
-	var permGroup models.PermissionGroup
-	if err := database.DB.Preload("Permissions").First(&permGroup, *reseller.PermissionGroup).Error; err != nil {
-		return nil
-	}
+	// Load permissions from junction table (Preload doesn't work with gorm:"-")
+	var permissions []string
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", *reseller.PermissionGroup).
+		Pluck("name", &permissions)
 
-	permissions := make([]string, len(permGroup.Permissions))
-	for i, p := range permGroup.Permissions {
-		permissions[i] = p.Name
-	}
 	return permissions
 }
 

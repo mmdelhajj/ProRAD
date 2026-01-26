@@ -9,7 +9,6 @@ import (
 	"github.com/proisp/backend/internal/database"
 	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/models"
-	"github.com/proisp/backend/internal/security"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -65,7 +64,9 @@ func (h *ResellerHandler) List(c *fiber.Ctx) error {
 	for i := range resellers {
 		var count int64
 		database.DB.Model(&models.Subscriber{}).Where("reseller_id = ?", resellers[i].ID).Count(&count)
-		resellers[i].User.Phone = "" // Use this to pass count temporarily
+		if resellers[i].User != nil {
+			resellers[i].User.Phone = "" // Use this to pass count temporarily
+		}
 	}
 
 	return c.JSON(fiber.Map{
@@ -153,11 +154,14 @@ func (h *ResellerHandler) Create(c *fiber.Ctx) error {
 	if resellerName == "" {
 		resellerName = req.Company
 	}
+	if resellerName == "" {
+		resellerName = req.Username // Use username as last resort
+	}
 
-	if req.Username == "" || req.Password == "" || resellerName == "" {
+	if req.Username == "" || req.Password == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
-			"message": "Username, password, and name are required",
+			"message": "Username and password are required",
 		})
 	}
 
@@ -193,7 +197,7 @@ func (h *ResellerHandler) Create(c *fiber.Ctx) error {
 	user := models.User{
 		Username:      req.Username,
 		Password:      string(hashedPassword),
-		PasswordPlain: security.EncryptPassword(req.Password),
+		PasswordPlain: req.Password, // Store plain text for admin visibility
 		Email:         req.Email,
 		Phone:         req.Phone,
 		FullName:      fullName,
@@ -204,7 +208,7 @@ func (h *ResellerHandler) Create(c *fiber.Ctx) error {
 	if err := database.DB.Create(&user).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
-			"message": "Failed to create user",
+			"message": "Failed to create user: " + err.Error(),
 		})
 	}
 
@@ -244,7 +248,7 @@ func (h *ResellerHandler) Create(c *fiber.Ctx) error {
 		database.DB.Delete(&user)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
-			"message": "Failed to create reseller",
+			"message": "Failed to create reseller: " + err.Error(),
 		})
 	}
 
@@ -347,22 +351,24 @@ func (h *ResellerHandler) Update(c *fiber.Ctx) error {
 	if password, ok := req["password"].(string); ok && password != "" {
 		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		userUpdates["password"] = string(hashedPassword)
-		userUpdates["password_plain"] = security.EncryptPassword(password)
+		userUpdates["password_plain"] = password // Store plain text for admin visibility
 	}
 	// Allow username change - check if new username is unique
-	if newUsername, ok := req["username"].(string); ok && newUsername != "" && newUsername != reseller.User.Username {
-		var existingCount int64
-		database.DB.Model(&models.User{}).Where("username = ? AND id != ?", newUsername, reseller.User.ID).Count(&existingCount)
-		if existingCount > 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"success": false,
-				"message": "Username already exists",
-			})
+	if reseller.User != nil {
+		if newUsername, ok := req["username"].(string); ok && newUsername != "" && newUsername != reseller.User.Username {
+			var existingCount int64
+			database.DB.Model(&models.User{}).Where("username = ? AND id != ?", newUsername, reseller.User.ID).Count(&existingCount)
+			if existingCount > 0 {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"success": false,
+					"message": "Username already exists",
+				})
+			}
+			userUpdates["username"] = newUsername
 		}
-		userUpdates["username"] = newUsername
 	}
 	if len(userUpdates) > 0 {
-		database.DB.Model(&reseller.User).Updates(userUpdates)
+		database.DB.Model(&models.User{}).Where("id = ?", reseller.UserID).Updates(userUpdates)
 	}
 
 	// Create audit log
@@ -689,7 +695,7 @@ func (h *ResellerHandler) Impersonate(c *fiber.Ctx) error {
 	}
 
 	// Generate token for the reseller's user
-	token, err := middleware.GenerateToken(&reseller.User, h.cfg)
+	token, err := middleware.GenerateToken(reseller.User, h.cfg)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -697,7 +703,20 @@ func (h *ResellerHandler) Impersonate(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get permissions for reseller from junction table
+	var permissions []string
+	if reseller.PermissionGroup != nil {
+		database.DB.Table("permissions").
+			Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+			Where("pgp.permission_group_id = ?", *reseller.PermissionGroup).
+			Pluck("name", &permissions)
+	}
+
 	// Create audit log
+	resellerUsername := reseller.Name
+	if reseller.User != nil {
+		resellerUsername = reseller.User.Username
+	}
 	auditLog := models.AuditLog{
 		UserID:      currentUser.ID,
 		Username:    currentUser.Username,
@@ -706,17 +725,42 @@ func (h *ResellerHandler) Impersonate(c *fiber.Ctx) error {
 		EntityType:  "reseller",
 		EntityID:    reseller.ID,
 		EntityName:  reseller.Name,
-		Description: fmt.Sprintf("Admin impersonated reseller %s", reseller.User.Username),
+		Description: fmt.Sprintf("Admin impersonated reseller %s", resellerUsername),
 		IPAddress:   c.IP(),
 	}
 	database.DB.Create(&auditLog)
+
+	// Convert user_type to string for frontend
+	userTypeStr := "reseller"
+	switch reseller.User.UserType {
+	case models.UserTypeAdmin:
+		userTypeStr = "admin"
+	case models.UserTypeSupport:
+		userTypeStr = "support"
+	case models.UserTypeSubscriber:
+		userTypeStr = "subscriber"
+	}
+
+	// Build user response with permissions
+	userResponse := fiber.Map{
+		"id":                    reseller.User.ID,
+		"username":              reseller.User.Username,
+		"email":                 reseller.User.Email,
+		"phone":                 reseller.User.Phone,
+		"full_name":             reseller.User.FullName,
+		"user_type":             userTypeStr,
+		"is_active":             reseller.User.IsActive,
+		"reseller_id":           reseller.ID,
+		"permissions":           permissions,
+		"force_password_change": reseller.User.ForcePasswordChange,
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Impersonation successful",
 		"data": fiber.Map{
 			"token":    token,
-			"user":     reseller.User,
+			"user":     userResponse,
 			"reseller": reseller,
 		},
 	})

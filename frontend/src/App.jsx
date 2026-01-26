@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import Layout from './components/Layout'
@@ -32,7 +33,14 @@ import ChangePassword from './pages/ChangePassword'
 
 // Admin/Reseller private route - redirects customers to portal
 function PrivateRoute({ children }) {
-  const { isAuthenticated, isCustomer } = useAuthStore()
+  const { isAuthenticated, isCustomer, refreshUser } = useAuthStore()
+
+  // Refresh user data (including permissions) on mount
+  useEffect(() => {
+    if (isAuthenticated && !isCustomer) {
+      refreshUser()
+    }
+  }, [isAuthenticated, isCustomer, refreshUser])
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
@@ -44,6 +52,35 @@ function PrivateRoute({ children }) {
   }
 
   return children
+}
+
+// Permission-protected route - checks if user has required permission
+function PermissionRoute({ children, permission, adminOnly = false }) {
+  const { hasPermission, isAdmin } = useAuthStore()
+
+  // Admin-only routes
+  if (adminOnly && !isAdmin()) {
+    return <AccessDenied />
+  }
+
+  // Permission-protected routes
+  if (permission && !hasPermission(permission)) {
+    return <AccessDenied />
+  }
+
+  return children
+}
+
+// Access Denied component
+function AccessDenied() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+      <div className="text-6xl mb-4">🚫</div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+      <p className="text-gray-600 mb-4">You don't have permission to access this page.</p>
+      <a href="/" className="btn btn-primary">Go to Dashboard</a>
+    </div>
+  )
 }
 
 function App() {
@@ -59,31 +96,31 @@ function App() {
             <Layout>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/subscribers" element={<Subscribers />} />
-                <Route path="/subscribers/new" element={<SubscriberEdit />} />
-                <Route path="/subscribers/:id" element={<SubscriberEdit />} />
-                <Route path="/subscribers/import" element={<SubscriberImport />} />
-                <Route path="/services" element={<Services />} />
-                <Route path="/nas" element={<Nas />} />
-                <Route path="/resellers" element={<Resellers />} />
-                <Route path="/sessions" element={<Sessions />} />
-                <Route path="/transactions" element={<Transactions />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/invoices" element={<Invoices />} />
-                <Route path="/prepaid" element={<Prepaid />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/audit" element={<AuditLogs />} />
-                <Route path="/communication" element={<CommunicationRules />} />
-                <Route path="/bandwidth" element={<BandwidthRules />} />
-                <Route path="/fup" element={<FUPCounters />} />
-                <Route path="/tickets" element={<Tickets />} />
-                <Route path="/backups" element={<Backups />} />
-                <Route path="/permissions" element={<Permissions />} />
-                <Route path="/change-bulk" element={<ChangeBulk />} />
-                <Route path="/sharing" element={<SharingDetection />} />
-                <Route path="/cdn" element={<CDNList />} />
-                <Route path="/cdn-bandwidth-rules" element={<CDNBandwidthRules />} />
+                <Route path="/subscribers" element={<PermissionRoute permission="subscribers.view"><Subscribers /></PermissionRoute>} />
+                <Route path="/subscribers/new" element={<PermissionRoute permission="subscribers.create"><SubscriberEdit /></PermissionRoute>} />
+                <Route path="/subscribers/:id" element={<PermissionRoute permission="subscribers.view"><SubscriberEdit /></PermissionRoute>} />
+                <Route path="/subscribers/import" element={<PermissionRoute permission="subscribers.create"><SubscriberImport /></PermissionRoute>} />
+                <Route path="/services" element={<PermissionRoute permission="services.view"><Services /></PermissionRoute>} />
+                <Route path="/nas" element={<PermissionRoute adminOnly><Nas /></PermissionRoute>} />
+                <Route path="/resellers" element={<PermissionRoute permission="resellers.view"><Resellers /></PermissionRoute>} />
+                <Route path="/sessions" element={<PermissionRoute permission="sessions.view"><Sessions /></PermissionRoute>} />
+                <Route path="/transactions" element={<PermissionRoute permission="transactions.view"><Transactions /></PermissionRoute>} />
+                <Route path="/settings" element={<PermissionRoute adminOnly><Settings /></PermissionRoute>} />
+                <Route path="/users" element={<PermissionRoute adminOnly><Users /></PermissionRoute>} />
+                <Route path="/invoices" element={<PermissionRoute permission="invoices.view"><Invoices /></PermissionRoute>} />
+                <Route path="/prepaid" element={<PermissionRoute permission="prepaid.view"><Prepaid /></PermissionRoute>} />
+                <Route path="/reports" element={<PermissionRoute permission="reports.view"><Reports /></PermissionRoute>} />
+                <Route path="/audit" element={<PermissionRoute adminOnly><AuditLogs /></PermissionRoute>} />
+                <Route path="/communication" element={<PermissionRoute adminOnly><CommunicationRules /></PermissionRoute>} />
+                <Route path="/bandwidth" element={<PermissionRoute adminOnly><BandwidthRules /></PermissionRoute>} />
+                <Route path="/fup" element={<PermissionRoute adminOnly><FUPCounters /></PermissionRoute>} />
+                <Route path="/tickets" element={<PermissionRoute permission="tickets.view"><Tickets /></PermissionRoute>} />
+                <Route path="/backups" element={<PermissionRoute adminOnly><Backups /></PermissionRoute>} />
+                <Route path="/permissions" element={<PermissionRoute adminOnly><Permissions /></PermissionRoute>} />
+                <Route path="/change-bulk" element={<PermissionRoute adminOnly><ChangeBulk /></PermissionRoute>} />
+                <Route path="/sharing" element={<PermissionRoute adminOnly><SharingDetection /></PermissionRoute>} />
+                <Route path="/cdn" element={<PermissionRoute adminOnly><CDNList /></PermissionRoute>} />
+                <Route path="/cdn-bandwidth-rules" element={<PermissionRoute adminOnly><CDNBandwidthRules /></PermissionRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>

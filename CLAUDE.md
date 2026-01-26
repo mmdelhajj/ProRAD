@@ -548,3 +548,93 @@ docker logs proxpanel-radius 2>&1 | grep "Loaded"
 1. Quota threshold crossed
 2. Update radreply with new speed
 3. Apply via: MikroTik API → CoA → Disconnect fallback
+
+## Permission System (Jan 2026)
+
+### Overview
+The system has a comprehensive permission enforcement system for resellers:
+- **Permission Groups**: Groups like "SALES" that contain a set of permissions
+- **Permissions**: Individual actions like `subscribers.view`, `subscribers.reset_fup`, etc.
+- **Resellers**: Each reseller is assigned to a permission group
+
+### How Permissions Work
+
+**Backend Enforcement** (`middleware/auth.go`):
+- `RequirePermission(permission)` middleware checks if user has specific permission
+- `RequireAnyPermission(permissions...)` checks if user has any of the permissions
+- Admins automatically have ALL permissions (bypass check)
+- Resellers with NO permission group have ALL permissions (backward compatibility)
+
+**Frontend Enforcement** (`App.jsx`):
+- `hasPermission(permission)` function checks user permissions from store
+- `PermissionRoute` component protects pages - shows "Access Denied" if no permission
+- Buttons/icons are hidden using `{hasPermission('x') && <Button />}` pattern
+
+**Permission Refresh**:
+- Permissions are refreshed on page load via `/api/auth/me` endpoint
+- No logout required when admin changes reseller's permission group
+- Just refresh the page (F5) to get updated permissions
+
+### Key Files
+- `backend/internal/middleware/auth.go` - `RequirePermission()`, `RequireAnyPermission()` middlewares
+- `backend/internal/handlers/subscriber.go` - `checkUserPermission()` helper, BulkAction permission checks
+- `backend/cmd/api/main.go` - Route definitions with permission middleware
+- `frontend/src/App.jsx` - `PermissionRoute` component, route-level protection
+- `frontend/src/store/authStore.js` - `hasPermission()`, `refreshUser()` functions
+- `frontend/src/pages/Subscribers.jsx` - Button-level permission checks example
+
+### Permission List (Common)
+| Permission | Description |
+|------------|-------------|
+| `subscribers.view` | View subscribers list |
+| `subscribers.create` | Create new subscribers |
+| `subscribers.edit` | Edit existing subscribers |
+| `subscribers.delete` | Delete subscribers |
+| `subscribers.renew` | Renew subscriber expiry |
+| `subscribers.reset_fup` | Reset FUP counters |
+| `subscribers.reset_mac` | Reset MAC binding |
+| `subscribers.disconnect` | Disconnect active session |
+| `subscribers.inactivate` | Activate/Deactivate subscribers |
+| `subscribers.change_service` | Change subscriber's service |
+| `subscribers.add_days` | Add days to expiry |
+| `subscribers.refill_quota` | Refill quota |
+| `subscribers.rename` | Rename subscriber |
+| `subscribers.ping` | Ping subscriber |
+| `subscribers.view_graph` | View bandwidth graph |
+| `services.view` | View services |
+| `services.create` | Create services |
+| `services.edit` | Edit services |
+| `services.delete` | Delete services |
+| `sessions.view` | View active sessions |
+| `resellers.view` | View resellers |
+| `transactions.view` | View transactions |
+| `invoices.view` | View invoices |
+| `prepaid.view` | View prepaid cards |
+| `reports.view` | View reports |
+| `tickets.view` | View tickets |
+
+### Admin-Only Pages
+These pages are restricted to admin users only (no permission needed, just admin role):
+- `/settings` - System settings
+- `/users` - User management
+- `/nas` - NAS/Router management
+- `/backups` - Backup management
+- `/permissions` - Permission group management
+- `/audit` - Audit logs
+- `/bandwidth` - Bandwidth rules
+- `/change-bulk` - Bulk changes
+- `/cdn` - CDN management
+- `/communication` - Communication rules
+- `/fup` - FUP counters
+- `/sharing` - Sharing detection
+
+### Reseller Impersonation Fix (Jan 2026)
+- Fixed "Login as Reseller" feature to properly apply reseller permissions
+- Issue: Impersonation was giving full admin access
+- Fix: Updated `reseller.go` Impersonate handler to return correct user_type and permissions
+- Fix: Frontend stores impersonated session in Zustand's localStorage format
+
+### Permission Group GORM Fix (Jan 2026)
+- Fixed permission groups not loading permissions in list/edit
+- Issue: Model used `gorm:"-"` which prevents Preload from working
+- Fix: Manual SQL JOIN query to load permissions from junction table `permission_group_permissions`

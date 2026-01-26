@@ -161,3 +161,108 @@ func GetCurrentResellerID(c *fiber.Ctx) *uint {
 	}
 	return resellerID
 }
+
+// RequirePermission middleware checks if user has a specific permission
+// Admins always have all permissions
+// Resellers must have the permission in their permission group
+func RequirePermission(permission string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userType := c.Locals("userType").(models.UserType)
+
+		// Admins have all permissions
+		if userType == models.UserTypeAdmin {
+			return c.Next()
+		}
+
+		// Only resellers can have permission groups
+		if userType != models.UserTypeReseller {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "Permission denied",
+			})
+		}
+
+		// Get user from context
+		user := GetCurrentUser(c)
+		if user == nil || user.ResellerID == nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "Permission denied",
+			})
+		}
+
+		// Check if reseller has the permission
+		if !hasPermission(user, permission) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "You don't have permission to perform this action",
+			})
+		}
+
+		return c.Next()
+	}
+}
+
+// hasPermission checks if a user has a specific permission
+func hasPermission(user *models.User, permission string) bool {
+	// Get reseller's permission group
+	var reseller models.Reseller
+	if err := database.DB.First(&reseller, *user.ResellerID).Error; err != nil {
+		return false
+	}
+
+	// If no permission group assigned, allow all (default behavior)
+	if reseller.PermissionGroup == nil {
+		return true
+	}
+
+	// Check if permission exists in the group
+	var count int64
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ? AND permissions.name = ?", *reseller.PermissionGroup, permission).
+		Count(&count)
+
+	return count > 0
+}
+
+// RequireAnyPermission middleware checks if user has any of the specified permissions
+func RequireAnyPermission(permissions ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userType := c.Locals("userType").(models.UserType)
+
+		// Admins have all permissions
+		if userType == models.UserTypeAdmin {
+			return c.Next()
+		}
+
+		// Only resellers can have permission groups
+		if userType != models.UserTypeReseller {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "Permission denied",
+			})
+		}
+
+		// Get user from context
+		user := GetCurrentUser(c)
+		if user == nil || user.ResellerID == nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "Permission denied",
+			})
+		}
+
+		// Check if reseller has any of the permissions
+		for _, perm := range permissions {
+			if hasPermission(user, perm) {
+				return c.Next()
+			}
+		}
+
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"message": "You don't have permission to perform this action",
+		})
+	}
+}

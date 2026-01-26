@@ -104,14 +104,14 @@ type User struct {
 type Reseller struct {
 	ID              uint           `gorm:"column:id;primaryKey" json:"id"`
 	UserID          uint           `gorm:"column:user_id;uniqueIndex;not null" json:"user_id"`
-	User            User           `gorm:"-" json:"user"`
+	User            *User          `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	Name            string         `gorm:"column:name;size:255;not null" json:"name"`
 	Balance         float64        `gorm:"column:balance;default:0;type:decimal(15,2)" json:"balance"`
 	Credit          float64        `gorm:"column:credit;default:0;type:decimal(15,2)" json:"credit"`
 	Address         string         `gorm:"column:address;size:500" json:"address"`
 	ParentID        *uint          `gorm:"column:parent_id" json:"parent_id"`
-	Parent          *Reseller      `gorm:"-" json:"parent,omitempty"`
-	Children        []Reseller     `gorm:"-" json:"children,omitempty"`
+	Parent          *Reseller      `gorm:"foreignKey:ParentID;references:ID" json:"parent,omitempty"`
+	Children        []Reseller     `gorm:"foreignKey:ParentID;references:ID" json:"children,omitempty"`
 	PermissionGroup *uint          `gorm:"column:permission_group" json:"permission_group"`
 	BandwidthRuleID *uint          `gorm:"column:bandwidth_rule_id" json:"bandwidth_rule_id"`
 	IsActive        bool           `gorm:"column:is_active;default:true" json:"is_active"`

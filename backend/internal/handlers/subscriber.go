@@ -31,6 +31,38 @@ func NewSubscriberHandler() *SubscriberHandler {
 	return &SubscriberHandler{}
 }
 
+// checkUserPermission checks if a user has a specific permission
+// Admins always have all permissions
+func checkUserPermission(user *models.User, permission string) bool {
+	if user.UserType == models.UserTypeAdmin {
+		return true
+	}
+
+	if user.ResellerID == nil {
+		return false
+	}
+
+	// Get reseller's permission group
+	var reseller models.Reseller
+	if err := database.DB.First(&reseller, *user.ResellerID).Error; err != nil {
+		return false
+	}
+
+	// If no permission group assigned, allow all (default behavior for backward compatibility)
+	if reseller.PermissionGroup == nil {
+		return true
+	}
+
+	// Check if permission exists in the group
+	var count int64
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ? AND permissions.name = ?", *reseller.PermissionGroup, permission).
+		Count(&count)
+
+	return count > 0
+}
+
 // ListRequest represents list request params
 type ListRequest struct {
 	Page     int    `query:"page"`
@@ -1809,6 +1841,30 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			"success": false,
 			"message": "Invalid request body",
 		})
+	}
+
+	// Check permission based on action type (admins bypass this check)
+	if user.UserType != models.UserTypeAdmin {
+		requiredPermission := ""
+		switch req.Action {
+		case "renew":
+			requiredPermission = "subscribers.renew"
+		case "disconnect":
+			requiredPermission = "subscribers.disconnect"
+		case "enable", "disable":
+			requiredPermission = "subscribers.inactivate"
+		case "reset_fup":
+			requiredPermission = "subscribers.reset_fup"
+		case "delete":
+			requiredPermission = "subscribers.delete"
+		}
+
+		if requiredPermission != "" && !checkUserPermission(user, requiredPermission) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "You don't have permission to perform this action",
+			})
+		}
 	}
 
 	log.Printf("BulkAction: action=%s, ids=%v", req.Action, req.IDs)
