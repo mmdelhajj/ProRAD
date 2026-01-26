@@ -3160,3 +3160,118 @@ func (c *Client) GetLiveTorch(subscriberIP string, durationSec int) (*TorchResul
 
 	return result, nil
 }
+
+// PingResult contains the result of a ping operation
+type PingResult struct {
+	Host       string  `json:"host"`
+	Sent       int     `json:"sent"`
+	Received   int     `json:"received"`
+	PacketLoss int     `json:"packet_loss"`
+	MinRTT     float64 `json:"min_rtt"`
+	AvgRTT     float64 `json:"avg_rtt"`
+	MaxRTT     float64 `json:"max_rtt"`
+	Status     string  `json:"status"`
+}
+
+// Ping executes ping command on MikroTik to reach subscriber IP
+func (c *Client) Ping(ip string, count int) (*PingResult, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
+	if count <= 0 {
+		count = 4
+	}
+	if count > 10 {
+		count = 10
+	}
+
+	result := &PingResult{
+		Host:   ip,
+		Sent:   count,
+		Status: "unknown",
+	}
+
+	// Set timeout for ping operation
+	c.conn.SetDeadline(time.Now().Add(time.Duration(count*2+5) * time.Second))
+
+	// Run ping command via MikroTik API
+	c.sendWord("/ping")
+	c.sendWord("=address=" + ip)
+	c.sendWord("=count=" + strconv.Itoa(count))
+	c.sendWord("")
+
+	// Read ping responses
+	received := 0
+	var rtts []float64
+
+	for {
+		word, err := c.readWord()
+		if err != nil {
+			break
+		}
+
+		if word == "!done" {
+			break
+		}
+
+		if word == "!re" {
+			// Read ping reply attributes
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+
+				if strings.HasPrefix(attr, "=time=") {
+					// Got a reply - parse RTT
+					timeStr := strings.TrimPrefix(attr, "=time=")
+					timeStr = strings.TrimSuffix(timeStr, "ms")
+					if rtt, err := strconv.ParseFloat(timeStr, 64); err == nil {
+						rtts = append(rtts, rtt)
+						received++
+					}
+				}
+			}
+		}
+
+		if word == "!trap" {
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+			}
+			result.Status = "error"
+			return result, fmt.Errorf("ping failed")
+		}
+	}
+
+	result.Received = received
+	if count > 0 {
+		result.PacketLoss = ((count - received) * 100) / count
+	}
+
+	if len(rtts) > 0 {
+		var sum float64
+		result.MinRTT = rtts[0]
+		result.MaxRTT = rtts[0]
+		for _, rtt := range rtts {
+			sum += rtt
+			if rtt < result.MinRTT {
+				result.MinRTT = rtt
+			}
+			if rtt > result.MaxRTT {
+				result.MaxRTT = rtt
+			}
+		}
+		result.AvgRTT = sum / float64(len(rtts))
+		result.Status = "success"
+	} else {
+		result.Status = "timeout"
+	}
+
+	return result, nil
+}

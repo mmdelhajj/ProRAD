@@ -3347,7 +3347,7 @@ func (h *SubscriberHandler) Refill(c *fiber.Ctx) error {
 	})
 }
 
-// Ping pings subscriber's IP address
+// Ping pings subscriber's IP address via MikroTik router
 func (h *SubscriberHandler) Ping(c *fiber.Ctx) error {
 	user := middleware.GetCurrentUser(c)
 	if user == nil {
@@ -3373,21 +3373,74 @@ func (h *SubscriberHandler) Ping(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "No IP address available"})
 	}
 
-	// Execute ping command
-	// Using -c 4 for 4 pings, -W 2 for 2 second timeout
-	output, err := execPing(ipAddress)
+	// Get NAS to ping through MikroTik
+	if subscriber.NasID == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "No NAS assigned to subscriber"})
+	}
 
-	pingResult := fiber.Map{
-		"ip":      ipAddress,
-		"online":  subscriber.IsOnline,
-		"output":  output,
-		"success": err == nil,
+	var nas models.Nas
+	if err := database.DB.First(&nas, *subscriber.NasID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "NAS not found"})
+	}
+
+	// Connect to MikroTik and ping
+	client := mikrotik.NewClient(
+		fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+		nas.APIUsername,
+		nas.APIPassword,
+	)
+	defer client.Close()
+
+	pingResult, err := client.Ping(ipAddress, 10)
+
+	// Format output in Windows-like style
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("\nPinging %s via %s:\n\n", ipAddress, nas.Name))
+
+	if err != nil {
+		output.WriteString(fmt.Sprintf("Ping failed: %v\n", err))
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Ping completed",
+			"data": fiber.Map{
+				"ip":      ipAddress,
+				"online":  subscriber.IsOnline,
+				"output":  output.String(),
+				"success": false,
+			},
+		})
+	}
+
+	if pingResult.Received > 0 {
+		for i := 0; i < pingResult.Received; i++ {
+			output.WriteString(fmt.Sprintf("Reply from %s: bytes=32 time=%.1fms TTL=64\n", ipAddress, pingResult.AvgRTT))
+		}
+	}
+	if pingResult.Sent > pingResult.Received {
+		for i := 0; i < pingResult.Sent-pingResult.Received; i++ {
+			output.WriteString("Request timed out.\n")
+		}
+	}
+
+	output.WriteString(fmt.Sprintf("\nPing statistics for %s:\n", ipAddress))
+	output.WriteString(fmt.Sprintf("    Packets: Sent = %d, Received = %d, Lost = %d (%d%% loss)\n",
+		pingResult.Sent, pingResult.Received, pingResult.Sent-pingResult.Received, pingResult.PacketLoss))
+
+	if pingResult.Received > 0 {
+		output.WriteString(fmt.Sprintf("Approximate round trip times in milli-seconds:\n"))
+		output.WriteString(fmt.Sprintf("    Minimum = %.1fms, Maximum = %.1fms, Average = %.1fms\n",
+			pingResult.MinRTT, pingResult.MaxRTT, pingResult.AvgRTT))
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Ping completed",
-		"data":    pingResult,
+		"data": fiber.Map{
+			"ip":      ipAddress,
+			"online":  subscriber.IsOnline,
+			"output":  output.String(),
+			"success": pingResult.Received > 0,
+		},
 	})
 }
 
