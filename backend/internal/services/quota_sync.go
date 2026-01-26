@@ -595,6 +595,10 @@ func (s *QuotaSyncService) syncSubscriberCDNQueues(client *mikrotik.Client, sub 
 
 // isCDNWithinTimeWindow checks if current time is within the CDN's time-based speed window
 func isCDNWithinTimeWindow(sc *models.ServiceCDN, now time.Time) bool {
+	// Skip if time-based speed is disabled
+	if !sc.TimeBasedSpeedEnabled {
+		return false
+	}
 	// Skip if time window not configured (all zeros means no time window)
 	if sc.TimeFromHour == 0 && sc.TimeFromMinute == 0 &&
 		sc.TimeToHour == 0 && sc.TimeToMinute == 0 {

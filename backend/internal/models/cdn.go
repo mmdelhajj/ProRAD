@@ -37,6 +37,7 @@ type ServiceCDN struct {
 	PCQTargetPools string   `gorm:"column:pcq_target_pools;size:500" json:"pcq_target_pools"`  // Comma-separated pool names or CIDRs for PCQ target
 	IsActive      bool      `gorm:"column:is_active;default:true" json:"is_active"`
 	// Time-based speed control for CDN (like night-time boost)
+	TimeBasedSpeedEnabled bool `gorm:"column:time_based_speed_enabled;default:false" json:"time_based_speed_enabled"` // on/off toggle
 	TimeFromHour   int  `gorm:"column:time_from_hour;default:0" json:"time_from_hour"`   // Start hour (0-23)
 	TimeFromMinute int  `gorm:"column:time_from_minute;default:0" json:"time_from_minute"` // Start minute (0-59)
 	TimeToHour     int  `gorm:"column:time_to_hour;default:0" json:"time_to_hour"`     // End hour (0-23)

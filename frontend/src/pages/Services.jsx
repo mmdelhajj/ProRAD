@@ -130,6 +130,7 @@ export default function Services() {
           pcq_nas_id: sc.pcq_nas_id || null,
           pcq_target_pools: sc.pcq_target_pools || '',
           is_active: sc.is_active,
+          time_based_speed_enabled: sc.time_based_speed_enabled || false,
           time_from_hour: fromHour24,
           time_from_minute: parseInt(sc.time_from_minute) || 0,
           time_to_hour: toHour24,
@@ -305,6 +306,7 @@ export default function Services() {
             pcq_nas_id: sc.pcq_nas_id || null,
             pcq_target_pools: sc.pcq_target_pools || '',
             is_active: sc.is_active ?? true,
+            time_based_speed_enabled: sc.time_based_speed_enabled || false,
             time_from_hour: fromHour24 === 0 ? 12 : (fromHour24 > 12 ? fromHour24 - 12 : fromHour24),
             time_from_minute: sc.time_from_minute || 0,
             time_from_ampm: fromHour24 >= 12 ? 'PM' : 'AM',
@@ -410,6 +412,7 @@ export default function Services() {
       pcq_nas_id: null,
       pcq_target_pools: '',
       is_active: true,
+      time_based_speed_enabled: false,
       time_from_hour: 12,
       time_from_minute: 0,
       time_from_ampm: 'AM',
@@ -1308,11 +1311,24 @@ export default function Services() {
 
                           {/* Time-Based Speed Control for CDN */}
                           <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="flex items-center gap-2 mb-2">
-                              <ClockIcon className="w-4 h-4 text-purple-500" />
-                              <span className="text-xs font-medium text-purple-700">Time-Based Speed (Night Boost)</span>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <ClockIcon className="w-4 h-4 text-purple-500" />
+                                <span className="text-xs font-medium text-purple-700">Time-Based Speed (Night Boost)</span>
+                              </div>
+                              <label className="flex items-center gap-1 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={sc.time_based_speed_enabled || false}
+                                  onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_based_speed_enabled', e.target.checked)}
+                                  className="toggle toggle-xs toggle-primary"
+                                />
+                                <span className={`text-xs ${sc.time_based_speed_enabled ? 'text-green-600' : 'text-gray-400'}`}>
+                                  {sc.time_based_speed_enabled ? 'On' : 'Off'}
+                                </span>
+                              </label>
                             </div>
-                            <div className="grid grid-cols-12 gap-2">
+                            <div className={`grid grid-cols-12 gap-2 ${!sc.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                               {/* From Time */}
                               <div className="col-span-4">
                                 <label className="label text-xs">From</label>
