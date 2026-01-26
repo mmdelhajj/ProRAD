@@ -37,6 +37,7 @@ import {
   IdentificationIcon,
   Squares2X2Icon,
   CheckIcon,
+  SignalIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -135,6 +136,12 @@ export default function Subscribers() {
   })
   const [priceCalculation, setPriceCalculation] = useState(null)
   const [calculatingPrice, setCalculatingPrice] = useState(false)
+
+  // Torch modal state
+  const [torchModal, setTorchModal] = useState(null)
+  const [torchData, setTorchData] = useState(null)
+  const [torchLoading, setTorchLoading] = useState(false)
+  const [torchAutoRefresh, setTorchAutoRefresh] = useState(true) // Auto-refresh ON by default
 
   // Fetch subscribers
   const { data, isLoading, refetch } = useQuery({
@@ -296,6 +303,39 @@ export default function Subscribers() {
       setCalculatingPrice(false)
     }
   }
+
+  // Fetch torch data for a subscriber
+  const fetchTorchData = async (subscriber) => {
+    if (!subscriber || !subscriber.is_online) return
+    setTorchLoading(true)
+    try {
+      const res = await subscriberApi.getTorch(subscriber.id, 2) // 2 seconds for faster refresh
+      if (res.data?.success) {
+        setTorchData(res.data.data)
+      } else {
+        toast.error(res.data?.message || 'Failed to get torch data')
+        setTorchData(null)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to get torch data')
+      setTorchData(null)
+    } finally {
+      setTorchLoading(false)
+    }
+  }
+
+  // Auto-refresh torch data - continuous like MikroTik Winbox
+  useEffect(() => {
+    let interval
+    if (torchModal && torchAutoRefresh && !torchLoading) {
+      interval = setInterval(() => {
+        fetchTorchData(torchModal)
+      }, 2000) // Refresh every 2 seconds for live feel
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [torchModal, torchAutoRefresh, torchLoading])
 
   const activateMutation = useMutation({
     mutationFn: (id) => subscriberApi.activate(id),
@@ -530,6 +570,20 @@ export default function Subscribers() {
               >
                 {row.original.username}
               </Link>
+              {row.original.is_online && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setTorchModal(row.original)
+                    setTorchData(null)
+                    fetchTorchData(row.original)
+                  }}
+                  className="text-green-500 hover:text-green-700"
+                  title="Live Traffic (Torch)"
+                >
+                  <SignalIcon className="w-4 h-4" />
+                </button>
+              )}
               {row.original.fup_level > 0 && (
                 <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold text-white rounded whitespace-nowrap ${
                   row.original.fup_level === 1 ? 'bg-yellow-500' :
@@ -1654,6 +1708,179 @@ export default function Subscribers() {
                   <ArrowUpTrayIcon className="w-4 h-4" />
                 )}
                 Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Torch Modal - Live Traffic */}
+      {torchModal && (
+        <div className="modal-overlay">
+          <div className="modal-content max-w-2xl">
+            <div className="modal-header">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <SignalIcon className="w-5 h-5 text-green-500" />
+                Live Traffic - {torchModal.username}
+              </h3>
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-ghost btn-sm">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                  IP: <code className="bg-gray-100 px-2 py-1 rounded">{torchModal.ip_address || 'N/A'}</code>
+                </div>
+                <div className="flex items-center gap-3">
+                  {torchAutoRefresh && (
+                    <div className="flex items-center gap-1.5 text-green-600">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                      </span>
+                      <span className="text-xs font-medium">LIVE</span>
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={torchAutoRefresh}
+                      onChange={(e) => setTorchAutoRefresh(e.target.checked)}
+                      className="rounded"
+                    />
+                    Auto-refresh
+                  </label>
+                  <button
+                    onClick={() => fetchTorchData(torchModal)}
+                    disabled={torchLoading}
+                    className="btn btn-sm btn-secondary flex items-center gap-1"
+                  >
+                    <ArrowPathIcon className={clsx('w-4 h-4', torchLoading && 'animate-spin')} />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              {torchLoading && !torchData && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                  <span className="ml-3 text-gray-500">Capturing traffic...</span>
+                </div>
+              )}
+
+              {torchData && (
+                <div>
+                  {/* Summary - like MikroTik torch header */}
+                  <div className="bg-gray-900 text-white rounded-t-lg p-3 flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                      <span className="text-gray-400">Interface:</span>
+                      <span className="font-mono text-green-400">{torchData.interface}</span>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div>
+                        <span className="text-gray-400">Download:</span>
+                        <span className="ml-2 text-green-400 font-bold">
+                          {((torchData.total_tx || 0) * 8 / 1000000).toFixed(1)} Mbps
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Upload:</span>
+                        <span className="ml-2 text-blue-400 font-bold">
+                          {((torchData.total_rx || 0) * 8 / 1000000).toFixed(1)} Mbps
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Traffic Table - MikroTik Winbox style */}
+                  {torchData.entries && torchData.entries.length > 0 ? (
+                    <div className="border border-gray-300 rounded-b-lg overflow-hidden">
+                      <div className="max-h-80 overflow-y-auto">
+                        <table className="w-full text-xs font-mono">
+                          <thead className="bg-gray-100 sticky top-0">
+                            <tr className="text-gray-600">
+                              <th className="px-2 py-1.5 text-left border-r">Proto</th>
+                              <th className="px-2 py-1.5 text-left border-r">Src. Address</th>
+                              <th className="px-2 py-1.5 text-left border-r">Dst. Address</th>
+                              <th className="px-2 py-1.5 text-right border-r">Download</th>
+                              <th className="px-2 py-1.5 text-right border-r">Upload</th>
+                              <th className="px-2 py-1.5 text-right border-r">DL Pkt</th>
+                              <th className="px-2 py-1.5 text-right">UL Pkt</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white">
+                            {torchData.entries.slice(0, 100).map((entry, idx) => (
+                              <tr key={idx} className={clsx(
+                                'border-t border-gray-100 hover:bg-blue-50',
+                                entry.tx_rate > 1000000 && 'bg-green-50',
+                                entry.tx_rate > 5000000 && 'bg-yellow-50'
+                              )}>
+                                <td className="px-2 py-1 border-r">
+                                  <span className={clsx(
+                                    'uppercase',
+                                    entry.protocol === 'tcp' && 'text-blue-600',
+                                    entry.protocol === 'udp' && 'text-purple-600',
+                                    entry.protocol === 'icmp' && 'text-orange-600'
+                                  )}>
+                                    {entry.proto_num || ''} {entry.protocol || '-'}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1 border-r text-gray-700">
+                                  {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
+                                </td>
+                                <td className="px-2 py-1 border-r text-gray-700">
+                                  {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
+                                </td>
+                                <td className="px-2 py-1 border-r text-right text-green-700 font-medium">
+                                  {entry.tx_rate > 1000000
+                                    ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)} Mbps`
+                                    : entry.tx_rate > 1000
+                                    ? `${(entry.tx_rate * 8 / 1000).toFixed(1)} kbps`
+                                    : `${(entry.tx_rate * 8).toFixed(0)} bps`
+                                  }
+                                </td>
+                                <td className="px-2 py-1 border-r text-right text-blue-700 font-medium">
+                                  {entry.rx_rate > 1000000
+                                    ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)} Mbps`
+                                    : entry.rx_rate > 1000
+                                    ? `${(entry.rx_rate * 8 / 1000).toFixed(1)} kbps`
+                                    : `${(entry.rx_rate * 8).toFixed(0)} bps`
+                                  }
+                                </td>
+                                <td className="px-2 py-1 border-r text-right text-gray-500">
+                                  {entry.tx_packets || 0}
+                                </td>
+                                <td className="px-2 py-1 text-right text-gray-500">
+                                  {entry.rx_packets || 0}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="bg-gray-100 px-3 py-1.5 text-xs text-gray-500 border-t flex justify-between">
+                        <span>{torchData.entries.length} flows</span>
+                        <span>Duration: {torchData.duration}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-300 rounded-b-lg p-8 text-center text-gray-500 bg-gray-50">
+                      No active traffic flows detected
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!torchLoading && !torchData && (
+                <div className="text-center py-8 text-gray-500">
+                  Click Refresh to capture traffic data
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-secondary">
+                Close
               </button>
             </div>
           </div>

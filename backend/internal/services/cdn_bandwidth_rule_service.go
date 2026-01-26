@@ -244,7 +244,7 @@ func (s *CDNBandwidthRuleService) applyRuleToNasSubscribers(rule *CDNBandwidthRu
 
 		// Apply rule to each CDN queue
 		for _, scdm := range serviceCDNs {
-			if scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
+			if scdm.CDN == nil || scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
 				continue
 			}
 
@@ -447,7 +447,7 @@ func (s *CDNBandwidthRuleService) applyRuleToNasSubscribersCount(rule *CDNBandwi
 		}
 
 		for _, scdm := range serviceCDNs {
-			if scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
+			if scdm.CDN == nil || scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
 				continue
 			}
 

@@ -245,6 +245,7 @@ func main() {
 	subscribers.Post("/:id/refill", middleware.ResellerOrAdmin(), subscriberHandler.Refill)
 	subscribers.Post("/:id/ping", subscriberHandler.Ping)
 	subscribers.Get("/:id/bandwidth", subscriberHandler.GetBandwidth)
+	subscribers.Get("/:id/torch", subscriberHandler.GetTorch)
 	// Subscriber bandwidth rules
 	subscribers.Get("/:id/bandwidth-rules", subscriberHandler.GetBandwidthRules)
 	subscribers.Post("/:id/bandwidth-rules", middleware.ResellerOrAdmin(), subscriberHandler.CreateBandwidthRule)

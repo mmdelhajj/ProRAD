@@ -1560,6 +1560,7 @@ func (c *Client) GetCDNTrafficForSubscriber(subscriberIP string, cdns []CDNSubne
 	for _, cdn := range cdns {
 		var totalBytes int64
 		subnets := parseSubnetList(cdn.Subnets)
+		log.Printf("CDN Traffic Debug: CDN %s has %d subnets: %v", cdn.Name, len(subnets), subnets)
 
 		for _, conn := range connections {
 			// Determine remote IP and download bytes based on direction
@@ -1582,9 +1583,10 @@ func (c *Client) GetCDNTrafficForSubscriber(subscriberIP string, cdns []CDNSubne
 
 			// Check if remote IP matches CDN subnet
 			for _, subnet := range subnets {
-				if isIPInCIDR(remoteIP, subnet) {
+				matched := isIPInCIDR(remoteIP, subnet)
+				if matched {
 					totalBytes += downloadBytes
-					log.Printf("CDN Traffic: remote=%s matched CDN %s, download=%d bytes", remoteIP, cdn.Name, downloadBytes)
+					log.Printf("CDN Traffic: remote=%s matched CDN %s subnet %s, download=%d bytes", remoteIP, cdn.Name, subnet, downloadBytes)
 					break
 				}
 			}
@@ -1641,11 +1643,13 @@ func (c *Client) isIPInAddressList(ip, listName string) bool {
 func isIPInCIDR(ipStr, cidr string) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
+		log.Printf("CDN Match Debug: Failed to parse IP: %s", ipStr)
 		return false
 	}
 
 	_, network, err := net.ParseCIDR(cidr)
 	if err != nil {
+		log.Printf("CDN Match Debug: Failed to parse CIDR %s: %v, trying exact match", cidr, err)
 		// Try as single IP
 		if cidr == ipStr {
 			return true
@@ -1653,7 +1657,11 @@ func isIPInCIDR(ipStr, cidr string) bool {
 		return false
 	}
 
-	return network.Contains(ip)
+	result := network.Contains(ip)
+	if result {
+		log.Printf("CDN Match Debug: IP %s IS in CIDR %s", ipStr, cidr)
+	}
+	return result
 }
 
 // RemoveCDNConfig removes CDN address-list and mangle rule from MikroTik
@@ -2244,23 +2252,24 @@ func (c *Client) CreateCDNMangleRule(config PCQConfig) error {
 	}
 
 	if existingID != "" {
-		// Update existing mangle rule
-		c.sendWord("/ip/firewall/mangle/set")
+		// Delete existing rule - MikroTik doesn't allow changing chain with /set
+		c.sendWord("/ip/firewall/mangle/remove")
 		c.sendWord("=.id=" + existingID)
-		c.sendWord("=src-address-list=" + addressListName)
-		c.sendWord("=new-packet-mark=" + packetMark)
 		c.sendWord("")
-	} else {
-		// Create new mangle rule
-		c.sendWord("/ip/firewall/mangle/add")
-		c.sendWord("=chain=postrouting")
-		c.sendWord("=action=mark-packet")
-		c.sendWord("=new-packet-mark=" + packetMark)
-		c.sendWord("=passthrough=no")
-		c.sendWord("=src-address-list=" + addressListName)
-		c.sendWord("=comment=" + comment)
-		c.sendWord("")
+		c.readResponse()
+		log.Printf("MikroTik: Removed old mangle rule for CDN %s to recreate in forward chain", config.CDNName)
 	}
+
+	// Create new mangle rule - MUST be in forward chain (before simple queues)
+	// postrouting is too late - packets are already queued
+	c.sendWord("/ip/firewall/mangle/add")
+	c.sendWord("=chain=forward")
+	c.sendWord("=action=mark-packet")
+	c.sendWord("=new-packet-mark=" + packetMark)
+	c.sendWord("=passthrough=no")
+	c.sendWord("=src-address-list=" + addressListName)
+	c.sendWord("=comment=" + comment)
+	c.sendWord("")
 
 	response, err = c.readResponse()
 	if err != nil {
@@ -2910,4 +2919,244 @@ func (c *Client) RemoveStaticIPFromAddressList(ip string) error {
 	// Not found, that's okay
 	log.Printf("MikroTik: Static IP %s not found in address-list STATIC-IPS (already removed)", ip)
 	return nil
+}
+
+// TorchEntry represents a single torch traffic entry (like MikroTik Winbox torch)
+type TorchEntry struct {
+	SrcAddress string `json:"src_address"`
+	DstAddress string `json:"dst_address"`
+	SrcPort    int    `json:"src_port"`
+	DstPort    int    `json:"dst_port"`
+	Protocol   string `json:"protocol"`     // tcp, udp, icmp, etc.
+	ProtoNum   int    `json:"proto_num"`    // 6=tcp, 17=udp, 1=icmp
+	MacProto   string `json:"mac_protocol"` // 800=IPv4, 806=ARP, 86dd=IPv6
+	VlanID     int    `json:"vlan_id"`
+	DSCP       int    `json:"dscp"`
+	TxRate     int64  `json:"tx_rate"`      // bytes per second
+	RxRate     int64  `json:"rx_rate"`      // bytes per second
+	TxPackets  int64  `json:"tx_packets"`
+	RxPackets  int64  `json:"rx_packets"`
+}
+
+// TorchResult contains the result of a torch operation
+type TorchResult struct {
+	Entries   []TorchEntry `json:"entries"`
+	TotalTx   int64        `json:"total_tx"`
+	TotalRx   int64        `json:"total_rx"`
+	Duration  string       `json:"duration"`
+	Interface string       `json:"interface"`
+	FilterIP  string       `json:"filter_ip"`
+}
+
+// GetLiveTorch runs torch on a PPPoE interface for a specific subscriber IP
+// Returns real-time traffic breakdown by connection (like MikroTik Winbox torch)
+func (c *Client) GetLiveTorch(subscriberIP string, durationSec int) (*TorchResult, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
+	if durationSec <= 0 {
+		durationSec = 3
+	}
+	if durationSec > 10 {
+		durationSec = 10 // Max 10 seconds to avoid timeout
+	}
+
+	// Set longer timeout for torch operation
+	c.conn.SetDeadline(time.Now().Add(time.Duration(durationSec+10) * time.Second))
+
+	// Find the PPPoE interface for this subscriber
+	c.sendWord("/ppp/active/print")
+	c.sendWord("?address=" + subscriberIP)
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PPPoE session: %v", err)
+	}
+
+	// Find the interface name from PPP active session
+	var ifaceName string
+	var username string
+	for _, word := range response {
+		if strings.HasPrefix(word, "=name=") {
+			username = strings.TrimPrefix(word, "=name=")
+			// MikroTik PPPoE dynamic interfaces are named <pppoe-username>
+			ifaceName = "<pppoe-" + username + ">"
+			break
+		}
+	}
+
+	if ifaceName == "" {
+		return nil, fmt.Errorf("subscriber not connected or interface not found")
+	}
+
+	log.Printf("Torch: Found PPPoE session for IP %s, username=%s, interface=%s", subscriberIP, username, ifaceName)
+
+	result := &TorchResult{
+		Entries:   make([]TorchEntry, 0),
+		Interface: ifaceName,
+		FilterIP:  subscriberIP,
+		Duration:  fmt.Sprintf("%ds", durationSec),
+	}
+
+	// Run torch command with full details
+	// Based on MikroTik API docs: need interface, src-address, dst-address, port filters
+	c.conn.SetDeadline(time.Now().Add(time.Duration(durationSec+10) * time.Second))
+	c.sendWord("/tool/torch")
+	c.sendWord("=interface=" + ifaceName)
+	c.sendWord("=src-address=0.0.0.0/0")
+	c.sendWord("=dst-address=0.0.0.0/0")
+	c.sendWord("=port=any")
+	c.sendWord("=ip-protocol=any")
+	c.sendWord("=duration=" + strconv.Itoa(durationSec))
+	c.sendWord("")
+
+	// Read torch results
+	entries := make(map[string]*TorchEntry)
+	log.Printf("Torch: Starting to read responses for interface %s", ifaceName)
+	responseCount := 0
+
+	for {
+		word, err := c.readWord()
+		if err != nil {
+			log.Printf("Torch: Read error: %v", err)
+			break
+		}
+
+		if word == "!done" {
+			log.Printf("Torch: Received !done after %d responses", responseCount)
+			break
+		}
+
+		if word == "!re" {
+			responseCount++
+			entry := &TorchEntry{}
+			key := ""
+
+			// Read all attributes
+			for {
+				attr, err := c.readWord()
+				if err != nil {
+					break
+				}
+				if attr == "" {
+					break
+				}
+
+				if strings.HasPrefix(attr, "=src-address=") {
+					entry.SrcAddress = strings.TrimPrefix(attr, "=src-address=")
+				} else if strings.HasPrefix(attr, "=dst-address=") {
+					entry.DstAddress = strings.TrimPrefix(attr, "=dst-address=")
+				} else if strings.HasPrefix(attr, "=ip-protocol=") {
+					entry.ProtoNum, _ = strconv.Atoi(strings.TrimPrefix(attr, "=ip-protocol="))
+					switch entry.ProtoNum {
+					case 0:
+						entry.Protocol = "" // HOPOPT or unspecified
+					case 1:
+						entry.Protocol = "icmp"
+					case 6:
+						entry.Protocol = "tcp"
+					case 17:
+						entry.Protocol = "udp"
+					case 47:
+						entry.Protocol = "gre"
+					case 50:
+						entry.Protocol = "esp"
+					case 51:
+						entry.Protocol = "ah"
+					case 58:
+						entry.Protocol = "icmpv6"
+					default:
+						entry.Protocol = strconv.Itoa(entry.ProtoNum)
+					}
+				} else if strings.HasPrefix(attr, "=src-port=") {
+					entry.SrcPort, _ = strconv.Atoi(strings.TrimPrefix(attr, "=src-port="))
+				} else if strings.HasPrefix(attr, "=dst-port=") {
+					entry.DstPort, _ = strconv.Atoi(strings.TrimPrefix(attr, "=dst-port="))
+				} else if strings.HasPrefix(attr, "=mac-protocol=") {
+					entry.MacProto = strings.TrimPrefix(attr, "=mac-protocol=")
+				} else if strings.HasPrefix(attr, "=vlan-id=") {
+					entry.VlanID, _ = strconv.Atoi(strings.TrimPrefix(attr, "=vlan-id="))
+				} else if strings.HasPrefix(attr, "=dscp=") {
+					entry.DSCP, _ = strconv.Atoi(strings.TrimPrefix(attr, "=dscp="))
+				} else if strings.HasPrefix(attr, "=tx=") {
+					// MikroTik returns bits per second, convert to bytes for frontend
+					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=tx="), 10, 64)
+					entry.TxRate = bits / 8
+				} else if strings.HasPrefix(attr, "=rx=") {
+					// MikroTik returns bits per second, convert to bytes for frontend
+					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=rx="), 10, 64)
+					entry.RxRate = bits / 8
+				} else if strings.HasPrefix(attr, "=tx-packets=") {
+					entry.TxPackets, _ = strconv.ParseInt(strings.TrimPrefix(attr, "=tx-packets="), 10, 64)
+				} else if strings.HasPrefix(attr, "=rx-packets=") {
+					entry.RxPackets, _ = strconv.ParseInt(strings.TrimPrefix(attr, "=rx-packets="), 10, 64)
+				}
+			}
+
+			// Skip aggregate/summary rows (those without valid addresses)
+			// MikroTik torch returns summary rows with empty addresses
+			if entry.SrcAddress == "" || entry.DstAddress == "" {
+				continue
+			}
+
+			// If protocol wasn't detected but we have ports, infer the protocol
+			// Most port-based traffic is TCP
+			if entry.Protocol == "" && (entry.SrcPort > 0 || entry.DstPort > 0) {
+				entry.Protocol = "tcp"
+				entry.ProtoNum = 6
+			}
+
+			// Create unique key for this flow
+			key = fmt.Sprintf("%s:%d-%s:%d-%s", entry.SrcAddress, entry.SrcPort, entry.DstAddress, entry.DstPort, entry.Protocol)
+
+			// Aggregate or add new entry
+			if existing, ok := entries[key]; ok {
+				existing.TxRate = entry.TxRate
+				existing.RxRate = entry.RxRate
+				existing.TxPackets = entry.TxPackets
+				existing.RxPackets = entry.RxPackets
+			} else {
+				entries[key] = entry
+			}
+		}
+
+		if word == "!trap" {
+			errMsg := ""
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				if strings.HasPrefix(attr, "=message=") {
+					errMsg = strings.TrimPrefix(attr, "=message=")
+				}
+			}
+			log.Printf("Torch: Error from router: %s", errMsg)
+			return nil, fmt.Errorf("torch error: %s", errMsg)
+		}
+	}
+
+	// Convert map to slice and calculate totals
+	for _, entry := range entries {
+		result.Entries = append(result.Entries, *entry)
+		result.TotalTx += entry.TxRate
+		result.TotalRx += entry.RxRate
+	}
+
+	log.Printf("Torch: Completed with %d unique flows, TotalTx=%d, TotalRx=%d", len(result.Entries), result.TotalTx, result.TotalRx)
+
+	// Sort by TX rate descending (highest bandwidth first)
+	for i := 0; i < len(result.Entries); i++ {
+		for j := i + 1; j < len(result.Entries); j++ {
+			if result.Entries[j].TxRate > result.Entries[i].TxRate {
+				result.Entries[i], result.Entries[j] = result.Entries[j], result.Entries[i]
+			}
+		}
+	}
+
+	return result, nil
 }

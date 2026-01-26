@@ -25,9 +25,9 @@ type CDN struct {
 type ServiceCDN struct {
 	ID            uint      `gorm:"column:id;primaryKey" json:"id"`
 	ServiceID     uint      `gorm:"column:service_id;uniqueIndex:idx_service_cdn;not null" json:"service_id"`
-	Service       Service   `gorm:"-" json:"service,omitempty"`
+	Service       *Service  `gorm:"foreignKey:ServiceID;references:ID" json:"service,omitempty"`
 	CDNID         uint      `gorm:"column:cdn_id;uniqueIndex:idx_service_cdn;not null" json:"cdn_id"`
-	CDN           CDN       `gorm:"-" json:"cdn,omitempty"`
+	CDN           *CDN      `gorm:"foreignKey:CDNID;references:ID" json:"cdn,omitempty"`
 	SpeedLimit    int64     `gorm:"column:speed_limit;default:0" json:"speed_limit"`    // Speed limit in Mbps for this CDN (0 = no limit)
 	BypassQuota   bool      `gorm:"column:bypass_quota;default:false" json:"bypass_quota"` // If true, traffic to this CDN doesn't count against quota
 	PCQEnabled    bool      `gorm:"column:pcq_enabled;default:false" json:"pcq_enabled"`  // If true, use PCQ queue instead of per-customer queues

@@ -55,8 +55,8 @@ func SyncAllPCQOnStartup() {
 	syncCount := 0
 
 	for _, sc := range serviceCDNs {
-		// Skip if no NAS or pools configured
-		if sc.PCQNASID == nil || sc.PCQTargetPools == "" || sc.SpeedLimit == 0 {
+		// Skip if no NAS or pools configured or CDN not loaded
+		if sc.PCQNASID == nil || sc.PCQTargetPools == "" || sc.SpeedLimit == 0 || sc.CDN == nil {
 			continue
 		}
 
@@ -161,8 +161,8 @@ func repairPCQConfigurations() {
 	repairedCount := 0
 
 	for _, sc := range serviceCDNs {
-		// Skip if no NAS or pools configured
-		if sc.PCQNASID == nil || sc.PCQTargetPools == "" || sc.SpeedLimit == 0 {
+		// Skip if no NAS or pools configured or CDN not loaded
+		if sc.PCQNASID == nil || sc.PCQTargetPools == "" || sc.SpeedLimit == 0 || sc.CDN == nil {
 			continue
 		}
 

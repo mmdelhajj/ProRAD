@@ -197,6 +197,19 @@ docker-compose down && docker-compose up -d
 - **Change Server Feature** (Jan 2026): Improved license management UI with "Change Server" button and server info modal. Shows current server IP, hostname, hardware ID, version, subscriber count, last seen. Click to reset hardware binding and allow activation on new server.
 - **Admin Profile & Change Password** (Jan 2026): Added `/admin/profile` page to license server. Admins can view account info, update email/name, and change password. Endpoints: `GET/PUT /admin/profile`, `POST /admin/change-password`
 - **Suspend/Activate Customers** (Jan 2026): Added customer suspension feature to license server. Suspending a customer also suspends all their licenses. Status column shows Active/Suspended badge. Endpoint: `POST /admin/customers/:id/suspend`
+- **Live Torch Feature** (Jan 2026): Added real-time traffic monitoring using MikroTik torch. Click the signal icon next to any online subscriber's username to see live traffic breakdown by connection. Shows download/upload speeds in Mbps and per-connection details. Auto-refresh option available.
+  - Backend: `internal/mikrotik/client.go` (GetLiveTorch function)
+  - Handler: `internal/handlers/subscriber.go` (GetTorch endpoint)
+  - Route: `GET /api/subscribers/:id/torch?duration=3`
+  - Frontend: Signal icon in Subscribers list, torch modal with connection table
+- **ServiceCDN GORM Relation Fix** (Jan 2026): Fixed CDN traffic graph not showing data. The `ServiceCDN` model had `gorm:"-"` on `CDN` and `Service` fields which prevented GORM Preload from loading related data. Changed to pointer types with proper foreign key tags: `*CDN gorm:"foreignKey:CDNID;references:ID"`. Added nil checks throughout codebase where these fields are accessed.
+  - Files: `internal/models/cdn.go`, `internal/services/pcq_sync.go`, `internal/services/quota_sync.go`, `internal/handlers/subscriber.go`, `internal/handlers/cdn.go`, `internal/services/cdn_bandwidth_rule_service.go`
+- **PCQ Mangle Chain Fix** (Jan 2026): Fixed CDN PCQ speed limiting not working. The mangle rule was in `postrouting` chain which is AFTER simple queues process traffic - packet marks were set too late. Changed to `forward` chain which is BEFORE simple queues. Also fixed update logic to delete and recreate mangle rules (MikroTik doesn't allow changing chain with /set).
+  - File: `internal/mikrotik/client.go` (CreateCDNMangleRule function)
+- **Torch Bandwidth Display Fix** (Jan 2026): Fixed torch showing 8× higher bandwidth than actual. MikroTik torch API returns bits per second, but frontend expected bytes per second and multiplied by 8 again. Now backend converts bits to bytes (divide by 8) before sending to frontend.
+  - File: `internal/mikrotik/client.go` (GetLiveTorch function - tx/rx parsing)
+- **Torch Protocol Detection Fix** (Jan 2026): Fixed torch showing "-" for protocol. Added logic to infer TCP protocol when ports are present but protocol wasn't detected. Also filters out MikroTik aggregate/summary rows that don't have valid addresses.
+  - File: `internal/mikrotik/client.go` (GetLiveTorch function)
 
 ## Remote Support / SSH Tunnel Setup
 

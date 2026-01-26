@@ -784,7 +784,7 @@ func (h *CDNHandler) UpdateServiceCDNs(c *fiber.Ctx) error {
 
 	// Clean up PCQ configs that were removed or disabled
 	for key, oldConfig := range oldPCQConfigs {
-		if !newPCQKeys[key] {
+		if !newPCQKeys[key] && oldConfig.CDN != nil {
 			// This PCQ config was removed or disabled, clean up on MikroTik
 			go cleanupPCQFromNAS(oldConfig.CDN.Name, oldConfig.SpeedLimit, *oldConfig.PCQNASID)
 		}
@@ -978,7 +978,7 @@ func (h *CDNHandler) SyncAllPCQToNAS(c *fiber.Ctx) error {
 	syncCount := 0
 
 	for _, sc := range serviceCDNs {
-		if syncedCDNs[sc.CDNID] || sc.SpeedLimit == 0 {
+		if syncedCDNs[sc.CDNID] || sc.SpeedLimit == 0 || sc.CDN == nil {
 			continue
 		}
 		syncedCDNs[sc.CDNID] = true

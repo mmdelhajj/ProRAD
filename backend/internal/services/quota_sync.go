@@ -272,7 +272,7 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 				// Build CDN config list for bypass CDNs only
 				var bypassCDNConfigs []mikrotik.CDNSubnetConfig
 				for _, sc := range bypassServiceCDNs {
-					if sc.CDN.ID > 0 && sc.CDN.Subnets != "" {
+					if sc.CDN != nil && sc.CDN.ID > 0 && sc.CDN.Subnets != "" {
 						bypassCDNConfigs = append(bypassCDNConfigs, mikrotik.CDNSubnetConfig{
 							ID:      sc.CDNID,
 							Name:    sc.CDN.Name,
@@ -540,6 +540,10 @@ func (s *QuotaSyncService) syncSubscriberCDNQueues(client *mikrotik.Client, sub 
 	// Build CDN config list - skip PCQ-enabled CDNs (they use shared queues)
 	var cdnConfigs []mikrotik.SubscriberCDNConfig
 	for _, sc := range serviceCDNs {
+		// Skip if CDN not loaded
+		if sc.CDN == nil {
+			continue
+		}
 		// Skip PCQ-enabled CDNs - they use shared PCQ queues, not per-subscriber queues
 		if sc.PCQEnabled {
 			log.Printf("CDN: Skipping individual queue for %s/%s - PCQ mode enabled", sub.Username, sc.CDN.Name)

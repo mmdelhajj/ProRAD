@@ -3569,7 +3569,7 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 			// Build CDN config list with subnets from database
 			var cdnConfigs []mikrotik.CDNSubnetConfig
 			for _, cdn := range serviceCDNs {
-				if cdn.CDN.ID > 0 && cdn.CDN.Subnets != "" {
+				if cdn.CDN != nil && cdn.CDN.ID > 0 && cdn.CDN.Subnets != "" {
 					cdnConfigs = append(cdnConfigs, mikrotik.CDNSubnetConfig{
 						ID:      cdn.CDNID,
 						Name:    cdn.CDN.Name,
@@ -3608,7 +3608,7 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 				log.Printf("CDN Debug: Error getting CDN traffic: %v", err)
 				// If error, still return CDNs with 0 bytes
 				for _, serviceCDN := range serviceCDNs {
-					if serviceCDN.CDN.ID > 0 {
+					if serviceCDN.CDN != nil && serviceCDN.CDN.ID > 0 {
 						color := cdnColorMap[serviceCDN.CDNID]
 						if color == "" {
 							color = defaultColor
@@ -3622,6 +3622,132 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 					}
 				}
 			}
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    response,
+	})
+}
+
+// TorchResponse represents the response for live torch data (like MikroTik Winbox torch)
+type TorchResponse struct {
+	Entries   []TorchEntry `json:"entries"`
+	TotalTx   int64        `json:"total_tx"`   // Total TX bytes/sec
+	TotalRx   int64        `json:"total_rx"`   // Total RX bytes/sec
+	Interface string       `json:"interface"`
+	FilterIP  string       `json:"filter_ip"`
+	Duration  string       `json:"duration"`
+}
+
+type TorchEntry struct {
+	SrcAddress  string `json:"src_address"`
+	DstAddress  string `json:"dst_address"`
+	SrcPort     int    `json:"src_port"`
+	DstPort     int    `json:"dst_port"`
+	Protocol    string `json:"protocol"`      // tcp, udp, icmp
+	ProtoNum    int    `json:"proto_num"`     // 6, 17, 1
+	MacProtocol string `json:"mac_protocol"`  // 800=IPv4, 86dd=IPv6
+	VlanID      int    `json:"vlan_id"`
+	DSCP        int    `json:"dscp"`
+	TxRate      int64  `json:"tx_rate"`       // bytes/sec
+	RxRate      int64  `json:"rx_rate"`       // bytes/sec
+	TxPackets   int64  `json:"tx_packets"`
+	RxPackets   int64  `json:"rx_packets"`
+}
+
+// GetTorch returns real-time traffic breakdown using MikroTik torch
+func (h *SubscriberHandler) GetTorch(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid subscriber ID"})
+	}
+
+	// Get duration from query (default 3 seconds)
+	duration, _ := strconv.Atoi(c.Query("duration", "3"))
+	if duration <= 0 {
+		duration = 3
+	}
+	if duration > 10 {
+		duration = 10
+	}
+
+	var subscriber models.Subscriber
+	if err := database.DB.Preload("Nas").First(&subscriber, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Subscriber not found"})
+	}
+
+	// Check if subscriber is online
+	if !subscriber.IsOnline {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"message": "Subscriber is offline",
+		})
+	}
+
+	// Check if NAS is configured
+	if subscriber.Nas == nil || subscriber.Nas.IPAddress == "" {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"message": "NAS not configured",
+		})
+	}
+
+	// Get subscriber's current IP
+	if subscriber.IPAddress == "" {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"message": "Subscriber has no IP address assigned",
+		})
+	}
+
+	// Connect to MikroTik and run torch
+	client := mikrotik.NewClient(
+		fmt.Sprintf("%s:%d", subscriber.Nas.IPAddress, subscriber.Nas.APIPort),
+		subscriber.Nas.APIUsername,
+		subscriber.Nas.APIPassword,
+	)
+	defer client.Close()
+
+	torchResult, err := client.GetLiveTorch(subscriber.IPAddress, duration)
+	if err != nil {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+		})
+	}
+
+	// Convert to response format
+	response := TorchResponse{
+		TotalTx:   torchResult.TotalTx,
+		TotalRx:   torchResult.TotalRx,
+		Interface: torchResult.Interface,
+		FilterIP:  torchResult.FilterIP,
+		Duration:  torchResult.Duration,
+		Entries:   make([]TorchEntry, len(torchResult.Entries)),
+	}
+
+	for i, e := range torchResult.Entries {
+		response.Entries[i] = TorchEntry{
+			SrcAddress:  e.SrcAddress,
+			DstAddress:  e.DstAddress,
+			SrcPort:     e.SrcPort,
+			DstPort:     e.DstPort,
+			Protocol:    e.Protocol,
+			ProtoNum:    e.ProtoNum,
+			MacProtocol: e.MacProto,
+			VlanID:      e.VlanID,
+			DSCP:        e.DSCP,
+			TxRate:      e.TxRate,
+			RxRate:      e.RxRate,
+			TxPackets:   e.TxPackets,
+			RxPackets:   e.RxPackets,
 		}
 	}
 
