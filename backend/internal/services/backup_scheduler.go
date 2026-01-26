@@ -74,7 +74,10 @@ func (s *BackupSchedulerService) checkSchedules() {
 		return
 	}
 
-	now := time.Now()
+	// Use configured timezone for time comparison
+	tz := getConfiguredTimezone()
+	now := time.Now().In(tz)
+
 	for _, schedule := range schedules {
 		if s.isDue(&schedule, now) {
 			go s.runBackup(&schedule)
@@ -419,13 +422,16 @@ func (s *BackupSchedulerService) cleanOldFTPBackups(schedule *models.BackupSched
 
 // calculateNextRun calculates the next run time for a schedule
 func (s *BackupSchedulerService) calculateNextRun(schedule *models.BackupSchedule) time.Time {
-	now := time.Now()
+	// Use configured timezone
+	tz := getConfiguredTimezone()
+	now := time.Now().In(tz)
+
 	hour, minute := 2, 0
 	if schedule.TimeOfDay != "" {
 		fmt.Sscanf(schedule.TimeOfDay, "%d:%d", &hour, &minute)
 	}
 
-	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, tz)
 
 	switch schedule.Frequency {
 	case "daily":
@@ -439,7 +445,41 @@ func (s *BackupSchedulerService) calculateNextRun(schedule *models.BackupSchedul
 		}
 		next = next.AddDate(0, 0, daysUntil)
 	case "monthly":
-		next = time.Date(now.Year(), now.Month(), schedule.DayOfMonth, hour, minute, 0, 0, now.Location())
+		next = time.Date(now.Year(), now.Month(), schedule.DayOfMonth, hour, minute, 0, 0, tz)
+		if next.Before(now) || next.Equal(now) {
+			next = next.AddDate(0, 1, 0)
+		}
+	}
+
+	return next
+}
+
+// CalculateNextRunForSchedule calculates and updates next_run_at for a schedule (exported for use by handlers)
+func CalculateNextRunForSchedule(schedule *models.BackupSchedule) time.Time {
+	// Use configured timezone
+	tz := getConfiguredTimezone()
+	now := time.Now().In(tz)
+
+	hour, minute := 2, 0
+	if schedule.TimeOfDay != "" {
+		fmt.Sscanf(schedule.TimeOfDay, "%d:%d", &hour, &minute)
+	}
+
+	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, tz)
+
+	switch schedule.Frequency {
+	case "daily":
+		if next.Before(now) || next.Equal(now) {
+			next = next.AddDate(0, 0, 1)
+		}
+	case "weekly":
+		daysUntil := (schedule.DayOfWeek - int(now.Weekday()) + 7) % 7
+		if daysUntil == 0 && (next.Before(now) || next.Equal(now)) {
+			daysUntil = 7
+		}
+		next = next.AddDate(0, 0, daysUntil)
+	case "monthly":
+		next = time.Date(now.Year(), now.Month(), schedule.DayOfMonth, hour, minute, 0, 0, tz)
 		if next.Before(now) || next.Equal(now) {
 			next = next.AddDate(0, 1, 0)
 		}

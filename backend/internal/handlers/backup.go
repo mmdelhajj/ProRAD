@@ -836,6 +836,10 @@ func (h *BackupHandler) CreateSchedule(c *fiber.Ctx) error {
 	// Set ID to 0 for new record
 	schedule.ID = 0
 
+	// Calculate next run time using configured timezone
+	nextRun := services.CalculateNextRunForSchedule(&schedule)
+	schedule.NextRunAt = &nextRun
+
 	if err := database.DB.Create(&schedule).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -914,6 +918,10 @@ func (h *BackupHandler) UpdateSchedule(c *fiber.Ctx) error {
 	existing.FTPPath = updates.FTPPath
 	existing.FTPPassive = updates.FTPPassive
 	existing.FTPTLS = updates.FTPTLS
+
+	// Recalculate next run time using configured timezone
+	nextRun := services.CalculateNextRunForSchedule(&existing)
+	existing.NextRunAt = &nextRun
 
 	if err := database.DB.Save(&existing).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
