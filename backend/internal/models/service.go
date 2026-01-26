@@ -82,12 +82,13 @@ type Service struct {
 	MonthlyAccount  bool       `gorm:"column:monthly_account;default:false" json:"monthly_account"`
 
 	// Time-based speed control (automatic speed change during specified hours)
-	TimeFromHour      int `gorm:"column:time_from_hour;default:0" json:"time_from_hour"`       // 0-23
-	TimeFromMinute    int `gorm:"column:time_from_minute;default:0" json:"time_from_minute"`     // 0-59
-	TimeToHour        int `gorm:"column:time_to_hour;default:0" json:"time_to_hour"`         // 0-23
-	TimeToMinute      int `gorm:"column:time_to_minute;default:0" json:"time_to_minute"`       // 0-59
-	TimeDownloadRatio int `gorm:"column:time_download_ratio;default:100" json:"time_download_ratio"` // percentage (100 = full, 200 = double)
-	TimeUploadRatio   int `gorm:"column:time_upload_ratio;default:100" json:"time_upload_ratio"`   // percentage (100 = full, 200 = double)
+	TimeBasedSpeedEnabled bool `gorm:"column:time_based_speed_enabled;default:false" json:"time_based_speed_enabled"` // on/off toggle
+	TimeFromHour          int  `gorm:"column:time_from_hour;default:0" json:"time_from_hour"`                         // 0-23
+	TimeFromMinute        int  `gorm:"column:time_from_minute;default:0" json:"time_from_minute"`                     // 0-59
+	TimeToHour            int  `gorm:"column:time_to_hour;default:0" json:"time_to_hour"`                             // 0-23
+	TimeToMinute          int  `gorm:"column:time_to_minute;default:0" json:"time_to_minute"`                         // 0-59
+	TimeDownloadRatio     int  `gorm:"column:time_download_ratio;default:100" json:"time_download_ratio"`             // percentage (100 = full, 200 = double)
+	TimeUploadRatio       int  `gorm:"column:time_upload_ratio;default:100" json:"time_upload_ratio"`                 // percentage (100 = full, 200 = double)
 
 	// Mikrotik
 	PoolName        string `gorm:"column:pool_name;size:100" json:"pool_name"`

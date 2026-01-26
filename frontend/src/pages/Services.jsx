@@ -57,6 +57,7 @@ export default function Services() {
     monthly_fup3_upload_speed: '',
     is_active: true,
     // Time-based speed control (12-hour format)
+    time_based_speed_enabled: false,
     time_from_hour: '12',
     time_from_minute: '0',
     time_from_ampm: 'AM',
@@ -208,6 +209,7 @@ export default function Services() {
         monthly_fup3_upload_speed: service.monthly_fup3_upload_speed || '',
         is_active: service.is_active ?? true,
         // Time-based speed control (convert 24h to 12h format)
+        time_based_speed_enabled: service.time_based_speed_enabled ?? false,
         time_from_hour: (() => {
           const h = service.time_from_hour || 0
           if (h === 0) return '12'
@@ -269,6 +271,7 @@ export default function Services() {
         monthly_fup3_upload_speed: '',
         is_active: true,
         // Time-based speed control (12-hour format)
+        time_based_speed_enabled: false,
         time_from_hour: '12',
         time_from_minute: '0',
         time_from_ampm: 'AM',
@@ -365,6 +368,7 @@ export default function Services() {
       monthly_fup3_download_speed: parseInt(formData.monthly_fup3_download_speed) || 0,
       monthly_fup3_upload_speed: parseInt(formData.monthly_fup3_upload_speed) || 0,
       // Time-based speed control (convert 12h to 24h format)
+      time_based_speed_enabled: formData.time_based_speed_enabled,
       time_from_hour: (() => {
         let h = parseInt(formData.time_from_hour) || 12
         if (formData.time_from_ampm === 'PM' && h !== 12) h += 12
@@ -979,12 +983,26 @@ export default function Services() {
                 </div>
 
                 <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Time-Based Speed Control (Automatic)</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium">Time-Based Speed Control (Automatic)</h3>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="time_based_speed_enabled"
+                        checked={formData.time_based_speed_enabled}
+                        onChange={handleChange}
+                        className="toggle toggle-primary"
+                      />
+                      <span className={`text-sm font-medium ${formData.time_based_speed_enabled ? 'text-green-600' : 'text-gray-500'}`}>
+                        {formData.time_based_speed_enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
                   <p className="text-sm text-gray-500 mb-4">
                     Automatically apply different speed during specified hours. Set ratio to 100 for no change, 200 for double speed, 50 for half speed.
                   </p>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className={`grid grid-cols-2 gap-4 mb-4 ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="p-3 bg-indigo-50 rounded-lg">
                       <label className="label text-indigo-700 mb-2">From Time</label>
                       <div className="flex gap-2 items-center">
@@ -1057,7 +1075,7 @@ export default function Services() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 p-3 bg-indigo-50 rounded-lg">
+                  <div className={`grid grid-cols-2 gap-4 p-3 bg-indigo-50 rounded-lg ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
                       <label className="label text-indigo-700">Download Ratio (%)</label>
                       <input

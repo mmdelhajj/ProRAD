@@ -1055,6 +1055,10 @@ func SyncSubscriberQuota(subscriber *models.Subscriber) error {
 
 // isWithinTimeWindow checks if the current time falls within the service's time-based speed window
 func isWithinTimeWindow(service *models.Service, now time.Time) bool {
+	// Skip if time-based speed is disabled
+	if !service.TimeBasedSpeedEnabled {
+		return false
+	}
 	// Skip if ratios are both 100 (no change) or time window not configured
 	if service.TimeDownloadRatio == 100 && service.TimeUploadRatio == 100 {
 		return false
