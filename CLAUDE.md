@@ -229,6 +229,18 @@ docker-compose down && docker-compose up -d
 - **Backup Encryption Header Fix** (Jan 2026): Fixed "invalid encrypted backup format" error when restoring backups. The `backup_scheduler.go` used a different encryption header (`PROXPANEL_ENCRYPTED_V1\n`) than `backup.go` (`PROXPANEL_ENCRYPTED_BACKUP_V1\n`). Aligned both to use the same 30-character header.
   - File: `internal/services/backup_scheduler.go` (EncryptFile function)
 - **v1.0.74 Released** (Jan 2026): Built and published v1.0.74 with backup scheduler timezone fix. Customers can update via Settings → License → Check for Updates.
+- **Backup Restore Decryption Fix** (Jan 2026): Fixed "decryption failed - this backup may be from a different installation" error. The backup handler used different key derivation salt (`ProxPanel-AES256-Backup-2024`) than the scheduler (`ProxPanel-Backup-Encryption-2024`). Aligned both to use the same salt.
+  - File: `internal/handlers/backup.go` (deriveEncryptionKey function)
+- **Subscriber Usage Tab Fix** (Jan 2026): Fixed Usage tab not showing daily/monthly usage data. The raw SQL queries in subscriber handler used wrong column names for radacct table. PostgreSQL uses lowercase without underscores.
+  - Changed: `acct_start_time` → `acctstarttime`
+  - Changed: `acct_input_octets` → `acctinputoctets`
+  - Changed: `acct_output_octets` → `acctoutputoctets`
+  - Changed: `acct_session_id` → `acctsessionid`
+  - Changed: `acct_stop_time` → `acctstoptime`
+  - File: `internal/handlers/subscriber.go` (GetByID handler, lines ~301-401)
+- **v1.0.75 Released** (Jan 2026): Built and published v1.0.75 with subscriber Usage tab fix.
+- **Service Time-Based Speed Toggle Fix** (Jan 2026): Fixed Time-Based Speed Control toggle not saving. The `time_based_speed_enabled` field was missing from the service handler's request struct and allowed fields list.
+  - File: `internal/handlers/service.go` (CreateServiceRequest struct, allowedFields list, Create handler)
 
 ## Remote Support / SSH Tunnel Setup
 

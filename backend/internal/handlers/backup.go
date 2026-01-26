@@ -247,14 +247,10 @@ func (h *BackupHandler) Create(c *fiber.Ctx) error {
 
 // deriveEncryptionKey derives a 32-byte AES-256 key from the license key
 func (h *BackupHandler) deriveEncryptionKey() []byte {
-	// Use license key + fixed salt for encryption
-	// This ensures backups can only be restored on systems with the same license
-	licenseKey := os.Getenv("LICENSE_KEY")
-	if licenseKey == "" {
-		licenseKey = h.cfg.DBPassword // Fallback to DB password
-	}
-	salt := "ProxPanel-AES256-Backup-2024"
-	combined := licenseKey + salt
+	// Use database password + fixed salt to derive encryption key
+	// This must match backup_scheduler.go's deriveEncryptionKey() exactly
+	salt := "ProxPanel-Backup-Encryption-2024"
+	combined := h.cfg.DBPassword + salt
 	hash := sha256.Sum256([]byte(combined))
 	return hash[:]
 }

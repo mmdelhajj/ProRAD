@@ -298,7 +298,7 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 
 	// Get recent sessions from radacct
 	var sessions []models.RadAcct
-	if err := database.DB.Where("username = ?", subscriber.Username).Order("acct_start_time DESC").Limit(10).Find(&sessions).Error; err != nil {
+	if err := database.DB.Where("username = ?", subscriber.Username).Order("acctstarttime DESC").Limit(10).Find(&sessions).Error; err != nil {
 		// Log error but continue - sessions are optional
 		sessions = []models.RadAcct{}
 	}
@@ -316,8 +316,8 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		TotalOutput int64
 	}
 	database.DB.Model(&models.RadAcct{}).
-		Select("COALESCE(SUM(acct_input_octets), 0) as total_input, COALESCE(SUM(acct_output_octets), 0) as total_output").
-		Where("username = ? AND acct_start_time >= ?", subscriber.Username, startOfDay).
+		Select("COALESCE(SUM(acctinputoctets), 0) as total_input, COALESCE(SUM(acctoutputoctets), 0) as total_output").
+		Where("username = ? AND acctstarttime >= ?", subscriber.Username, startOfDay).
 		Scan(&dailyStats)
 
 	// Get monthly total from radacct
@@ -326,8 +326,8 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		TotalOutput int64
 	}
 	database.DB.Model(&models.RadAcct{}).
-		Select("COALESCE(SUM(acct_input_octets), 0) as total_input, COALESCE(SUM(acct_output_octets), 0) as total_output").
-		Where("username = ? AND acct_start_time >= ?", subscriber.Username, startOfMonth).
+		Select("COALESCE(SUM(acctinputoctets), 0) as total_input, COALESCE(SUM(acctoutputoctets), 0) as total_output").
+		Where("username = ? AND acctstarttime >= ?", subscriber.Username, startOfMonth).
 		Scan(&monthlyStats)
 
 	// Radacct: input = upload (user sends), output = download (user receives)
@@ -361,7 +361,7 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 
 			// Get the current session's accounting record to find already-recorded bytes
 			var currentAcct models.RadAcct
-			if err := database.DB.Where("acct_session_id = ? AND username = ? AND acct_stop_time IS NULL",
+			if err := database.DB.Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL",
 				subscriber.SessionID, subscriber.Username).First(&currentAcct).Error; err == nil {
 				// Add only the delta between live MikroTik data and last recorded accounting
 				liveDownloadDelta := currentDownload - currentAcct.AcctOutputOctets
@@ -396,9 +396,9 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		TotalOutput int64
 	}
 	database.DB.Model(&models.RadAcct{}).
-		Select("EXTRACT(DAY FROM acct_start_time)::int as day, COALESCE(SUM(acct_input_octets), 0) as total_input, COALESCE(SUM(acct_output_octets), 0) as total_output").
-		Where("username = ? AND acct_start_time >= ? AND acct_start_time < ?", subscriber.Username, startOfMonth, startOfMonth.AddDate(0, 1, 0)).
-		Group("EXTRACT(DAY FROM acct_start_time)").
+		Select("EXTRACT(DAY FROM acctstarttime)::int as day, COALESCE(SUM(acctinputoctets), 0) as total_input, COALESCE(SUM(acctoutputoctets), 0) as total_output").
+		Where("username = ? AND acctstarttime >= ? AND acctstarttime < ?", subscriber.Username, startOfMonth, startOfMonth.AddDate(0, 1, 0)).
+		Group("EXTRACT(DAY FROM acctstarttime)").
 		Scan(&dailyBreakdown)
 
 	for _, d := range dailyBreakdown {

@@ -163,12 +163,13 @@ type CreateServiceRequest struct {
 	QueueType        string  `json:"queue_type"`
 	SortOrder        int     `json:"sort_order"`
 	// Time-based speed control
-	TimeFromHour      int `json:"time_from_hour"`
-	TimeFromMinute    int `json:"time_from_minute"`
-	TimeToHour        int `json:"time_to_hour"`
-	TimeToMinute      int `json:"time_to_minute"`
-	TimeDownloadRatio int `json:"time_download_ratio"`
-	TimeUploadRatio   int `json:"time_upload_ratio"`
+	TimeBasedSpeedEnabled bool `json:"time_based_speed_enabled"`
+	TimeFromHour          int  `json:"time_from_hour"`
+	TimeFromMinute        int  `json:"time_from_minute"`
+	TimeToHour            int  `json:"time_to_hour"`
+	TimeToMinute          int  `json:"time_to_minute"`
+	TimeDownloadRatio     int  `json:"time_download_ratio"`
+	TimeUploadRatio       int  `json:"time_upload_ratio"`
 }
 
 // Create creates a new service
@@ -246,13 +247,14 @@ func (h *ServiceHandler) Create(c *fiber.Ctx) error {
 		QueueType:        req.QueueType,
 		SortOrder:        req.SortOrder,
 		// Time-based speed control
-		TimeFromHour:      req.TimeFromHour,
-		TimeFromMinute:    req.TimeFromMinute,
-		TimeToHour:        req.TimeToHour,
-		TimeToMinute:      req.TimeToMinute,
-		TimeDownloadRatio: req.TimeDownloadRatio,
-		TimeUploadRatio:   req.TimeUploadRatio,
-		IsActive:         true,
+		TimeBasedSpeedEnabled: req.TimeBasedSpeedEnabled,
+		TimeFromHour:          req.TimeFromHour,
+		TimeFromMinute:        req.TimeFromMinute,
+		TimeToHour:            req.TimeToHour,
+		TimeToMinute:          req.TimeToMinute,
+		TimeDownloadRatio:     req.TimeDownloadRatio,
+		TimeUploadRatio:       req.TimeUploadRatio,
+		IsActive:              true,
 	}
 
 	if service.ExpiryValue == 0 {
@@ -341,6 +343,7 @@ func (h *ServiceHandler) Update(c *fiber.Ctx) error {
 		"price", "day_price", "reset_price",
 		"expiry_value", "expiry_unit", "entire_month", "monthly_account",
 		"pool_name", "address_list_in", "address_list_out", "queue_type",
+		"time_based_speed_enabled",
 		"time_from_hour", "time_from_minute", "time_to_hour", "time_to_minute",
 		"time_download_ratio", "time_upload_ratio",
 		"sort_order", "is_active",
