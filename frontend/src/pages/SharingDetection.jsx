@@ -76,7 +76,7 @@ function getTTLBadge(status, ttlValues) {
     )
   }
   return (
-    <span className="text-xs text-gray-400">No TTL data</span>
+    <span className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">No TTL data</span>
   )
 }
 
@@ -159,7 +159,7 @@ export default function SharingDetection() {
           <div className="flex flex-col">
             <span className="font-medium">{row.original.username}</span>
             {row.original.full_name && (
-              <span className="text-xs text-gray-500">{row.original.full_name}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.full_name}</span>
             )}
           </div>
         ),
@@ -205,14 +205,14 @@ export default function SharingDetection() {
         header: 'Reasons',
         cell: ({ row }) => {
           const reasons = row.original.reasons || []
-          if (reasons.length === 0) return <span className="text-gray-400">-</span>
+          if (reasons.length === 0) return <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">-</span>
           return (
             <div className="max-w-xs">
               {reasons.slice(0, 2).map((r, i) => (
                 <div key={i} className="text-xs text-gray-600 truncate">{r}</div>
               ))}
               {reasons.length > 2 && (
-                <span className="text-xs text-gray-400">+{reasons.length - 2} more</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">+{reasons.length - 2} more</span>
               )}
             </div>
           )
@@ -222,7 +222,7 @@ export default function SharingDetection() {
         accessorKey: 'nas_name',
         header: 'NAS',
         cell: ({ row }) => (
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             {row.original.nas_name || row.original.nas_ip_address || '-'}
           </span>
         ),
@@ -242,8 +242,8 @@ export default function SharingDetection() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sharing Detection</h1>
-          <p className="text-gray-500">Detect accounts that may be shared with multiple users</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Sharing Detection</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Detect accounts that may be shared with multiple users</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -269,7 +269,7 @@ export default function SharingDetection() {
         <div className="card p-6 border-2 border-primary-200 bg-primary-50">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <CogIcon className="w-5 h-5 text-primary-600" />
                 TTL Detection Rules Configuration
               </h2>
@@ -278,12 +278,12 @@ export default function SharingDetection() {
                 When packets pass through a router, the TTL value decreases by 1.
               </p>
             </div>
-            <button onClick={() => setShowConfig(false)} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => setShowConfig(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               <XCircleIcon className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="bg-white rounded-lg p-4 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4">
             <h3 className="font-medium text-gray-800 mb-2">How TTL Detection Works:</h3>
             <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
               <li><strong>TTL = 128:</strong> Direct Windows connection (no router)</li>
@@ -308,10 +308,10 @@ export default function SharingDetection() {
               {nasRules.map((nas) => (
                 <div key={nas.nas_id} className="flex items-center justify-between bg-white p-4 rounded-lg border">
                   <div className="flex items-center gap-3">
-                    <ServerIcon className="w-5 h-5 text-gray-400" />
+                    <ServerIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                     <div>
-                      <div className="font-medium text-gray-900">{nas.nas_name}</div>
-                      <div className="text-sm text-gray-500">{nas.nas_ip_address}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{nas.nas_name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{nas.nas_ip_address}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -376,7 +376,7 @@ export default function SharingDetection() {
               <SignalIcon className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Online Users</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Online Users</div>
               <div className="text-2xl font-bold">{stats.total_online || 0}</div>
             </div>
           </div>
@@ -387,7 +387,7 @@ export default function SharingDetection() {
               <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Suspicious</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Suspicious</div>
               <div className="text-2xl font-bold text-yellow-600">{stats.suspicious_count || 0}</div>
             </div>
           </div>
@@ -398,29 +398,29 @@ export default function SharingDetection() {
               <ShieldExclamationIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">High Risk</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">High Risk</div>
               <div className="text-2xl font-bold text-red-600">{stats.high_risk_count || 0}</div>
             </div>
           </div>
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
               <WifiIcon className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Router Detected</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Router Detected</div>
               <div className="text-2xl font-bold text-purple-600">{stats.router_detected || 0}</div>
             </div>
           </div>
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
               <ComputerDesktopIcon className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">High Connections</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">High Connections</div>
               <div className="text-2xl font-bold text-orange-600">{stats.high_connections || 0}</div>
             </div>
           </div>
@@ -428,7 +428,7 @@ export default function SharingDetection() {
       </div>
 
       {/* Info Box */}
-      <div className="card p-4 bg-blue-50 border-blue-200">
+      <div className="card p-4 bg-blue-50 dark:bg-blue-900/30 border-blue-200">
         <div className="flex gap-3">
           <InformationCircleIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-800">
@@ -449,7 +449,7 @@ export default function SharingDetection() {
       <div className="card p-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
             <input
               type="text"
               placeholder="Search by username, name, IP..."
@@ -465,7 +465,7 @@ export default function SharingDetection() {
               onChange={(e) => setShowOnlySuspicious(e.target.checked)}
               className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
             />
-            <span className="text-sm text-gray-700">Show only suspicious accounts</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Show only suspicious accounts</span>
           </label>
         </div>
       </div>
@@ -485,19 +485,19 @@ export default function SharingDetection() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                      <span className="text-gray-500">Analyzing connections...</span>
+                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Analyzing connections...</span>
                     </div>
                   </td>
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     {showOnlySuspicious ? 'No suspicious accounts found' : 'No online users'}
                   </td>
                 </tr>
@@ -526,8 +526,8 @@ export default function SharingDetection() {
 
       {/* Manual MikroTik Setup Instructions (collapsed) */}
       <details className="card p-4">
-        <summary className="font-medium text-gray-900 cursor-pointer flex items-center gap-2">
-          <InformationCircleIcon className="w-5 h-5 text-gray-400" />
+        <summary className="font-medium text-gray-900 dark:text-white cursor-pointer flex items-center gap-2">
+          <InformationCircleIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
           Manual MikroTik TTL Detection Setup (Advanced)
         </summary>
         <div className="mt-3">

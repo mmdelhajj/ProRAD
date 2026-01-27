@@ -230,11 +230,11 @@ export default function Nas() {
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gray-100 rounded-lg">
-              <ServerIcon className="w-5 h-5 text-gray-600" />
+              <ServerIcon className="w-5 h-5 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
             </div>
             <div>
               <div className="font-medium">{row.original.name || row.original.short_name}</div>
-              <div className="text-sm text-gray-500">{row.original.description}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.description}</div>
             </div>
           </div>
         ),
@@ -281,7 +281,7 @@ export default function Nas() {
               ) : (
                 <>
                   <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                  <span className="text-xs text-gray-500">Inactive</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Inactive</span>
                 </>
               )}
             </div>
@@ -336,7 +336,7 @@ export default function Nas() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => testMutation.mutate(row.original.id)}
-              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
+              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
               title="Test Connection"
             >
               <WifiIcon className="w-4 h-4" />
@@ -352,7 +352,7 @@ export default function Nas() {
             )}
             <button
               onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
               title="Edit"
             >
               <PencilIcon className="w-4 h-4" />
@@ -363,7 +363,7 @@ export default function Nas() {
                   deleteMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
               title="Delete"
             >
               <TrashIcon className="w-4 h-4" />
@@ -385,8 +385,8 @@ export default function Nas() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">NAS / Routers</h1>
-          <p className="text-gray-500">Manage RADIUS clients and routers</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">NAS / Routers</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Manage RADIUS clients and routers</p>
         </div>
         <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-4 h-4" />
@@ -408,7 +408,7 @@ export default function Nas() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -419,13 +419,13 @@ export default function Nas() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     No NAS devices found
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -444,12 +444,12 @@ export default function Nas() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-semibold">
                   {editingNas ? 'Edit NAS' : 'Add NAS'}
                 </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -524,7 +524,7 @@ export default function Nas() {
                     <button
                       type="button"
                       onClick={() => setShowSecret(!showSecret)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400"
                     >
                       {showSecret ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                     </button>
@@ -570,7 +570,7 @@ export default function Nas() {
                     className="input"
                     placeholder="e.g., test.mes.net.lb, other.domain.com"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                     Comma-separated list of realms. Users logging in as user@realm will have the realm stripped if it's in this list.
                   </p>
                 </div>
@@ -624,7 +624,7 @@ export default function Nas() {
                         <button
                           type="button"
                           onClick={() => setShowApiPassword(!showApiPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400"
                         >
                           {showApiPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                         </button>

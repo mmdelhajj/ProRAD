@@ -168,9 +168,9 @@ export default function Permissions() {
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-xl font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
               {editingGroup ? 'EDIT PERMISSIONS' : 'ADD PERMISSION GROUP'}
             </h1>
           </div>
@@ -180,25 +180,25 @@ export default function Permissions() {
               {/* Group Name and Search */}
               <div className="flex items-end gap-6">
                 <div className="flex-1 max-w-md">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">GroupName*</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GroupName*</label>
                   <input
                     type="text"
                     value={groupForm.name}
                     onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter group name"
                     required
                   />
                 </div>
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Search Permissions</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Permissions</label>
                   <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                     <input
                       type="text"
                       value={permissionSearch}
                       onChange={(e) => setPermissionSearch(e.target.value)}
-                      className="pl-9 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 w-64"
+                      className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 w-64"
                       placeholder="Search permissions..."
                     />
                   </div>
@@ -207,7 +207,7 @@ export default function Permissions() {
 
               {/* Search Results Info */}
               {permissionSearch && (
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Found {filteredPermissions.length} permission{filteredPermissions.length !== 1 ? 's' : ''} matching "{permissionSearch}"
                   {filteredPermissions.length === 0 && (
                     <span className="text-red-500 ml-2">- No results found</span>
@@ -222,13 +222,13 @@ export default function Permissions() {
                 </div>
                 <div className="border border-gray-200 rounded-b-md p-4 space-y-4 max-h-[500px] overflow-y-auto">
                   {categories.length === 0 && (
-                    <p className="text-gray-500 text-sm">No permissions found</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">No permissions found</p>
                   )}
                   {categories.map(category => (
                     <div key={category} className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900 capitalize text-sm">{category}</h4>
-                        <label className="flex items-center text-xs text-gray-500">
+                        <h4 className="font-medium text-gray-900 dark:text-white capitalize text-sm">{category}</h4>
+                        <label className="flex items-center text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                           <input
                             type="checkbox"
                             checked={permissionsByCategory[category].every(p => groupForm.permissions.includes(p.id))}
@@ -247,7 +247,7 @@ export default function Permissions() {
                               onChange={() => handlePermissionToggle(perm.id)}
                               className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">
+                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
                               {perm.description || perm.name}
                             </span>
                           </label>
@@ -290,9 +290,9 @@ export default function Permissions() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-gray-900">PERMISSIONS</h1>
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PERMISSIONS</h1>
         </div>
 
         <div className="p-6">
@@ -301,14 +301,14 @@ export default function Permissions() {
             <div className="flex gap-2">
               <button
                 onClick={handleRefresh}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
               >
                 <ArrowPathIcon className="h-4 w-4 mr-2" />
                 Refresh
               </button>
               <button
                 onClick={handleAddGroup}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Add
@@ -326,21 +326,21 @@ export default function Permissions() {
 
             {/* Search */}
             <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
               <input
                 type="text"
                 placeholder="Search groups..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm w-48"
+                className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm w-48"
               />
             </div>
           </div>
 
           {/* Table */}
           <div className="overflow-x-auto border border-gray-200 rounded-md">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                     ID
@@ -356,23 +356,23 @@ export default function Permissions() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredGroups.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       No permission groups found
                     </td>
                   </tr>
                 ) : (
                   filteredGroups.map((group, index) => (
                     <tr key={group.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {group.id}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {group.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                         {group.permissions?.length || 0}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -405,11 +405,11 @@ export default function Permissions() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             <span>total: {filteredGroups.length}</span>
             <div className="flex items-center gap-2">
               <span>Page size:</span>
-              <select className="border border-gray-300 rounded px-2 py-1 text-sm">
+              <select className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm">
                 <option>10</option>
                 <option>25</option>
                 <option>50</option>

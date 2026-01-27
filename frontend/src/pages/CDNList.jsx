@@ -177,8 +177,8 @@ export default function CDNList() {
               <GlobeAltIcon className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <div className="font-semibold text-gray-900">{row.original.name}</div>
-              <div className="text-sm text-gray-500">{row.original.description}</div>
+              <div className="font-semibold text-gray-900 dark:text-white">{row.original.name}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.description}</div>
             </div>
           </div>
         ),
@@ -193,7 +193,7 @@ export default function CDNList() {
           const displayList = subnetList.slice(0, 3)
           return (
             <div>
-              <div className="text-sm font-medium text-gray-900">{count} subnet{count !== 1 ? 's' : ''}</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{count} subnet{count !== 1 ? 's' : ''}</div>
               <div className="text-xs text-gray-500 font-mono">
                 {displayList.join(', ')}
                 {count > 3 && ` +${count - 3} more`}
@@ -208,7 +208,7 @@ export default function CDNList() {
         cell: ({ row }) => {
           const nasIds = row.original.nas_ids
           if (!nasIds) {
-            return <span className="text-sm text-gray-500">All NAS</span>
+            return <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">All NAS</span>
           }
           const idList = nasIds.split(',').map(id => id.trim()).filter(id => id)
           const nasNames = idList.map(id => {
@@ -217,9 +217,9 @@ export default function CDNList() {
           })
           return (
             <div>
-              <div className="text-sm text-gray-900">{nasNames.slice(0, 2).join(', ')}</div>
+              <div className="text-sm text-gray-900 dark:text-white">{nasNames.slice(0, 2).join(', ')}</div>
               {nasNames.length > 2 && (
-                <div className="text-xs text-gray-500">+{nasNames.length - 2} more</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">+{nasNames.length - 2} more</div>
               )}
             </div>
           )
@@ -254,7 +254,7 @@ export default function CDNList() {
             </button>
             <button
               onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
               title="Edit"
             >
               <PencilIcon className="w-4 h-4" />
@@ -265,7 +265,7 @@ export default function CDNList() {
                   deleteMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
               title="Delete"
             >
               <TrashIcon className="w-4 h-4" />
@@ -287,8 +287,8 @@ export default function CDNList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">CDN List</h1>
-          <p className="text-gray-500">Manage Content Delivery Network configurations</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CDN List</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Manage Content Delivery Network configurations</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -307,7 +307,7 @@ export default function CDNList() {
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
         <div className="flex gap-3">
           <GlobeAltIcon className="w-6 h-6 text-blue-500 flex-shrink-0" />
           <div>
@@ -334,7 +334,7 @@ export default function CDNList() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -345,13 +345,13 @@ export default function CDNList() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     No CDNs found. Click "Add CDN" to create one.
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -370,12 +370,12 @@ export default function CDNList() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full">
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-semibold">
                   {editingCDN ? 'Edit CDN' : 'Add CDN'}
                 </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -419,24 +419,24 @@ export default function CDNList() {
 185.82.97.0/24
 34.104.35.0/24"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                     Enter IP subnets in CIDR notation, separated by commas or new lines
                   </p>
                 </div>
 
                 <div>
                   <label className="label">Sync to NAS</label>
-                  <p className="text-xs text-gray-500 mb-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                     Select which NAS devices to sync this CDN address list to (leave empty for all NAS)
                   </p>
-                  <div className="border rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
+                  <div className="border rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50 dark:bg-gray-700">
                     {nasList && nasList.length > 0 ? (
                       <div className="space-y-2">
                         {nasList.filter(nas => nas.is_active).map((nas) => {
                           const selectedIds = formData.nas_ids ? formData.nas_ids.split(',').map(id => id.trim()) : []
                           const isSelected = selectedIds.includes(String(nas.id))
                           return (
-                            <label key={nas.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
+                            <label key={nas.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
@@ -452,17 +452,17 @@ export default function CDNList() {
                                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                               />
                               <span className="text-sm">{nas.name}</span>
-                              <span className="text-xs text-gray-400">({nas.ip_address})</span>
+                              <span className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">({nas.ip_address})</span>
                             </label>
                           )
                         })}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-400">No NAS devices available</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 dark:text-gray-400">No NAS devices available</p>
                     )}
                   </div>
                   {formData.nas_ids && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                       Selected: {formData.nas_ids.split(',').filter(id => id).length} NAS device(s)
                     </p>
                   )}
@@ -470,7 +470,7 @@ export default function CDNList() {
 
                 <div>
                   <label className="label">Graph Color</label>
-                  <p className="text-xs text-gray-500 mb-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                     Choose a color for the live bandwidth graph (blue and green are reserved for download/upload)
                   </p>
                   <div className="flex items-center gap-4">

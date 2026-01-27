@@ -21,15 +21,15 @@ function StatCard({ title, value, icon: Icon, trend, color = 'primary' }) {
     red: 'bg-red-50 text-red-600',
     yellow: 'bg-yellow-50 text-yellow-600',
     blue: 'bg-blue-50 text-blue-600',
-    purple: 'bg-purple-50 text-purple-600',
+    purple: 'bg-purple-50 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300',
   }
 
   return (
     <div className="stat-card">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{title}</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{value}</p>
           {trend !== undefined && (
             <div className={clsx('flex items-center mt-1 text-sm', trend >= 0 ? 'text-green-600' : 'text-red-600')}>
               {trend >= 0 ? (
@@ -161,8 +161,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Welcome to {companyName || 'ISP'} Management System</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Welcome to {companyName || 'ISP'} Management System</p>
       </div>
 
       {/* Stats Grid */}
@@ -223,18 +223,18 @@ export default function Dashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">New vs Expired Users</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New vs Expired Users</h2>
           <ReactECharts option={lineChartOption} style={{ height: '300px' }} />
         </div>
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Users by Service</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Users by Service</h2>
           <ReactECharts option={pieChartOption} style={{ height: '300px' }} />
         </div>
       </div>
 
       {/* Recent Transactions */}
       <div className="card p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Transactions</h2>
         <div className="table-container">
           <table className="table">
             <thead>
@@ -246,7 +246,7 @@ export default function Dashboard() {
                 <th>Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {transactions?.map((tx) => (
                 <tr key={tx.id}>
                   <td>{formatDate(tx.created_at)}</td>
@@ -263,7 +263,7 @@ export default function Dashboard() {
                 </tr>
               )) || (
                 <tr>
-                  <td colSpan={5} className="text-center text-gray-500">No transactions</td>
+                  <td colSpan={5} className="text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">No transactions</td>
                 </tr>
               )}
             </tbody>

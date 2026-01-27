@@ -182,7 +182,7 @@ export default function CustomerPortal() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
@@ -190,9 +190,9 @@ export default function CustomerPortal() {
 
   // Dashboard
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 dark:bg-gray-700">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {companyLogo ? (
@@ -203,8 +203,8 @@ export default function CustomerPortal() {
               </div>
             )}
             <div>
-              {!companyLogo && <h1 className="font-bold text-gray-900">{companyName}</h1>}
-              <p className="text-sm text-gray-500">{dashboard?.username || customerData?.username}</p>
+              {!companyLogo && <h1 className="font-bold text-gray-900 dark:text-white">{companyName}</h1>}
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{dashboard?.username || customerData?.username}</p>
             </div>
           </div>
           <button
@@ -280,27 +280,27 @@ export default function CustomerPortal() {
             {/* Info Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Service */}
-              <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                     <WifiIcon className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-sm">Service Plan</p>
-                    <p className="font-bold text-gray-900">{dashboard.service_name}</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">Service Plan</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{dashboard.service_name}</p>
                   </div>
                 </div>
               </div>
 
               {/* Speed */}
-              <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                     <SignalIcon className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-sm">Current Speed</p>
-                    <p className="font-bold text-gray-900">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">Current Speed</p>
+                    <p className="font-bold text-gray-900 dark:text-white">
                       {dashboard.current_download_speed}k / {dashboard.current_upload_speed}k
                     </p>
                     {dashboard.fup_level > 0 && (
@@ -311,27 +311,27 @@ export default function CustomerPortal() {
               </div>
 
               {/* IP Address */}
-              <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center">
                     <UserCircleIcon className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-sm">IP Address</p>
-                    <p className="font-bold text-gray-900">{dashboard.ip_address || 'N/A'}</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">IP Address</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{dashboard.ip_address || 'N/A'}</p>
                   </div>
                 </div>
               </div>
 
               {/* MAC Address */}
-              <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/50 rounded-lg flex items-center justify-center">
                     <ClockIcon className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-sm">MAC Address</p>
-                    <p className="font-bold text-gray-900 text-xs">{dashboard.mac_address || 'N/A'}</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">MAC Address</p>
+                    <p className="font-bold text-gray-900 dark:text-white text-xs">{dashboard.mac_address || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -340,15 +340,15 @@ export default function CustomerPortal() {
             {/* Usage Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Daily Usage */}
-              <div className="bg-white rounded-xl p-6 shadow-sm">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm dark:shadow-gray-900">
+                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <CalendarDaysIcon className="w-5 h-5 text-blue-600" />
                   Daily Usage
                 </h3>
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500">Download</span>
+                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</span>
                       <span className="font-medium">
                         {formatBytes(dashboard.daily_download_used)}
                         {dashboard.daily_quota > 0 && ` / ${formatBytes(dashboard.daily_quota)}`}
@@ -365,7 +365,7 @@ export default function CustomerPortal() {
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500">Upload</span>
+                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</span>
                       <span className="font-medium">{formatBytes(dashboard.daily_upload_used)}</span>
                     </div>
                   </div>
@@ -373,15 +373,15 @@ export default function CustomerPortal() {
               </div>
 
               {/* Monthly Usage */}
-              <div className="bg-white rounded-xl p-6 shadow-sm">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm dark:shadow-gray-900">
+                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <ChartBarIcon className="w-5 h-5 text-green-600" />
                   Monthly Usage
                 </h3>
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500">Download</span>
+                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</span>
                       <span className="font-medium">
                         {formatBytes(dashboard.monthly_download_used)}
                         {dashboard.monthly_quota > 0 && ` / ${formatBytes(dashboard.monthly_quota)}`}
@@ -398,7 +398,7 @@ export default function CustomerPortal() {
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500">Upload</span>
+                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</span>
                       <span className="font-medium">{formatBytes(dashboard.monthly_upload_used)}</span>
                     </div>
                   </div>
@@ -407,27 +407,27 @@ export default function CustomerPortal() {
             </div>
 
             {/* Profile Info */}
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-4">Profile Information</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm dark:shadow-gray-900">
+              <h3 className="font-bold text-gray-900 dark:text-white mb-4">Profile Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-gray-500 text-sm">Full Name</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Full Name</p>
                   <p className="font-medium">{dashboard.full_name || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Username</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Username</p>
                   <p className="font-medium">{dashboard.username}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Email</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Email</p>
                   <p className="font-medium">{dashboard.email || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Phone</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Phone</p>
                   <p className="font-medium">{dashboard.phone || '-'}</p>
                 </div>
                 <div className="md:col-span-2">
-                  <p className="text-gray-500 text-sm">Address</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Address</p>
                   <p className="font-medium">{dashboard.address || '-'}</p>
                 </div>
               </div>
@@ -436,31 +436,31 @@ export default function CustomerPortal() {
         )}
 
         {activeTab === 'sessions' && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b">
-              <h3 className="font-bold text-gray-900">Session History (Last 30 Days)</h3>
+              <h3 className="font-bold text-gray-900 dark:text-white">Session History (Last 30 Days)</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Start Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Duration</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">IP Address</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Download</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Upload</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Start Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Duration</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">IP Address</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan="5" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                         No session history found
                       </td>
                     </tr>
                   ) : (
                     sessions.map((session, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
+                      <tr key={idx} className="hover:bg-gray-50 dark:bg-gray-700">
                         <td className="px-4 py-3 text-sm">
                           {session.start_time ? formatDateTime(session.start_time) : '-'}
                         </td>
@@ -478,30 +478,30 @@ export default function CustomerPortal() {
         )}
 
         {activeTab === 'usage' && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b">
-              <h3 className="font-bold text-gray-900">Daily Usage History</h3>
+              <h3 className="font-bold text-gray-900 dark:text-white">Daily Usage History</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Download</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Upload</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Sessions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Sessions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {usageHistory.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan="4" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                         No usage history found
                       </td>
                     </tr>
                   ) : (
                     usageHistory.map((usage, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
+                      <tr key={idx} className="hover:bg-gray-50 dark:bg-gray-700">
                         <td className="px-4 py-3 text-sm font-medium">{usage.date}</td>
                         <td className="px-4 py-3 text-sm text-blue-600">{formatBytes(usage.download)}</td>
                         <td className="px-4 py-3 text-sm text-green-600">{formatBytes(usage.upload)}</td>
@@ -519,7 +519,7 @@ export default function CustomerPortal() {
           <div className="space-y-4">
             {/* Header with Create Button */}
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">Support Tickets</h3>
+              <h3 className="font-bold text-gray-900 dark:text-white">Support Tickets</h3>
               <button
                 onClick={() => setShowCreateTicket(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -531,29 +531,29 @@ export default function CustomerPortal() {
 
             {/* Tickets List */}
             {!selectedTicket ? (
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Ticket #</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Subject</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Category</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Action</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Ticket #</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Subject</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Category</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {tickets.length === 0 ? (
                         <tr>
-                          <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
+                          <td colSpan="6" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                             No tickets found. Create your first support ticket!
                           </td>
                         </tr>
                       ) : (
                         tickets.map((ticket) => (
-                          <tr key={ticket.id} className="hover:bg-gray-50">
+                          <tr key={ticket.id} className="hover:bg-gray-50 dark:bg-gray-700">
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-mono">{ticket.ticket_number}</span>
@@ -577,14 +577,14 @@ export default function CustomerPortal() {
                               <span className={`px-2 py-1 text-xs rounded-full ${
                                 ticket.status === 'open' ? 'bg-green-100 text-green-800' :
                                 ticket.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                ticket.status === 'closed' ? 'bg-gray-100 text-gray-800' :
+                                ticket.status === 'closed' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
                                 'bg-blue-100 text-blue-800'
                               }`}>
                                 {ticket.status}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-500 capitalize">{ticket.category}</td>
-                            <td className="px-4 py-3 text-sm text-gray-500">
+                            <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                               {formatDate(ticket.created_at)}
                             </td>
                             <td className="px-4 py-3">
@@ -604,24 +604,24 @@ export default function CustomerPortal() {
               </div>
             ) : (
               /* Ticket Detail View */
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div className="p-4 border-b flex items-center justify-between">
                   <div>
-                    <h3 className="font-bold text-gray-900">{selectedTicket.subject}</h3>
-                    <p className="text-sm text-gray-500">{selectedTicket.ticket_number}</p>
+                    <h3 className="font-bold text-gray-900 dark:text-white">{selectedTicket.subject}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{selectedTicket.ticket_number}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`px-2 py-1 text-xs rounded-full ${
                       selectedTicket.status === 'open' ? 'bg-green-100 text-green-800' :
                       selectedTicket.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      selectedTicket.status === 'closed' ? 'bg-gray-100 text-gray-800' :
+                      selectedTicket.status === 'closed' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
                       'bg-blue-100 text-blue-800'
                     }`}>
                       {selectedTicket.status}
                     </span>
                     <button
                       onClick={() => setSelectedTicket(null)}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                     >
                       <XMarkIcon className="w-5 h-5" />
                     </button>
@@ -632,7 +632,7 @@ export default function CustomerPortal() {
                 <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
                   {/* Original Message */}
                   <div className="bg-blue-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-2">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                       You • {formatDateTime(selectedTicket.created_at)}
                     </div>
                     <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
@@ -644,7 +644,7 @@ export default function CustomerPortal() {
                       key={reply.id}
                       className={`rounded-lg p-4 ${reply.is_admin ? 'bg-gray-100' : 'bg-blue-50'}`}
                     >
-                      <div className="text-xs text-gray-500 mb-2">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                         {reply.is_admin ? 'Support' : 'You'} • {formatDateTime(reply.created_at)}
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{reply.message}</p>
@@ -681,32 +681,32 @@ export default function CustomerPortal() {
         {/* Create Ticket Modal */}
         {showCreateTicket && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4">
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold">Create Support Ticket</h3>
-                <button onClick={() => setShowCreateTicket(false)} className="p-1 hover:bg-gray-100 rounded">
+                <button onClick={() => setShowCreateTicket(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
               <form onSubmit={handleCreateTicket}>
                 <div className="p-4 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
                     <input
                       type="text"
                       value={ticketForm.subject}
                       onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                       placeholder="Brief description of your issue"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
                     <select
                       value={ticketForm.category}
                       onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                     >
                       <option value="general">General</option>
                       <option value="billing">Billing</option>
@@ -715,12 +715,12 @@ export default function CustomerPortal() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                     <textarea
                       value={ticketForm.description}
                       onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
                       rows={4}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                       placeholder="Detailed description of your issue"
                       required
                     />
@@ -730,7 +730,7 @@ export default function CustomerPortal() {
                   <button
                     type="button"
                     onClick={() => setShowCreateTicket(false)}
-                    className="px-4 py-2 text-gray-700 border rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 text-gray-700 border rounded-lg hover:bg-gray-50 dark:bg-gray-700"
                   >
                     Cancel
                   </button>

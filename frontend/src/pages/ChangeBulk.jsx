@@ -199,7 +199,7 @@ export default function ChangeBulk() {
         return (
           <input
             type="date"
-            className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
             value={actionValue}
             onChange={(e) => setActionValue(e.target.value)}
           />
@@ -207,7 +207,7 @@ export default function ChangeBulk() {
       case 'set_service':
         return (
           <select
-            className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
             value={actionValue}
             onChange={(e) => setActionValue(e.target.value)}
           >
@@ -220,7 +220,7 @@ export default function ChangeBulk() {
       case 'set_reseller':
         return (
           <select
-            className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
             value={actionValue}
             onChange={(e) => setActionValue(e.target.value)}
           >
@@ -235,12 +235,12 @@ export default function ChangeBulk() {
           <div className="relative mt-1">
             <input
               type="number"
-              className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-12"
+              className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-12"
               placeholder="Enter quota"
               value={actionValue}
               onChange={(e) => setActionValue(e.target.value)}
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">GB</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">GB</span>
           </div>
         )
       case 'set_daily_quota':
@@ -248,22 +248,22 @@ export default function ChangeBulk() {
           <div className="relative mt-1">
             <input
               type="number"
-              className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-12"
+              className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-12"
               placeholder="Enter quota"
               value={actionValue}
               onChange={(e) => setActionValue(e.target.value)}
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">MB</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">MB</span>
           </div>
         )
       case 'set_price':
         return (
           <div className="relative mt-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">$</span>
             <input
               type="number"
               step="0.01"
-              className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pl-7"
+              className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 pl-7"
               placeholder="0.00"
               value={actionValue}
               onChange={(e) => setActionValue(e.target.value)}
@@ -289,16 +289,16 @@ export default function ChangeBulk() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl text-white">
               <AdjustmentsHorizontalIcon className="w-6 h-6" />
             </div>
             Bulk Operations
           </h1>
-          <p className="text-gray-500 mt-1">Apply changes to multiple subscribers at once</p>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Apply changes to multiple subscribers at once</p>
         </div>
         {previewTotal > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg">
             <UsersIcon className="w-5 h-5 text-blue-600" />
             <span className="text-blue-700 font-medium">{previewTotal} subscribers selected</span>
           </div>
@@ -309,10 +309,10 @@ export default function ChangeBulk() {
         {/* Left Column - Filters */}
         <div className="lg:col-span-2 space-y-6">
           {/* Basic Filters */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                <FunnelIcon className="w-5 h-5 text-gray-500" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <FunnelIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                 Filter Subscribers
               </h2>
             </div>
@@ -320,9 +320,9 @@ export default function ChangeBulk() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Reseller Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reseller</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reseller</label>
                   <select
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     value={filters.reseller_id}
                     onChange={(e) => setFilters({ ...filters, reseller_id: parseInt(e.target.value) })}
                   >
@@ -335,9 +335,9 @@ export default function ChangeBulk() {
 
                 {/* Service Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service</label>
                   <select
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     value={filters.service_id}
                     onChange={(e) => setFilters({ ...filters, service_id: parseInt(e.target.value) })}
                   >
@@ -350,9 +350,9 @@ export default function ChangeBulk() {
 
                 {/* Status Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                   <select
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     value={filters.status_filter}
                     onChange={(e) => setFilters({ ...filters, status_filter: e.target.value })}
                   >
@@ -374,7 +374,7 @@ export default function ChangeBulk() {
                       onChange={(e) => setFilters({ ...filters, include_sub_resellers: e.target.checked })}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    <span className="ml-3 text-sm font-medium text-gray-700">Include Sub-resellers</span>
+                    <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Include Sub-resellers</span>
                   </label>
                 </div>
               </div>
@@ -382,19 +382,19 @@ export default function ChangeBulk() {
           </div>
 
           {/* Custom Filters */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                <AdjustmentsHorizontalIcon className="w-5 h-5 text-gray-500" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <AdjustmentsHorizontalIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                 Advanced Filters
               </h2>
             </div>
             <div className="p-6">
               <div className="flex gap-3 items-end flex-wrap">
                 <div className="flex-1 min-w-[140px]">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Field</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Field</label>
                   <select
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                     value={newFilter.field}
                     onChange={(e) => setNewFilter({ ...newFilter, field: e.target.value })}
                   >
@@ -405,9 +405,9 @@ export default function ChangeBulk() {
                 </div>
 
                 <div className="flex-1 min-w-[140px]">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condition</label>
                   <select
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                     value={newFilter.rule}
                     onChange={(e) => setNewFilter({ ...newFilter, rule: e.target.value })}
                   >
@@ -418,10 +418,10 @@ export default function ChangeBulk() {
                 </div>
 
                 <div className="flex-1 min-w-[160px]">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Value</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Value</label>
                   <input
                     type="text"
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                     value={newFilter.value}
                     onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
                     placeholder="Enter value..."
@@ -440,7 +440,7 @@ export default function ChangeBulk() {
 
               {/* Active Custom Filters */}
               {customFilters.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <p className="text-sm text-gray-500 mb-3">Active filters:</p>
                   <div className="flex flex-wrap gap-2">
                     {customFilters.map((f, i) => (
@@ -468,18 +468,18 @@ export default function ChangeBulk() {
 
         {/* Right Column - Action */}
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-6">
-            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-6">
+            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <BoltIcon className="w-5 h-5 text-purple-500" />
                 Action to Perform
               </h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select Action</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Action</label>
                 <select
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  className="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-purple-500 focus:ring-purple-500"
                   value={action}
                   onChange={(e) => {
                     setAction(e.target.value)
@@ -495,7 +495,7 @@ export default function ChangeBulk() {
               {/* Action Value */}
               {action && !['set_active', 'set_inactive', 'reset_mac'].includes(action) && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {actionOptions.find(a => a.value === action)?.label}
                   </label>
                   {renderActionInput()}
@@ -548,9 +548,9 @@ export default function ChangeBulk() {
 
       {/* Preview Table */}
       {previewData && previewData.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <CheckCircleIcon className="w-5 h-5 text-green-500" />
               Preview Results
               <span className="ml-2 px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
@@ -558,9 +558,9 @@ export default function ChangeBulk() {
               </span>
             </h2>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">Rows per page:</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Rows per page:</span>
               <select
-                className="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-1"
+                className="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-1"
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(parseInt(e.target.value))
@@ -576,8 +576,8 @@ export default function ChangeBulk() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map(header => (
@@ -591,11 +591,11 @@ export default function ChangeBulk() {
                   </tr>
                 ))}
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {table.getRowModel().rows.map((row, idx) => (
                   <tr key={row.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -608,12 +608,12 @@ export default function ChangeBulk() {
           {/* Pagination */}
           {previewTotal > pageSize && (
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                 Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, previewTotal)} of {previewTotal} results
               </p>
               <div className="flex items-center gap-2">
                 <button
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                   disabled={page === 1}
                   onClick={() => {
                     setPage(page - 1)
@@ -623,11 +623,11 @@ export default function ChangeBulk() {
                   <ChevronLeftIcon className="w-4 h-4" />
                   Previous
                 </button>
-                <span className="px-4 py-1.5 text-sm font-medium text-gray-700">
+                <span className="px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
                   Page {page} of {Math.ceil(previewTotal / pageSize)}
                 </span>
                 <button
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                   disabled={page >= Math.ceil(previewTotal / pageSize)}
                   onClick={() => {
                     setPage(page + 1)
@@ -645,36 +645,36 @@ export default function ChangeBulk() {
 
       {/* Empty preview state */}
       {previewData && previewData.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-12 text-center">
           <UsersIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No subscribers found</h3>
-          <p className="text-gray-500">Try adjusting your filters to match more subscribers.</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No subscribers found</h3>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Try adjusting your filters to match more subscribers.</p>
         </div>
       )}
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
             <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-100 rounded-full">
                   <ExclamationTriangleIcon className="w-6 h-6 text-amber-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Confirm Bulk Action</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Bulk Action</h3>
               </div>
             </div>
             <div className="p-6">
               <p className="text-gray-600 mb-4">
-                You are about to perform <span className="font-semibold text-gray-900">"{actionOptions.find(a => a.value === action)?.label}"</span> on
+                You are about to perform <span className="font-semibold text-gray-900 dark:text-white">"{actionOptions.find(a => a.value === action)?.label}"</span> on
                 <span className="font-semibold text-blue-600"> {previewTotal || 'all matching'} subscribers</span>.
               </p>
-              <p className="text-sm text-gray-500">This action cannot be undone. Are you sure you want to continue?</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">This action cannot be undone. Are you sure you want to continue?</p>
             </div>
             <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end">
               <button
                 onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 font-medium"
               >
                 Cancel
               </button>

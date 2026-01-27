@@ -288,8 +288,8 @@ export default function Backups() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Backup Management</h1>
-          <p className="text-gray-500">Create, restore, and manage database backups</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Backup Management</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Create, restore, and manage database backups</p>
         </div>
         <div className="flex items-center gap-3">
           {activeTab === 'manual' && (
@@ -346,7 +346,7 @@ export default function Backups() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex -mb-px">
           {[
             { id: 'manual', label: 'Manual Backups', icon: CloudArrowUpIcon },
@@ -360,7 +360,7 @@ export default function Backups() {
                 'flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2',
                 activeTab === tab.id
                   ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
               )}
             >
               <tab.icon className="w-4 h-4" />
@@ -376,18 +376,18 @@ export default function Backups() {
           {/* Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card p-4">
-              <div className="text-sm font-medium text-gray-500">Total Backups</div>
-              <div className="text-2xl font-bold text-gray-900">{backups.length}</div>
+              <div className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Backups</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{backups.length}</div>
             </div>
             <div className="card p-4">
-              <div className="text-sm font-medium text-gray-500">Total Size</div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Size</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatBytes(backups.reduce((acc, b) => acc + (b.size || 0), 0))}
               </div>
             </div>
             <div className="card p-4">
-              <div className="text-sm font-medium text-gray-500">Latest Backup</div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Latest Backup</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {backups[0] ? formatDate(backups[0].created_at) : 'None'}
               </div>
             </div>
@@ -406,7 +406,7 @@ export default function Backups() {
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {isLoading ? (
                     <tr>
                       <td colSpan={5} className="text-center py-8">
@@ -417,14 +417,14 @@ export default function Backups() {
                     </tr>
                   ) : backups.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-gray-500">
+                      <td colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                         <CloudArrowUpIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                         No backups found. Create your first backup to get started.
                       </td>
                     </tr>
                   ) : (
                     backups.map((backup) => (
-                      <tr key={backup.filename} className="hover:bg-gray-50">
+                      <tr key={backup.filename} className="hover:bg-gray-50 dark:bg-gray-700">
                         <td>
                           <div className="flex items-center">
                             <DocumentArrowUpIcon className="w-5 h-5 text-gray-400 mr-2" />
@@ -451,14 +451,14 @@ export default function Backups() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleDownload(backup.filename)}
-                              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+                              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
                               title="Download"
                             >
                               <ArrowDownTrayIcon className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => setShowRestoreConfirm(backup.filename)}
-                              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
+                              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
                               title="Restore"
                             >
                               <ArrowPathIcon className="w-4 h-4" />
@@ -469,7 +469,7 @@ export default function Backups() {
                                   deleteMutation.mutate(backup.filename)
                                 }
                               }}
-                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
                               title="Delete"
                             >
                               <TrashIcon className="w-4 h-4" />
@@ -498,7 +498,7 @@ export default function Backups() {
           ) : schedules.length === 0 ? (
             <div className="card p-8 text-center">
               <CalendarDaysIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500">No backup schedules configured.</p>
+              <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">No backup schedules configured.</p>
               <p className="text-gray-400 text-sm mt-1">Create a schedule to automate your backups.</p>
               <button
                 onClick={() => openScheduleModal()}
@@ -515,7 +515,7 @@ export default function Backups() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-gray-900">{schedule.name}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{schedule.name}</h3>
                         <span
                           className={clsx(
                             'badge',
@@ -537,7 +537,7 @@ export default function Backups() {
                           {schedule.backup_type}
                         </span>
                       </div>
-                      <div className="mt-2 text-sm text-gray-500 space-y-1">
+                      <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 space-y-1">
                         <p>
                           <span className="font-medium">Frequency:</span>{' '}
                           {schedule.frequency === 'daily'
@@ -559,7 +559,7 @@ export default function Backups() {
                             ? 'FTP Only'
                             : 'Local Only'}
                           {schedule.ftp_enabled && schedule.ftp_host && (
-                            <span className="ml-2 text-gray-400">({schedule.ftp_host})</span>
+                            <span className="ml-2 text-gray-400 dark:text-gray-500 dark:text-gray-400">({schedule.ftp_host})</span>
                           )}
                         </p>
                         {schedule.last_run_at && (
@@ -594,14 +594,14 @@ export default function Backups() {
                       <button
                         onClick={() => runNowMutation.mutate(schedule.id)}
                         disabled={runNowMutation.isLoading}
-                        className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
+                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
                         title="Run Now"
                       >
                         <PlayIcon className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => openScheduleModal(schedule)}
-                        className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+                        className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
                         title="Edit"
                       >
                         <PencilIcon className="w-5 h-5" />
@@ -629,7 +629,7 @@ export default function Backups() {
                             deleteScheduleMutation.mutate(schedule.id)
                           }
                         }}
-                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
                         title="Delete"
                       >
                         <TrashIcon className="w-5 h-5" />
@@ -659,7 +659,7 @@ export default function Backups() {
                   <th>Started At</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {logsLoading ? (
                   <tr>
                     <td colSpan={7} className="text-center py-8">
@@ -670,14 +670,14 @@ export default function Backups() {
                   </tr>
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-gray-500">
+                    <td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       <ClockIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                       No backup logs found.
                     </td>
                   </tr>
                 ) : (
                   logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
+                    <tr key={log.id} className="hover:bg-gray-50 dark:bg-gray-700">
                       <td>{log.schedule_name || 'Manual'}</td>
                       <td>
                         <span className="badge badge-info">{log.backup_type}</span>
@@ -714,11 +714,11 @@ export default function Backups() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowCreateModal(false)} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
               <h2 className="text-xl font-bold mb-4">Create Backup</h2>
 
               <div className="space-y-3">
-                <p className="text-sm text-gray-600">Select backup type:</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Select backup type:</p>
 
                 {[
                   { value: 'full', label: 'Full Backup', desc: 'Complete database backup (all tables)' },
@@ -744,7 +744,7 @@ export default function Backups() {
                     />
                     <div>
                       <p className="font-medium">{type.label}</p>
-                      <p className="text-xs text-gray-500">{type.desc}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{type.desc}</p>
                     </div>
                   </label>
                 ))}
@@ -780,7 +780,7 @@ export default function Backups() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowRestoreConfirm(null)} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-yellow-100 rounded-full">
                   <ExclamationTriangleIcon className="w-6 h-6 text-yellow-600" />
@@ -792,8 +792,8 @@ export default function Backups() {
                 Are you sure you want to restore from this backup? This will overwrite existing data.
               </p>
 
-              <p className="text-sm text-gray-500 mb-6">
-                File: <span className="font-mono text-gray-700">{showRestoreConfirm}</span>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                File: <span className="font-mono text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{showRestoreConfirm}</span>
               </p>
 
               <div className="flex justify-end gap-3">
@@ -826,7 +826,7 @@ export default function Backups() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowScheduleModal(false)} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-bold mb-4">
                 {editingSchedule ? 'Edit Schedule' : 'Create Backup Schedule'}
               </h2>
@@ -835,7 +835,7 @@ export default function Backups() {
                 {/* Basic Settings */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Schedule Name *
                     </label>
                     <input
@@ -850,7 +850,7 @@ export default function Backups() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Backup Type
                       </label>
                       <select
@@ -865,7 +865,7 @@ export default function Backups() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Frequency
                       </label>
                       <select
@@ -882,7 +882,7 @@ export default function Backups() {
 
                   {scheduleForm.frequency === 'weekly' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Day of Week
                       </label>
                       <select
@@ -899,7 +899,7 @@ export default function Backups() {
 
                   {scheduleForm.frequency === 'monthly' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Day of Month
                       </label>
                       <select
@@ -916,7 +916,7 @@ export default function Backups() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Time of Day
                       </label>
                       <input
@@ -928,7 +928,7 @@ export default function Backups() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Retention (days)
                       </label>
                       <input
@@ -945,10 +945,10 @@ export default function Backups() {
 
                 {/* Storage Settings */}
                 <div className="border-t pt-4">
-                  <h3 className="text-sm font-medium text-gray-900 mb-3">Storage Settings</h3>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Storage Settings</h3>
 
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Storage Type
                     </label>
                     <select
@@ -1058,8 +1058,8 @@ export default function Backups() {
                 {/* Enable/Disable */}
                 <div className="flex items-center justify-between border-t pt-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Enable Schedule</label>
-                    <p className="text-xs text-gray-500">Backups will run automatically when enabled</p>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Enable Schedule</label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Backups will run automatically when enabled</p>
                   </div>
                   <button
                     type="button"
@@ -1071,7 +1071,7 @@ export default function Backups() {
                   >
                     <span
                       className={clsx(
-                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow ring-0 transition duration-200 ease-in-out',
                         scheduleForm.is_enabled ? 'translate-x-5' : 'translate-x-0'
                       )}
                     />

@@ -454,7 +454,7 @@ export default function Services() {
         cell: ({ row }) => (
           <div>
             <div className="font-medium">{row.original.name}</div>
-            <div className="text-sm text-gray-500">{row.original.description}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.description}</div>
           </div>
         ),
       },
@@ -489,7 +489,7 @@ export default function Services() {
                 <div>Monthly: {row.original.monthly_quota ? (row.original.monthly_quota / (1024 * 1024 * 1024)).toFixed(0) : '∞'} GB</div>
               </>
             ) : (
-              <span className="text-gray-400">Unlimited</span>
+              <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Unlimited</span>
             )}
           </div>
         ),
@@ -530,7 +530,7 @@ export default function Services() {
                   )}
                 </>
               ) : (
-                <span className="text-gray-400">None</span>
+                <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">None</span>
               )}
             </div>
           )
@@ -553,7 +553,7 @@ export default function Services() {
             {hasPermission('services.edit') && (
               <button
                 onClick={() => openModal(row.original)}
-                className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+                className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
                 title="Edit"
               >
                 <PencilIcon className="w-4 h-4" />
@@ -566,7 +566,7 @@ export default function Services() {
                     deleteMutation.mutate(row.original.id)
                   }
                 }}
-                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
                 title="Delete"
               >
                 <TrashIcon className="w-4 h-4" />
@@ -589,8 +589,8 @@ export default function Services() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Services</h1>
-          <p className="text-gray-500">Manage internet service plans</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Services</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Manage internet service plans</p>
         </div>
         {hasPermission('services.create') && (
           <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
@@ -614,7 +614,7 @@ export default function Services() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -625,13 +625,13 @@ export default function Services() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     No services found
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -650,12 +650,12 @@ export default function Services() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-semibold">
                   {editingService ? 'Edit Service' : 'Add Service'}
                 </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -826,7 +826,7 @@ export default function Services() {
                       className="input"
                       placeholder="e.g., pool-10mbps"
                     />
-                    <p className="text-xs text-gray-500 mt-1">MikroTik IP pool name (must match pool configured on router)</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">MikroTik IP pool name (must match pool configured on router)</p>
                   </div>
                 </div>
 
@@ -956,7 +956,7 @@ export default function Services() {
                     Resets when the user renews their subscription.
                   </p>
 
-                  <div className="grid grid-cols-3 gap-4 p-3 bg-cyan-50 rounded-lg">
+                  <div className="grid grid-cols-3 gap-4 p-3 bg-cyan-50 dark:bg-cyan-900/30 rounded-lg">
                     <div>
                       <label className="label text-cyan-700">Threshold (GB)</label>
                       <input
@@ -1116,7 +1116,7 @@ export default function Services() {
 
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-3 flex items-center gap-2">
-                    <GlobeAltIcon className="w-5 h-5 text-gray-500" />
+                    <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                     CDN Configuration
                   </h3>
                   <p className="text-sm text-gray-500 mb-4">
@@ -1198,18 +1198,18 @@ export default function Services() {
                           </div>
 
                           {/* PCQ Mode Option */}
-                          <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                             <div className="flex items-center gap-4">
                               <label className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={sc.pcq_enabled}
                                   onChange={(e) => updateCDNConfig(sc.cdn_id, 'pcq_enabled', e.target.checked)}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                                 />
                                 <span className="text-sm text-blue-700 font-medium">PCQ Mode</span>
                               </label>
-                              <span className="text-xs text-gray-500">(Shared queue for all subscribers)</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">(Shared queue for all subscribers)</span>
                             </div>
                             {sc.pcq_enabled && (
                               <div className="mt-2 p-3 bg-blue-50 rounded space-y-3">
@@ -1239,7 +1239,7 @@ export default function Services() {
                                   <div>
                                     <label className="label text-xs text-blue-700">Select Pools (Target)</label>
                                     {pcqPools[sc.cdn_id]?.loading ? (
-                                      <div className="text-xs text-gray-500">Loading pools...</div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Loading pools...</div>
                                     ) : pcqPools[sc.cdn_id]?.pools?.length > 0 ? (
                                       <div className="grid grid-cols-2 gap-2 mt-1">
                                         {pcqPools[sc.cdn_id].pools.map(pool => {
@@ -1263,14 +1263,14 @@ export default function Services() {
                                               />
                                               <div>
                                                 <div className="text-sm font-medium">{pool.name}</div>
-                                                <div className="text-xs text-gray-500">{pool.ranges}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{pool.ranges}</div>
                                               </div>
                                             </label>
                                           )
                                         })}
                                       </div>
                                     ) : (
-                                      <div className="text-xs text-gray-500">
+                                      <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                         <button
                                           type="button"
                                           onClick={() => fetchPoolsForCDN(sc.cdn_id, sc.pcq_nas_id)}
@@ -1318,7 +1318,7 @@ export default function Services() {
                           </div>
 
                           {/* Time-Based Speed Control for CDN */}
-                          <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <ClockIcon className="w-4 h-4 text-purple-500" />
@@ -1418,7 +1418,7 @@ export default function Services() {
                                   {sc.time_speed_ratio !== 100 && (sc.time_from_hour !== sc.time_to_hour || sc.time_from_ampm !== sc.time_to_ampm) ? (
                                     <span className="font-medium text-purple-600">{Math.round(sc.speed_limit * sc.time_speed_ratio / 100)}M</span>
                                   ) : (
-                                    <span className="text-gray-400">-</span>
+                                    <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">-</span>
                                   )}
                                 </p>
                               </div>

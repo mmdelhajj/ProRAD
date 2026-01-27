@@ -297,6 +297,16 @@ docker-compose down && docker-compose up -d
   - Network ports summary
   - MikroTik integration details
   - Troubleshooting commands
+- **Dark Mode Comprehensive Fix** (Jan 2026): Fixed dark mode across all 28+ pages. Key changes:
+  - Text colors: `text-gray-900` → `dark:text-white`, `text-gray-700` → `dark:text-gray-300`, `text-gray-500` → `dark:text-gray-400`
+  - Backgrounds: `bg-white` → `dark:bg-gray-800`, `bg-gray-50` → `dark:bg-gray-700`, `bg-gray-100` → `dark:bg-gray-700`
+  - Borders: `border-gray-200` → `dark:border-gray-700`, `border-gray-300` → `dark:border-gray-600`
+  - Inputs/selects: Added `dark:bg-gray-700 dark:text-white dark:border-gray-600`
+  - Badges: Added dark variants for all badge types (success, danger, warning, info, purple, orange, etc.)
+  - Hover states: `hover:bg-gray-50` → `dark:hover:bg-gray-700`
+  - Fixed duplicate dark mode classes issue from sed batch replacements
+  - Added new badge classes to index.css: `.badge-purple`, `.badge-orange`, `.badge-secondary`, `.badge-cyan`, `.badge-indigo`
+  - Files: All pages in `frontend/src/pages/*.jsx`, `frontend/src/index.css`, `frontend/src/components/*.jsx`
 
 ## Remote Support / SSH Tunnel Setup
 

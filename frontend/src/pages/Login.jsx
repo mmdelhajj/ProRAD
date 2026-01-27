@@ -127,7 +127,7 @@ export default function Login() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-700">
         <div className="w-full max-w-md">
           {/* Mobile Logo - show logo OR name, not both */}
           <div className="lg:hidden text-center mb-8">
@@ -139,29 +139,29 @@ export default function Login() {
                   <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                     <WifiIcon className="w-7 h-7 text-blue-600" />
                   </div>
-                  <h1 className="text-2xl font-bold text-gray-900">{companyName || 'ISP Management'}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyName || 'ISP Management'}</h1>
                 </>
               )}
             </div>
           </div>
 
           {/* Login Card */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100">
             {!requires2FA ? (
               <>
                 <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
-                  <p className="text-gray-500 mt-1">Sign in to your account</p>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h2>
+                  <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Sign in to your account</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       Username
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <UserIcon className="h-5 w-5 text-gray-400" />
+                        <UserIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                       </div>
                       <input
                         id="username"
@@ -169,7 +169,7 @@ export default function Login() {
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                         placeholder="Enter your username"
                         autoComplete="username"
                       />
@@ -177,12 +177,12 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       Password
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                        <LockClosedIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                       </div>
                       <input
                         id="password"
@@ -190,7 +190,7 @@ export default function Login() {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                         placeholder="Enter your password"
                         autoComplete="current-password"
                       />
@@ -217,7 +217,7 @@ export default function Login() {
                 </form>
 
                 <div className="mt-6 text-center">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     Admin, Reseller, or PPPoE Customer
                   </p>
                 </div>
@@ -228,13 +228,13 @@ export default function Login() {
                   <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                     <ShieldCheckIcon className="w-8 h-8 text-blue-600" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Two-Factor Authentication</h2>
-                  <p className="text-gray-500 mt-1">Enter the 6-digit code from your authenticator app</p>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Two-Factor Authentication</h2>
+                  <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Enter the 6-digit code from your authenticator app</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div>
-                    <label htmlFor="twoFACode" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label htmlFor="twoFACode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       Authentication Code
                     </label>
                     <input
@@ -243,7 +243,7 @@ export default function Login() {
                       required
                       value={twoFACode}
                       onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="block w-full py-4 text-center text-2xl tracking-[0.5em] font-mono border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full py-4 text-center text-2xl tracking-[0.5em] font-mono border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="000000"
                       maxLength={6}
                       autoComplete="one-time-code"
@@ -272,7 +272,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="w-full py-2 text-sm text-gray-600 hover:text-gray-900 flex items-center justify-center gap-1"
+                    className="w-full py-2 text-sm text-gray-600 hover:text-gray-900 dark:text-white flex items-center justify-center gap-1"
                   >
                     <ArrowLeftIcon className="w-4 h-4" />
                     Back to login
@@ -283,7 +283,7 @@ export default function Login() {
           </div>
 
           {/* Footer */}
-          <p className="mt-6 text-center text-sm text-gray-400">
+          <p className="mt-6 text-center text-sm text-gray-400 dark:text-gray-500 dark:text-gray-400">
             {companyName ? `${companyName} - ISP Management System` : 'ISP Management System'}
           </p>
         </div>

@@ -659,14 +659,14 @@ export default function Subscribers() {
           return (
             <div className="min-w-[120px]">
               <div className="text-center font-medium text-sm">{serviceName}</div>
-              <div className="w-full bg-gray-200 rounded-full h-4 mt-1 relative border border-gray-300">
+              <div className="w-full bg-gray-200 rounded-full h-4 mt-1 relative border border-gray-300 dark:border-gray-600">
                 <div
                   className={`h-full rounded-full transition-all ${
                     percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
                   }`}
                   style={{ width: `${Math.min(100, percent)}%` }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-800">
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-800 dark:text-gray-200">
                   {usedFormatted}
                 </span>
               </div>
@@ -719,7 +719,7 @@ export default function Subscribers() {
 
           return (
             <div className="min-w-[80px]">
-              <div className="w-full bg-gray-200 rounded-full h-3 relative border border-gray-300">
+              <div className="w-full bg-gray-200 rounded-full h-3 relative border border-gray-300 dark:border-gray-600">
                 <div
                   className={`h-full rounded-full ${
                     percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
@@ -779,7 +779,7 @@ export default function Subscribers() {
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Subscribers</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Subscribers</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
@@ -822,35 +822,35 @@ export default function Subscribers() {
       </div>
 
       {/* Stats Bar */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-white rounded-lg border text-sm">
+      <div className="flex items-center gap-4 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border text-sm">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-green-500"></span>
           <span className="font-semibold text-green-600">{stats.online || 0}</span>
-          <span className="text-gray-500">Online</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Online</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-red-500"></span>
           <span className="font-semibold text-red-600">{stats.offline || 0}</span>
-          <span className="text-gray-500">Offline</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Offline</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-blue-500"></span>
           <span className="font-semibold text-blue-600">{stats.active || 0}</span>
-          <span className="text-gray-500">Active</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-          <span className="font-semibold text-gray-600">{stats.inactive || 0}</span>
-          <span className="text-gray-500">Inactive</span>
+          <span className="font-semibold text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{stats.inactive || 0}</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Inactive</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
           <span className="font-semibold text-yellow-600">{stats.expired || 0}</span>
-          <span className="text-gray-500">Expired</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Expired</span>
         </div>
         <div className="flex items-center gap-1.5 ml-auto">
-          <span className="font-semibold text-gray-700">{data?.meta?.total || 0}</span>
-          <span className="text-gray-500">Total</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{data?.meta?.total || 0}</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total</span>
         </div>
       </div>
 
@@ -885,7 +885,7 @@ export default function Subscribers() {
 
         {/* Search */}
         <div className="flex-1 relative">
-          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
           <input
             type="text"
             placeholder="Search username, name, phone, MAC, IP..."
@@ -943,7 +943,7 @@ export default function Subscribers() {
         <div className="card p-3">
           {showColumnSettings && (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-2">Visible Columns</div>
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Visible Columns</div>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(visibleColumns).map(([key, visible]) => (
                   <label key={key} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded cursor-pointer hover:bg-gray-200 text-xs">
@@ -964,7 +964,7 @@ export default function Subscribers() {
             <div className={showColumnSettings ? 'mt-3 pt-3 border-t' : ''}>
               <div className="flex items-center gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">Service</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Service</label>
                   <select
                     value={serviceId}
                     onChange={(e) => { setServiceId(e.target.value); setPage(1); }}
@@ -977,7 +977,7 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">NAS</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">NAS</label>
                   <select
                     value={nasId}
                     onChange={(e) => { setNasId(e.target.value); setPage(1); }}
@@ -990,7 +990,7 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Per Page</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Per Page</label>
                   <select
                     value={limit}
                     onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
@@ -1164,7 +1164,7 @@ export default function Subscribers() {
               <span className="font-semibold text-primary-600">{selectedCount} selected</span>
               <button
                 onClick={clearSelection}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
@@ -1196,7 +1196,7 @@ export default function Subscribers() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -1207,7 +1207,7 @@ export default function Subscribers() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     {viewMode === 'archived' ? 'No archived subscribers' : 'No subscribers found'}
                   </td>
                 </tr>
@@ -1220,7 +1220,7 @@ export default function Subscribers() {
                       className={clsx(
                         'cursor-pointer transition-colors',
                         isSelected
-                          ? 'bg-red-50 border-b-2 border-red-400 text-red-700'
+                          ? 'bg-red-50 dark:bg-red-900/30 border-b-2 border-red-400 text-red-700'
                           : 'hover:bg-gray-50'
                       )}
                       onClick={() => toggleRowSelection(row.original.id)}
@@ -1240,24 +1240,24 @@ export default function Subscribers() {
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-2 border-t text-xs">
-          <span className="text-gray-500">
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             {((page - 1) * limit) + 1}-{Math.min(page * limit, data?.meta?.total || 0)} of {data?.meta?.total || 0}
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               <ChevronLeftIcon className="w-4 h-4" />
             </button>
-            <span className="px-2 text-gray-600">
+            <span className="px-2 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               {page}/{totalPages || 1}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               <ChevronRightIcon className="w-4 h-4" />
             </button>
@@ -1277,8 +1277,8 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500">Current MAC: <code className="bg-gray-100 px-2 py-1 rounded">{actionModal.subscriber.mac_address || 'None'}</code></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current MAC: <code className="bg-gray-100 px-2 py-1 rounded">{actionModal.subscriber.mac_address || 'None'}</code></div>
               </div>
               <div>
                 <label className="label">New MAC Address (leave empty to clear)</label>
@@ -1339,7 +1339,7 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">Current Username: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Current Username: <strong>{actionModal.subscriber.username}</strong></div>
               </div>
               <div>
                 <label className="label">New Username *</label>
@@ -1394,8 +1394,8 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500">Current Expiry: <strong>{actionModal.subscriber.expiry_date ? formatDate(actionModal.subscriber.expiry_date) : 'N/A'}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current Expiry: <strong>{actionModal.subscriber.expiry_date ? formatDate(actionModal.subscriber.expiry_date) : 'N/A'}</strong></div>
               </div>
               <div>
                 <label className="label">Days *</label>
@@ -1406,7 +1406,7 @@ export default function Subscribers() {
                   className="input"
                   placeholder="Enter days (negative to subtract)"
                 />
-                <p className="text-xs text-gray-500 mt-1">Use negative number to subtract days</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Use negative number to subtract days</p>
               </div>
               <div>
                 <label className="label">Reason</label>
@@ -1456,9 +1456,9 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500">Current Service: <strong>{actionModal.subscriber.service?.name || 'N/A'}</strong> - ${actionModal.subscriber.service?.price?.toFixed(2) || '0.00'}</div>
-                <div className="text-sm text-gray-500">Expiry: <strong>{actionModal.subscriber.expiry_date ? new Date(actionModal.subscriber.expiry_date).toLocaleDateString() : 'N/A'}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current Service: <strong>{actionModal.subscriber.service?.name || 'N/A'}</strong> - ${actionModal.subscriber.service?.price?.toFixed(2) || '0.00'}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Expiry: <strong>{actionModal.subscriber.expiry_date ? new Date(actionModal.subscriber.expiry_date).toLocaleDateString() : 'N/A'}</strong></div>
               </div>
               <div>
                 <label className="label">New Service *</label>
@@ -1483,16 +1483,16 @@ export default function Subscribers() {
 
               {/* Price Calculation Display */}
               {calculatingPrice && (
-                <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+                <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Calculating price...
                 </div>
               )}
               {priceCalculation && !calculatingPrice && (
-                <div className={`p-3 rounded-lg text-sm ${priceCalculation.is_upgrade ? 'bg-blue-50 border border-blue-200' : priceCalculation.is_downgrade ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'}`}>
+                <div className={`p-3 rounded-lg text-sm ${priceCalculation.is_upgrade ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200' : priceCalculation.is_downgrade ? 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200' : 'bg-gray-50'}`}>
                   <div className="font-semibold mb-2">
                     {priceCalculation.is_upgrade ? '⬆️ Upgrade' : priceCalculation.is_downgrade ? '⬇️ Downgrade' : '↔️ Same Price'}
                   </div>
-                  <div className="space-y-1 text-gray-600">
+                  <div className="space-y-1 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     <div className="flex justify-between">
                       <span>Remaining days:</span>
                       <span className="font-medium">{priceCalculation.remaining_days} days</span>
@@ -1540,7 +1540,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.extend_expiry}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, extend_expiry: e.target.checked })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Extend Expiry</span>
                 </label>
@@ -1549,7 +1549,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.reset_fup}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, reset_fup: e.target.checked })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Reset FUP Quota</span>
                 </label>
@@ -1558,7 +1558,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.prorate_price}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, prorate_price: e.target.checked, charge_price: false })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Prorate Price (recommended)</span>
                 </label>
@@ -1567,7 +1567,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.charge_price}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, charge_price: e.target.checked, prorate_price: false })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Charge Full Price</span>
                 </label>
@@ -1616,7 +1616,7 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
               </div>
               <div>
                 <label className="label">Amount *</label>
@@ -1684,10 +1684,10 @@ export default function Subscribers() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <DocumentArrowUpIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     {importFile ? importFile.name : 'Click to select CSV file'}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Columns: username, password, full_name, email, phone, address
                   </p>
                 </div>
@@ -1766,7 +1766,7 @@ export default function Subscribers() {
             </div>
             <div className="modal-body">
               <div className="mb-4 flex items-center justify-between">
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   IP: <code className="bg-gray-100 px-2 py-1 rounded">{torchModal.ip_address || 'N/A'}</code>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1802,7 +1802,7 @@ export default function Subscribers() {
               {torchLoading && !torchData && (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                  <span className="ml-3 text-gray-500">Capturing traffic...</span>
+                  <span className="ml-3 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Capturing traffic...</span>
                 </div>
               )}
 
@@ -1811,18 +1811,18 @@ export default function Subscribers() {
                   {/* Summary - like MikroTik torch header */}
                   <div className="bg-gray-900 text-white rounded-t-lg p-3 flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                      <span className="text-gray-400">Interface:</span>
+                      <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Interface:</span>
                       <span className="font-mono text-green-400">{torchData.interface}</span>
                     </div>
                     <div className="flex items-center gap-6">
                       <div>
-                        <span className="text-gray-400">Download:</span>
+                        <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Download:</span>
                         <span className="ml-2 text-green-400 font-bold">
                           {((torchData.total_tx || 0) * 8 / 1000000).toFixed(1)} Mbps
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Upload:</span>
+                        <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload:</span>
                         <span className="ml-2 text-blue-400 font-bold">
                           {((torchData.total_rx || 0) * 8 / 1000000).toFixed(1)} Mbps
                         </span>
@@ -1832,11 +1832,11 @@ export default function Subscribers() {
 
                   {/* Traffic Table - MikroTik Winbox style */}
                   {torchData.entries && torchData.entries.length > 0 ? (
-                    <div className="border border-gray-300 rounded-b-lg overflow-hidden">
+                    <div className="border border-gray-300 dark:border-gray-600 rounded-b-lg overflow-hidden">
                       <div className="max-h-80 overflow-y-auto">
                         <table className="w-full text-xs font-mono">
                           <thead className="bg-gray-100 sticky top-0">
-                            <tr className="text-gray-600">
+                            <tr className="text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                               <th className="px-2 py-1.5 text-left border-r">Proto</th>
                               <th className="px-2 py-1.5 text-left border-r">Src. Address</th>
                               <th className="px-2 py-1.5 text-left border-r">Dst. Address</th>
@@ -1863,10 +1863,10 @@ export default function Subscribers() {
                                     {entry.proto_num || ''} {entry.protocol || '-'}
                                   </span>
                                 </td>
-                                <td className="px-2 py-1 border-r text-gray-700">
+                                <td className="px-2 py-1 border-r text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
                                   {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
                                 </td>
-                                <td className="px-2 py-1 border-r text-gray-700">
+                                <td className="px-2 py-1 border-r text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
                                   {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
                                 </td>
                                 <td className="px-2 py-1 border-r text-right text-green-700 font-medium">
@@ -1885,10 +1885,10 @@ export default function Subscribers() {
                                     : `${(entry.rx_rate * 8).toFixed(0)} bps`
                                   }
                                 </td>
-                                <td className="px-2 py-1 border-r text-right text-gray-500">
+                                <td className="px-2 py-1 border-r text-right text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                   {entry.tx_packets || 0}
                                 </td>
-                                <td className="px-2 py-1 text-right text-gray-500">
+                                <td className="px-2 py-1 text-right text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                   {entry.rx_packets || 0}
                                 </td>
                               </tr>
@@ -1902,7 +1902,7 @@ export default function Subscribers() {
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-gray-300 rounded-b-lg p-8 text-center text-gray-500 bg-gray-50">
+                    <div className="border border-gray-300 dark:border-gray-600 rounded-b-lg p-8 text-center text-gray-500 bg-gray-50 dark:bg-gray-700">
                       No active traffic flows detected
                     </div>
                   )}
@@ -1910,7 +1910,7 @@ export default function Subscribers() {
               )}
 
               {!torchLoading && !torchData && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Click Refresh to capture traffic data
                 </div>
               )}

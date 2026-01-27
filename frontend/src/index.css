@@ -93,6 +93,26 @@
     @apply badge bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-300;
   }
 
+  .badge-purple {
+    @apply badge bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300;
+  }
+
+  .badge-orange {
+    @apply badge bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300;
+  }
+
+  .badge-secondary {
+    @apply badge bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300;
+  }
+
+  .badge-cyan {
+    @apply badge bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-300;
+  }
+
+  .badge-indigo {
+    @apply badge bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300;
+  }
+
   /* Modal styles */
   .modal-overlay {
     @apply fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50;

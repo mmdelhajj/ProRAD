@@ -353,17 +353,17 @@ export default function Settings() {
             type="button"
             onClick={() => handleChange(field.key, isChecked ? 'false' : 'true')}
             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-              isChecked ? 'bg-blue-600' : 'bg-gray-200'
+              isChecked ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
             }`}
           >
             <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow ring-0 transition duration-200 ease-in-out ${
                 isChecked ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>
           {field.description && (
-            <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
           )}
         </div>
       )
@@ -375,7 +375,7 @@ export default function Settings() {
           <select
             value={value}
             onChange={(e) => handleChange(field.key, e.target.value)}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
           >
             <option value="">Select timezone...</option>
             {(timezones || []).map(tz => (
@@ -383,7 +383,7 @@ export default function Settings() {
             ))}
           </select>
           {field.description && (
-            <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
           )}
         </div>
       )
@@ -394,7 +394,7 @@ export default function Settings() {
         <select
           value={value}
           onChange={(e) => handleChange(field.key, e.target.value)}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
         >
           <option value="">Select...</option>
           {field.options.map(opt => (
@@ -411,7 +411,7 @@ export default function Settings() {
           onChange={(e) => handleChange(field.key, e.target.value)}
           placeholder={field.placeholder}
           rows={3}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
         />
       )
     }
@@ -424,10 +424,10 @@ export default function Settings() {
           onChange={(e) => handleChange(field.key, e.target.value)}
           placeholder={field.placeholder}
           step={field.type === 'number' ? '0.01' : undefined}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
         />
         {field.description && (
-          <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
         )}
       </div>
     )
@@ -436,12 +436,12 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Settings</h1>
         <div className="flex space-x-3">
           {hasChanges && (
             <button
               onClick={handleReset}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:bg-gray-700"
             >
               Reset
             </button>
@@ -461,20 +461,20 @@ export default function Settings() {
       </div>
 
       {updateMutation.isSuccess && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+        <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 text-green-700 px-4 py-3 rounded">
           Settings saved successfully!
         </div>
       )}
 
       {updateMutation.isError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 text-red-700 px-4 py-3 rounded">
           Failed to save settings. Please try again.
         </div>
       )}
 
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="flex -mb-px">
             {tabs.map(tab => (
               <button
@@ -483,7 +483,7 @@ export default function Settings() {
                 className={`px-6 py-4 text-sm font-medium border-b-2 ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
                 }`}
               >
                 {tab.label}
@@ -498,7 +498,7 @@ export default function Settings() {
             <div className="space-y-6">
               {/* Company Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Company Name
                 </label>
                 <input
@@ -506,20 +506,20 @@ export default function Settings() {
                   value={formData.company_name || ''}
                   onChange={(e) => handleChange('company_name', e.target.value)}
                   placeholder="Your Company Name"
-                  className="block w-full max-w-md rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full max-w-md rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
-                <p className="mt-1 text-xs text-gray-500">This name appears in the sidebar and login page</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">This name appears in the sidebar and login page</p>
               </div>
 
               {/* Logo Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Company Logo
                 </label>
                 <div className="flex items-start gap-6">
                   {/* Current Logo Preview */}
                   <div className="flex-shrink-0">
-                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
+                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
                       {companyLogo ? (
                         <img
                           src={companyLogo}
@@ -527,7 +527,7 @@ export default function Settings() {
                           className="max-w-full max-h-full object-contain"
                         />
                       ) : (
-                        <PhotoIcon className="w-12 h-12 text-gray-400" />
+                        <PhotoIcon className="w-12 h-12 text-gray-400 dark:text-gray-400" />
                       )}
                     </div>
                   </div>
@@ -546,7 +546,7 @@ export default function Settings() {
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadingLogo}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 w-fit"
+                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 disabled:opacity-50 w-fit"
                       >
                         <PhotoIcon className="w-4 h-4 mr-2" />
                         {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
@@ -562,7 +562,7 @@ export default function Settings() {
                         </button>
                       )}
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                       Recommended: <strong>180 x 36 pixels</strong> (horizontal logo)<br />
                       PNG with transparent background, max 2MB<br />
                       <span className="text-amber-600">Note: If logo is uploaded, company name will be hidden</span>
@@ -574,8 +574,8 @@ export default function Settings() {
               {/* Preview */}
               <div className="border-t pt-6">
                 <h3 className="text-sm font-medium text-gray-700 mb-4">Preview</h3>
-                <div className="bg-gray-100 rounded-lg p-4">
-                  <div className="bg-white rounded-lg shadow p-4 max-w-xs">
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 max-w-xs">
                     <div className="flex items-center gap-3">
                       {companyLogo ? (
                         <img src={companyLogo} alt="Logo" className="h-10 object-contain" />
@@ -586,7 +586,7 @@ export default function Settings() {
                       )}
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     {companyLogo
                       ? 'Logo only - company name is hidden when logo is set'
                       : 'Company name shown - upload a logo to replace text with image'
@@ -599,23 +599,23 @@ export default function Settings() {
             <div className="space-y-8">
               {/* User Info */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
-                <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Account Information</h3>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500">Username</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Username</p>
                       <p className="font-medium">{user?.username}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
                       <p className="font-medium">{user?.email || '-'}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Full Name</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Full Name</p>
                       <p className="font-medium">{user?.full_name || '-'}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Role</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Role</p>
                       <p className="font-medium capitalize">{user?.user_type}</p>
                     </div>
                   </div>
@@ -624,10 +624,10 @@ export default function Settings() {
 
               {/* Two-Factor Authentication */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Two-Factor Authentication</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Two-Factor Authentication</h3>
 
                 {twoFAStatus?.enabled ? (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg p-4">
                     <div className="flex items-center mb-4">
                       <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -637,14 +637,14 @@ export default function Settings() {
                     <p className="text-sm text-green-700 mb-4">Your account is protected with two-factor authentication.</p>
 
                     <div className="border-t border-green-200 pt-4 mt-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Disable 2FA</p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Disable 2FA</p>
                       <div className="space-y-3">
                         <input
                           type="password"
                           placeholder="Current password"
                           value={disablePassword}
                           onChange={(e) => setDisablePassword(e.target.value)}
-                          className="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full max-w-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                         />
                         <input
                           type="text"
@@ -652,7 +652,7 @@ export default function Settings() {
                           value={disableCode}
                           onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                           maxLength={6}
-                          className="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full max-w-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                         />
                         <button
                           onClick={() => disableTwoFAMutation.mutate({ password: disablePassword, code: disableCode })}
@@ -665,7 +665,7 @@ export default function Settings() {
                     </div>
                   </div>
                 ) : twoFASetup ? (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-medium text-blue-900 mb-4">Setup Two-Factor Authentication</h4>
 
                     <div className="flex flex-col md:flex-row gap-6">
@@ -688,7 +688,7 @@ export default function Settings() {
                             value={twoFACode}
                             onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             maxLength={6}
-                            className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg tracking-widest"
+                            className="block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg tracking-widest"
                           />
                           <button
                             onClick={() => verifyTwoFAMutation.mutate(twoFACode)}
@@ -709,12 +709,12 @@ export default function Settings() {
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                     <div className="flex items-center mb-4">
                       <svg className="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
-                      <span className="font-medium text-gray-700">2FA is not enabled</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300 dark:text-gray-400">2FA is not enabled</span>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
                       Add an extra layer of security to your account by enabling two-factor authentication.
@@ -734,16 +734,16 @@ export default function Settings() {
           ) : activeTab === 'license' ? (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900">License Information</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">License Information</h3>
                 <div className="flex gap-2">
                   <button
                     onClick={() => checkUpdateMutation.mutate()}
                     disabled={checkUpdateMutation.isPending}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 disabled:opacity-50"
                   >
                     {checkUpdateMutation.isPending ? (
                       <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700 dark:text-gray-300 dark:text-gray-400" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -793,12 +793,12 @@ export default function Settings() {
                   {(() => {
                     const status = licenseStatus?.license_status || (licenseData?.valid ? 'active' : 'blocked')
                     const statusConfig = {
-                      active: { bg: 'bg-green-50 border-green-200', text: 'text-green-800', subtext: 'text-green-700', icon: 'text-green-600', label: 'License Active', desc: 'Your license is valid and active' },
-                      warning: { bg: 'bg-yellow-50 border-yellow-200', text: 'text-yellow-800', subtext: 'text-yellow-700', icon: 'text-yellow-600', label: 'License Expiring Soon', desc: licenseStatus?.warning_message || 'Please renew soon' },
+                      active: { bg: 'bg-green-50 dark:bg-green-900/30 border-green-200', text: 'text-green-800', subtext: 'text-green-700', icon: 'text-green-600', label: 'License Active', desc: 'Your license is valid and active' },
+                      warning: { bg: 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200', text: 'text-yellow-800', subtext: 'text-yellow-700', icon: 'text-yellow-600', label: 'License Expiring Soon', desc: licenseStatus?.warning_message || 'Please renew soon' },
                       grace: { bg: 'bg-orange-50 border-orange-200', text: 'text-orange-800', subtext: 'text-orange-700', icon: 'text-orange-600', label: 'Grace Period', desc: 'License expired - renew now to avoid service interruption' },
-                      readonly: { bg: 'bg-red-50 border-red-200', text: 'text-red-800', subtext: 'text-red-700', icon: 'text-red-600', label: 'Read-Only Mode', desc: 'License expired - system is read-only. Renew immediately!' },
-                      blocked: { bg: 'bg-red-50 border-red-200', text: 'text-red-800', subtext: 'text-red-700', icon: 'text-red-600', label: 'License Blocked', desc: licenseData?.message || 'License invalid or expired' },
-                      unknown: { bg: 'bg-gray-50 border-gray-200', text: 'text-gray-800', subtext: 'text-gray-700', icon: 'text-gray-600', label: 'Unknown Status', desc: 'Unable to determine license status' }
+                      readonly: { bg: 'bg-red-50 dark:bg-red-900/30 border-red-200', text: 'text-red-800', subtext: 'text-red-700', icon: 'text-red-600', label: 'Read-Only Mode', desc: 'License expired - system is read-only. Renew immediately!' },
+                      blocked: { bg: 'bg-red-50 dark:bg-red-900/30 border-red-200', text: 'text-red-800', subtext: 'text-red-700', icon: 'text-red-600', label: 'License Blocked', desc: licenseData?.message || 'License invalid or expired' },
+                      unknown: { bg: 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600', text: 'text-gray-800', subtext: 'text-gray-700', icon: 'text-gray-600', label: 'Unknown Status', desc: 'Unable to determine license status' }
                     }
                     const config = statusConfig[status] || statusConfig.unknown
 
@@ -844,7 +844,7 @@ export default function Settings() {
 
                   {/* System Update Card */}
                   {updateData && (
-                    <div className={`rounded-lg p-4 border ${updateData.update_available ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className={`rounded-lg p-4 border ${updateData.update_available ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-start">
                           <div className={`flex-shrink-0 ${updateData.update_available ? 'text-blue-600' : 'text-gray-500'}`}>
@@ -881,9 +881,9 @@ export default function Settings() {
                   )}
 
                   {/* Service Management Card */}
-                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                      <h4 className="font-medium text-gray-900">Service Management</h4>
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                      <h4 className="font-medium text-gray-900 dark:text-white">Service Management</h4>
                     </div>
                     <div className="p-4">
                       <p className="text-sm text-gray-600 mb-4">
@@ -933,35 +933,35 @@ export default function Settings() {
                   </div>
 
                   {/* License Details */}
-                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                      <h4 className="font-medium text-gray-900">License Details</h4>
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                      <h4 className="font-medium text-gray-900 dark:text-white">License Details</h4>
                     </div>
-                    <div className="divide-y divide-gray-200">
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
                       <div className="px-4 py-3 flex justify-between">
-                        <span className="text-gray-500">License Key</span>
+                        <span className="text-gray-500 dark:text-gray-400">License Key</span>
                         <span className="font-mono text-sm">{licenseData?.license_key || '-'}</span>
                       </div>
                       <div className="px-4 py-3 flex justify-between">
-                        <span className="text-gray-500">Customer Name</span>
+                        <span className="text-gray-500 dark:text-gray-400">Customer Name</span>
                         <span className="font-medium">{licenseData?.customer_name || '-'}</span>
                       </div>
                       <div className="px-4 py-3 flex justify-between">
-                        <span className="text-gray-500">Plan / Tier</span>
+                        <span className="text-gray-500 dark:text-gray-400">Plan / Tier</span>
                         <span className="font-medium capitalize">{licenseData?.tier || '-'}</span>
                       </div>
                       <div className="px-4 py-3 flex justify-between">
-                        <span className="text-gray-500">Max Subscribers</span>
+                        <span className="text-gray-500 dark:text-gray-400">Max Subscribers</span>
                         <span className="font-medium">{licenseData?.max_subscribers?.toLocaleString() || '-'}</span>
                       </div>
                       <div className="px-4 py-3 flex justify-between">
-                        <span className="text-gray-500">License Type</span>
+                        <span className="text-gray-500 dark:text-gray-400">License Type</span>
                         <span className="font-medium">{licenseData?.is_lifetime ? 'Lifetime' : 'Subscription'}</span>
                       </div>
                       {!licenseData?.is_lifetime && (
                         <>
                           <div className="px-4 py-3 flex justify-between">
-                            <span className="text-gray-500">Expires At</span>
+                            <span className="text-gray-500 dark:text-gray-400">Expires At</span>
                             <span className="font-medium">
                               {licenseData?.expires_at ? new Date(licenseData.expires_at).toLocaleDateString('en-US', {
                                 year: 'numeric',
@@ -973,7 +973,7 @@ export default function Settings() {
                             </span>
                           </div>
                           <div className="px-4 py-3 flex justify-between">
-                            <span className="text-gray-500">Days Remaining</span>
+                            <span className="text-gray-500 dark:text-gray-400">Days Remaining</span>
                             <span className={`font-medium ${
                               (licenseStatus?.days_until_expiry || licenseData?.days_remaining || 0) <= 0 ? 'text-red-600' :
                               (licenseStatus?.days_until_expiry || licenseData?.days_remaining || 0) <= 7 ? 'text-red-600' :
@@ -992,7 +992,7 @@ export default function Settings() {
                   </div>
 
                   {/* Support Contact */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-medium text-blue-900 mb-2">Need to upgrade or renew?</h4>
                     <p className="text-sm text-blue-700">
                       Contact support to upgrade your plan or renew your license.
@@ -1005,7 +1005,7 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {settingGroups[activeTab]?.map(field => (
                 <div key={field.key} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {field.label}
                   </label>
                   {renderField(field)}
@@ -1017,8 +1017,8 @@ export default function Settings() {
       </div>
 
       {/* Quick Stats */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <p className="text-sm text-gray-500">
+      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           {data?.length || 0} settings configured •
           {hasChanges ? ' Unsaved changes' : ' All changes saved'}
         </p>

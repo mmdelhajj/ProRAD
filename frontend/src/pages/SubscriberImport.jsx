@@ -166,13 +166,13 @@ export default function SubscriberImport() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/subscribers')}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400"
           >
             <ArrowLeftIcon className="h-6 w-6" />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Import Subscribers</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Import Subscribers</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               Import subscribers from Excel file
             </p>
           </div>
@@ -180,7 +180,7 @@ export default function SubscriberImport() {
       </div>
 
       {/* Instructions */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
         <h3 className="text-sm font-medium text-blue-800 mb-2">Instructions</h3>
         <ol className="list-decimal list-inside text-sm text-blue-700 space-y-1">
           <li>Download the sample Excel file to see the required format</li>
@@ -192,8 +192,8 @@ export default function SubscriberImport() {
       </div>
 
       {/* Step 1: Download Sample */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Step 1: Download Sample File</h2>
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Step 1: Download Sample File</h2>
         <button
           onClick={downloadSample}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
@@ -204,8 +204,8 @@ export default function SubscriberImport() {
       </div>
 
       {/* Step 2: Upload File */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Step 2: Upload Excel File</h2>
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Step 2: Upload Excel File</h2>
 
         <div className="flex items-center gap-4">
           <input
@@ -217,13 +217,13 @@ export default function SubscriberImport() {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
           >
             <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
             Choose File
           </button>
           {fileName && (
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               <DocumentArrowUpIcon className="h-5 w-5 inline mr-1" />
               {fileName}
             </span>
@@ -232,13 +232,13 @@ export default function SubscriberImport() {
 
         {/* NAS Selection */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Default NAS (optional)
           </label>
           <select
             value={selectedNasId}
             onChange={(e) => setSelectedNasId(e.target.value)}
-            className="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full max-w-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">No default NAS</option>
             {nasDevices.map((nas) => (
@@ -252,9 +252,9 @@ export default function SubscriberImport() {
 
       {/* Step 3: Preview & Import */}
       {parsedData.length > 0 && (
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
               Step 3: Review & Import ({parsedData.length} subscribers)
             </h2>
             <button
@@ -281,30 +281,30 @@ export default function SubscriberImport() {
 
           {/* Preview Table */}
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Password</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Expiry</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">MAC</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Row</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Password</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Service</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expiry</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Phone</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">MAC</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {parsedData.slice(0, 100).map((row, idx) => {
                   const serviceValidation = getServiceValidation(row.service)
                   return (
                     <tr key={idx} className={!row.username || !row.password || !serviceValidation.valid ? 'bg-red-50' : ''}>
-                      <td className="px-3 py-2 text-sm text-gray-500">{row.row}</td>
-                      <td className="px-3 py-2 text-sm text-gray-900">
+                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.row}</td>
+                      <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">
                         {row.username || <span className="text-red-500">Missing</span>}
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{row.full_name}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">
+                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.full_name}</td>
+                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                         {row.password ? '****' : <span className="text-red-500">Missing</span>}
                       </td>
                       <td className="px-3 py-2 text-sm">
@@ -314,9 +314,9 @@ export default function SubscriberImport() {
                           <span className="text-red-500">{row.service || 'Missing'} ({serviceValidation.message})</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{row.expiry}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{row.phone}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{row.mac_address}</td>
+                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.expiry}</td>
+                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.phone}</td>
+                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.mac_address}</td>
                     </tr>
                   )
                 })}
@@ -333,27 +333,27 @@ export default function SubscriberImport() {
 
       {/* Import Results */}
       {importResults && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
             Import Results: {importResults.success} success, {importResults.failed} failed
           </h2>
 
           {/* Results Table */}
           <div className="overflow-x-auto max-h-96">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Row</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Message</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {importResults.results?.map((result, idx) => (
                   <tr key={idx} className={result.status === 'failed' ? 'bg-red-50' : 'bg-green-50'}>
-                    <td className="px-3 py-2 text-sm text-gray-500">{result.row}</td>
-                    <td className="px-3 py-2 text-sm text-gray-900">{result.username}</td>
+                    <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{result.row}</td>
+                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{result.username}</td>
                     <td className="px-3 py-2 text-sm">
                       {result.status === 'success' ? (
                         <span className="inline-flex items-center text-green-600">
@@ -367,7 +367,7 @@ export default function SubscriberImport() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-500">{result.message}</td>
+                    <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{result.message}</td>
                   </tr>
                 ))}
               </tbody>
@@ -382,7 +382,7 @@ export default function SubscriberImport() {
                 setImportResults(null)
                 if (fileInputRef.current) fileInputRef.current.value = ''
               }}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
             >
               Import More
             </button>

@@ -56,7 +56,7 @@ export default function Transactions() {
         cell: ({ row }) => (
           <div className="text-sm">
             <div>{formatDate(row.original.created_at)}</div>
-            <div className="text-gray-500">
+            <div className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               {formatTime(row.original.created_at)}
             </div>
           </div>
@@ -100,7 +100,7 @@ export default function Transactions() {
         cell: ({ row }) => (
           <div>
             <div className="font-medium">{row.original.subscriber?.username || '-'}</div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               {row.original.subscriber?.fullname || row.original.reseller?.username || ''}
             </div>
           </div>
@@ -114,8 +114,8 @@ export default function Transactions() {
           if (t.type === 'change_service' && (t.old_service_name || t.new_service_name)) {
             return (
               <div className="text-sm">
-                <span className="text-gray-500">{t.old_service_name || '-'}</span>
-                <span className="mx-1 text-gray-400">→</span>
+                <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{t.old_service_name || '-'}</span>
+                <span className="mx-1 text-gray-400 dark:text-gray-500 dark:text-gray-400">→</span>
                 <span className="font-medium text-primary-600">{t.new_service_name || '-'}</span>
               </div>
             )
@@ -123,7 +123,7 @@ export default function Transactions() {
           if (t.service_name) {
             return <span className="text-sm">{t.service_name}</span>
           }
-          return <span className="text-sm text-gray-400">-</span>
+          return <span className="text-sm text-gray-400 dark:text-gray-500 dark:text-gray-400">-</span>
         },
       },
       {
@@ -152,7 +152,7 @@ export default function Transactions() {
         accessorKey: 'description',
         header: 'Description',
         cell: ({ row }) => (
-          <div className="max-w-xs truncate text-sm text-gray-600">
+          <div className="max-w-xs truncate text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             {row.original.description || '-'}
           </div>
         ),
@@ -186,8 +186,8 @@ export default function Transactions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-gray-500">Financial transaction history</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transactions</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Financial transaction history</p>
         </div>
         <button
           onClick={() => refetch()}
@@ -206,7 +206,7 @@ export default function Transactions() {
               <BanknotesIcon className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Total Transactions</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Transactions</div>
               <div className="text-2xl font-bold">{data?.meta?.total || 0}</div>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function Transactions() {
               <ArrowTrendingUpIcon className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Page Income</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Page Income</div>
               <div className="text-2xl font-bold text-green-600">${totalIncome.toFixed(2)}</div>
             </div>
           </div>
@@ -228,18 +228,18 @@ export default function Transactions() {
               <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Page Expense</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Page Expense</div>
               <div className="text-2xl font-bold text-red-600">${totalExpense.toFixed(2)}</div>
             </div>
           </div>
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
               <BanknotesIcon className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Page Net</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Page Net</div>
               <div className={clsx('text-2xl font-bold', totalIncome - totalExpense >= 0 ? 'text-green-600' : 'text-red-600')}>
                 ${(totalIncome - totalExpense).toFixed(2)}
               </div>
@@ -252,7 +252,7 @@ export default function Transactions() {
       <div className="card p-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
             <input
               type="text"
               placeholder="Search by username, description, reference..."
@@ -351,7 +351,7 @@ export default function Transactions() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -362,13 +362,13 @@ export default function Transactions() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     No transactions found
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -383,7 +383,7 @@ export default function Transactions() {
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-6 py-4 border-t">
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, data?.meta?.total || 0)} of{' '}
             {data?.meta?.total || 0} results
           </div>
