@@ -366,8 +366,8 @@ func GetConfiguredTimezoneString() string {
 // GetBranding returns public branding info (no auth required)
 func (h *SettingsHandler) GetBranding(c *fiber.Ctx) error {
 	branding := map[string]string{
-		"company_name": "ProISP",
-		"company_logo": "",
+		"company_name":  "", // Empty by default - customer sets their own
+		"company_logo":  "",
 		"primary_color": "#2563eb",
 	}
 
@@ -375,9 +375,8 @@ func (h *SettingsHandler) GetBranding(c *fiber.Ctx) error {
 	database.DB.Where("key IN ?", []string{"company_name", "company_logo", "primary_color"}).Find(&preferences)
 
 	for _, p := range preferences {
-		if p.Value != "" {
-			branding[p.Key] = p.Value
-		}
+		// Always use database value (even if empty - customer may have cleared it)
+		branding[p.Key] = p.Value
 	}
 
 	return c.JSON(fiber.Map{
