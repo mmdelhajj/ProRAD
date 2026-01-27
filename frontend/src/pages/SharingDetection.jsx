@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sharingApi } from '../services/api'
+import { useBrandingStore } from '../store/brandingStore'
 import {
   useReactTable,
   getCoreRowModel,
@@ -80,6 +81,9 @@ function getTTLBadge(status, ttlValues) {
 }
 
 export default function SharingDetection() {
+  const { companyName } = useBrandingStore()
+  const brandName = companyName || 'ISP'
+
   const [search, setSearch] = useState('')
   const [showOnlySuspicious, setShowOnlySuspicious] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
@@ -532,10 +536,10 @@ export default function SharingDetection() {
           </p>
           <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-sm overflow-x-auto">
 {`/ip firewall mangle
-add chain=prerouting action=mark-connection new-connection-mark=ttl_128 ttl=equal:128 passthrough=yes comment="ProISP-TTL-Detection - Direct Windows"
-add chain=prerouting action=mark-connection new-connection-mark=ttl_127 ttl=equal:127 passthrough=yes comment="ProISP-TTL-Detection - Windows behind router"
-add chain=prerouting action=mark-connection new-connection-mark=ttl_64 ttl=equal:64 passthrough=yes comment="ProISP-TTL-Detection - Direct Linux/Android"
-add chain=prerouting action=mark-connection new-connection-mark=ttl_63 ttl=equal:63 passthrough=yes comment="ProISP-TTL-Detection - Linux/Android behind router"`}
+add chain=prerouting action=mark-connection new-connection-mark=ttl_128 ttl=equal:128 passthrough=yes comment="${brandName}-TTL-Detection - Direct Windows"
+add chain=prerouting action=mark-connection new-connection-mark=ttl_127 ttl=equal:127 passthrough=yes comment="${brandName}-TTL-Detection - Windows behind router"
+add chain=prerouting action=mark-connection new-connection-mark=ttl_64 ttl=equal:64 passthrough=yes comment="${brandName}-TTL-Detection - Direct Linux/Android"
+add chain=prerouting action=mark-connection new-connection-mark=ttl_63 ttl=equal:63 passthrough=yes comment="${brandName}-TTL-Detection - Linux/Android behind router"`}
           </pre>
         </div>
       </details>

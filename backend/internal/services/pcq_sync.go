@@ -115,15 +115,12 @@ func SyncAllPCQOnStartup() {
 
 // getPCQCompanyName retrieves company name from settings for PCQ sync
 func getPCQCompanyName() string {
-	var pref models.SystemPreference
-	if err := database.DB.Where("key = ?", "company_name").First(&pref).Error; err != nil {
-		return "ProISP"
-	}
-	if pref.Value == "" {
-		return "ProISP"
+	name := database.GetCompanyName()
+	if name == "" {
+		return "ISP"
 	}
 	// Remove any quotes from the value
-	return strings.Trim(pref.Value, "\"")
+	return strings.Trim(name, "\"")
 }
 
 // StartPCQAutoRepairService starts a background service that checks and repairs PCQ configurations every 5 minutes

@@ -393,21 +393,18 @@ type NASRuleStatus struct {
 	Error          string `json:"error,omitempty"`
 }
 
-// getCompanyName retrieves company name from settings, defaults to "ProISP"
-func getCompanyName() string {
-	var pref models.SystemPreference
-	if err := database.DB.Where("key = ?", "company_name").First(&pref).Error; err != nil {
-		return "ProISP"
+// getSharingCompanyName retrieves company name from settings for sharing detection branding
+func getSharingCompanyName() string {
+	name := database.GetCompanyName()
+	if name == "" {
+		return "ISP"
 	}
-	if pref.Value == "" {
-		return "ProISP"
-	}
-	return pref.Value
+	return name
 }
 
 // getTTLRuleComment returns the TTL rule comment with company branding
 func getTTLRuleComment() string {
-	return getCompanyName() + "-TTL-Detection"
+	return getSharingCompanyName() + "-TTL-Detection"
 }
 
 // ListNASRuleStatus returns TTL rule status for all NAS devices

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardApi } from '../services/api'
 import { formatDate } from '../utils/timezone'
+import { useBrandingStore } from '../store/brandingStore'
 import ReactECharts from 'echarts-for-react'
 import {
   UsersIcon,
@@ -49,6 +50,8 @@ function StatCard({ title, value, icon: Icon, trend, color = 'primary' }) {
 }
 
 export default function Dashboard() {
+  const { companyName } = useBrandingStore()
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => dashboardApi.stats().then((r) => r.data.data),
@@ -159,7 +162,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Welcome to ProISP Management System</p>
+        <p className="text-gray-500">Welcome to {companyName || 'ISP'} Management System</p>
       </div>
 
       {/* Stats Grid */}

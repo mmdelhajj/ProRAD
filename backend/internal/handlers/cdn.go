@@ -71,14 +71,11 @@ func findRemovedNASIDs(oldIDs, newIDs []uint) []uint {
 
 // getCDNCompanyName retrieves company name from settings for CDN branding
 func getCDNCompanyName() string {
-	var pref models.SystemPreference
-	if err := database.DB.Where("key = ?", "company_name").First(&pref).Error; err != nil {
-		return "ProISP"
+	name := database.GetCompanyName()
+	if name == "" {
+		return "ISP"
 	}
-	if pref.Value == "" {
-		return "ProISP"
-	}
-	return pref.Value
+	return name
 }
 
 // syncCDNToAllNAS syncs a CDN configuration to selected NAS devices (or all if none specified)

@@ -59,16 +59,13 @@ func getDailyQuotaResetTime() (int, int) {
 	return hour, minute
 }
 
-// getCompanyName retrieves company name from settings, defaults to "ProISP"
-func getCompanyName() string {
-	var pref models.SystemPreference
-	if err := database.DB.Where("key = ?", "company_name").First(&pref).Error; err != nil {
-		return "ProISP"
+// getQuotaSyncCompanyName retrieves company name from settings for quota sync branding
+func getQuotaSyncCompanyName() string {
+	name := database.GetCompanyName()
+	if name == "" {
+		return "ISP"
 	}
-	if pref.Value == "" {
-		return "ProISP"
-	}
-	return pref.Value
+	return name
 }
 
 // shouldResetDailyQuota checks if daily quota should be reset based on configured time
@@ -207,13 +204,13 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 				log.Printf("QuotaSync: Marked %s as offline (rows affected: %d)", sub.Username, result.RowsAffected)
 			}
 			// Remove CDN queues when user disconnects
-			if err := client.RemoveSubscriberCDNQueues(sub.Username, getCompanyName()); err != nil {
+			if err := client.RemoveSubscriberCDNQueues(sub.Username, getQuotaSyncCompanyName()); err != nil {
 				log.Printf("QuotaSync: Failed to remove CDN queues for %s: %v", sub.Username, err)
 			} else {
 				log.Printf("QuotaSync: Removed CDN queues for %s", sub.Username)
 			}
 			// Also remove CDN override queue if exists
-			if err := client.RemoveSubscriberCDNOverrideQueue(sub.Username, getCompanyName()); err != nil {
+			if err := client.RemoveSubscriberCDNOverrideQueue(sub.Username, getQuotaSyncCompanyName()); err != nil {
 				log.Printf("QuotaSync: Failed to remove CDN override queue for %s: %v", sub.Username, err)
 			}
 			continue
@@ -455,7 +452,7 @@ func (s *QuotaSyncService) syncSubscriberCDNOverride(client *mikrotik.Client, su
 		return
 	}
 
-	companyName := getCompanyName()
+	companyName := getQuotaSyncCompanyName()
 
 	// Get active CDN bandwidth rule for this subscriber
 	cdnRule := getActiveSubscriberBandwidthRule(sub.ID, models.BandwidthRuleTypeCDN)
@@ -524,13 +521,7 @@ func (s *QuotaSyncService) syncSubscriberCDNQueues(client *mikrotik.Client, sub 
 	}
 
 	// Get company name from system preferences
-	var companyPref models.SystemPreference
-	companyName := "ProISP" // default
-	if err := database.DB.Where("key = ?", "company_name").First(&companyPref).Error; err == nil {
-		if companyPref.Value != "" {
-			companyName = companyPref.Value
-		}
-	}
+	companyName := getQuotaSyncCompanyName()
 
 	now := getNow()
 

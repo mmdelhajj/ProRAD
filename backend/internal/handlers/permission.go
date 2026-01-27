@@ -486,7 +486,7 @@ func (h *PermissionHandler) SeedDefaultPermissions(c *fiber.Ctx) error {
 		{Name: "settings.radius", Description: "RADIUS configuration"},
 		{Name: "settings.billing", Description: "Billing configuration"},
 		{Name: "settings.notifications", Description: "Notification settings"},
-		{Name: "settings.change_language", Description: "Change ProISP language"},
+		{Name: "settings.change_language", Description: "Change system language"},
 
 		// ============ AUDIT ============
 		{Name: "audit.view", Description: "View audit logs"},
