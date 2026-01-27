@@ -278,6 +278,25 @@ docker-compose down && docker-compose up -d
 - **Sidebar Menu Reorder Feature** (Jan 2026): Added ability for admins to customize sidebar menu order. Click "Reorder Menu" at bottom of sidebar to enter edit mode, use up/down arrows to reorder items, click "Done" when finished. Order is saved to localStorage and persists across sessions. Reset button restores default order.
   - File: `frontend/src/components/Layout.jsx`
   - Storage: `localStorage.menuOrder` (array of hrefs)
+- **Dark Mode Toggle** (Jan 2026): Added dark/light mode toggle feature. Click on company name or logo in the sidebar to switch between dark and light themes. Theme preference is saved to localStorage and persists across sessions.
+  - Files: `frontend/src/store/themeStore.js` (new), `frontend/src/components/Layout.jsx`, `frontend/src/components/Clock.jsx`, `frontend/src/index.css`, `frontend/tailwind.config.js`
+  - Storage: `localStorage.theme` ('light' or 'dark')
+  - Tailwind: Uses `darkMode: 'class'` strategy with `dark:` prefix classes
+  - All common components (cards, tables, modals, badges, inputs, buttons) support dark mode
+- **v1.0.88 Released** (Jan 2026): Built and published v1.0.88 with dark mode toggle feature.
+- **Fresh Install Fix** (Jan 2026): Fixed critical bug where docker-compose.yml was missing from install packages. The build system was creating packages without docker-compose.yml, causing fresh installs to fail (containers wouldn't start). Fixed by ensuring docker-compose.yml is included in all build packages.
+  - Issue: `docker-compose ps` showed "no configuration file provided: not found"
+  - Root cause: Build handler wasn't including docker-compose.yml in the tar.gz package
+  - Fix: Updated package creation to include docker-compose.yml
+- **System Roadmap Documentation** (Jan 2026): Created comprehensive system documentation (`SYSTEM-ROADMAP.md`) explaining:
+  - All 6 Docker containers and their purposes
+  - Container dependencies and start order
+  - Resource requirements (CPU, RAM, storage)
+  - Fresh install process step-by-step
+  - Data flow diagrams (login, PPPoE, quota sync)
+  - Network ports summary
+  - MikroTik integration details
+  - Troubleshooting commands
 
 ## Remote Support / SSH Tunnel Setup
 

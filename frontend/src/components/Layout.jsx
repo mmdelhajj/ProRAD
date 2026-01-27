@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
+import { useThemeStore } from '../store/themeStore'
 import Clock from './Clock'
 import LicenseBanner from './LicenseBanner'
 import UpdateBanner from './UpdateBanner'
@@ -110,6 +111,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const { user, logout, hasPermission, isAdmin } = useAuthStore()
   const { companyName, companyLogo, fetchBranding, loaded } = useBrandingStore()
+  const { theme, toggleTheme } = useThemeStore()
 
   // Fetch branding on mount
   useEffect(() => {
@@ -182,10 +184,10 @@ export default function Layout({ children }) {
 
   // Edit mode controls
   const EditModeControls = () => (
-    <div className="flex items-center gap-1 px-2 py-2 border-b bg-amber-50">
+    <div className="flex items-center gap-1 px-2 py-2 border-b dark:border-gray-700 bg-amber-50 dark:bg-amber-900/30">
       <button
         onClick={handleResetOrder}
-        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-amber-100 rounded"
+        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded"
         title="Reset to default order"
       >
         <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
@@ -194,7 +196,7 @@ export default function Layout({ children }) {
       <div className="flex-1" />
       <button
         onClick={toggleEditMode}
-        className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 bg-green-100 hover:bg-green-200 rounded font-medium"
+        className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900/70 rounded font-medium"
       >
         <CheckIcon className="w-3.5 h-3.5" />
         Done
@@ -212,25 +214,25 @@ export default function Layout({ children }) {
         return (
           <div
             key={item.href}
-            className="flex items-center gap-1 px-1 py-0.5 text-xs font-medium rounded-md bg-gray-50 hover:bg-gray-100 text-gray-700"
+            className="flex items-center gap-1 px-1 py-0.5 text-xs font-medium rounded-md bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
           >
             <div className="flex flex-col">
               <button
                 onClick={() => moveUp(index)}
                 disabled={index === 0}
-                className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronUpIcon className="w-3 h-3" />
               </button>
               <button
                 onClick={() => moveDown(index)}
                 disabled={index === orderedNav.length - 1}
-                className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronDownIcon className="w-3 h-3" />
               </button>
             </div>
-            <Icon className="w-4 h-4 flex-shrink-0 text-gray-500" />
+            <Icon className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
             <span className="truncate flex-1">{item.name}</span>
           </div>
         )
@@ -244,8 +246,8 @@ export default function Layout({ children }) {
           className={clsx(
             'flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors',
             isActive
-              ? 'bg-primary-50 text-primary-700'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
           )}
         >
           <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
@@ -256,11 +258,11 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-80 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -268,19 +270,23 @@ export default function Layout({ children }) {
       {/* Mobile sidebar */}
       <div
         className={clsx(
-          'fixed inset-y-0 left-0 z-50 w-56 bg-white shadow-xl transform transition-transform lg:hidden flex flex-col',
+          'fixed inset-y-0 left-0 z-50 w-56 bg-white dark:bg-gray-800 shadow-xl transform transition-transform lg:hidden flex flex-col',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex items-center justify-between h-12 px-3 border-b flex-shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between h-12 px-3 border-b dark:border-gray-700 flex-shrink-0 dark:bg-gray-800">
+          <div
+            className="flex items-center gap-2 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
             {companyLogo ? (
               <img src={companyLogo} alt={companyName} className="h-8 object-contain flex-shrink-0" />
             ) : (
-              <span className="text-base font-bold text-primary-600 truncate">{companyName}</span>
+              <span className="text-base font-bold text-primary-600 dark:text-primary-400 truncate">{companyName}</span>
             )}
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">
+          <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0 dark:text-gray-300">
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
@@ -288,28 +294,28 @@ export default function Layout({ children }) {
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {renderNavItems(true)}
         </nav>
-        <div className="p-2 border-t flex-shrink-0 bg-gray-50">
+        <div className="p-2 border-t dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900">
           {isAdmin() && !editMode && (
             <button
               onClick={toggleEditMode}
-              className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+              className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <Bars2Icon className="w-4 h-4 mr-2" />
               Reorder Menu
             </button>
           )}
-          <div className="flex items-center px-2 py-1.5 text-xs text-gray-600">
-            <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 flex-shrink-0" />
+          <div className="flex items-center px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300">
+            <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 dark:text-gray-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{user?.username}</p>
-              <p className="text-[10px] text-gray-400">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
                 {user?.user_type === 4 ? 'Admin' : user?.user_type === 2 ? 'Reseller' : 'User'}
               </p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
+            className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
           >
             <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
             Logout
@@ -319,13 +325,17 @@ export default function Layout({ children }) {
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-52 lg:flex-col">
-        <div className="flex flex-col flex-1 bg-white border-r">
-          <div className="flex items-center h-12 px-3 border-b flex-shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-col flex-1 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
+          <div className="flex items-center h-12 px-3 border-b dark:border-gray-700 flex-shrink-0">
+            <div
+              className="flex items-center gap-2 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={toggleTheme}
+              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
               {companyLogo ? (
                 <img src={companyLogo} alt={companyName} className="h-8 object-contain flex-shrink-0" />
               ) : (
-                <span className="text-base font-bold text-primary-600 truncate">{companyName}</span>
+                <span className="text-base font-bold text-primary-600 dark:text-primary-400 truncate">{companyName}</span>
               )}
             </div>
           </div>
@@ -333,28 +343,28 @@ export default function Layout({ children }) {
           <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
             {renderNavItems(false)}
           </nav>
-          <div className="p-2 border-t flex-shrink-0 bg-gray-50">
+          <div className="p-2 border-t dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900">
             {isAdmin() && !editMode && (
               <button
                 onClick={toggleEditMode}
-                className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+                className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <Bars2Icon className="w-4 h-4 mr-2" />
                 Reorder Menu
               </button>
             )}
-            <div className="flex items-center px-2 py-1.5 text-xs text-gray-600">
-              <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 flex-shrink-0" />
+            <div className="flex items-center px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300">
+              <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 dark:text-gray-500 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{user?.username}</p>
-                <p className="text-[10px] text-gray-400">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">
                   {user?.user_type === 4 ? 'Admin' : user?.user_type === 2 ? 'Reseller' : 'User'}
                 </p>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
+              className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
             >
               <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
               Logout
@@ -366,10 +376,10 @@ export default function Layout({ children }) {
       {/* Main content */}
       <div className="lg:pl-52">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center h-12 px-3 bg-white border-b lg:px-6">
+        <header className="sticky top-0 z-30 flex items-center h-12 px-3 bg-white dark:bg-gray-800 border-b dark:border-gray-700 lg:px-6">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-1.5 -ml-1 rounded-lg hover:bg-gray-100 lg:hidden"
+            className="p-1.5 -ml-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden dark:text-gray-300"
           >
             <Bars3Icon className="w-5 h-5" />
           </button>
