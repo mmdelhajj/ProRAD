@@ -259,7 +259,7 @@ export default function ChangeBulk() {
       case 'set_price':
         return (
           <div className="relative mt-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
             <input
               type="number"
               step="0.01"
@@ -295,7 +295,7 @@ export default function ChangeBulk() {
             </div>
             Bulk Operations
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Apply changes to multiple subscribers at once</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Apply changes to multiple subscribers at once</p>
         </div>
         {previewTotal > 0 && (
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg">
@@ -310,9 +310,9 @@ export default function ChangeBulk() {
         <div className="lg:col-span-2 space-y-6">
           {/* Basic Filters */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
               <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <FunnelIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+                <FunnelIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 Filter Subscribers
               </h2>
             </div>
@@ -373,8 +373,8 @@ export default function ChangeBulk() {
                       checked={filters.include_sub_resellers}
                       onChange={(e) => setFilters({ ...filters, include_sub_resellers: e.target.checked })}
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Include Sub-resellers</span>
+                    <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Include Sub-resellers</span>
                   </label>
                 </div>
               </div>
@@ -383,9 +383,9 @@ export default function ChangeBulk() {
 
           {/* Custom Filters */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
               <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <AdjustmentsHorizontalIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+                <AdjustmentsHorizontalIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 Advanced Filters
               </h2>
             </div>
@@ -446,14 +446,14 @@ export default function ChangeBulk() {
                     {customFilters.map((f, i) => (
                       <div
                         key={i}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full text-sm"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-200 dark:border-blue-700 rounded-full text-sm"
                       >
-                        <span className="font-medium text-blue-700">{filterFields.find(ff => ff.value === f.field)?.label}</span>
-                        <span className="text-blue-400">{filterRules.find(r => r.value === f.rule)?.label.split(' ')[0]}</span>
-                        <span className="font-semibold text-blue-900">"{f.value}"</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">{filterFields.find(ff => ff.value === f.field)?.label}</span>
+                        <span className="text-blue-400 dark:text-blue-400">{filterRules.find(r => r.value === f.rule)?.label.split(' ')[0]}</span>
+                        <span className="font-semibold text-blue-900 dark:text-blue-200">"{f.value}"</span>
                         <button
                           onClick={() => handleRemoveFilter(i)}
-                          className="ml-1 text-blue-400 hover:text-red-500 transition-colors"
+                          className="ml-1 text-blue-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                         >
                           <XMarkIcon className="w-4 h-4" />
                         </button>
@@ -469,7 +469,7 @@ export default function ChangeBulk() {
         {/* Right Column - Action */}
         <div className="space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-6">
-            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-b border-gray-200 dark:border-gray-700">
               <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <BoltIcon className="w-5 h-5 text-purple-500" />
                 Action to Perform
@@ -504,10 +504,10 @@ export default function ChangeBulk() {
 
               {/* Action description */}
               {action && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg">
                   <div className="flex gap-2">
-                    <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-700">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
                       {action === 'set_active' && 'This will activate all matching subscribers.'}
                       {action === 'set_inactive' && 'This will deactivate all matching subscribers.'}
                       {action === 'set_expiry' && 'This will update the expiry date for all matching subscribers.'}
@@ -527,7 +527,7 @@ export default function ChangeBulk() {
                 <button
                   onClick={handlePreview}
                   disabled={previewMutation.isPending}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50"
                 >
                   <EyeIcon className="w-5 h-5" />
                   {previewMutation.isPending ? 'Loading Preview...' : 'Preview Changes'}
@@ -549,16 +549,16 @@ export default function ChangeBulk() {
       {/* Preview Table */}
       {previewData && previewData.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <CheckCircleIcon className="w-5 h-5 text-green-500" />
+              <CheckCircleIcon className="w-5 h-5 text-green-500 dark:text-green-400" />
               Preview Results
-              <span className="ml-2 px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+              <span className="ml-2 px-2.5 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
                 {previewTotal} subscribers
               </span>
             </h2>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Rows per page:</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Rows per page:</span>
               <select
                 className="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-1"
                 value={pageSize}
@@ -583,7 +583,7 @@ export default function ChangeBulk() {
                     {headerGroup.headers.map(header => (
                       <th
                         key={header.id}
-                        className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                        className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider"
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </th>
@@ -593,9 +593,9 @@ export default function ChangeBulk() {
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {table.getRowModel().rows.map((row, idx) => (
-                  <tr key={row.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr key={row.id} className={idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
                     {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
+                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -607,13 +607,13 @@ export default function ChangeBulk() {
 
           {/* Pagination */}
           {previewTotal > pageSize && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, previewTotal)} of {previewTotal} results
               </p>
               <div className="flex items-center gap-2">
                 <button
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                   disabled={page === 1}
                   onClick={() => {
                     setPage(page - 1)
@@ -623,11 +623,11 @@ export default function ChangeBulk() {
                   <ChevronLeftIcon className="w-4 h-4" />
                   Previous
                 </button>
-                <span className="px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
+                <span className="px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                   Page {page} of {Math.ceil(previewTotal / pageSize)}
                 </span>
                 <button
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                   disabled={page >= Math.ceil(previewTotal / pageSize)}
                   onClick={() => {
                     setPage(page + 1)
@@ -648,7 +648,7 @@ export default function ChangeBulk() {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-12 text-center">
           <UsersIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No subscribers found</h3>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Try adjusting your filters to match more subscribers.</p>
+          <p className="text-gray-500 dark:text-gray-400">Try adjusting your filters to match more subscribers.</p>
         </div>
       )}
 
@@ -656,25 +656,25 @@ export default function ChangeBulk() {
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-            <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
+            <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-b border-amber-200 dark:border-amber-700">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-full">
-                  <ExclamationTriangleIcon className="w-6 h-6 text-amber-600" />
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Bulk Action</h3>
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 You are about to perform <span className="font-semibold text-gray-900 dark:text-white">"{actionOptions.find(a => a.value === action)?.label}"</span> on
-                <span className="font-semibold text-blue-600"> {previewTotal || 'all matching'} subscribers</span>.
+                <span className="font-semibold text-blue-600 dark:text-blue-400"> {previewTotal || 'all matching'} subscribers</span>.
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">This action cannot be undone. Are you sure you want to continue?</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone. Are you sure you want to continue?</p>
             </div>
-            <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end">
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 flex gap-3 justify-end">
               <button
                 onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 font-medium"
+                className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500 font-medium"
               >
                 Cancel
               </button>

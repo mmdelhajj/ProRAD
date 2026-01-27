@@ -28,18 +28,31 @@ CREATE TABLE IF NOT EXISTS permission_group_permissions (
     PRIMARY KEY (permission_group_id, permission_id)
 );
 
--- NAS (Network Access Servers)
-CREATE TABLE IF NOT EXISTS nas (
+-- NAS Devices (Network Access Servers)
+CREATE TABLE IF NOT EXISTS nas_devices (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    short_name VARCHAR(50),
     ip_address VARCHAR(50) NOT NULL UNIQUE,
-    secret VARCHAR(255) NOT NULL,
     type VARCHAR(50) DEFAULT 'mikrotik',
-    api_port INTEGER DEFAULT 8728,
-    api_user VARCHAR(100),
-    api_password VARCHAR(255),
     description VARCHAR(255),
+    secret VARCHAR(100) NOT NULL,
+    auth_port INTEGER DEFAULT 1812,
+    acct_port INTEGER DEFAULT 1813,
+    coa_port INTEGER DEFAULT 1700,
+    api_username VARCHAR(100),
+    api_password VARCHAR(255),
+    api_port INTEGER DEFAULT 8728,
+    api_ssl_port INTEGER DEFAULT 8729,
+    use_ssl BOOLEAN DEFAULT false,
+    subscriber_pools VARCHAR(500),
+    allowed_realms VARCHAR(500),
     is_active BOOLEAN DEFAULT true,
+    is_online BOOLEAN DEFAULT false,
+    last_seen TIMESTAMP,
+    version VARCHAR(50),
+    active_sessions INTEGER DEFAULT 0,
+    total_users INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
@@ -692,28 +705,50 @@ CREATE TABLE IF NOT EXISTS cdn_bandwidth_rules (
 CREATE TABLE IF NOT EXISTS backup_schedules (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    type VARCHAR(20) NOT NULL DEFAULT 'full',
-    schedule VARCHAR(50) NOT NULL,
-    retention_days INTEGER DEFAULT 7,
-    destination VARCHAR(255),
-    is_active BOOLEAN DEFAULT true,
-    last_run TIMESTAMP,
-    next_run TIMESTAMP,
+    is_enabled BOOLEAN DEFAULT true,
+    backup_type VARCHAR(20) DEFAULT 'full',
+    frequency VARCHAR(20) NOT NULL,
+    day_of_week INTEGER DEFAULT 0,
+    day_of_month INTEGER DEFAULT 1,
+    time_of_day VARCHAR(5) DEFAULT '02:00',
+    retention INTEGER DEFAULT 7,
+    storage_type VARCHAR(20) DEFAULT 'local',
+    local_path VARCHAR(255),
+    ftp_enabled BOOLEAN DEFAULT false,
+    ftp_host VARCHAR(255),
+    ftp_port INTEGER DEFAULT 21,
+    ftp_username VARCHAR(100),
+    ftp_password VARCHAR(255),
+    ftp_path VARCHAR(255) DEFAULT '/backups',
+    ftp_passive BOOLEAN DEFAULT true,
+    ftp_tls BOOLEAN DEFAULT false,
+    last_run_at TIMESTAMP,
+    last_status VARCHAR(20),
+    last_error VARCHAR(500),
+    last_backup_file VARCHAR(255),
+    next_run_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 -- Backup Logs
 CREATE TABLE IF NOT EXISTS backup_logs (
     id SERIAL PRIMARY KEY,
     schedule_id INTEGER,
-    type VARCHAR(20) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    file_path VARCHAR(500),
+    schedule_name VARCHAR(100),
+    backup_type VARCHAR(20),
+    filename VARCHAR(255),
     file_size BIGINT,
-    error_message TEXT,
+    storage_type VARCHAR(20),
+    storage_path VARCHAR(500),
+    status VARCHAR(20),
+    error_message VARCHAR(500),
+    duration INTEGER,
     started_at TIMESTAMP,
-    completed_at TIMESTAMP
+    completed_at TIMESTAMP,
+    created_by_id INTEGER,
+    created_by_name VARCHAR(100)
 );
 
 -- Add force_password_change column if not exists
