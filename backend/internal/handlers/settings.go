@@ -125,8 +125,23 @@ func NewSettingsHandler() *SettingsHandler {
 	return &SettingsHandler{}
 }
 
-// List returns all system preferences
+// List returns all system preferences (with Redis caching)
 func (h *SettingsHandler) List(c *fiber.Ctx) error {
+	// Try cache first
+	type cachedSettings struct {
+		Settings map[string]interface{}  `json:"settings"`
+		Items    []models.SystemPreference `json:"items"`
+	}
+	var cached cachedSettings
+	if err := database.CacheGet(database.CacheKeySettings, &cached); err == nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    cached.Settings,
+			"items":   cached.Items,
+		})
+	}
+
+	// Fetch from database
 	var preferences []models.SystemPreference
 	database.DB.Order("key").Find(&preferences)
 
@@ -135,6 +150,9 @@ func (h *SettingsHandler) List(c *fiber.Ctx) error {
 	for _, p := range preferences {
 		settings[p.Key] = p.Value
 	}
+
+	// Cache the result
+	database.CacheSet(database.CacheKeySettings, cachedSettings{Settings: settings, Items: preferences}, database.CacheTTLSettings)
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -200,6 +218,9 @@ func (h *SettingsHandler) Update(c *fiber.Ctx) error {
 		})
 	}
 
+	// Invalidate settings cache
+	database.InvalidateSettingsCache()
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    pref,
@@ -250,6 +271,9 @@ func (h *SettingsHandler) BulkUpdate(c *fiber.Ctx) error {
 		}
 	}
 
+	// Invalidate settings cache
+	database.InvalidateSettingsCache()
+
 	// Handle remote support toggle - write to control file and notify license server
 	if remoteSupportChanged {
 		controlFile := "/opt/proxpanel/remote-support-enabled"
@@ -281,6 +305,9 @@ func (h *SettingsHandler) Delete(c *fiber.Ctx) error {
 			"message": "Setting not found",
 		})
 	}
+
+	// Invalidate settings cache
+	database.InvalidateSettingsCache()
 
 	return c.JSON(fiber.Map{
 		"success": true,

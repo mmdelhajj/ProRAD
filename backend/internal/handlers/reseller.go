@@ -60,18 +60,46 @@ func (h *ResellerHandler) List(c *fiber.Ctx) error {
 	var resellers []models.Reseller
 	query.Order("name ASC").Offset(offset).Limit(limit).Find(&resellers)
 
-	// Get subscriber counts for each reseller
-	for i := range resellers {
-		var count int64
-		database.DB.Model(&models.Subscriber{}).Where("reseller_id = ?", resellers[i].ID).Count(&count)
-		if resellers[i].User != nil {
-			resellers[i].User.Phone = "" // Use this to pass count temporarily
+	// Get subscriber counts for all resellers in a single query (fix N+1)
+	subscriberCounts := make(map[uint]int64)
+	if len(resellers) > 0 {
+		resellerIDs := make([]uint, len(resellers))
+		for i, r := range resellers {
+			resellerIDs[i] = r.ID
+		}
+
+		type countResult struct {
+			ResellerID uint  `gorm:"column:reseller_id"`
+			Count      int64 `gorm:"column:count"`
+		}
+		var counts []countResult
+		database.DB.Model(&models.Subscriber{}).
+			Select("reseller_id, COUNT(*) as count").
+			Where("reseller_id IN ?", resellerIDs).
+			Group("reseller_id").
+			Scan(&counts)
+
+		for _, c := range counts {
+			subscriberCounts[c.ResellerID] = c.Count
+		}
+	}
+
+	// Build response with subscriber counts
+	type ResellerWithCount struct {
+		models.Reseller
+		SubscriberCount int64 `json:"subscriber_count"`
+	}
+	resellersWithCounts := make([]ResellerWithCount, len(resellers))
+	for i, r := range resellers {
+		resellersWithCounts[i] = ResellerWithCount{
+			Reseller:        r,
+			SubscriberCount: subscriberCounts[r.ID],
 		}
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    resellers,
+		"data":    resellersWithCounts,
 		"meta": fiber.Map{
 			"page":       page,
 			"limit":      limit,

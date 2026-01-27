@@ -1890,6 +1890,29 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 		})
 	}
 
+	// Pre-load reseller once (if user is reseller) - avoids N+1 query
+	var currentReseller *models.Reseller
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		currentReseller = &models.Reseller{}
+		database.DB.First(currentReseller, *user.ResellerID)
+	}
+
+	// Pre-load all NAS devices used by subscribers - avoids N+1 query
+	nasIDs := make([]uint, 0)
+	for _, sub := range subscribers {
+		if sub.NasID != nil && *sub.NasID > 0 {
+			nasIDs = append(nasIDs, *sub.NasID)
+		}
+	}
+	nasMap := make(map[uint]*models.Nas)
+	if len(nasIDs) > 0 {
+		var nasList []models.Nas
+		database.DB.Where("id IN ?", nasIDs).Find(&nasList)
+		for i := range nasList {
+			nasMap[nasList[i].ID] = &nasList[i]
+		}
+	}
+
 	success := 0
 	failed := 0
 	var actionName string
@@ -1898,16 +1921,15 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 		switch req.Action {
 		case "renew":
 			actionName = "Bulk renewed"
-			// Check balance for resellers
-			if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-				var reseller models.Reseller
-				database.DB.First(&reseller, *user.ResellerID)
-				if reseller.Balance < sub.Price {
+			// Check balance for resellers (using pre-loaded reseller)
+			if user.UserType == models.UserTypeReseller && currentReseller != nil {
+				if currentReseller.Balance < sub.Price {
 					failed++
 					continue
 				}
 				// Deduct balance
-				database.DB.Model(&reseller).Update("balance", gorm.Expr("balance - ?", sub.Price))
+				database.DB.Model(currentReseller).Update("balance", gorm.Expr("balance - ?", sub.Price))
+				currentReseller.Balance -= sub.Price // Update local copy for next iteration
 				// Create transaction
 				transaction := models.Transaction{
 					Type:         models.TransactionTypeRenewal,
@@ -1971,8 +1993,7 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			})
 			// Reset speed via RADIUS CoA (since FUP was reset)
 			if sub.NasID != nil && *sub.NasID > 0 && sub.ServiceID > 0 {
-				var nas models.Nas
-				if err := database.DB.First(&nas, *sub.NasID).Error; err == nil && nas.IPAddress != "" {
+				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
 					// Build rate limit string: upload/download format for MikroTik
 					// Speeds are in Mbps, convert to Kbps for MikroTik (multiply by 1000)
 					rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
@@ -2001,10 +2022,9 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 
 		case "disconnect":
 			actionName = "Bulk disconnected"
-			// Actually disconnect from MikroTik if NAS is configured
+			// Actually disconnect from MikroTik if NAS is configured (using pre-loaded nasMap)
 			if sub.NasID != nil && *sub.NasID > 0 {
-				var nas models.Nas
-				if err := database.DB.First(&nas, *sub.NasID).Error; err == nil && nas.IPAddress != "" {
+				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
 					client := mikrotik.NewClient(
 						fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
 						nas.APIUsername,
@@ -2037,10 +2057,9 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			database.DB.Create(&models.RadCheck{
 				Username: sub.Username, Attribute: "Auth-Type", Op: ":=", Value: "Reject",
 			})
-			// Disconnect from MikroTik if online
+			// Disconnect from MikroTik if online (using pre-loaded nasMap)
 			if sub.NasID != nil && *sub.NasID > 0 {
-				var nas models.Nas
-				if err := database.DB.First(&nas, *sub.NasID).Error; err == nil && nas.IPAddress != "" {
+				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
 					client := mikrotik.NewClient(
 						fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
 						nas.APIUsername,
@@ -2079,10 +2098,9 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 				Op:        "=",
 				Value:     fullSpeedLimit,
 			})
-			// Reset speed via RADIUS CoA
+			// Reset speed via RADIUS CoA (using pre-loaded nasMap)
 			if sub.NasID != nil && *sub.NasID > 0 && sub.ServiceID > 0 {
-				var nas models.Nas
-				if err := database.DB.First(&nas, *sub.NasID).Error; err == nil && nas.IPAddress != "" {
+				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
 					// Build rate limit string: upload/download format for MikroTik
 					// Speeds are in Mbps, convert to Kbps for MikroTik (multiply by 1000)
 					rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
@@ -2107,10 +2125,9 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 
 		case "delete":
 			actionName = "Bulk deleted"
-			// Disconnect from MikroTik if online
+			// Disconnect from MikroTik if online (using pre-loaded nasMap)
 			if sub.NasID != nil && *sub.NasID > 0 {
-				var nas models.Nas
-				if err := database.DB.First(&nas, *sub.NasID).Error; err == nil && nas.IPAddress != "" {
+				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
 					client := mikrotik.NewClient(
 						fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
 						nas.APIUsername,

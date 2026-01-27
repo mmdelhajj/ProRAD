@@ -1,35 +1,48 @@
-import { useEffect } from 'react'
+import { useEffect, Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import Layout from './components/Layout'
+
+// Eager load critical pages (login, dashboard)
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Subscribers from './pages/Subscribers'
-import SubscriberEdit from './pages/SubscriberEdit'
-import SubscriberImport from './pages/SubscriberImport'
-import Services from './pages/Services'
-import Nas from './pages/Nas'
-import Resellers from './pages/Resellers'
-import Sessions from './pages/Sessions'
-import Transactions from './pages/Transactions'
-import Settings from './pages/Settings'
-import Users from './pages/Users'
-import Invoices from './pages/Invoices'
-import Prepaid from './pages/Prepaid'
-import Reports from './pages/Reports'
-import AuditLogs from './pages/AuditLogs'
-import CommunicationRules from './pages/CommunicationRules'
-import BandwidthRules from './pages/BandwidthRules'
-import FUPCounters from './pages/FUPCounters'
-import Tickets from './pages/Tickets'
-import Backups from './pages/Backups'
-import Permissions from './pages/Permissions'
-import ChangeBulk from './pages/ChangeBulk'
 import CustomerPortal from './pages/CustomerPortal'
-import SharingDetection from './pages/SharingDetection'
-import CDNList from './pages/CDNList'
-import CDNBandwidthRules from './pages/CDNBandwidthRules'
 import ChangePassword from './pages/ChangePassword'
+
+// Lazy load all other pages for code splitting
+const Subscribers = lazy(() => import('./pages/Subscribers'))
+const SubscriberEdit = lazy(() => import('./pages/SubscriberEdit'))
+const SubscriberImport = lazy(() => import('./pages/SubscriberImport'))
+const Services = lazy(() => import('./pages/Services'))
+const Nas = lazy(() => import('./pages/Nas'))
+const Resellers = lazy(() => import('./pages/Resellers'))
+const Sessions = lazy(() => import('./pages/Sessions'))
+const Transactions = lazy(() => import('./pages/Transactions'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Users = lazy(() => import('./pages/Users'))
+const Invoices = lazy(() => import('./pages/Invoices'))
+const Prepaid = lazy(() => import('./pages/Prepaid'))
+const Reports = lazy(() => import('./pages/Reports'))
+const AuditLogs = lazy(() => import('./pages/AuditLogs'))
+const CommunicationRules = lazy(() => import('./pages/CommunicationRules'))
+const BandwidthRules = lazy(() => import('./pages/BandwidthRules'))
+const FUPCounters = lazy(() => import('./pages/FUPCounters'))
+const Tickets = lazy(() => import('./pages/Tickets'))
+const Backups = lazy(() => import('./pages/Backups'))
+const Permissions = lazy(() => import('./pages/Permissions'))
+const ChangeBulk = lazy(() => import('./pages/ChangeBulk'))
+const SharingDetection = lazy(() => import('./pages/SharingDetection'))
+const CDNList = lazy(() => import('./pages/CDNList'))
+const CDNBandwidthRules = lazy(() => import('./pages/CDNBandwidthRules'))
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+    </div>
+  )
+}
 
 // Admin/Reseller private route - redirects customers to portal
 function PrivateRoute({ children }) {
@@ -94,35 +107,37 @@ function App() {
         element={
           <PrivateRoute>
             <Layout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/subscribers" element={<PermissionRoute permission="subscribers.view"><Subscribers /></PermissionRoute>} />
-                <Route path="/subscribers/new" element={<PermissionRoute permission="subscribers.create"><SubscriberEdit /></PermissionRoute>} />
-                <Route path="/subscribers/:id" element={<PermissionRoute permission="subscribers.view"><SubscriberEdit /></PermissionRoute>} />
-                <Route path="/subscribers/import" element={<PermissionRoute permission="subscribers.create"><SubscriberImport /></PermissionRoute>} />
-                <Route path="/services" element={<PermissionRoute permission="services.view"><Services /></PermissionRoute>} />
-                <Route path="/nas" element={<PermissionRoute adminOnly><Nas /></PermissionRoute>} />
-                <Route path="/resellers" element={<PermissionRoute permission="resellers.view"><Resellers /></PermissionRoute>} />
-                <Route path="/sessions" element={<PermissionRoute permission="sessions.view"><Sessions /></PermissionRoute>} />
-                <Route path="/transactions" element={<PermissionRoute permission="transactions.view"><Transactions /></PermissionRoute>} />
-                <Route path="/settings" element={<PermissionRoute adminOnly><Settings /></PermissionRoute>} />
-                <Route path="/users" element={<PermissionRoute adminOnly><Users /></PermissionRoute>} />
-                <Route path="/invoices" element={<PermissionRoute permission="invoices.view"><Invoices /></PermissionRoute>} />
-                <Route path="/prepaid" element={<PermissionRoute permission="prepaid.view"><Prepaid /></PermissionRoute>} />
-                <Route path="/reports" element={<PermissionRoute permission="reports.view"><Reports /></PermissionRoute>} />
-                <Route path="/audit" element={<PermissionRoute adminOnly><AuditLogs /></PermissionRoute>} />
-                <Route path="/communication" element={<PermissionRoute adminOnly><CommunicationRules /></PermissionRoute>} />
-                <Route path="/bandwidth" element={<PermissionRoute adminOnly><BandwidthRules /></PermissionRoute>} />
-                <Route path="/fup" element={<PermissionRoute adminOnly><FUPCounters /></PermissionRoute>} />
-                <Route path="/tickets" element={<PermissionRoute permission="tickets.view"><Tickets /></PermissionRoute>} />
-                <Route path="/backups" element={<PermissionRoute adminOnly><Backups /></PermissionRoute>} />
-                <Route path="/permissions" element={<PermissionRoute adminOnly><Permissions /></PermissionRoute>} />
-                <Route path="/change-bulk" element={<PermissionRoute adminOnly><ChangeBulk /></PermissionRoute>} />
-                <Route path="/sharing" element={<PermissionRoute adminOnly><SharingDetection /></PermissionRoute>} />
-                <Route path="/cdn" element={<PermissionRoute adminOnly><CDNList /></PermissionRoute>} />
-                <Route path="/cdn-bandwidth-rules" element={<PermissionRoute adminOnly><CDNBandwidthRules /></PermissionRoute>} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/subscribers" element={<PermissionRoute permission="subscribers.view"><Subscribers /></PermissionRoute>} />
+                  <Route path="/subscribers/new" element={<PermissionRoute permission="subscribers.create"><SubscriberEdit /></PermissionRoute>} />
+                  <Route path="/subscribers/:id" element={<PermissionRoute permission="subscribers.view"><SubscriberEdit /></PermissionRoute>} />
+                  <Route path="/subscribers/import" element={<PermissionRoute permission="subscribers.create"><SubscriberImport /></PermissionRoute>} />
+                  <Route path="/services" element={<PermissionRoute permission="services.view"><Services /></PermissionRoute>} />
+                  <Route path="/nas" element={<PermissionRoute adminOnly><Nas /></PermissionRoute>} />
+                  <Route path="/resellers" element={<PermissionRoute permission="resellers.view"><Resellers /></PermissionRoute>} />
+                  <Route path="/sessions" element={<PermissionRoute permission="sessions.view"><Sessions /></PermissionRoute>} />
+                  <Route path="/transactions" element={<PermissionRoute permission="transactions.view"><Transactions /></PermissionRoute>} />
+                  <Route path="/settings" element={<PermissionRoute adminOnly><Settings /></PermissionRoute>} />
+                  <Route path="/users" element={<PermissionRoute adminOnly><Users /></PermissionRoute>} />
+                  <Route path="/invoices" element={<PermissionRoute permission="invoices.view"><Invoices /></PermissionRoute>} />
+                  <Route path="/prepaid" element={<PermissionRoute permission="prepaid.view"><Prepaid /></PermissionRoute>} />
+                  <Route path="/reports" element={<PermissionRoute permission="reports.view"><Reports /></PermissionRoute>} />
+                  <Route path="/audit" element={<PermissionRoute adminOnly><AuditLogs /></PermissionRoute>} />
+                  <Route path="/communication" element={<PermissionRoute adminOnly><CommunicationRules /></PermissionRoute>} />
+                  <Route path="/bandwidth" element={<PermissionRoute adminOnly><BandwidthRules /></PermissionRoute>} />
+                  <Route path="/fup" element={<PermissionRoute adminOnly><FUPCounters /></PermissionRoute>} />
+                  <Route path="/tickets" element={<PermissionRoute permission="tickets.view"><Tickets /></PermissionRoute>} />
+                  <Route path="/backups" element={<PermissionRoute adminOnly><Backups /></PermissionRoute>} />
+                  <Route path="/permissions" element={<PermissionRoute adminOnly><Permissions /></PermissionRoute>} />
+                  <Route path="/change-bulk" element={<PermissionRoute adminOnly><ChangeBulk /></PermissionRoute>} />
+                  <Route path="/sharing" element={<PermissionRoute adminOnly><SharingDetection /></PermissionRoute>} />
+                  <Route path="/cdn" element={<PermissionRoute adminOnly><CDNList /></PermissionRoute>} />
+                  <Route path="/cdn-bandwidth-rules" element={<PermissionRoute adminOnly><CDNBandwidthRules /></PermissionRoute>} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
             </Layout>
           </PrivateRoute>
         }

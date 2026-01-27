@@ -55,6 +55,9 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	// Create performance indexes
+	database.EnsureIndexes()
+
 	// Seed admin user if not exists
 	seedAdminUser()
 

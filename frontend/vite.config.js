@@ -17,6 +17,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'terser',
+    chunkSizeWarningLimit: 500, // KB
     terserOptions: {
       compress: {
         drop_console: true,  // Remove console.log
@@ -27,6 +28,21 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      output: {
+        // Manual chunks for better caching and smaller initial load
+        manualChunks: {
+          // React core (changes rarely)
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Data fetching/state
+          'data-vendor': ['@tanstack/react-query', 'zustand', 'axios'],
+          // UI libraries
+          'ui-vendor': ['@heroicons/react', 'react-hot-toast', 'clsx'],
+          // Table/grid (heavy)
+          'table-vendor': ['@tanstack/react-table'],
+          // Charts (heavy, only loaded when needed)
+          'chart-vendor': ['echarts', 'echarts-for-react'],
+        },
+      },
       plugins: [
         obfuscatorPlugin({
           options: {
