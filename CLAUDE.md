@@ -742,3 +742,23 @@ Comprehensive fixes to ensure fresh installs work without manual intervention:
 **Default Theme:**
 - Fresh installs now default to light mode
 - Users can toggle dark mode by clicking the company name/logo in sidebar
+
+**Timezone Data (tzdata) Fix:**
+- Issue: Backup scheduler always used UTC regardless of configured timezone
+- Root cause: `time.LoadLocation("Asia/Beirut")` fails without tzdata package
+- Fix: Added `tzdata` to API container package install in docker-compose.prod.yml
+- For existing installs: `docker exec proxpanel-api apt-get update && apt-get install -y tzdata && docker restart proxpanel-api`
+
+**Backup Logs Schema Fix:**
+- Issue: backup_logs table missing columns expected by GORM model
+- Fix for existing installs:
+  ```sql
+  ALTER TABLE backup_logs RENAME COLUMN type TO backup_type;
+  ALTER TABLE backup_logs RENAME COLUMN file_path TO storage_path;
+  ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS schedule_name VARCHAR(100);
+  ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS filename VARCHAR(255);
+  ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS storage_type VARCHAR(20) DEFAULT 'local';
+  ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 0;
+  ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS created_by_id INTEGER;
+  ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS created_by_name VARCHAR(100);
+  ```
