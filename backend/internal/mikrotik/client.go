@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/proisp/backend/internal/database"
 )
 
 // Client represents a MikroTik RouterOS API client
@@ -1254,10 +1256,13 @@ func (c *Client) SyncCDNAddressList(cdn CDNConfig) error {
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	companyName := cdn.CompanyName
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	listName := fmt.Sprintf("CDN-%s", cdn.Name)
@@ -1349,10 +1354,13 @@ func (c *Client) SyncCDNMangleRule(cdn CDNConfig) error {
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	companyName := cdn.CompanyName
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	listName := fmt.Sprintf("CDN-%s", cdn.Name)
@@ -1414,9 +1422,12 @@ func (c *Client) GetCDNTrafficCounters(cdnNames []string, companyName string) ([
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	var results []CDNTrafficCounter
@@ -1672,9 +1683,12 @@ func (c *Client) RemoveCDNConfig(cdnName string, companyName string) error {
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	listName := fmt.Sprintf("CDN-%s", cdnName)
@@ -1755,10 +1769,13 @@ func (c *Client) SyncSubscriberCDNQueues(subscriberIP string, username string, c
 		dstAddress := strings.Join(subnets, ",")
 
 		queueName := fmt.Sprintf("cdn-%s-%s", username, cdn.CDNName)
-		// Use company name from settings, default to "ProISP" if not set
+		// Use company name for branding in comments
 		companyName := cdn.CompanyName
 		if companyName == "" {
-			companyName = "ProISP"
+			companyName = database.GetCompanyName()
+		}
+		if companyName == "" {
+			companyName = "ISP"
 		}
 		comment := fmt.Sprintf("%s-CDN-Queue-%s", companyName, username)
 
@@ -1856,9 +1873,12 @@ func (c *Client) RemoveSubscriberCDNQueues(username string, companyName string) 
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	comment := fmt.Sprintf("%s-CDN-Queue-%s", companyName, username)
@@ -2863,12 +2883,18 @@ func (c *Client) ensureStaticIPProtectionScript() {
 	// This script removes static IPs from the pool's used list every 30 seconds
 	script := `:foreach entry in=[/ip firewall address-list find list=STATIC-IPS] do={:local addr [/ip firewall address-list get $entry address]; :foreach used in=[/ip pool used find address=$addr] do={/ip pool used remove $used}}`
 
+	// Get company name for branding in comment
+	companyName := database.GetCompanyName()
+	if companyName == "" {
+		companyName = "ISP"
+	}
+
 	c.conn.SetDeadline(time.Now().Add(c.timeout))
 	c.sendWord("/system/scheduler/add")
 	c.sendWord("=name=" + schedulerName)
 	c.sendWord("=interval=30s")
 	c.sendWord("=on-event=" + script)
-	c.sendWord("=comment=ProISP: Protects static IPs from pool assignment")
+	c.sendWord("=comment=" + companyName + ": Protects static IPs from pool assignment")
 	c.sendWord("")
 
 	_, err = c.readResponse()

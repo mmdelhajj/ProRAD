@@ -563,8 +563,9 @@ export default function Settings() {
                       )}
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      Recommended: 240 x 64 pixels, PNG with transparent background<br />
-                      Maximum size: 2MB
+                      Recommended: <strong>180 x 36 pixels</strong> (horizontal logo)<br />
+                      PNG with transparent background, max 2MB<br />
+                      <span className="text-amber-600">Note: If logo is uploaded, company name will be hidden</span>
                     </p>
                   </div>
                 </div>
@@ -580,7 +581,7 @@ export default function Settings() {
                         <img src={companyLogo} alt="Logo" className="h-10 object-contain" />
                       ) : (
                         <span className="text-lg font-bold text-blue-600">
-                          {formData.company_name || 'ProISP'}
+                          {formData.company_name || 'Your Company Name'}
                         </span>
                       )}
                     </div>

@@ -70,18 +70,18 @@ export default function Login() {
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2"></div>
         </div>
 
-        {/* Logo & Name */}
+        {/* Logo & Name - show logo OR name, not both */}
         <div className="relative z-10">
           <div className="flex items-center gap-4">
             {companyLogo ? (
-              <img src={companyLogo} alt={companyName} className="h-16 object-contain" />
+              <img src={companyLogo} alt={companyName || 'Logo'} className="h-16 object-contain" />
             ) : (
               <>
                 <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
                   <WifiIcon className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">{companyName}</h1>
+                  <h1 className="text-3xl font-bold text-white">{companyName || 'ISP Management'}</h1>
                   <p className="text-blue-200 text-sm">ISP Management System</p>
                 </div>
               </>
@@ -129,17 +129,17 @@ export default function Login() {
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
-          {/* Mobile Logo */}
+          {/* Mobile Logo - show logo OR name, not both */}
           <div className="lg:hidden text-center mb-8">
             <div className="inline-flex items-center gap-3 mb-4">
               {companyLogo ? (
-                <img src={companyLogo} alt={companyName} className="h-12 object-contain" />
+                <img src={companyLogo} alt={companyName || 'Logo'} className="h-12 object-contain" />
               ) : (
                 <>
                   <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                     <WifiIcon className="w-7 h-7 text-blue-600" />
                   </div>
-                  <h1 className="text-2xl font-bold text-gray-900">{companyName}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">{companyName || 'ISP Management'}</h1>
                 </>
               )}
             </div>
@@ -284,7 +284,7 @@ export default function Login() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-sm text-gray-400">
-            {companyName} - ISP Management System
+            {companyName ? `${companyName} - ISP Management System` : 'ISP Management System'}
           </p>
         </div>
       </div>

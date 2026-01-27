@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/proisp/backend/internal/models"
 )
 
 const (
@@ -79,4 +81,25 @@ func InvalidateServicesCache() {
 // InvalidateSettingsCache clears settings cache
 func InvalidateSettingsCache() {
 	CacheDelete(CacheKeySettings)
+}
+
+// GetCompanyName retrieves the company name from system preferences for branding
+// Returns empty string if not set (never returns "ProISP" as default)
+func GetCompanyName() string {
+	// Try cache first
+	cacheKey := "proisp:branding:company_name"
+	var cached string
+	if err := CacheGet(cacheKey, &cached); err == nil {
+		return cached
+	}
+
+	// Fetch from database
+	var pref models.SystemPreference
+	if err := DB.Where("key = ?", "company_name").First(&pref).Error; err != nil {
+		return ""
+	}
+
+	// Cache for 5 minutes
+	CacheSet(cacheKey, pref.Value, 5*time.Minute)
+	return pref.Value
 }
