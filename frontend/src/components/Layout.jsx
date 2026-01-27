@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
@@ -32,11 +32,15 @@ import {
   QueueListIcon,
   ShieldExclamationIcon,
   GlobeAltIcon,
+  Bars2Icon,
+  CheckIcon,
+  ArrowUturnLeftIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
 // Navigation items with permission requirements
-// permission: null = visible to all, 'admin' = admin only, string = specific permission required
 const allNavigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon, permission: 'dashboard.view' },
   { name: 'Subscribers', href: '/subscribers', icon: UsersIcon, permission: 'subscribers.view' },
@@ -62,8 +66,46 @@ const allNavigation = [
   { name: 'Sharing Detection', href: '/sharing', icon: ShieldExclamationIcon, permission: 'admin' },
 ]
 
+// Get saved menu order from localStorage
+const getSavedMenuOrder = () => {
+  try {
+    const saved = localStorage.getItem('menuOrder')
+    if (saved) {
+      return JSON.parse(saved)
+    }
+  } catch (e) {
+    console.error('Failed to load menu order:', e)
+  }
+  return null
+}
+
+// Save menu order to localStorage
+const saveMenuOrder = (order) => {
+  try {
+    localStorage.setItem('menuOrder', JSON.stringify(order))
+  } catch (e) {
+    console.error('Failed to save menu order:', e)
+  }
+}
+
+// Apply saved order to navigation
+const applyMenuOrder = (navigation, savedOrder) => {
+  if (!savedOrder || savedOrder.length === 0) return navigation
+
+  const orderMap = new Map(savedOrder.map((href, index) => [href, index]))
+  const sorted = [...navigation].sort((a, b) => {
+    const orderA = orderMap.has(a.href) ? orderMap.get(a.href) : 999
+    const orderB = orderMap.has(b.href) ? orderMap.get(b.href) : 999
+    return orderA - orderB
+  })
+  return sorted
+}
+
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [orderedNav, setOrderedNav] = useState([])
+
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, hasPermission, isAdmin } = useAuthStore()
@@ -76,20 +118,142 @@ export default function Layout({ children }) {
     }
   }, [loaded, fetchBranding])
 
+  // Filter and order navigation
+  useEffect(() => {
+    const filtered = allNavigation.filter((item) => {
+      if (item.permission === null) return true
+      if (item.permission === 'admin') return isAdmin()
+      return hasPermission(item.permission)
+    })
+    const savedOrder = getSavedMenuOrder()
+    const ordered = applyMenuOrder(filtered, savedOrder)
+    setOrderedNav(ordered)
+  }, [hasPermission, isAdmin])
+
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
-  // Filter navigation based on permissions
-  const navigation = allNavigation.filter((item) => {
-    // No permission required - visible to all
-    if (item.permission === null) return true
-    // Admin only items
-    if (item.permission === 'admin') return isAdmin()
-    // Check specific permission
-    return hasPermission(item.permission)
-  })
+  // Move item up
+  const moveUp = useCallback((index) => {
+    if (index <= 0) return
+    setOrderedNav(prev => {
+      const newNav = [...prev]
+      const temp = newNav[index]
+      newNav[index] = newNav[index - 1]
+      newNav[index - 1] = temp
+      // Save to localStorage
+      const newOrder = newNav.map(item => item.href)
+      saveMenuOrder(newOrder)
+      return newNav
+    })
+  }, [])
+
+  // Move item down
+  const moveDown = useCallback((index) => {
+    setOrderedNav(prev => {
+      if (index >= prev.length - 1) return prev
+      const newNav = [...prev]
+      const temp = newNav[index]
+      newNav[index] = newNav[index + 1]
+      newNav[index + 1] = temp
+      // Save to localStorage
+      const newOrder = newNav.map(item => item.href)
+      saveMenuOrder(newOrder)
+      return newNav
+    })
+  }, [])
+
+  const handleResetOrder = () => {
+    localStorage.removeItem('menuOrder')
+    // Re-filter and use default order
+    const filtered = allNavigation.filter((item) => {
+      if (item.permission === null) return true
+      if (item.permission === 'admin') return isAdmin()
+      return hasPermission(item.permission)
+    })
+    setOrderedNav(filtered)
+  }
+
+  const toggleEditMode = () => {
+    setEditMode(!editMode)
+  }
+
+  // Edit mode controls
+  const EditModeControls = () => (
+    <div className="flex items-center gap-1 px-2 py-2 border-b bg-amber-50">
+      <button
+        onClick={handleResetOrder}
+        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-amber-100 rounded"
+        title="Reset to default order"
+      >
+        <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
+        Reset
+      </button>
+      <div className="flex-1" />
+      <button
+        onClick={toggleEditMode}
+        className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 bg-green-100 hover:bg-green-200 rounded font-medium"
+      >
+        <CheckIcon className="w-3.5 h-3.5" />
+        Done
+      </button>
+    </div>
+  )
+
+  // Render navigation items
+  const renderNavItems = (isMobile = false) => {
+    return orderedNav.map((item, index) => {
+      const isActive = location.pathname === item.href
+      const Icon = item.icon
+
+      if (editMode) {
+        return (
+          <div
+            key={item.href}
+            className="flex items-center gap-1 px-1 py-0.5 text-xs font-medium rounded-md bg-gray-50 hover:bg-gray-100 text-gray-700"
+          >
+            <div className="flex flex-col">
+              <button
+                onClick={() => moveUp(index)}
+                disabled={index === 0}
+                className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronUpIcon className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => moveDown(index)}
+                disabled={index === orderedNav.length - 1}
+                className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronDownIcon className="w-3 h-3" />
+              </button>
+            </div>
+            <Icon className="w-4 h-4 flex-shrink-0 text-gray-500" />
+            <span className="truncate flex-1">{item.name}</span>
+          </div>
+        )
+      }
+
+      return (
+        <Link
+          key={item.href}
+          to={item.href}
+          onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+          className={clsx(
+            'flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors',
+            isActive
+              ? 'bg-primary-50 text-primary-700'
+              : 'text-gray-600 hover:bg-gray-100'
+          )}
+        >
+          <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
+          <span className="truncate">{item.name}</span>
+        </Link>
+      )
+    })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,25 +284,20 @@ export default function Layout({ children }) {
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
+        {editMode && <EditModeControls />}
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {navigation.map((item) => (
-            <Link
-              key={item.name}
-              to={item.href}
-              onClick={() => setSidebarOpen(false)}
-              className={clsx(
-                'flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors',
-                location.pathname === item.href
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              )}
-            >
-              <item.icon className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span className="truncate">{item.name}</span>
-            </Link>
-          ))}
+          {renderNavItems(true)}
         </nav>
         <div className="p-2 border-t flex-shrink-0 bg-gray-50">
+          {isAdmin() && !editMode && (
+            <button
+              onClick={toggleEditMode}
+              className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              <Bars2Icon className="w-4 h-4 mr-2" />
+              Reorder Menu
+            </button>
+          )}
           <div className="flex items-center px-2 py-1.5 text-xs text-gray-600">
             <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
@@ -170,24 +329,20 @@ export default function Layout({ children }) {
               )}
             </div>
           </div>
+          {editMode && <EditModeControls />}
           <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={clsx(
-                  'flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors',
-                  location.pathname === item.href
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-gray-600 hover:bg-gray-100'
-                )}
-              >
-                <item.icon className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span className="truncate">{item.name}</span>
-              </Link>
-            ))}
+            {renderNavItems(false)}
           </nav>
           <div className="p-2 border-t flex-shrink-0 bg-gray-50">
+            {isAdmin() && !editMode && (
+              <button
+                onClick={toggleEditMode}
+                className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+              >
+                <Bars2Icon className="w-4 h-4 mr-2" />
+                Reorder Menu
+              </button>
+            )}
             <div className="flex items-center px-2 py-1.5 text-xs text-gray-600">
               <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">

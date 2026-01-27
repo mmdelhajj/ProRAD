@@ -275,6 +275,9 @@ docker-compose down && docker-compose up -d
   - Icons throughout (funnel, bolt, check, etc.)
   - File: `frontend/src/pages/ChangeBulk.jsx`
 - **v1.0.87 Released** (Jan 2026): Built and published v1.0.87 with Users password toggle and Change Bulk redesign.
+- **Sidebar Menu Reorder Feature** (Jan 2026): Added ability for admins to customize sidebar menu order. Click "Reorder Menu" at bottom of sidebar to enter edit mode, use up/down arrows to reorder items, click "Done" when finished. Order is saved to localStorage and persists across sessions. Reset button restores default order.
+  - File: `frontend/src/components/Layout.jsx`
+  - Storage: `localStorage.menuOrder` (array of hrefs)
 
 ## Remote Support / SSH Tunnel Setup
 
