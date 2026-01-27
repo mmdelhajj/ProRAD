@@ -14,27 +14,27 @@ export default function Settings() {
   const { companyName, companyLogo, fetchBranding, updateBranding } = useBrandingStore()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Check if we should open a specific tab (from URL params or sessionStorage)
+  // All valid tab IDs
+  const validTabs = ['branding', 'general', 'billing', 'service_change', 'radius', 'notifications', 'security', 'account', 'license']
+
+  // Check if we should open a specific tab (from URL params)
   const urlTab = searchParams.get('tab')
-  const storageTab = sessionStorage.getItem('settings-tab')
-  const initialTab = urlTab || storageTab || 'branding'
+  const initialTab = (urlTab && validTabs.includes(urlTab)) ? urlTab : 'branding'
   const [activeTab, setActiveTab] = useState(initialTab)
 
-  // Update active tab when URL changes
+  // Update URL when tab changes (keeps tab in URL for refresh)
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    setSearchParams({ tab: tabId }, { replace: true })
+  }
+
+  // Sync tab from URL on mount/URL change
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab && ['branding', 'system', 'license'].includes(tab)) {
+    if (tab && validTabs.includes(tab) && tab !== activeTab) {
       setActiveTab(tab)
-      // Clear the URL param after reading
-      searchParams.delete('tab')
-      setSearchParams(searchParams, { replace: true })
     }
-  }, [searchParams, setSearchParams])
-
-  // Clear sessionStorage after reading
-  useEffect(() => {
-    sessionStorage.removeItem('settings-tab')
-  }, [])
+  }, [searchParams])
   const [formData, setFormData] = useState({})
   const [hasChanges, setHasChanges] = useState(false)
   const fileInputRef = useRef(null)
@@ -479,7 +479,7 @@ export default function Settings() {
             {tabs.map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`px-6 py-4 text-sm font-medium border-b-2 ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
@@ -868,7 +868,7 @@ export default function Settings() {
                         {updateData.update_available && (
                           <button
                             onClick={() => {
-                              sessionStorage.setItem('settings-tab', 'license')
+                              // Already on license tab, just trigger the update
                               window.location.href = '/settings?tab=license'
                             }}
                             className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"

@@ -27,12 +27,12 @@ var (
 func getRateLimitSetting() int {
 	var pref models.SystemPreference
 	if err := database.DB.Where("key = ?", "api_rate_limit").First(&pref).Error; err != nil {
-		return 100 // Default 100 requests per minute
+		return 300 // Default 300 requests per minute
 	}
 	if val, err := strconv.Atoi(pref.Value); err == nil && val > 0 {
 		return val
 	}
-	return 100
+	return 300
 }
 
 // Logger middleware for request logging

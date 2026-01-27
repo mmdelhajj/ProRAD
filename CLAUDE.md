@@ -248,6 +248,33 @@ docker-compose down && docker-compose up -d
   - Country (dropdown with 70+ countries)
   - Files: `internal/models/subscriber.go`, `internal/handlers/subscriber.go`, `frontend/src/pages/SubscriberEdit.jsx`
   - Migration: `ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS country VARCHAR(100);`
+- **Update Handler Directory Fix** (Jan 2026): Fixed update handler not replacing binaries correctly when destination is a directory structure (`backend/proisp-api/proisp-api`). The `mv` command was moving INTO the directory instead of replacing. Now detects if destination is directory and handles appropriately.
+  - File: `internal/handlers/system_update.go`
+- **Rate Limit Increase** (Jan 2026): Increased default API rate limit from 100 to 300 requests per minute to prevent users from getting blocked after a few wrong password attempts.
+  - File: `internal/middleware/logger.go` (getRateLimitSetting function)
+- **Nginx Uploads Location Fix** (Jan 2026): Fixed logo/uploads returning 404. Two issues:
+  1. Container name was `api` but should be `proxpanel-api`
+  2. Static file regex location `~* \.(png|...)` had higher priority than `/uploads/`
+  - Fix: Changed container name and added `^~` modifier to `/uploads/` location to stop regex matching
+  - File: `frontend/nginx.conf`
+- **Settings Tab URL Persistence** (Jan 2026): Fixed Settings page losing selected tab after page refresh. Now uses URL search params (`?tab=license`) to persist tab selection. Also fixed tab validation to include all 9 tabs.
+  - File: `frontend/src/pages/Settings.jsx`
+- **Users Password Visibility Toggle** (Jan 2026): Added show/hide password toggle with eye icon on Users page. When adding or editing users, click the eye icon to reveal/hide the password. Password field shows placeholder text ("Enter new password" for edit, "Enter password" for create).
+  - File: `frontend/src/pages/Users.jsx`
+  - Added: `EyeIcon`, `EyeSlashIcon` from Heroicons, `showPassword` state
+- **Change Bulk Page Redesign** (Jan 2026): Complete professional redesign of the Bulk Operations page:
+  - Two-column layout: filters (2/3) + action panel (1/3)
+  - Card-based sections with gradient headers (Filter Subscribers, Advanced Filters, Action to Perform)
+  - Modern toggle switch instead of checkbox for "Include Sub-resellers"
+  - Pill-style filter badges with hover delete
+  - Sticky action panel that stays visible while scrolling
+  - Warning box explaining what action will do
+  - Confirmation modal before executing bulk actions
+  - Empty state design when no subscribers match
+  - Better pagination with "Showing X to Y of Z" text
+  - Icons throughout (funnel, bolt, check, etc.)
+  - File: `frontend/src/pages/ChangeBulk.jsx`
+- **v1.0.87 Released** (Jan 2026): Built and published v1.0.87 with Users password toggle and Change Bulk redesign.
 
 ## Remote Support / SSH Tunnel Setup
 

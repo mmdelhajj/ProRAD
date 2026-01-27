@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import { formatDateTime } from '../utils/timezone'
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 
 const USER_TYPES = {
   'reseller': 'Reseller',
@@ -24,6 +25,7 @@ export default function Users() {
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editUser, setEditUser] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -64,6 +66,7 @@ export default function Users() {
 
   const resetForm = () => {
     setEditUser(null)
+    setShowPassword(false)
     setFormData({
       username: '',
       password: '',
@@ -191,13 +194,27 @@ export default function Users() {
                 <label className="block text-sm font-medium text-gray-700">
                   Password {editUser && '(leave blank to keep current)'}
                 </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required={!editUser}
-                />
+                <div className="mt-1 relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10"
+                    required={!editUser}
+                    placeholder={editUser ? 'Enter new password' : 'Enter password'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? (
+                      <EyeSlashIcon className="h-5 w-5" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Full Name</label>

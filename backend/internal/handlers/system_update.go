@@ -468,8 +468,17 @@ func (h *SystemUpdateHandler) performUpdate(version string) {
 	h.setStatus("apply", 70, "Applying update files...")
 
 	// Backup current binaries (in case we need to rollback)
-	exec.Command("cp", filepath.Join(h.installDir, "backend", "proisp-api"), "/tmp/proisp-api-backup").Run()
-	exec.Command("cp", filepath.Join(h.installDir, "backend", "proisp-radius"), "/tmp/proisp-radius-backup").Run()
+	// Handle both structures: proisp-api (file) or proisp-api/proisp-api (directory with binary)
+	currentApi := filepath.Join(h.installDir, "backend", "proisp-api")
+	if info, err := os.Stat(currentApi); err == nil && info.IsDir() {
+		currentApi = filepath.Join(currentApi, "proisp-api")
+	}
+	currentRadius := filepath.Join(h.installDir, "backend", "proisp-radius")
+	if info, err := os.Stat(currentRadius); err == nil && info.IsDir() {
+		currentRadius = filepath.Join(currentRadius, "proisp-radius")
+	}
+	exec.Command("cp", currentApi, "/tmp/proisp-api-backup").Run()
+	exec.Command("cp", currentRadius, "/tmp/proisp-radius-backup").Run()
 
 	// Update backend binaries - copy to temp first, then move (atomic)
 	exec.Command("mkdir", "-p", filepath.Join(h.installDir, "backend")).Run()
@@ -513,8 +522,20 @@ func (h *SystemUpdateHandler) performUpdate(version string) {
 	h.setStatus("apply", 80, "Finalizing file updates...")
 
 	// Move new binaries into place (mv is atomic on same filesystem)
-	exec.Command("mv", "-f", tmpApi, filepath.Join(h.installDir, "backend", "proisp-api")).Run()
-	exec.Command("mv", "-f", tmpRadius, filepath.Join(h.installDir, "backend", "proisp-radius")).Run()
+	// Handle both structures: backend/proisp-api (file) or backend/proisp-api/proisp-api (directory with binary)
+	apiDest := filepath.Join(h.installDir, "backend", "proisp-api")
+	if info, err := os.Stat(apiDest); err == nil && info.IsDir() {
+		// It's a directory, move binary inside it
+		apiDest = filepath.Join(apiDest, "proisp-api")
+	}
+	exec.Command("mv", "-f", tmpApi, apiDest).Run()
+
+	radiusDest := filepath.Join(h.installDir, "backend", "proisp-radius")
+	if info, err := os.Stat(radiusDest); err == nil && info.IsDir() {
+		// It's a directory, move binary inside it
+		radiusDest = filepath.Join(radiusDest, "proisp-radius")
+	}
+	exec.Command("mv", "-f", tmpRadius, radiusDest).Run()
 
 	// Move frontend
 	oldDist := filepath.Join(h.installDir, "frontend", "dist.old")
@@ -747,17 +768,32 @@ func (h *SystemUpdateHandler) performRollback(backupDir, fromVersion, toVersion 
 
 	// Restore backend binaries
 	h.setStatus("rollback", 25, "Restoring API binary...")
-	backupApi := filepath.Join(backupDir, "backend", "proisp-api")
+	// Handle both structures: proisp-api (file) or proisp-api/proisp-api (directory with binary)
+	backupApi := filepath.Join(backupDir, "backend", "proisp-api", "proisp-api")
+	if _, err := os.Stat(backupApi); os.IsNotExist(err) {
+		backupApi = filepath.Join(backupDir, "backend", "proisp-api")
+	}
+	destApi := filepath.Join(h.installDir, "backend", "proisp-api")
+	if info, err := os.Stat(destApi); err == nil && info.IsDir() {
+		destApi = filepath.Join(destApi, "proisp-api")
+	}
 	if _, err := os.Stat(backupApi); err == nil {
-		exec.Command("cp", "-f", backupApi, filepath.Join(h.installDir, "backend", "proisp-api")).Run()
-		exec.Command("chmod", "+x", filepath.Join(h.installDir, "backend", "proisp-api")).Run()
+		exec.Command("cp", "-f", backupApi, destApi).Run()
+		exec.Command("chmod", "+x", destApi).Run()
 	}
 
 	h.setStatus("rollback", 50, "Restoring RADIUS binary...")
-	backupRadius := filepath.Join(backupDir, "backend", "proisp-radius")
+	backupRadius := filepath.Join(backupDir, "backend", "proisp-radius", "proisp-radius")
+	if _, err := os.Stat(backupRadius); os.IsNotExist(err) {
+		backupRadius = filepath.Join(backupDir, "backend", "proisp-radius")
+	}
+	destRadius := filepath.Join(h.installDir, "backend", "proisp-radius")
+	if info, err := os.Stat(destRadius); err == nil && info.IsDir() {
+		destRadius = filepath.Join(destRadius, "proisp-radius")
+	}
 	if _, err := os.Stat(backupRadius); err == nil {
-		exec.Command("cp", "-f", backupRadius, filepath.Join(h.installDir, "backend", "proisp-radius")).Run()
-		exec.Command("chmod", "+x", filepath.Join(h.installDir, "backend", "proisp-radius")).Run()
+		exec.Command("cp", "-f", backupRadius, destRadius).Run()
+		exec.Command("chmod", "+x", destRadius).Run()
 	}
 
 	h.setStatus("rollback", 75, "Restoring frontend...")
