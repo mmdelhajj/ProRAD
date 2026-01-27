@@ -762,3 +762,18 @@ Comprehensive fixes to ensure fresh installs work without manual intervention:
   ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS created_by_id INTEGER;
   ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS created_by_name VARCHAR(100);
   ```
+
+**Permission System Fresh Install Fix:**
+- Issue: Permission tables were created but had no data (0 rows)
+- Root cause: Schema.sql only created tables, no INSERT statements for default permissions
+- Fix: Added 137 default permission INSERT statements to schema.sql
+- Permissions include: dashboard.*, subscribers.*, services.*, nas.*, sessions.*, resellers.*, invoices.*, prepaid.*, reports.*, transactions.*, tickets.*, backups.*, settings.*, audit.*
+
+**Services Time-Based Speed Column Fix:**
+- Issue: services.time_based_speed_enabled column missing from schema.sql
+- Fix: Added `time_based_speed_enabled BOOLEAN DEFAULT false` to services table
+- Also added to service_cdns table for CDN Night Boost feature
+
+**Subscribers Country Column Fix:**
+- Issue: subscribers.country column missing from schema.sql
+- Fix: Added `country VARCHAR(100)` to subscribers table
