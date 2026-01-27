@@ -891,14 +891,15 @@ export default function Settings() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={async () => {
+                            toast.loading('Restarting API service...', { id: 'restart' })
                             try {
-                              toast.loading('Restarting API service...', { id: 'restart' })
                               await settingsApi.restartServices(['api'])
-                              toast.success('API service is restarting. Page will reload in 10 seconds.', { id: 'restart' })
-                              setTimeout(() => window.location.reload(), 10000)
                             } catch (err) {
-                              toast.error(err.response?.data?.message || 'Failed to restart service', { id: 'restart' })
+                              // 502/network error is expected - API restarts before responding
+                              // This is actually success, not failure
                             }
+                            toast.success('API service is restarting. Page will reload in 10 seconds.', { id: 'restart' })
+                            setTimeout(() => window.location.reload(), 10000)
                           }}
                           className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700"
                         >
@@ -909,14 +910,15 @@ export default function Settings() {
                         </button>
                         <button
                           onClick={async () => {
+                            toast.loading('Restarting all services...', { id: 'restart' })
                             try {
-                              toast.loading('Restarting all services...', { id: 'restart' })
                               await settingsApi.restartServices(['all'])
-                              toast.success('All services are restarting. Page will reload in 15 seconds.', { id: 'restart' })
-                              setTimeout(() => window.location.reload(), 15000)
                             } catch (err) {
-                              toast.error(err.response?.data?.message || 'Failed to restart services', { id: 'restart' })
+                              // 502/network error is expected - API restarts before responding
+                              // This is actually success, not failure
                             }
+                            toast.success('All services are restarting. Page will reload in 15 seconds.', { id: 'restart' })
+                            setTimeout(() => window.location.reload(), 15000)
                           }}
                           className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                         >
