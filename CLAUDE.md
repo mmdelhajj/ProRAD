@@ -697,3 +697,48 @@ These pages are restricted to admin users only (no permission needed, just admin
 - Fixed permission groups not loading permissions in list/edit
 - Issue: Model used `gorm:"-"` which prevents Preload from working
 - Fix: Manual SQL JOIN query to load permissions from junction table `permission_group_permissions`
+
+### v1.0.95 Fresh Install Fixes (Jan 2026)
+Comprehensive fixes to ensure fresh installs work without manual intervention:
+
+**PostgreSQL 16 Client Fix:**
+- Issue: `pg_dump: error: server version: 16.11; pg_dump version: 14.20`
+- Root cause: Default `postgresql-client` package installs v14, but database is PostgreSQL 16
+- Fix: API container now installs `postgresql-client-16` from PostgreSQL APT repo
+- Location: `docker-compose.yml` API container command section
+
+**Backup Schedules Schema Fix:**
+- Issue: 500 error when creating backup schedules
+- Root cause: GORM model expects column `backup_type`, database had column `type`
+- Fix: Updated `schema.sql` to use correct column names (`backup_type`, `local_path`)
+- Migration for existing installs:
+  ```sql
+  ALTER TABLE backup_schedules RENAME COLUMN type TO backup_type;
+  ALTER TABLE backup_schedules ADD COLUMN IF NOT EXISTS local_path VARCHAR(255);
+  ```
+
+**Hardware ID Consistency Fix:**
+- Issue: License showing "bound to different hardware" on restarts
+- Root cause: Hardware ID was generated from container MAC which changes on restart
+- Fix: Added `SERVER_MAC` and `HOST_HOSTNAME` environment variables to both API and RADIUS containers
+- These values are set during install and remain constant across restarts
+
+**RADIUS Database Connectivity Fix:**
+- Issue: RADIUS (using `network_mode: host`) couldn't connect to database/redis
+- Fix: Added port mappings `127.0.0.1:5432:5432` and `127.0.0.1:6379:6379`
+- This exposes db/redis on localhost for the host-network RADIUS container
+
+**Dark Mode Improvements:**
+- Fixed "Check for Updates" button visibility in dark mode (Settings page)
+- Fixed comprehensive dark mode styling for Bulk Operations page:
+  - Card headers with dark gradients
+  - Toggle switch colors
+  - Filter pills/badges
+  - Warning boxes
+  - Table rows and headers
+  - Pagination buttons
+  - Confirmation modal
+
+**Default Theme:**
+- Fresh installs now default to light mode
+- Users can toggle dark mode by clicking the company name/logo in sidebar
