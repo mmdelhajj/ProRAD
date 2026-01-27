@@ -12,6 +12,145 @@ CREATE TABLE IF NOT EXISTS permissions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Default Permissions (seed data)
+INSERT INTO permissions (name, description) VALUES ('dashboard.view', 'View dashboard') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('dashboard.view_admin', 'View admin dashboard') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('dashboard.view_active_only', 'View only active users in dashboard') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('dashboard.stats', 'View dashboard statistics') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view', 'View subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view_all', 'View all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.create', 'Create subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.edit', 'Edit subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.edit_all', 'Edit all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.delete', 'Delete subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.delete_all', 'Delete all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.delete_expired', 'Delete expired subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.delete_all_expired', 'Delete all expired subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.renew', 'Renew subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.renew_all', 'Renew all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.disconnect', 'Disconnect subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.disconnect_all', 'Disconnect all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.inactivate', 'Inactivate subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.inactivate_all', 'Inactivate all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.rename', 'Rename subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.rename_all', 'Rename all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_owner', 'Change subscriber owner') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_owner_all', 'Change all subscribers owner') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_service', 'Change subscriber service') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_service_free', 'Change user service for free') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_expiry', 'Change user expiry date') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_service_money', 'Change service money for user') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_service_money_all', 'Change service money for all users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.add_days', 'Add days to subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.add_days_all', 'Add days to all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.add_days_overdue', 'Add overdue days to subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.add_days_overdue_all', 'Add overdue days to all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.reset_fup', 'Reset FUP quota') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.reset_fup_all', 'Reset FUP quota for all') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.refill_quota', 'Refill monthly quota for user') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.refill_quota_all', 'Refill monthly quota for all users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.reset_mac', 'Reset MAC address') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.reset_mac_all', 'Reset MAC address for all') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.unbind_mac', 'Unbind user MAC address') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.queue_quota', 'Use queue quota') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.ping', 'Ping subscriber') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.ping_all', 'Ping all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view_graph', 'View live user graph') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view_graph_all', 'View live user graph for all') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view_fup', 'View FUP level in list') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view_logs', 'View logs for subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view_logs_all', 'View logs for all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.bulk_import', 'Bulk import subscribers (CSV)') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.bulk_add', 'Admin add bulk users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.bulk_update', 'Bulk update subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.bulk_action', 'Bulk actions (renew/disconnect)') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.change_bulk', 'ChangeBulk (admin bulk operations)') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.export', 'Export/download list of subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.export_all', 'Export/download list of all subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.view_archived', 'View archived subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.restore', 'Restore archived subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.allow_refund', 'Allow refund for deleted subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.refund_no_money', 'Stop connection without refund') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.refund_no_money_all', 'Stop all connections without refund') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.autorecharge', 'Auto recharge users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('services.view', 'View/list services') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('services.create', 'Create services') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('services.edit', 'Edit services') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('services.delete', 'Delete services') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('nas.view', 'View/list NAS devices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('nas.create', 'Create NAS devices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('nas.edit', 'Edit NAS devices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('nas.delete', 'Delete NAS devices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('nas.sync', 'Sync NAS devices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('nas.test', 'Test NAS connection') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('sessions.view', 'View user sessions') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('sessions.view_all', 'View all users sessions') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('sessions.disconnect', 'Disconnect sessions') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('sessions.view_history', 'View session history') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.view', 'View resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.view_all', 'View all resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.create', 'Create resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.edit', 'Edit resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.edit_all', 'Edit all resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.delete', 'Delete resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.change_owner', 'Change reseller owner') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.change_owner_all', 'Change all reseller owner') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.add_money', 'Add money to resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.add_money_all', 'Add money to all resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.withdraw', 'Withdraw money from resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.withdraw_all', 'Withdraw money from all resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.view_subresellers', 'View sub-resellers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.view_balance', 'View reseller balance') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.set_credit', 'Set reseller credit limit') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.add_support', 'Add/edit/list support users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.add_collector', 'Add/edit/list collector users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.notification', 'Send notification in user portal') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.recharge_code', 'Recharge voucher codes for users via API') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.recharge_code_all', 'Recharge voucher codes for all users via API') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('resellers.billing_add', 'Billing add reseller') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('invoices.view', 'View invoices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('invoices.create', 'Create invoices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('invoices.edit', 'Edit invoices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('invoices.delete', 'Delete invoices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('invoices.print', 'Print invoices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('invoices.email', 'Email invoices') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('invoices.mark_paid', 'Mark invoices as paid') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.view', 'View/list prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.generate', 'Generate prepaid cards for users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.generate_all', 'Generate prepaid cards for all users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.delete', 'Delete prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.disable', 'Disable prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.print', 'Print prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.export', 'Export prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.hide_code', 'Hide generate card codes') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.view', 'View reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.generate_all', 'Generate all type of reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.subscribers', 'View subscriber reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.revenue', 'View revenue reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.services', 'View service reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.usage', 'View usage reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.resellers', 'View reseller reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('reports.export', 'Export reports') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('transactions.view', 'View transactions') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('transactions.view_all', 'View all transactions') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('transactions.create', 'Create transactions') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('transactions.delete', 'Delete transactions') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('tickets.view', 'View tickets') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('tickets.create', 'Create tickets') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('tickets.edit', 'Edit tickets') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('tickets.delete', 'Delete tickets') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('tickets.reply', 'Reply to tickets') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('tickets.assign', 'Assign tickets') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('tickets.close', 'Close tickets') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('backups.view', 'View backups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('backups.create', 'Create backups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('backups.restore', 'Restore backups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('backups.delete', 'Delete backups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('backups.download', 'Download backups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('settings.view', 'View settings') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('settings.edit', 'Edit settings') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('audit.view', 'View audit logs') ON CONFLICT (name) DO NOTHING;
+
 -- Permission Groups
 CREATE TABLE IF NOT EXISTS permission_groups (
     id SERIAL PRIMARY KEY,
@@ -121,6 +260,7 @@ CREATE TABLE IF NOT EXISTS services (
     address_list_in VARCHAR(100),
     address_list_out VARCHAR(100),
     queue_type VARCHAR(50) DEFAULT 'simple',
+    time_based_speed_enabled BOOLEAN DEFAULT false,
     is_active BOOLEAN DEFAULT true,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -205,6 +345,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
     region VARCHAR(100),
     building VARCHAR(100),
     nationality VARCHAR(100),
+    country VARCHAR(100),
     note TEXT,
     service_id INTEGER NOT NULL,
     status INTEGER DEFAULT 1,
@@ -665,6 +806,7 @@ CREATE TABLE IF NOT EXISTS service_cdns (
     time_to_hour INTEGER DEFAULT 0,
     time_to_minute INTEGER DEFAULT 0,
     time_speed_ratio INTEGER DEFAULT 100,
+    time_based_speed_enabled BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(service_id, cdn_id)
