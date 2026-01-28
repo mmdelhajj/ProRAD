@@ -112,9 +112,12 @@ func main() {
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
-		AppName:      "ProISP API v1.0",
-		ServerHeader: "ProISP",
-		BodyLimit:    50 * 1024 * 1024, // 50MB
+		AppName:                 "ProISP API v1.0",
+		ServerHeader:            "ProISP",
+		ProxyHeader:             "X-Real-IP", // Trust nginx X-Real-IP header for real client IP
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          []string{"172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"}, // Docker networks
+		BodyLimit:               50 * 1024 * 1024, // 50MB
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
