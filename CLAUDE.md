@@ -1064,3 +1064,85 @@ Published version includes all fixes from Jan 28-29, 2026:
 - Proxmox VM memory reading fix
 - Bandwidth Rules permission for resellers
 - Mobile responsiveness improvements for all main pages
+
+### Profile Page for Resellers (Jan 2026)
+- Added `/profile` route for resellers to view account info and change password
+- Shows username, email, phone, account type, status
+- Password change form with current password verification
+- Added "My Profile" link to sidebar (both mobile and desktop)
+- Files: `frontend/src/pages/Profile.jsx`, `frontend/src/App.jsx`, `frontend/src/components/Layout.jsx`
+
+### Full Branding Customization (Jan 2026)
+Added comprehensive branding options in Settings → Branding:
+
+**Basic Branding:**
+- Company Name (sidebar + login)
+- Company Logo (replaces name when uploaded)
+- Primary Color (color picker + 6 presets)
+- Favicon (browser tab icon)
+
+**Login Page Customization:**
+- Login Background Image (replaces blue gradient)
+- Footer Copyright Text
+- Tagline ("High Performance ISP Management Solution")
+- Show/Hide Feature Boxes toggle
+- 3 Feature Boxes (title + description each)
+
+**Files Changed:**
+- `backend/internal/handlers/settings.go` - Added upload handlers for background, favicon
+- `backend/cmd/api/main.go` - Added routes for new uploads
+- `frontend/src/store/brandingStore.js` - Added all new branding fields
+- `frontend/src/pages/Settings.jsx` - Full branding UI with uploads
+- `frontend/src/pages/Login.jsx` - Dynamic background, colors, features
+- `frontend/src/services/api.js` - API functions for uploads
+
+**New API Endpoints:**
+- `POST /api/settings/login-background` - Upload login background
+- `DELETE /api/settings/login-background` - Delete login background
+- `POST /api/settings/favicon` - Upload favicon
+- `DELETE /api/settings/favicon` - Delete favicon
+
+### System Metrics Admin-Only (Jan 2026)
+- Dashboard system metrics (CPU, Memory, HDD) now hidden from resellers
+- Only admins can see server resource usage
+- Added `isAdmin()` check before rendering metrics section
+- Query only fetches metrics when user is admin
+- File: `frontend/src/pages/Dashboard.jsx`
+
+### Reseller Stats Filtering Fix (Jan 2026)
+- Fixed bug where resellers saw ALL system subscribers instead of only their own
+- Dashboard stats now properly filtered by reseller hierarchy
+- Subscriber page stats (online, active, FUP levels) also filtered
+- Files: `backend/internal/handlers/dashboard.go`, `backend/internal/handlers/subscriber.go`
+
+### Dismissible Ping Results (Jan 2026)
+- Ping results now shown in custom toast popup
+- Click anywhere on popup to dismiss immediately (no 5-second wait)
+- Shows formatted ping output with WiFi icon
+- "Click anywhere to close" hint for users
+- File: `frontend/src/pages/Subscribers.jsx`
+
+### Mobile-Friendly Torch Modal (Jan 2026)
+- Redesigned Torch modal for mobile devices
+- Mobile: Card-based layout with compact info
+- Desktop: Table layout with 5 columns
+- Proper dark mode colors throughout
+- IP address clearly visible with solid background
+- Download/Upload speeds with arrow icons
+- Auto-refresh toggle and manual refresh button
+- File: `frontend/src/pages/Subscribers.jsx`
+
+### Dark Mode Fixes (Jan 2026)
+- Fixed Permissions page dark mode colors (inputs, table, borders)
+- Fixed NAS/Routers page dark mode colors (modal, buttons, code blocks)
+- Files: `frontend/src/pages/Permissions.jsx`, `frontend/src/pages/Nas.jsx`
+
+### v1.0.126 Update (Jan 2026)
+Published version includes all fixes from Jan 29, 2026:
+- Profile page for resellers
+- Full branding customization (background, colors, favicon, features)
+- System metrics admin-only
+- Reseller stats filtering fix
+- Dismissible ping results
+- Mobile-friendly Torch modal
+- Dark mode fixes for Permissions and NAS pages
