@@ -639,15 +639,12 @@ func (c *Client) UpdateUserRateLimit(username string, downloadKbps, uploadKbps i
 func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadKbps, uploadKbps int) error {
 	log.Printf("MikroTik: UpdateUserRateLimitWithIP called for %s, IP=%s, rate=%dk/%dk", username, ipAddress, downloadKbps, uploadKbps)
 
-	// Always reconnect to ensure clean connection state
-	// (previous operations may have left the connection in unknown state)
-	if c.conn != nil {
-		c.conn.Close()
-		c.conn = nil
-	}
-	if err := c.Connect(); err != nil {
-		log.Printf("MikroTik: Connect failed: %v", err)
-		return err
+	// Reuse existing connection if available, only connect if needed
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			log.Printf("MikroTik: Connect failed: %v", err)
+			return err
+		}
 	}
 	c.conn.SetDeadline(time.Now().Add(c.timeout))
 

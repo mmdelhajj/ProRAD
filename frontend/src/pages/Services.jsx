@@ -338,10 +338,16 @@ export default function Services() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    // Generate speed strings from kbps values (e.g., 1400 -> "1400k")
+    const downloadSpeedKbps = parseInt(formData.download_speed) || 0
+    const uploadSpeedKbps = parseInt(formData.upload_speed) || 0
+
     const data = {
       ...formData,
-      download_speed: parseInt(formData.download_speed) || 0,
-      upload_speed: parseInt(formData.upload_speed) || 0,
+      download_speed: downloadSpeedKbps,
+      upload_speed: uploadSpeedKbps,
+      download_speed_str: downloadSpeedKbps > 0 ? `${downloadSpeedKbps}k` : '',
+      upload_speed_str: uploadSpeedKbps > 0 ? `${uploadSpeedKbps}k` : '',
       price: parseFloat(formData.price) || 0,
       validity_days: parseInt(formData.validity_days) || 30,
       daily_quota: formData.daily_quota ? parseInt(formData.daily_quota) * 1024 * 1024 * 1024 : 0,
@@ -463,8 +469,8 @@ export default function Services() {
         header: 'Speed',
         cell: ({ row }) => (
           <div className="text-sm">
-            <div>↓ {row.original.download_speed} Mbps</div>
-            <div>↑ {row.original.upload_speed} Mbps</div>
+            <div>↓ {row.original.download_speed} kb</div>
+            <div>↑ {row.original.upload_speed} kb</div>
           </div>
         ),
       },
@@ -689,24 +695,26 @@ export default function Services() {
                   <h3 className="font-medium mb-3">Speed Settings</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="label">Download Speed (Mbps)</label>
+                      <label className="label">Download Speed (kb)</label>
                       <input
                         type="number"
                         name="download_speed"
                         value={formData.download_speed}
                         onChange={handleChange}
                         className="input"
+                        placeholder="e.g., 4000 for 4Mbps"
                         required
                       />
                     </div>
                     <div>
-                      <label className="label">Upload Speed (Mbps)</label>
+                      <label className="label">Upload Speed (kb)</label>
                       <input
                         type="number"
                         name="upload_speed"
                         value={formData.upload_speed}
                         onChange={handleChange}
                         className="input"
+                        placeholder="e.g., 1400 for 1.4Mbps"
                         required
                       />
                     </div>
@@ -772,17 +780,18 @@ export default function Services() {
                   <h3 className="font-medium mb-3">Burst Settings (Mikrotik)</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="label">Burst Download (Mbps)</label>
+                      <label className="label">Burst Download (kb)</label>
                       <input
                         type="number"
                         name="burst_download"
                         value={formData.burst_download}
                         onChange={handleChange}
                         className="input"
+                        placeholder="e.g., 8000"
                       />
                     </div>
                     <div>
-                      <label className="label">Burst Upload (Mbps)</label>
+                      <label className="label">Burst Upload (kb)</label>
                       <input
                         type="number"
                         name="burst_upload"

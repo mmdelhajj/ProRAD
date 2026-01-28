@@ -88,7 +88,7 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "25"))
 	search := c.Query("search", "")
 	status := c.Query("status", "")
-	serviceID, _ := strconv.Atoi(c.Query("service", "0"))
+	serviceID, _ := strconv.Atoi(c.Query("service_id", "0"))
 	online := c.Query("online", "")
 	sortBy := c.Query("sort_by", "created_at")
 	sortDir := c.Query("sort_dir", "desc")
@@ -131,6 +131,10 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 			query = query.Where("expiry_date < ?", time.Now())
 		case "expiring":
 			query = query.Where("expiry_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 7))
+		case "online":
+			query = query.Where("is_online = ?", true)
+		case "offline":
+			query = query.Where("is_online = ?", false)
 		}
 	}
 
@@ -1339,17 +1343,18 @@ func (h *SubscriberHandler) ResetFUP(c *fiber.Ctx) error {
 
 	database.DB.Model(&subscriber).Updates(updates)
 
-	// Restore original speed in RADIUS radreply table
+	// Restore original speed in RADIUS radreply table (format: upload/download for MikroTik rx/tx)
 	if subscriber.Service.ID > 0 {
-		rateLimit := fmt.Sprintf("%dM/%dM", subscriber.Service.DownloadSpeed, subscriber.Service.UploadSpeed)
+		rateLimit := fmt.Sprintf("%dM/%dM", subscriber.Service.UploadSpeed, subscriber.Service.DownloadSpeed)
 		database.DB.Model(&models.RadReply{}).
 			Where("username = ? AND attribute = ?", subscriber.Username, "Mikrotik-Rate-Limit").
 			Update("value", rateLimit)
 	}
 
 	// Restore original speed on MikroTik using CoA
+	// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
 	if session != nil && subscriber.Service.ID > 0 {
-		originalRateLimitK := fmt.Sprintf("%dk/%dk", subscriber.Service.DownloadSpeed*1000, subscriber.Service.UploadSpeed*1000)
+		originalRateLimitK := fmt.Sprintf("%dk/%dk", subscriber.Service.UploadSpeed, subscriber.Service.DownloadSpeed)
 		coaClient := radius.NewCOAClient(subscriber.Nas.IPAddress, subscriber.Nas.CoAPort, subscriber.Nas.Secret)
 		speedRestored := false
 
@@ -1983,8 +1988,9 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			database.DB.Where("username = ? AND attribute = ? AND value = ?", sub.Username, "Auth-Type", "Reject").Delete(&models.RadCheck{})
 			// Update RADIUS reply to reset rate limit to full speed
 			// Delete existing rate limit and set to full speed
+			// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
 			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").Delete(&models.RadReply{})
-			fullSpeedLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
+			fullSpeedLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
 			database.DB.Create(&models.RadReply{
 				Username:  sub.Username,
 				Attribute: "Mikrotik-Rate-Limit",
@@ -1995,21 +2001,21 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			if sub.NasID != nil && *sub.NasID > 0 && sub.ServiceID > 0 {
 				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
 					// Build rate limit string: upload/download format for MikroTik
-					// Speeds are in Mbps, convert to Kbps for MikroTik (multiply by 1000)
-					rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
+					// Speeds are already in kb, no conversion needed
+					rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
 					fmt.Printf("Renew: Resetting speed for %s via CoA to %s\n", sub.Username, rateLimit)
 
 					// Use CoA to update rate limit
 					coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
 					if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sub.SessionID, rateLimit); err != nil {
 						fmt.Printf("Renew: CoA failed for %s: %v, trying MikroTik API\n", sub.Username, err)
-						// Fallback to MikroTik API (speeds in Kbps)
+						// Fallback to MikroTik API (speeds already in kb)
 						client := mikrotik.NewClient(
 							fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
 							nas.APIUsername,
 							nas.APIPassword,
 						)
-						if err := client.UpdateUserRateLimit(sub.Username, int(sub.Service.DownloadSpeed*1000), int(sub.Service.UploadSpeed*1000)); err != nil {
+						if err := client.UpdateUserRateLimit(sub.Username, int(sub.Service.DownloadSpeed), int(sub.Service.UploadSpeed)); err != nil {
 							fmt.Printf("Renew: MikroTik API also failed for %s: %v\n", sub.Username, err)
 						}
 						client.Close()
@@ -2090,8 +2096,9 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 				log.Printf("Reset FUP: DB updated %d rows for %s (ID=%d)", updateResult.RowsAffected, sub.Username, sub.ID)
 			}
 			// Update RADIUS reply to reset rate limit to full speed
+			// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
 			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").Delete(&models.RadReply{})
-			fullSpeedLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
+			fullSpeedLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
 			database.DB.Create(&models.RadReply{
 				Username:  sub.Username,
 				Attribute: "Mikrotik-Rate-Limit",
@@ -2102,21 +2109,21 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			if sub.NasID != nil && *sub.NasID > 0 && sub.ServiceID > 0 {
 				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
 					// Build rate limit string: upload/download format for MikroTik
-					// Speeds are in Mbps, convert to Kbps for MikroTik (multiply by 1000)
-					rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
+					// Speeds are already in kb, no conversion needed
+					rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
 					fmt.Printf("Reset FUP: Resetting speed for %s via CoA to %s\n", sub.Username, rateLimit)
 
 					// Use CoA to update rate limit
 					coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
 					if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sub.SessionID, rateLimit); err != nil {
 						fmt.Printf("Reset FUP: CoA failed for %s: %v, trying MikroTik API\n", sub.Username, err)
-						// Fallback to MikroTik API (speeds in Kbps)
+						// Fallback to MikroTik API (speeds already in kb)
 						client := mikrotik.NewClient(
 							fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
 							nas.APIUsername,
 							nas.APIPassword,
 						)
-						client.UpdateUserRateLimit(sub.Username, int(sub.Service.DownloadSpeed*1000), int(sub.Service.UploadSpeed*1000))
+						client.UpdateUserRateLimit(sub.Username, int(sub.Service.DownloadSpeed), int(sub.Service.UploadSpeed))
 						client.Close()
 					}
 				}

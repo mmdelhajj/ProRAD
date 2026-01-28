@@ -48,10 +48,19 @@ function PageLoader() {
 function PrivateRoute({ children }) {
   const { isAuthenticated, isCustomer, refreshUser } = useAuthStore()
 
-  // Refresh user data (including permissions) on mount
+  // Refresh user data (including permissions) on mount and periodically
   useEffect(() => {
     if (isAuthenticated && !isCustomer) {
+      // Refresh immediately on mount
       refreshUser()
+
+      // Set up periodic refresh every 2 minutes to get updated permissions
+      // This allows resellers to see new permissions without logout/login
+      const intervalId = setInterval(() => {
+        refreshUser()
+      }, 2 * 60 * 1000) // 2 minutes
+
+      return () => clearInterval(intervalId)
     }
   }, [isAuthenticated, isCustomer, refreshUser])
 

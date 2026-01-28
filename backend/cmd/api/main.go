@@ -38,6 +38,9 @@ func main() {
 	// Ensure required system packages are installed (for CoA and ping features)
 	ensureRequiredPackages()
 
+	// Verify update was successful (if update was just applied)
+	handlers.VerifyUpdateOnStartup()
+
 	// Initialize security protections (anti-tamper, anti-debug, etc.)
 	security.Initialize()
 

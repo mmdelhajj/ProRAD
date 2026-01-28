@@ -23,6 +23,73 @@ import (
 	"layeh.com/radius/rfc2869"
 )
 
+// normalizeSpeedForMikrotik converts all speeds to kb format
+// Examples: "1.2M" -> "1200k", "2M" -> "2000k", "1200k" -> "1200k"
+func normalizeSpeedForMikrotik(speed string) string {
+	if speed == "" {
+		return ""
+	}
+
+	speed = strings.TrimSpace(speed)
+	lowerSpeed := strings.ToLower(speed)
+
+	// Already in k format - return as-is
+	if strings.HasSuffix(lowerSpeed, "k") {
+		return speed
+	}
+
+	// Convert M to k
+	if strings.HasSuffix(lowerSpeed, "m") {
+		numPart := speed[:len(speed)-1]
+		val, err := strconv.ParseFloat(numPart, 64)
+		if err == nil {
+			return fmt.Sprintf("%dk", int(val*1000))
+		}
+		return speed
+	}
+
+	// Plain number - add k suffix
+	return speed + "k"
+}
+
+// normalizeRateLimitString normalizes a full rate limit string
+// Format: "upload/download" or "upload/download burst_up/burst_down threshold_up/threshold_down time_up/time_down"
+// Each speed value is normalized to handle decimal M values
+func normalizeRateLimitString(rateLimit string) string {
+	if rateLimit == "" {
+		return ""
+	}
+
+	// Split by space for burst parameters
+	parts := strings.Split(rateLimit, " ")
+	if len(parts) == 0 {
+		return rateLimit
+	}
+
+	// Normalize the first part (upload/download)
+	speeds := strings.Split(parts[0], "/")
+	if len(speeds) >= 2 {
+		speeds[0] = normalizeSpeedForMikrotik(speeds[0])
+		speeds[1] = normalizeSpeedForMikrotik(speeds[1])
+		parts[0] = strings.Join(speeds, "/")
+	} else if len(speeds) == 1 {
+		parts[0] = normalizeSpeedForMikrotik(speeds[0])
+	}
+
+	// If there are burst parameters, normalize them too
+	if len(parts) >= 2 {
+		// Burst rate (parts[1])
+		burstSpeeds := strings.Split(parts[1], "/")
+		if len(burstSpeeds) >= 2 {
+			burstSpeeds[0] = normalizeSpeedForMikrotik(burstSpeeds[0])
+			burstSpeeds[1] = normalizeSpeedForMikrotik(burstSpeeds[1])
+			parts[1] = strings.Join(burstSpeeds, "/")
+		}
+	}
+
+	return strings.Join(parts, " ")
+}
+
 // getSettingInt retrieves an integer setting from database with default fallback
 func getSettingInt(key string, defaultVal int) int {
 	var pref models.SystemPreference
@@ -264,7 +331,7 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		Order("priority DESC").First(&subscriberRule).Error; err == nil {
 		// Check if rule is active (not expired)
 		if subscriberRule.IsActiveNow() {
-			rateLimit = fmt.Sprintf("%dk/%dk", subscriberRule.DownloadSpeed, subscriberRule.UploadSpeed)
+			rateLimit = fmt.Sprintf("%dk/%dk", subscriberRule.UploadSpeed, subscriberRule.DownloadSpeed)
 			log.Printf("Using per-subscriber bandwidth rule for %s: %s (rule_id=%d, remaining=%s)",
 				username, rateLimit, subscriberRule.ID, subscriberRule.TimeRemaining())
 		}
@@ -274,16 +341,18 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	if rateLimit == "" {
 		if err := database.DB.Where("username = ? AND attribute = ?", username, "Mikrotik-Rate-Limit").First(&radReply).Error; err == nil && radReply.Value != "" {
 			// Use rate limit from radreply (FUP or custom speed)
-			rateLimit = radReply.Value
+			// Normalize the rate limit value to handle decimal M values
+			rateLimit = normalizeRateLimitString(radReply.Value)
 			log.Printf("Using radreply rate limit for %s: %s", username, rateLimit)
 		}
 	}
 
 	// If still no rate limit, fall back to service default speeds
-	if rateLimit == "" {
+	if rateLimit == "" && subscriber.Service != nil {
 		// Fall back to service default speeds
-		uploadSpeed := subscriber.Service.UploadSpeedStr
-		downloadSpeed := subscriber.Service.DownloadSpeedStr
+		// Normalize speed values to convert decimal M to k (e.g., 1.2M -> 1200k)
+		uploadSpeed := normalizeSpeedForMikrotik(subscriber.Service.UploadSpeedStr)
+		downloadSpeed := normalizeSpeedForMikrotik(subscriber.Service.DownloadSpeedStr)
 		if uploadSpeed == "" && subscriber.Service.UploadSpeed > 0 {
 			uploadSpeed = fmt.Sprintf("%dM", subscriber.Service.UploadSpeed)
 		}
@@ -319,7 +388,7 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	}
 
 	// Add IP pool
-	if subscriber.Service.PoolName != "" {
+	if subscriber.Service != nil && subscriber.Service.PoolName != "" {
 		rfc2869.FramedPool_SetString(response, subscriber.Service.PoolName)
 	}
 
@@ -396,17 +465,25 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 
 	switch acctStatusType {
 	case rfc2866.AcctStatusType_Value_Start:
-		// Session start
+		// Session start - use shorter unique ID (sessionID + timestamp hex)
+		uniqueID := fmt.Sprintf("%s-%x", sessionID, now.Unix())
+		if len(uniqueID) > 32 {
+			uniqueID = uniqueID[:32]
+		}
 		acct := models.RadAcct{
 			AcctSessionID:    sessionID,
-			AcctUniqueID:     fmt.Sprintf("%s-%s-%d", username, sessionID, now.Unix()),
+			AcctUniqueID:     uniqueID,
 			Username:         username,
 			NasIPAddress:     nasIP.String(),
 			AcctStartTime:    &now,
 			CallingStationID: callingStationID,
 			FramedIPAddress:  framedIP.String(),
 		}
-		database.DB.Create(&acct)
+		if err := database.DB.Create(&acct).Error; err != nil {
+			log.Printf("Acct: Failed to create radacct record for %s: %v", username, err)
+		} else {
+			log.Printf("Acct: Created radacct record for %s, session=%s", username, sessionID)
+		}
 
 		// Look up NAS by IP to get nas_id
 		var nas models.Nas
@@ -437,12 +514,12 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 			cause = fmt.Sprintf("%d", terminateCause)
 		}
 
-		database.DB.Model(&models.RadAcct{}).Where("acct_session_id = ? AND username = ? AND acct_stop_time IS NULL", sessionID, username).Updates(map[string]interface{}{
-			"acct_stop_time":       now,
-			"acct_session_time":    sessionTime,
-			"acct_input_octets":    inputOctets,
-			"acct_output_octets":   outputOctets,
-			"acct_terminate_cause": cause,
+		database.DB.Model(&models.RadAcct{}).Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL", sessionID, username).Updates(map[string]interface{}{
+			"acctstoptime":       now,
+			"acctsessiontime":    sessionTime,
+			"acctinputoctets":    inputOctets,
+			"acctoutputoctets":   outputOctets,
+			"acctterminatecause": cause,
 		})
 
 		// Update subscriber status
@@ -459,11 +536,11 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 
 	case rfc2866.AcctStatusType_Value_InterimUpdate:
 		// Interim update
-		database.DB.Model(&models.RadAcct{}).Where("acct_session_id = ? AND username = ? AND acct_stop_time IS NULL", sessionID, username).Updates(map[string]interface{}{
-			"acct_update_time":   now,
-			"acct_session_time":  sessionTime,
-			"acct_input_octets":  inputOctets,
-			"acct_output_octets": outputOctets,
+		database.DB.Model(&models.RadAcct{}).Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL", sessionID, username).Updates(map[string]interface{}{
+			"acctupdatetime":   now,
+			"acctsessiontime":  sessionTime,
+			"acctinputoctets":  inputOctets,
+			"acctoutputoctets": outputOctets,
 		})
 
 		// Update last seen

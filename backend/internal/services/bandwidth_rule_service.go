@@ -264,8 +264,8 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribers(rule *BandwidthRule, na
 		newDownloadK := baseDownload * int64(rule.DownloadMultiplier) / 100
 		newUploadK := baseUpload * int64(rule.UploadMultiplier) / 100
 
-		// Format rate limit
-		rateLimit := fmt.Sprintf("%dk/%dk", newDownloadK, newUploadK)
+		// Format rate limit (upload/download for MikroTik rx/tx)
+		rateLimit := fmt.Sprintf("%dk/%dk", newUploadK, newDownloadK)
 
 		// Get session info
 		session, err := client.GetActiveSession(sub.Username)
@@ -354,7 +354,7 @@ func (s *BandwidthRuleService) restoreSpeedsForRule(ruleID uint) {
 			restoreUploadK = applied.OriginalUploadM * 1000
 		}
 
-		rateLimit := fmt.Sprintf("%dk/%dk", restoreDownloadK, restoreUploadK)
+		rateLimit := fmt.Sprintf("%dk/%dk", restoreUploadK, restoreDownloadK)
 
 		// Get MikroTik client
 		client := mikrotik.NewClient(
@@ -473,7 +473,7 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribersCount(rule *BandwidthRul
 
 		newDownloadK := baseDownload * int64(rule.DownloadMultiplier) / 100
 		newUploadK := baseUpload * int64(rule.UploadMultiplier) / 100
-		rateLimit := fmt.Sprintf("%dk/%dk", newDownloadK, newUploadK)
+		rateLimit := fmt.Sprintf("%dk/%dk", newUploadK, newDownloadK)
 
 		session, err := client.GetActiveSession(sub.Username)
 		if err != nil {

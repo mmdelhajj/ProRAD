@@ -264,17 +264,18 @@ func (h *FUPHandler) ResetFUP(c *fiber.Ctx) error {
 
 	database.DB.Model(&subscriber).Updates(updates)
 
-	// Restore original speed in RADIUS radreply table
+	// Restore original speed in RADIUS radreply table (format: upload/download for MikroTik rx/tx)
 	if subscriber.Service.ID > 0 {
-		rateLimit := fmt.Sprintf("%dM/%dM", subscriber.Service.DownloadSpeed, subscriber.Service.UploadSpeed)
+		rateLimit := fmt.Sprintf("%dM/%dM", subscriber.Service.UploadSpeed, subscriber.Service.DownloadSpeed)
 		database.DB.Model(&models.RadReply{}).
 			Where("username = ? AND attribute = ?", subscriber.Username, "Mikrotik-Rate-Limit").
 			Update("value", rateLimit)
 	}
 
 	// Restore original speed on MikroTik using CoA
+	// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
 	if session != nil && subscriber.Service.ID > 0 {
-		originalRateLimitK := fmt.Sprintf("%dk/%dk", subscriber.Service.DownloadSpeed*1000, subscriber.Service.UploadSpeed*1000)
+		originalRateLimitK := fmt.Sprintf("%dk/%dk", subscriber.Service.UploadSpeed, subscriber.Service.DownloadSpeed)
 		coaClient := radius.NewCOAClient(subscriber.Nas.IPAddress, subscriber.Nas.CoAPort, subscriber.Nas.Secret)
 
 		// Try radclient-based CoA (most reliable)

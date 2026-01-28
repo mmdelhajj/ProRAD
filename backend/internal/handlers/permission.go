@@ -99,14 +99,20 @@ func (h *PermissionHandler) CreateGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	// Add permissions
+	// Add permissions using junction table (Association doesn't work with gorm:"-")
 	if len(req.PermissionIDs) > 0 {
-		var permissions []models.Permission
-		database.DB.Where("id IN ?", req.PermissionIDs).Find(&permissions)
-		database.DB.Model(&group).Association("Permissions").Replace(permissions)
+		for _, permID := range req.PermissionIDs {
+			database.DB.Exec("INSERT INTO permission_group_permissions (permission_group_id, permission_id) VALUES (?, ?)", group.ID, permID)
+		}
 	}
 
-	database.DB.Preload("Permissions").First(&group, group.ID)
+	// Load permissions manually for response (Preload doesn't work with gorm:"-")
+	var permissions []models.Permission
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", group.ID).
+		Find(&permissions)
+	group.Permissions = permissions
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"success": true,
@@ -209,8 +215,8 @@ func (h *PermissionHandler) DeleteGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	// Clear permissions association
-	database.DB.Model(&group).Association("Permissions").Clear()
+	// Clear permissions from junction table (Association doesn't work with gorm:"-")
+	database.DB.Exec("DELETE FROM permission_group_permissions WHERE permission_group_id = ?", group.ID)
 	database.DB.Delete(&group)
 
 	return c.JSON(fiber.Map{

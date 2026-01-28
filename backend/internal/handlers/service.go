@@ -1,13 +1,43 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
 	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/models"
 )
+
+// convertSpeedForMikrotik converts speed to kb format
+// All speeds stored as kb: 2000k, 1200k, 4000k
+func convertSpeedForMikrotik(speedStr string) string {
+	if speedStr == "" {
+		return ""
+	}
+
+	speedStr = strings.TrimSpace(speedStr)
+
+	// Already in k format - keep as-is
+	if strings.HasSuffix(strings.ToLower(speedStr), "k") {
+		return speedStr
+	}
+
+	// If ends with M, convert to k
+	if strings.HasSuffix(strings.ToLower(speedStr), "m") {
+		numStr := speedStr[:len(speedStr)-1]
+		val, err := strconv.ParseFloat(numStr, 64)
+		if err != nil {
+			return speedStr
+		}
+		return fmt.Sprintf("%dk", int64(val*1000))
+	}
+
+	// Plain number - treat as kb value, add k suffix
+	return speedStr + "k"
+}
 
 type ServiceHandler struct{}
 
@@ -199,14 +229,19 @@ func (h *ServiceHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 
+	// Convert speed strings from Mbps to kbps format for MikroTik compatibility
+	// e.g., "1.4M" or "1.4" -> "1400k"
+	downloadSpeedStr := convertSpeedForMikrotik(req.DownloadSpeedStr)
+	uploadSpeedStr := convertSpeedForMikrotik(req.UploadSpeedStr)
+
 	service := models.Service{
 		Name:             req.Name,
 		CommercialName:   req.CommercialName,
 		Description:      req.Description,
 		DownloadSpeed:    req.DownloadSpeed,
 		UploadSpeed:      req.UploadSpeed,
-		DownloadSpeedStr: req.DownloadSpeedStr,
-		UploadSpeedStr:   req.UploadSpeedStr,
+		DownloadSpeedStr: downloadSpeedStr,
+		UploadSpeedStr:   uploadSpeedStr,
 		BurstDownload:    req.BurstDownload,
 		BurstUpload:      req.BurstUpload,
 		BurstThreshold:   req.BurstThreshold,
@@ -352,6 +387,13 @@ func (h *ServiceHandler) Update(c *fiber.Ctx) error {
 	updates := make(map[string]interface{})
 	for _, field := range allowedFields {
 		if val, ok := req[field]; ok {
+			// Convert speed strings from Mbps to kbps format
+			if field == "download_speed_str" || field == "upload_speed_str" {
+				if strVal, ok := val.(string); ok {
+					updates[field] = convertSpeedForMikrotik(strVal)
+					continue
+				}
+			}
 			updates[field] = val
 		}
 	}

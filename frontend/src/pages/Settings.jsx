@@ -311,6 +311,8 @@ export default function Settings() {
       { key: 'idle_timeout', label: 'Idle Timeout (sec)', type: 'number', placeholder: '600' },
       { key: 'simultaneous_use', label: 'Allow Simultaneous Use', type: 'toggle' },
       { key: 'mac_auth_enabled', label: 'MAC Authentication', type: 'toggle' },
+      { key: 'block_on_daily_quota_exceeded', label: 'Block Internet on Daily Quota Exceeded', type: 'toggle', description: 'When enabled, users will lose internet completely when daily quota is exceeded. When disabled, users get reduced FUP speed.' },
+      { key: 'block_on_monthly_quota_exceeded', label: 'Block Internet on Monthly Quota Exceeded', type: 'toggle', description: 'When enabled, users will lose internet completely when monthly quota is exceeded. When disabled, users get reduced FUP speed.' },
     ],
     notifications: [
       { key: 'sms_enabled', label: 'SMS Notifications', type: 'toggle' },

@@ -362,8 +362,11 @@ func Revalidate() error {
 func (c *Client) validate() error {
 	serverIP, _ := getOutboundIP()
 	serverMAC, _ := getMACAddress()
-	// Use HOSTNAME env var if set (for Docker containers)
-	hostname := os.Getenv("HOSTNAME")
+	// Use HOST_HOSTNAME env var first (explicitly set for Docker), then HOSTNAME
+	hostname := os.Getenv("HOST_HOSTNAME")
+	if hostname == "" {
+		hostname = os.Getenv("HOSTNAME")
+	}
 	if hostname == "" {
 		hostname, _ = os.Hostname()
 	}

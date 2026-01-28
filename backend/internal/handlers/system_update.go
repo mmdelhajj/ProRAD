@@ -669,6 +669,7 @@ func (h *SystemUpdateHandler) restartServices() {
 	time.Sleep(1 * time.Second)
 
 	allSuccess := true
+	targetVersion := h.updateStatus.ToVersion
 
 	// Use Docker API via socket to restart containers
 	// This works even without docker CLI installed in container
@@ -683,6 +684,14 @@ func (h *SystemUpdateHandler) restartServices() {
 		}
 	}
 	time.Sleep(2 * time.Second)
+
+	// Verify frontend is serving content
+	if err := h.verifyFrontendHealth(); err != nil {
+		log.Printf("Update: Frontend health check failed: %v", err)
+		allSuccess = false
+	} else {
+		log.Println("Update: Frontend health check passed")
+	}
 
 	// Restart RADIUS to pick up new binary
 	log.Println("Update: Restarting proxpanel-radius...")
@@ -704,12 +713,79 @@ func (h *SystemUpdateHandler) restartServices() {
 		log.Println("Update: Some restarts failed, leaving flag file for host-level service")
 	}
 
+	// Write verification file for post-restart check
+	// The new API process will read this and verify it's running the correct version
+	verifyFile := filepath.Join(h.installDir, ".update-verify")
+	os.WriteFile(verifyFile, []byte(targetVersion), 0644)
+	log.Printf("Update: Written verification file for version %s", targetVersion)
+
 	// Restart API last - this will use the new binary
 	// The current request will complete, then container restarts with new code
 	log.Println("Update: Restarting proxpanel-api...")
 	if err := h.restartContainerViaSocket("proxpanel-api"); err != nil {
 		log.Printf("Update: Failed to restart api via socket: %v, trying CLI fallback", err)
 		exec.Command("docker", "restart", "proxpanel-api").Run()
+	}
+}
+
+// verifyFrontendHealth checks if the frontend nginx is serving content correctly
+func (h *SystemUpdateHandler) verifyFrontendHealth() error {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	// Try to fetch index.html from frontend
+	resp, err := client.Get("http://proxpanel-frontend/")
+	if err != nil {
+		return fmt.Errorf("failed to connect to frontend: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 500 {
+		return fmt.Errorf("frontend returning 500 error")
+	}
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("frontend returned status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// VerifyUpdate checks if the running API version matches the expected version after update
+// This should be called on API startup
+func VerifyUpdateOnStartup() {
+	installDir := getInstallDir()
+	verifyFile := filepath.Join(installDir, ".update-verify")
+
+	// Check if verification is pending
+	expectedVersion, err := os.ReadFile(verifyFile)
+	if err != nil {
+		return // No verification pending
+	}
+
+	// Clean up the verify file
+	os.Remove(verifyFile)
+
+	expected := string(bytes.TrimSpace(expectedVersion))
+	current := getCurrentVersion()
+
+	if current != expected {
+		log.Printf("UPDATE VERIFICATION FAILED: Expected version %s but running %s", expected, current)
+		log.Printf("The update may have failed - please check the binaries")
+		// TODO: Could trigger automatic rollback here
+	} else {
+		log.Printf("UPDATE VERIFICATION SUCCESS: Running version %s as expected", current)
+
+		// Report success to license server
+		licenseServer := os.Getenv("LICENSE_SERVER")
+		licenseKey := os.Getenv("LICENSE_KEY")
+		if licenseServer != "" && licenseKey != "" {
+			reqBody, _ := json.Marshal(map[string]string{
+				"license_key": licenseKey,
+				"version":     current,
+				"status":      "verified",
+			})
+			http.Post(licenseServer+"/api/v1/update/verified", "application/json", bytes.NewBuffer(reqBody))
+		}
 	}
 }
 

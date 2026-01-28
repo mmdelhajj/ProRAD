@@ -777,3 +777,80 @@ Comprehensive fixes to ensure fresh installs work without manual intervention:
 **Subscribers Country Column Fix:**
 - Issue: subscribers.country column missing from schema.sql
 - Fix: Added `country VARCHAR(100)` to subscribers table
+
+### MikroTik Speed Format Fix - kb Format (Jan 2026)
+**Critical fix for MikroTik queue speeds showing 1000x higher than expected (2G instead of 2M)**
+
+**Problem:**
+- Users with 2000k (2 Mbps) speed were getting 2G (2 Gbps) on MikroTik
+- MikroTik PPP Active connections showed 2,000,000,000 bps instead of 2,000,000 bps
+- This was 1000x the intended speed
+
+**Root Cause:**
+The system was changed to store speeds in kb format (e.g., `download_speed = 2000` means 2000k = 2 Mbps), but multiple places in the code still multiplied by 1000 assuming speeds were in Mbps:
+```go
+// OLD (WRONG) - assumed Mbps, multiplied by 1000
+rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed*1000, sub.Service.DownloadSpeed*1000)
+// This turned 2000 into 2000000k = 2 Gbps!
+
+// NEW (CORRECT) - speeds already in kb, no multiplication
+rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
+// This correctly gives 2000k = 2 Mbps
+```
+
+**Files Fixed:**
+1. `internal/handlers/subscriber.go`:
+   - Line 1356: ResetFUP individual action
+   - Lines 1991-2017: Renew bulk action (radreply + CoA + MikroTik API)
+   - Lines 2098-2125: Reset FUP bulk action (radreply + CoA + MikroTik API)
+2. `internal/handlers/fup.go`:
+   - Line 277: FUP reset speed restoration
+3. `internal/services/quota_sync.go`:
+   - Lines 694-695: restoreOriginalSpeedIfNeeded function
+   - Lines 934-935: FUP speed restoration
+   - Lines 1118-1124: Time-based speed calculation
+
+**Speed Format Standard:**
+- All speeds are now stored in **kb (kilobits)** format
+- Database: `download_speed = 2000` means 2000 kbps = 2 Mbps
+- Database: `download_speed_str = "2000k"` is the string format
+- RADIUS sends: `1200k/2000k` (upload/download)
+- MikroTik receives kb format and creates correct queues
+
+**Frontend Labels:**
+- Changed from "Download Speed (Mbps)" to "Download Speed (kb)"
+- Changed from "Upload Speed (Mbps)" to "Upload Speed (kb)"
+- File: `frontend/src/pages/Services.jsx`
+
+**RADIUS Normalization:**
+- `normalizeSpeedForMikrotik()` function in `internal/radius/server.go`
+- Converts any M format to k: "1.2M" → "1200k", "2M" → "2000k"
+- Ensures consistent kb format for all RADIUS responses
+
+**For Existing Users:**
+Users who received wrong 2G speed from previous bulk actions need to reconnect to get correct speed. Options:
+1. Wait for natural reconnection
+2. Use bulk "Disconnect" action to force reconnection
+3. Reset FUP (now fixed) will apply correct speed
+
+**Database Format Examples:**
+```sql
+-- Services table
+SELECT name, download_speed_str, upload_speed_str FROM services;
+-- 2M-7G     | 2000k  | 1200k
+-- 4MB-12GB  | 6000k  | 3000k
+-- 8MB-20GB  | 12000k | 6000k
+
+-- Radreply FUP speeds
+SELECT username, value FROM radreply WHERE attribute = 'Mikrotik-Rate-Limit';
+-- user@domain | 6000k/12000k
+```
+
+### Service Handler Speed Conversion (Jan 2026)
+- Added `convertSpeedForMikrotik()` function to `internal/handlers/service.go`
+- Converts user input to kb format:
+  - "2M" → "2000k"
+  - "1.5M" → "1500k"
+  - "2000" (plain number) → "2000k"
+  - "2000k" → "2000k" (unchanged)
+- Applied to download_speed_str, upload_speed_str, burst fields when saving services
