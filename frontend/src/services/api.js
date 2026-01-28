@@ -321,6 +321,14 @@ export const settingsApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   deleteLogo: () => api.delete('/settings/logo'),
+  uploadLoginBackground: (formData) => api.post('/settings/login-background', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  deleteLoginBackground: () => api.delete('/settings/login-background'),
+  uploadFavicon: (formData) => api.post('/settings/favicon', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  deleteFavicon: () => api.delete('/settings/favicon'),
   restartServices: (services) => api.post('/system/restart-services', { services }),
 }
 

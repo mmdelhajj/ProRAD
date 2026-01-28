@@ -21,7 +21,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const { login } = useAuthStore()
-  const { companyName, companyLogo, fetchBranding, loaded } = useBrandingStore()
+  const {
+    companyName, companyLogo, loginBackground, footerText, primaryColor,
+    loginTagline, showLoginFeatures,
+    loginFeature1Title, loginFeature1Desc,
+    loginFeature2Title, loginFeature2Desc,
+    loginFeature3Title, loginFeature3Desc,
+    fetchBranding, loaded
+  } = useBrandingStore()
 
   useEffect(() => {
     if (!loaded) {
@@ -63,12 +70,25 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Branding & Features */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2"></div>
-        </div>
+      <div
+        className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-between relative overflow-hidden"
+        style={loginBackground ? {
+          backgroundImage: `url(${loginBackground})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : {
+          background: `linear-gradient(to bottom right, ${primaryColor || '#2563eb'}, #4338ca)`,
+        }}
+      >
+        {/* Background Overlay for text readability */}
+        {loginBackground && <div className="absolute inset-0 bg-black/40"></div>}
+        {/* Background Pattern (only show if no custom background) */}
+        {!loginBackground && (
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2"></div>
+          </div>
+        )}
 
         {/* Logo & Name - show logo OR name, not both */}
         <div className="relative z-10">
@@ -90,39 +110,41 @@ export default function Login() {
         </div>
 
         {/* Features */}
-        <div className="relative z-10 space-y-8">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
-              <WifiIcon className="w-6 h-6 text-white" />
+        {showLoginFeatures && (
+          <div className="relative z-10 space-y-8">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
+                <WifiIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-lg">{loginFeature1Title}</h3>
+                <p className="text-white/70 text-sm">{loginFeature1Desc}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-white font-semibold text-lg">PPPoE Management</h3>
-              <p className="text-blue-200 text-sm">Complete subscriber and session management with real-time monitoring</p>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
+                <ChartBarIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-lg">{loginFeature2Title}</h3>
+                <p className="text-white/70 text-sm">{loginFeature2Desc}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
+                <CogIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-lg">{loginFeature3Title}</h3>
+                <p className="text-white/70 text-sm">{loginFeature3Desc}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
-              <ChartBarIcon className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-semibold text-lg">Bandwidth Control</h3>
-              <p className="text-blue-200 text-sm">FUP quotas, time-based speed control, and usage monitoring</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
-              <CogIcon className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-semibold text-lg">MikroTik Integration</h3>
-              <p className="text-blue-200 text-sm">Seamless RADIUS and API integration with MikroTik routers</p>
-            </div>
-          </div>
-        </div>
+        )}
 
-        {/* Footer */}
+        {/* Footer/Tagline */}
         <div className="relative z-10">
-          <p className="text-blue-200 text-sm">High Performance ISP Management Solution</p>
+          <p className="text-white/70 text-sm">{loginTagline}</p>
         </div>
       </div>
 
@@ -200,7 +222,8 @@ export default function Login() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-3 px-4 text-white font-semibold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ backgroundColor: primaryColor || '#2563eb' }}
                   >
                     {loading ? (
                       <>
@@ -225,8 +248,8 @@ export default function Login() {
             ) : (
               <>
                 <div className="text-center mb-8">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full mb-4">
-                    <ShieldCheckIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ backgroundColor: `${primaryColor || '#2563eb'}20` }}>
+                    <ShieldCheckIcon className="w-8 h-8" style={{ color: primaryColor || '#2563eb' }} />
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Two-Factor Authentication</h2>
                   <p className="text-gray-500 dark:text-gray-400 mt-1">Enter the 6-digit code from your authenticator app</p>
@@ -243,7 +266,8 @@ export default function Login() {
                       required
                       value={twoFACode}
                       onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="block w-full py-4 text-center text-2xl tracking-[0.5em] font-mono border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full py-4 text-center text-2xl tracking-[0.5em] font-mono border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:border-blue-500"
+                      style={{ '--tw-ring-color': primaryColor || '#2563eb' }}
                       placeholder="000000"
                       maxLength={6}
                       autoComplete="one-time-code"
@@ -254,7 +278,8 @@ export default function Login() {
                   <button
                     type="submit"
                     disabled={loading || twoFACode.length !== 6}
-                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-3 px-4 text-white font-semibold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ backgroundColor: primaryColor || '#2563eb' }}
                   >
                     {loading ? (
                       <>
@@ -284,7 +309,7 @@ export default function Login() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-sm text-gray-400 dark:text-gray-500">
-            {companyName ? `${companyName} - ISP Management System` : 'ISP Management System'}
+            {footerText || (companyName ? `${companyName} - ISP Management System` : 'ISP Management System')}
           </p>
         </div>
       </div>

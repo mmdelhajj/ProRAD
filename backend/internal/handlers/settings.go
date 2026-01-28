@@ -366,13 +366,31 @@ func GetConfiguredTimezoneString() string {
 // GetBranding returns public branding info (no auth required)
 func (h *SettingsHandler) GetBranding(c *fiber.Ctx) error {
 	branding := map[string]string{
-		"company_name":  "", // Empty by default - customer sets their own
-		"company_logo":  "",
-		"primary_color": "#2563eb",
+		"company_name":          "", // Empty by default - customer sets their own
+		"company_logo":          "",
+		"primary_color":         "#2563eb",
+		"login_background":      "",
+		"favicon":               "",
+		"footer_text":           "",
+		"login_tagline":         "High Performance ISP Management Solution",
+		"show_login_features":   "true",
+		"login_feature_1_title": "PPPoE Management",
+		"login_feature_1_desc":  "Complete subscriber and session management with real-time monitoring",
+		"login_feature_2_title": "Bandwidth Control",
+		"login_feature_2_desc":  "FUP quotas, time-based speed control, and usage monitoring",
+		"login_feature_3_title": "MikroTik Integration",
+		"login_feature_3_desc":  "Seamless RADIUS and API integration with MikroTik routers",
 	}
 
 	var preferences []models.SystemPreference
-	database.DB.Where("key IN ?", []string{"company_name", "company_logo", "primary_color"}).Find(&preferences)
+	database.DB.Where("key IN ?", []string{
+		"company_name", "company_logo", "primary_color",
+		"login_background", "favicon", "footer_text",
+		"login_tagline", "show_login_features",
+		"login_feature_1_title", "login_feature_1_desc",
+		"login_feature_2_title", "login_feature_2_desc",
+		"login_feature_3_title", "login_feature_3_desc",
+	}).Find(&preferences)
 
 	for _, p := range preferences {
 		// Always use database value (even if empty - customer may have cleared it)
@@ -486,6 +504,214 @@ func (h *SettingsHandler) DeleteLogo(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Logo deleted",
+	})
+}
+
+// UploadLoginBackground handles login background image upload
+func (h *SettingsHandler) UploadLoginBackground(c *fiber.Ctx) error {
+	file, err := c.FormFile("background")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "No file uploaded",
+		})
+	}
+
+	// Validate file type
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".webp": true}
+	if !allowedExts[ext] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid file type. Allowed: PNG, JPG, JPEG, WEBP",
+		})
+	}
+
+	// Validate file size (max 5MB for background)
+	if file.Size > 5*1024*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "File too large. Maximum size is 5MB",
+		})
+	}
+
+	// Create uploads directory if not exists
+	uploadDir := "/app/uploads"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create upload directory",
+		})
+	}
+
+	// Delete old background if exists
+	var oldPref models.SystemPreference
+	if err := database.DB.Where("key = ?", "login_background").First(&oldPref).Error; err == nil {
+		if oldPref.Value != "" {
+			oldPath := filepath.Join(uploadDir, filepath.Base(oldPref.Value))
+			os.Remove(oldPath)
+		}
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("login_bg_%s%s", uuid.New().String()[:8], ext)
+	savePath := filepath.Join(uploadDir, filename)
+
+	// Save file
+	if err := c.SaveFile(file, savePath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to save file",
+		})
+	}
+
+	// Update setting
+	bgURL := "/uploads/" + filename
+	var pref models.SystemPreference
+	result := database.DB.Where("key = ?", "login_background").First(&pref)
+	if result.Error != nil {
+		pref = models.SystemPreference{Key: "login_background", Value: bgURL, ValueType: "string"}
+		database.DB.Create(&pref)
+	} else {
+		database.DB.Model(&pref).Update("value", bgURL)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"url": bgURL,
+		},
+		"message": "Login background uploaded successfully",
+	})
+}
+
+// DeleteLoginBackground removes the login background image
+func (h *SettingsHandler) DeleteLoginBackground(c *fiber.Ctx) error {
+	var pref models.SystemPreference
+	if err := database.DB.Where("key = ?", "login_background").First(&pref).Error; err != nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "No background to delete",
+		})
+	}
+
+	// Delete file
+	if pref.Value != "" {
+		uploadDir := "/app/uploads"
+		filePath := filepath.Join(uploadDir, filepath.Base(pref.Value))
+		os.Remove(filePath)
+	}
+
+	// Clear setting
+	database.DB.Model(&pref).Update("value", "")
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Login background deleted",
+	})
+}
+
+// UploadFavicon handles favicon upload
+func (h *SettingsHandler) UploadFavicon(c *fiber.Ctx) error {
+	file, err := c.FormFile("favicon")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "No file uploaded",
+		})
+	}
+
+	// Validate file type
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{".png": true, ".ico": true, ".svg": true}
+	if !allowedExts[ext] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid file type. Allowed: PNG, ICO, SVG",
+		})
+	}
+
+	// Validate file size (max 500KB for favicon)
+	if file.Size > 500*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "File too large. Maximum size is 500KB",
+		})
+	}
+
+	// Create uploads directory if not exists
+	uploadDir := "/app/uploads"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create upload directory",
+		})
+	}
+
+	// Delete old favicon if exists
+	var oldPref models.SystemPreference
+	if err := database.DB.Where("key = ?", "favicon").First(&oldPref).Error; err == nil {
+		if oldPref.Value != "" {
+			oldPath := filepath.Join(uploadDir, filepath.Base(oldPref.Value))
+			os.Remove(oldPath)
+		}
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("favicon_%s%s", uuid.New().String()[:8], ext)
+	savePath := filepath.Join(uploadDir, filename)
+
+	// Save file
+	if err := c.SaveFile(file, savePath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to save file",
+		})
+	}
+
+	// Update setting
+	faviconURL := "/uploads/" + filename
+	var pref models.SystemPreference
+	result := database.DB.Where("key = ?", "favicon").First(&pref)
+	if result.Error != nil {
+		pref = models.SystemPreference{Key: "favicon", Value: faviconURL, ValueType: "string"}
+		database.DB.Create(&pref)
+	} else {
+		database.DB.Model(&pref).Update("value", faviconURL)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"url": faviconURL,
+		},
+		"message": "Favicon uploaded successfully",
+	})
+}
+
+// DeleteFavicon removes the favicon
+func (h *SettingsHandler) DeleteFavicon(c *fiber.Ctx) error {
+	var pref models.SystemPreference
+	if err := database.DB.Where("key = ?", "favicon").First(&pref).Error; err != nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "No favicon to delete",
+		})
+	}
+
+	// Delete file
+	if pref.Value != "" {
+		uploadDir := "/app/uploads"
+		filePath := filepath.Join(uploadDir, filepath.Base(pref.Value))
+		os.Remove(filePath)
+	}
+
+	// Clear setting
+	database.DB.Model(&pref).Update("value", "")
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Favicon deleted",
 	})
 }
 

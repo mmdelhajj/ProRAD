@@ -34,6 +34,7 @@ const ChangeBulk = lazy(() => import('./pages/ChangeBulk'))
 const SharingDetection = lazy(() => import('./pages/SharingDetection'))
 const CDNList = lazy(() => import('./pages/CDNList'))
 const CDNBandwidthRules = lazy(() => import('./pages/CDNBandwidthRules'))
+const Profile = lazy(() => import('./pages/Profile'))
 
 // Loading fallback component
 function PageLoader() {
@@ -119,6 +120,7 @@ function App() {
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/profile" element={<Profile />} />
                   <Route path="/subscribers" element={<PermissionRoute permission="subscribers.view"><Subscribers /></PermissionRoute>} />
                   <Route path="/subscribers/new" element={<PermissionRoute permission="subscribers.create"><SubscriberEdit /></PermissionRoute>} />
                   <Route path="/subscribers/:id" element={<PermissionRoute permission="subscribers.view"><SubscriberEdit /></PermissionRoute>} />

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { dashboardApi } from '../services/api'
 import { formatDate } from '../utils/timezone'
 import { useBrandingStore } from '../store/brandingStore'
+import { useAuthStore } from '../store/authStore'
 import ReactECharts from 'echarts-for-react'
 import {
   UsersIcon,
@@ -101,6 +102,7 @@ function StatCard({ title, value, icon: Icon, trend, color = 'primary' }) {
 
 export default function Dashboard() {
   const { companyName } = useBrandingStore()
+  const { isAdmin } = useAuthStore()
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -127,6 +129,7 @@ export default function Dashboard() {
     queryKey: ['dashboard-system-metrics'],
     queryFn: () => dashboardApi.systemMetrics().then((r) => r.data.data),
     refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
+    enabled: isAdmin(), // Only fetch for admins
   })
 
   const lineChartOption = {
@@ -276,27 +279,29 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* System Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <SystemMetricCard
-          title="CPU"
-          value={systemMetrics?.cpu_percent}
-          icon={CpuChipIcon}
-          color="blue"
-        />
-        <SystemMetricCard
-          title="Memory"
-          value={systemMetrics?.memory_percent}
-          icon={ServerIcon}
-          color="green"
-        />
-        <SystemMetricCard
-          title="HDD"
-          value={systemMetrics?.disk_percent}
-          icon={CircleStackIcon}
-          color="purple"
-        />
-      </div>
+      {/* System Metrics - Admin Only */}
+      {isAdmin() && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SystemMetricCard
+            title="CPU"
+            value={systemMetrics?.cpu_percent}
+            icon={CpuChipIcon}
+            color="blue"
+          />
+          <SystemMetricCard
+            title="Memory"
+            value={systemMetrics?.memory_percent}
+            icon={ServerIcon}
+            color="green"
+          />
+          <SystemMetricCard
+            title="HDD"
+            value={systemMetrics?.disk_percent}
+            icon={CircleStackIcon}
+            color="purple"
+          />
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -185,7 +185,7 @@ export default function Permissions() {
                     type="text"
                     value={groupForm.name}
                     onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter group name"
                     required
                   />
@@ -193,12 +193,12 @@ export default function Permissions() {
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Permissions</label>
                   <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
                       value={permissionSearch}
                       onChange={(e) => setPermissionSearch(e.target.value)}
-                      className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 w-64"
+                      className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 w-64"
                       placeholder="Search permissions..."
                     />
                   </div>
@@ -207,7 +207,7 @@ export default function Permissions() {
 
               {/* Search Results Info */}
               {permissionSearch && (
-                <div className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   Found {filteredPermissions.length} permission{filteredPermissions.length !== 1 ? 's' : ''} matching "{permissionSearch}"
                   {filteredPermissions.length === 0 && (
                     <span className="text-red-500 ml-2">- No results found</span>
@@ -220,7 +220,7 @@ export default function Permissions() {
                 <div className="bg-teal-500 text-white px-4 py-2 rounded-t-md font-medium">
                   Permissions
                 </div>
-                <div className="border border-gray-200 rounded-b-md p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                <div className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded-b-md p-4 space-y-4 max-h-[500px] overflow-y-auto">
                   {categories.length === 0 && (
                     <p className="text-gray-500 dark:text-gray-400 text-sm">No permissions found</p>
                   )}
@@ -228,7 +228,7 @@ export default function Permissions() {
                     <div key={category} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-gray-900 dark:text-white capitalize text-sm">{category}</h4>
-                        <label className="flex items-center text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                        <label className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                           <input
                             type="checkbox"
                             checked={permissionsByCategory[category].every(p => groupForm.permissions.includes(p.id))}
@@ -247,7 +247,7 @@ export default function Permissions() {
                               onChange={() => handlePermissionToggle(perm.id)}
                               className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
+                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                               {perm.description || perm.name}
                             </span>
                           </label>
@@ -273,7 +273,7 @@ export default function Permissions() {
                     setView('list')
                     setEditingGroup(null)
                   }}
-                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 >
                   <ArrowLeftIcon className="h-4 w-4 inline mr-1" />
                   Back to List
@@ -326,35 +326,35 @@ export default function Permissions() {
 
             {/* Search */}
             <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search groups..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm w-48"
+                className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm w-48"
               />
             </div>
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto border border-gray-200 rounded-md">
+          <div className="overflow-x-auto border border-gray-200 dark:border-gray-600 rounded-md">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-20">
                     ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-32">
                     Permissions
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Resellers
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-32">
                     Actions
                   </th>
                 </tr>
@@ -362,20 +362,20 @@ export default function Permissions() {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredGroups.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       No permission groups found
                     </td>
                   </tr>
                 ) : (
                   filteredGroups.map((group, index) => (
-                    <tr key={group.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={group.id} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {group.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {group.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {group.permissions?.length || 0}
                       </td>
                       <td className="px-6 py-4 text-sm">
@@ -425,11 +425,11 @@ export default function Permissions() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-gray-400">
             <span>total: {filteredGroups.length}</span>
             <div className="flex items-center gap-2">
               <span>Page size:</span>
-              <select className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm">
+              <select className="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-2 py-1 text-sm">
                 <option>10</option>
                 <option>25</option>
                 <option>50</option>

@@ -374,7 +374,26 @@ export default function Subscribers() {
     mutationFn: (id) => subscriberApi.ping(id),
     onSuccess: (res) => {
       const data = res.data.data
-      toast.success(`Ping result: ${data.output}`)
+      // Show dismissible ping result - click anywhere to close
+      toast.custom((t) => (
+        <div
+          onClick={() => toast.dismiss(t.id)}
+          className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto cursor-pointer border border-gray-200 dark:border-gray-700`}
+        >
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <WifiIcon className="h-6 w-6 text-green-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Ping Result</p>
+                <pre className="mt-1 text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono">{data.output}</pre>
+                <p className="mt-2 text-xs text-gray-400">Click anywhere to close</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), { duration: 30000 }) // 30 seconds max, but user can click to dismiss
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to ping'),
   })
@@ -1806,42 +1825,45 @@ export default function Subscribers() {
         </div>
       )}
 
-      {/* Torch Modal - Live Traffic */}
+      {/* Torch Modal - Live Traffic (Mobile Friendly) */}
       {torchModal && (
         <div className="modal-overlay">
-          <div className="modal-content max-w-2xl">
-            <div className="modal-header">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <SignalIcon className="w-5 h-5 text-green-500" />
-                Live Traffic - {torchModal.username}
-              </h3>
-              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-ghost btn-sm">
+          <div className="modal-content w-full max-w-2xl mx-2 sm:mx-auto max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="modal-header flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <SignalIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-bold truncate">
+                  <span className="hidden sm:inline">Live Traffic - </span>{torchModal.username}
+                </h3>
+                {torchAutoRefresh && (
+                  <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                  </span>
+                )}
+              </div>
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-ghost btn-sm flex-shrink-0">
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="modal-body">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  IP: <code className="bg-gray-100 px-2 py-1 rounded">{torchModal.ip_address || 'N/A'}</code>
+
+            {/* Body - Scrollable */}
+            <div className="modal-body flex-1 overflow-y-auto">
+              {/* Controls - Stack on mobile */}
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  IP: <code className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 px-2 py-1 rounded text-xs font-mono">{torchModal.ip_address || 'N/A'}</code>
                 </div>
-                <div className="flex items-center gap-3">
-                  {torchAutoRefresh && (
-                    <div className="flex items-center gap-1.5 text-green-600">
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                      </span>
-                      <span className="text-xs font-medium">LIVE</span>
-                    </div>
-                  )}
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
                       checked={torchAutoRefresh}
                       onChange={(e) => setTorchAutoRefresh(e.target.checked)}
-                      className="rounded"
+                      className="rounded border-gray-300 dark:border-gray-500"
                     />
-                    Auto-refresh
+                    <span className="text-xs sm:text-sm">Auto</span>
                   </label>
                   <button
                     onClick={() => fetchTorchData(torchModal)}
@@ -1849,129 +1871,157 @@ export default function Subscribers() {
                     className="btn btn-sm btn-secondary flex items-center gap-1"
                   >
                     <ArrowPathIcon className={clsx('w-4 h-4', torchLoading && 'animate-spin')} />
-                    Refresh
+                    <span className="hidden sm:inline">Refresh</span>
                   </button>
                 </div>
               </div>
 
+              {/* Loading */}
               {torchLoading && !torchData && (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                  <span className="ml-3 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Capturing traffic...</span>
+                  <span className="ml-3 text-gray-500 dark:text-gray-400">Capturing...</span>
                 </div>
               )}
 
+              {/* Torch Data */}
               {torchData && (
                 <div>
-                  {/* Summary - like MikroTik torch header */}
-                  <div className="bg-gray-900 text-white rounded-t-lg p-3 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                      <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Interface:</span>
-                      <span className="font-mono text-green-400">{torchData.interface}</span>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div>
-                        <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Download:</span>
-                        <span className="ml-2 text-green-400 font-bold">
-                          {((torchData.total_tx || 0) * 8 / 1000000).toFixed(1)} Mbps
-                        </span>
+                  {/* Summary Header - Stack on mobile */}
+                  <div className="bg-gray-900 text-white rounded-t-lg p-3">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                      <div className="text-sm">
+                        <span className="text-gray-400">Interface: </span>
+                        <span className="font-mono text-green-400">{torchData.interface}</span>
                       </div>
-                      <div>
-                        <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload:</span>
-                        <span className="ml-2 text-blue-400 font-bold">
-                          {((torchData.total_rx || 0) * 8 / 1000000).toFixed(1)} Mbps
-                        </span>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1">
+                          <ArrowDownTrayIcon className="w-4 h-4 text-green-400" />
+                          <span className="text-green-400 font-bold">
+                            {((torchData.total_tx || 0) * 8 / 1000000).toFixed(1)} Mbps
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <ArrowUpTrayIcon className="w-4 h-4 text-blue-400" />
+                          <span className="text-blue-400 font-bold">
+                            {((torchData.total_rx || 0) * 8 / 1000000).toFixed(1)} Mbps
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Traffic Table - MikroTik Winbox style */}
+                  {/* Traffic Entries */}
                   {torchData.entries && torchData.entries.length > 0 ? (
-                    <div className="border border-gray-300 dark:border-gray-600 rounded-b-lg overflow-hidden">
-                      <div className="max-h-80 overflow-y-auto">
+                    <div className="border border-t-0 border-gray-300 dark:border-gray-600 rounded-b-lg overflow-hidden">
+                      {/* Mobile: Card Layout */}
+                      <div className="sm:hidden max-h-64 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
+                        {torchData.entries.slice(0, 50).map((entry, idx) => (
+                          <div key={idx} className={clsx(
+                            'p-3 text-xs',
+                            entry.tx_rate > 1000000 ? 'bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-gray-800',
+                            entry.tx_rate > 5000000 && 'bg-yellow-50 dark:bg-yellow-900/30'
+                          )}>
+                            <div className="flex justify-between items-start mb-1">
+                              <span className={clsx(
+                                'font-bold uppercase',
+                                entry.protocol === 'tcp' && 'text-blue-600 dark:text-blue-400',
+                                entry.protocol === 'udp' && 'text-purple-600 dark:text-purple-400',
+                                entry.protocol === 'icmp' && 'text-orange-600 dark:text-orange-400',
+                                !entry.protocol && 'text-gray-600 dark:text-gray-400'
+                              )}>
+                                {entry.protocol || '-'}
+                              </span>
+                              <div className="text-right">
+                                <span className="text-green-600 dark:text-green-400 font-semibold">
+                                  ↓ {entry.tx_rate > 1000000 ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)}M` : entry.tx_rate > 1000 ? `${(entry.tx_rate * 8 / 1000).toFixed(0)}k` : `${(entry.tx_rate * 8).toFixed(0)}b`}
+                                </span>
+                                <span className="text-gray-400 dark:text-gray-500 mx-1">/</span>
+                                <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                                  ↑ {entry.rx_rate > 1000000 ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)}M` : entry.rx_rate > 1000 ? `${(entry.rx_rate * 8 / 1000).toFixed(0)}k` : `${(entry.rx_rate * 8).toFixed(0)}b`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-gray-600 dark:text-gray-300 truncate font-mono">
+                              {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
+                              <span className="mx-1 text-gray-400">→</span>
+                              {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop: Table Layout */}
+                      <div className="hidden sm:block max-h-80 overflow-y-auto">
                         <table className="w-full text-xs font-mono">
-                          <thead className="bg-gray-100 sticky top-0">
-                            <tr className="text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                              <th className="px-2 py-1.5 text-left border-r">Proto</th>
-                              <th className="px-2 py-1.5 text-left border-r">Src. Address</th>
-                              <th className="px-2 py-1.5 text-left border-r">Dst. Address</th>
-                              <th className="px-2 py-1.5 text-right border-r">Download</th>
-                              <th className="px-2 py-1.5 text-right border-r">Upload</th>
-                              <th className="px-2 py-1.5 text-right border-r">DL Pkt</th>
-                              <th className="px-2 py-1.5 text-right">UL Pkt</th>
+                          <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0">
+                            <tr className="text-gray-600 dark:text-gray-400">
+                              <th className="px-2 py-1.5 text-left">Proto</th>
+                              <th className="px-2 py-1.5 text-left">Src. Address</th>
+                              <th className="px-2 py-1.5 text-left">Dst. Address</th>
+                              <th className="px-2 py-1.5 text-right">Download</th>
+                              <th className="px-2 py-1.5 text-right">Upload</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white">
+                          <tbody className="bg-white dark:bg-gray-800">
                             {torchData.entries.slice(0, 100).map((entry, idx) => (
                               <tr key={idx} className={clsx(
-                                'border-t border-gray-100 hover:bg-blue-50',
-                                entry.tx_rate > 1000000 && 'bg-green-50',
-                                entry.tx_rate > 5000000 && 'bg-yellow-50'
+                                'border-t border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700',
+                                entry.tx_rate > 1000000 && 'bg-green-50 dark:bg-green-900/20',
+                                entry.tx_rate > 5000000 && 'bg-yellow-50 dark:bg-yellow-900/20'
                               )}>
-                                <td className="px-2 py-1 border-r">
+                                <td className="px-2 py-1">
                                   <span className={clsx(
                                     'uppercase',
                                     entry.protocol === 'tcp' && 'text-blue-600',
                                     entry.protocol === 'udp' && 'text-purple-600',
                                     entry.protocol === 'icmp' && 'text-orange-600'
                                   )}>
-                                    {entry.proto_num || ''} {entry.protocol || '-'}
+                                    {entry.protocol || '-'}
                                   </span>
                                 </td>
-                                <td className="px-2 py-1 border-r text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
+                                <td className="px-2 py-1 text-gray-700 dark:text-gray-300">
                                   {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
                                 </td>
-                                <td className="px-2 py-1 border-r text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
+                                <td className="px-2 py-1 text-gray-700 dark:text-gray-300">
                                   {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
                                 </td>
-                                <td className="px-2 py-1 border-r text-right text-green-700 font-medium">
-                                  {entry.tx_rate > 1000000
-                                    ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)} Mbps`
-                                    : entry.tx_rate > 1000
-                                    ? `${(entry.tx_rate * 8 / 1000).toFixed(1)} kbps`
-                                    : `${(entry.tx_rate * 8).toFixed(0)} bps`
-                                  }
+                                <td className="px-2 py-1 text-right text-green-700 dark:text-green-400 font-medium">
+                                  {entry.tx_rate > 1000000 ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)} Mbps` : entry.tx_rate > 1000 ? `${(entry.tx_rate * 8 / 1000).toFixed(1)} kbps` : `${(entry.tx_rate * 8).toFixed(0)} bps`}
                                 </td>
-                                <td className="px-2 py-1 border-r text-right text-blue-700 font-medium">
-                                  {entry.rx_rate > 1000000
-                                    ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)} Mbps`
-                                    : entry.rx_rate > 1000
-                                    ? `${(entry.rx_rate * 8 / 1000).toFixed(1)} kbps`
-                                    : `${(entry.rx_rate * 8).toFixed(0)} bps`
-                                  }
-                                </td>
-                                <td className="px-2 py-1 border-r text-right text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                                  {entry.tx_packets || 0}
-                                </td>
-                                <td className="px-2 py-1 text-right text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                                  {entry.rx_packets || 0}
+                                <td className="px-2 py-1 text-right text-blue-700 dark:text-blue-400 font-medium">
+                                  {entry.rx_rate > 1000000 ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)} Mbps` : entry.rx_rate > 1000 ? `${(entry.rx_rate * 8 / 1000).toFixed(1)} kbps` : `${(entry.rx_rate * 8).toFixed(0)} bps`}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
-                      <div className="bg-gray-100 px-3 py-1.5 text-xs text-gray-500 border-t flex justify-between">
+
+                      {/* Footer */}
+                      <div className="bg-gray-100 dark:bg-gray-700 px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 border-t dark:border-gray-600 flex justify-between">
                         <span>{torchData.entries.length} flows</span>
-                        <span>Duration: {torchData.duration}</span>
+                        <span>{torchData.duration}</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-gray-300 dark:border-gray-600 rounded-b-lg p-8 text-center text-gray-500 bg-gray-50 dark:bg-gray-700">
-                      No active traffic flows detected
+                    <div className="border border-t-0 border-gray-300 dark:border-gray-600 rounded-b-lg p-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
+                      No active traffic flows
                     </div>
                   )}
                 </div>
               )}
 
               {!torchLoading && !torchData && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  Click Refresh to capture traffic data
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  Click Refresh to capture traffic
                 </div>
               )}
             </div>
-            <div className="modal-footer">
-              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-secondary">
+
+            {/* Footer */}
+            <div className="modal-footer flex-shrink-0">
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-secondary w-full sm:w-auto">
                 Close
               </button>
             </div>

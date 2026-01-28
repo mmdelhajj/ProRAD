@@ -6,12 +6,12 @@ import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import { setTimezone } from '../utils/timezone'
 import toast from 'react-hot-toast'
-import { PhotoIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { PhotoIcon, TrashIcon, SwatchIcon } from '@heroicons/react/24/outline'
 
 export default function Settings() {
   const queryClient = useQueryClient()
   const { user, refreshUser } = useAuthStore()
-  const { companyName, companyLogo, fetchBranding, updateBranding } = useBrandingStore()
+  const { companyName, companyLogo, loginBackground, favicon, footerText, primaryColor, fetchBranding, updateBranding } = useBrandingStore()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // All valid tab IDs
@@ -38,7 +38,11 @@ export default function Settings() {
   const [formData, setFormData] = useState({})
   const [hasChanges, setHasChanges] = useState(false)
   const fileInputRef = useRef(null)
+  const backgroundInputRef = useRef(null)
+  const faviconInputRef = useRef(null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingBackground, setUploadingBackground] = useState(false)
+  const [uploadingFavicon, setUploadingFavicon] = useState(false)
 
   // 2FA state
   const [twoFASetup, setTwoFASetup] = useState(null)
@@ -347,6 +351,98 @@ export default function Settings() {
     }
   }
 
+  // Background upload handler
+  const handleBackgroundUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 5MB')
+      return
+    }
+
+    setUploadingBackground(true)
+    const formData = new FormData()
+    formData.append('background', file)
+
+    try {
+      const response = await settingsApi.uploadLoginBackground(formData)
+      if (response.data.success) {
+        toast.success('Login background uploaded successfully')
+        updateBranding({ login_background: response.data.data.url })
+        queryClient.invalidateQueries(['settings'])
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload background')
+    } finally {
+      setUploadingBackground(false)
+      if (backgroundInputRef.current) {
+        backgroundInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Background delete handler
+  const handleBackgroundDelete = async () => {
+    if (!loginBackground) return
+
+    try {
+      await settingsApi.deleteLoginBackground()
+      toast.success('Login background deleted')
+      updateBranding({ login_background: '' })
+      queryClient.invalidateQueries(['settings'])
+    } catch (error) {
+      toast.error('Failed to delete background')
+    }
+  }
+
+  // Favicon upload handler
+  const handleFaviconUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file size (max 500KB)
+    if (file.size > 500 * 1024) {
+      toast.error('File too large. Maximum size is 500KB')
+      return
+    }
+
+    setUploadingFavicon(true)
+    const formData = new FormData()
+    formData.append('favicon', file)
+
+    try {
+      const response = await settingsApi.uploadFavicon(formData)
+      if (response.data.success) {
+        toast.success('Favicon uploaded successfully')
+        updateBranding({ favicon: response.data.data.url })
+        queryClient.invalidateQueries(['settings'])
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload favicon')
+    } finally {
+      setUploadingFavicon(false)
+      if (faviconInputRef.current) {
+        faviconInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Favicon delete handler
+  const handleFaviconDelete = async () => {
+    if (!favicon) return
+
+    try {
+      await settingsApi.deleteFavicon()
+      toast.success('Favicon deleted')
+      updateBranding({ favicon: '' })
+      queryClient.invalidateQueries(['settings'])
+    } catch (error) {
+      toast.error('Failed to delete favicon')
+    }
+  }
+
   const settingGroups = {
     general: [
       { key: 'company_name', label: 'Company Name', type: 'text', placeholder: 'Your Company Name' },
@@ -556,7 +652,7 @@ export default function Settings() {
         {/* Form Fields */}
         <div className="p-6">
           {activeTab === 'branding' ? (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {/* Company Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -578,81 +674,284 @@ export default function Settings() {
                   Company Logo
                 </label>
                 <div className="flex items-start gap-6">
-                  {/* Current Logo Preview */}
                   <div className="flex-shrink-0">
-                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
+                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-700 overflow-hidden">
                       {companyLogo ? (
-                        <img
-                          src={companyLogo}
-                          alt="Company Logo"
-                          className="max-w-full max-h-full object-contain"
-                        />
+                        <img src={companyLogo} alt="Company Logo" className="max-w-full max-h-full object-contain" />
                       ) : (
-                        <PhotoIcon className="w-12 h-12 text-gray-400 dark:text-gray-400" />
+                        <PhotoIcon className="w-12 h-12 text-gray-400" />
                       )}
                     </div>
                   </div>
-
-                  {/* Upload Controls */}
                   <div className="flex-1">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
+                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
                     <div className="flex flex-col gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingLogo}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 disabled:opacity-50 w-fit"
-                      >
+                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingLogo} className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
                         <PhotoIcon className="w-4 h-4 mr-2" />
                         {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
                       </button>
                       {companyLogo && (
-                        <button
-                          type="button"
-                          onClick={handleLogoDelete}
-                          className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-md hover:bg-red-50 w-fit"
-                        >
+                        <button type="button" onClick={handleLogoDelete} className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 w-fit">
                           <TrashIcon className="w-4 h-4 mr-2" />
                           Remove Logo
                         </button>
                       )}
                     </div>
                     <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Recommended: <strong>180 x 36 pixels</strong> (horizontal logo)<br />
-                      PNG with transparent background, max 2MB<br />
-                      <span className="text-amber-600">Note: If logo is uploaded, company name will be hidden</span>
+                      Recommended: <strong>180 x 36 pixels</strong> (horizontal logo). PNG with transparent background, max 2MB.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Preview */}
-              <div className="border-t pt-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-4">Preview</h3>
+              {/* Primary Color */}
+              <div className="border-t dark:border-gray-700 pt-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <SwatchIcon className="w-4 h-4 inline mr-1" />
+                  Primary Color
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="color"
+                    value={formData.primary_color || '#2563eb'}
+                    onChange={(e) => handleChange('primary_color', e.target.value)}
+                    className="w-16 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.primary_color || '#2563eb'}
+                    onChange={(e) => handleChange('primary_color', e.target.value)}
+                    placeholder="#2563eb"
+                    className="w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                  <div className="flex gap-2">
+                    {['#2563eb', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => handleChange('primary_color', color)}
+                        className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-600 shadow-sm hover:scale-110 transition-transform"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Used for buttons, links, and accent elements throughout the app</p>
+              </div>
+
+              {/* Login Background Image */}
+              <div className="border-t dark:border-gray-700 pt-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Login Page Background
+                </label>
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-800 overflow-hidden">
+                      {loginBackground ? (
+                        <img src={loginBackground} alt="Login Background" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white text-xs">Default Gradient</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <input ref={backgroundInputRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp" onChange={handleBackgroundUpload} className="hidden" />
+                    <div className="flex flex-col gap-2">
+                      <button type="button" onClick={() => backgroundInputRef.current?.click()} disabled={uploadingBackground} className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
+                        <PhotoIcon className="w-4 h-4 mr-2" />
+                        {uploadingBackground ? 'Uploading...' : 'Upload Background'}
+                      </button>
+                      {loginBackground && (
+                        <button type="button" onClick={handleBackgroundDelete} className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 w-fit">
+                          <TrashIcon className="w-4 h-4 mr-2" />
+                          Use Default Gradient
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      Recommended: <strong>1920 x 1080 pixels</strong>. JPG or PNG, max 5MB.<br />
+                      This image appears on the left side of the login page.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Favicon */}
+              <div className="border-t dark:border-gray-700 pt-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Favicon (Browser Tab Icon)
+                </label>
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-16 h-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-700 overflow-hidden">
+                      {favicon ? (
+                        <img src={favicon} alt="Favicon" className="w-8 h-8 object-contain" />
+                      ) : (
+                        <span className="text-gray-400 text-xl">🌐</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <input ref={faviconInputRef} type="file" accept="image/png,image/x-icon,image/svg+xml" onChange={handleFaviconUpload} className="hidden" />
+                    <div className="flex flex-col gap-2">
+                      <button type="button" onClick={() => faviconInputRef.current?.click()} disabled={uploadingFavicon} className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
+                        <PhotoIcon className="w-4 h-4 mr-2" />
+                        {uploadingFavicon ? 'Uploading...' : 'Upload Favicon'}
+                      </button>
+                      {favicon && (
+                        <button type="button" onClick={handleFaviconDelete} className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 w-fit">
+                          <TrashIcon className="w-4 h-4 mr-2" />
+                          Remove Favicon
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      Recommended: <strong>32 x 32 pixels</strong>. PNG, ICO, or SVG, max 500KB.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Text */}
+              <div className="border-t dark:border-gray-700 pt-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Footer Copyright Text
+                </label>
+                <input
+                  type="text"
+                  value={formData.footer_text || ''}
+                  onChange={(e) => handleChange('footer_text', e.target.value)}
+                  placeholder="© 2026 Your Company Name. All rights reserved."
+                  className="block w-full max-w-lg rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Appears at the bottom of the login page</p>
+              </div>
+
+              {/* Login Page Features Section */}
+              <div className="border-t dark:border-gray-700 pt-6">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Login Page Features</h3>
+
+                {/* Tagline */}
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Tagline (bottom of left panel)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.login_tagline || ''}
+                    onChange={(e) => handleChange('login_tagline', e.target.value)}
+                    placeholder="High Performance ISP Management Solution"
+                    className="block w-full max-w-lg rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+
+                {/* Show/Hide Features Toggle */}
+                <div className="mb-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={formData.show_login_features !== 'false'}
+                        onChange={(e) => handleChange('show_login_features', e.target.checked ? 'true' : 'false')}
+                        className="sr-only"
+                      />
+                      <div className={`w-10 h-6 rounded-full transition-colors ${formData.show_login_features !== 'false' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.show_login_features !== 'false' ? 'translate-x-5' : 'translate-x-1'}`}></div>
+                      </div>
+                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Show feature boxes on login page</span>
+                  </label>
+                </div>
+
+                {/* Feature 1 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 1 Title</label>
+                    <input
+                      type="text"
+                      value={formData.login_feature_1_title || ''}
+                      onChange={(e) => handleChange('login_feature_1_title', e.target.value)}
+                      placeholder="PPPoE Management"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 1 Description</label>
+                    <input
+                      type="text"
+                      value={formData.login_feature_1_desc || ''}
+                      onChange={(e) => handleChange('login_feature_1_desc', e.target.value)}
+                      placeholder="Complete subscriber and session management..."
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Feature 2 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 2 Title</label>
+                    <input
+                      type="text"
+                      value={formData.login_feature_2_title || ''}
+                      onChange={(e) => handleChange('login_feature_2_title', e.target.value)}
+                      placeholder="Bandwidth Control"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 2 Description</label>
+                    <input
+                      type="text"
+                      value={formData.login_feature_2_desc || ''}
+                      onChange={(e) => handleChange('login_feature_2_desc', e.target.value)}
+                      placeholder="FUP quotas, time-based speed control..."
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Feature 3 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 3 Title</label>
+                    <input
+                      type="text"
+                      value={formData.login_feature_3_title || ''}
+                      onChange={(e) => handleChange('login_feature_3_title', e.target.value)}
+                      placeholder="MikroTik Integration"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 3 Description</label>
+                    <input
+                      type="text"
+                      value={formData.login_feature_3_desc || ''}
+                      onChange={(e) => handleChange('login_feature_3_desc', e.target.value)}
+                      placeholder="Seamless RADIUS and API integration..."
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sidebar Preview */}
+              <div className="border-t dark:border-gray-700 pt-6">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Sidebar Preview</h3>
                 <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
                   <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 max-w-xs">
                     <div className="flex items-center gap-3">
                       {companyLogo ? (
                         <img src={companyLogo} alt="Logo" className="h-10 object-contain" />
                       ) : (
-                        <span className="text-lg font-bold text-blue-600">
+                        <span className="text-lg font-bold" style={{ color: formData.primary_color || '#2563eb' }}>
                           {formData.company_name || 'Your Company Name'}
                         </span>
                       )}
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {companyLogo
-                      ? 'Logo only - company name is hidden when logo is set'
-                      : 'Company name shown - upload a logo to replace text with image'
-                    }
-                  </p>
                 </div>
               </div>
             </div>

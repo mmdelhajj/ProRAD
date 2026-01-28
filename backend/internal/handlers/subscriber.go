@@ -266,25 +266,37 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 		FUP4     int64 `json:"fup4"`
 	}
 
-	baseQuery := database.DB.Model(&models.Subscriber{})
+	// Build reseller filter condition
+	resellerFilter := ""
+	var resellerID uint
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		baseQuery = baseQuery.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		resellerFilter = "reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)"
+		resellerID = *user.ResellerID
 	}
 
-	baseQuery.Count(&stats.Total)
-	database.DB.Model(&models.Subscriber{}).Where("is_online = true").Count(&stats.Online)
-	stats.Offline = stats.Total - stats.Online
-	database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusActive).Count(&stats.Active)
-	database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusInactive).Count(&stats.Inactive)
-	database.DB.Model(&models.Subscriber{}).Where("expiry_date < ?", time.Now()).Count(&stats.Expired)
-	database.DB.Model(&models.Subscriber{}).Where("expiry_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 7)).Count(&stats.Expiring)
+	// Helper function to create filtered query
+	filteredQuery := func() *gorm.DB {
+		q := database.DB.Model(&models.Subscriber{})
+		if resellerFilter != "" {
+			q = q.Where(resellerFilter, resellerID, resellerID)
+		}
+		return q
+	}
 
-	// FUP level stats
-	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 0).Count(&stats.FUP0)
-	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 1).Count(&stats.FUP1)
-	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 2).Count(&stats.FUP2)
-	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 3).Count(&stats.FUP3)
-	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 4).Count(&stats.FUP4)
+	filteredQuery().Count(&stats.Total)
+	filteredQuery().Where("is_online = true").Count(&stats.Online)
+	stats.Offline = stats.Total - stats.Online
+	filteredQuery().Where("status = ?", models.SubscriberStatusActive).Count(&stats.Active)
+	filteredQuery().Where("status = ?", models.SubscriberStatusInactive).Count(&stats.Inactive)
+	filteredQuery().Where("expiry_date < ?", time.Now()).Count(&stats.Expired)
+	filteredQuery().Where("expiry_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 7)).Count(&stats.Expiring)
+
+	// FUP level stats - also filtered by reseller
+	filteredQuery().Where("fup_level = ?", 0).Count(&stats.FUP0)
+	filteredQuery().Where("fup_level = ?", 1).Count(&stats.FUP1)
+	filteredQuery().Where("fup_level = ?", 2).Count(&stats.FUP2)
+	filteredQuery().Where("fup_level = ?", 3).Count(&stats.FUP3)
+	filteredQuery().Where("fup_level = ?", 4).Count(&stats.FUP4)
 
 	return c.JSON(fiber.Map{
 		"success": true,

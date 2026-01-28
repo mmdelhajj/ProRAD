@@ -313,6 +313,14 @@ export default function Layout({ children }) {
               </p>
             </div>
           </div>
+          <Link
+            to="/profile"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <UserCircleIcon className="w-4 h-4 mr-2" />
+            My Profile
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
@@ -362,6 +370,13 @@ export default function Layout({ children }) {
                 </p>
               </div>
             </div>
+            <Link
+              to="/profile"
+              className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <UserCircleIcon className="w-4 h-4 mr-2" />
+              My Profile
+            </Link>
             <button
               onClick={handleLogout}
               className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"

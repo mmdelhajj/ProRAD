@@ -71,15 +71,35 @@ func (h *DashboardHandler) Stats(c *fiber.Ctx) error {
 		transactionQuery = transactionQuery.Where("reseller_id = ?", *user.ResellerID)
 	}
 
-	// Subscriber stats
+	// Subscriber stats - apply reseller filter to all queries
 	subscriberQuery.Count(&stats.TotalSubscribers)
-	database.DB.Model(&models.Subscriber{}).Where("is_online = ?", true).Count(&stats.OnlineSubscribers)
+
+	// Create filtered queries for each stat
+	onlineQuery := database.DB.Model(&models.Subscriber{}).Where("is_online = ?", true)
+	activeQuery := database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusActive)
+	inactiveQuery := database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusInactive)
+	expiredQuery := database.DB.Model(&models.Subscriber{}).Where("expiry_date < ?", now)
+	expiringQuery := database.DB.Model(&models.Subscriber{}).Where("expiry_date BETWEEN ? AND ?", now, weekFromNow)
+	newQuery := database.DB.Model(&models.Subscriber{}).Where("created_at >= ?", monthStart)
+
+	// Apply reseller filter if user is a reseller
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		resellerFilter := "reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)"
+		onlineQuery = onlineQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		activeQuery = activeQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		inactiveQuery = inactiveQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		expiredQuery = expiredQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		expiringQuery = expiringQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		newQuery = newQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+	}
+
+	onlineQuery.Count(&stats.OnlineSubscribers)
 	stats.OfflineSubscribers = stats.TotalSubscribers - stats.OnlineSubscribers
-	database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusActive).Count(&stats.ActiveSubscribers)
-	database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusInactive).Count(&stats.InactiveSubscribers)
-	database.DB.Model(&models.Subscriber{}).Where("expiry_date < ?", now).Count(&stats.ExpiredSubscribers)
-	database.DB.Model(&models.Subscriber{}).Where("expiry_date BETWEEN ? AND ?", now, weekFromNow).Count(&stats.ExpiringSubscribers)
-	database.DB.Model(&models.Subscriber{}).Where("created_at >= ?", monthStart).Count(&stats.NewSubscribers)
+	activeQuery.Count(&stats.ActiveSubscribers)
+	inactiveQuery.Count(&stats.InactiveSubscribers)
+	expiredQuery.Count(&stats.ExpiredSubscribers)
+	expiringQuery.Count(&stats.ExpiringSubscribers)
+	newQuery.Count(&stats.NewSubscribers)
 
 	// Reseller stats
 	resellerQuery.Count(&stats.TotalResellers)
