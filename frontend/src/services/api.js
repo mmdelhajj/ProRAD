@@ -260,6 +260,12 @@ export const sharingApi = {
   getNasRuleStatus: () => api.get('/sharing/nas-rules'),
   generateTTLRules: (nasId) => api.post(`/sharing/nas/${nasId}/rules`),
   removeTTLRules: (nasId) => api.delete(`/sharing/nas/${nasId}/rules`),
+  getHistory: (params) => api.get('/sharing/history', { params }),
+  getTrends: (params) => api.get('/sharing/trends', { params }),
+  getRepeatOffenders: (params) => api.get('/sharing/repeat-offenders', { params }),
+  getSettings: () => api.get('/sharing/settings'),
+  updateSettings: (data) => api.put('/sharing/settings', data),
+  runManualScan: () => api.post('/sharing/scan'),
 }
 
 export const ticketApi = {

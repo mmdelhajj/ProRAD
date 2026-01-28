@@ -486,6 +486,121 @@ func cleanupExpiredTokens() {
 	}
 }
 
+// ValidateBackup validates a backup file without restoring it
+// Returns detailed validation info so user can decide whether to proceed
+func (h *BackupHandler) ValidateBackup(c *fiber.Ctx) error {
+	filename := c.Params("filename")
+	if filename == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Filename is required",
+		})
+	}
+
+	// Sanitize filename
+	filename = filepath.Base(filename)
+	filePath := filepath.Join(h.backupDir, filename)
+
+	// Check file exists
+	fileInfo, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Backup file not found",
+			"valid":   false,
+		})
+	}
+
+	validationResult := fiber.Map{
+		"filename":   filename,
+		"size":       fileInfo.Size(),
+		"created_at": fileInfo.ModTime(),
+		"encrypted":  strings.HasSuffix(filename, ".proisp.bak"),
+	}
+
+	var tempDecrypted string
+	var fileToValidate string
+
+	// Check if this is an encrypted backup (.proisp.bak)
+	if strings.HasSuffix(filename, ".proisp.bak") {
+		// Try to decrypt the backup
+		tempDecrypted = filepath.Join(h.backupDir, fmt.Sprintf(".validate_temp_%d.dump", time.Now().UnixNano()))
+		if err := h.decryptBackup(filePath, tempDecrypted); err != nil {
+			return c.JSON(fiber.Map{
+				"success": true,
+				"valid":   false,
+				"message": fmt.Sprintf("Backup decryption failed: %v. This backup cannot be restored on this server.", err),
+				"data":    validationResult,
+			})
+		}
+		defer os.Remove(tempDecrypted)
+		fileToValidate = tempDecrypted
+		validationResult["decryption"] = "success"
+	} else {
+		fileToValidate = filePath
+	}
+
+	// Validate the backup format using pg_restore --list (dry run)
+	cmd := exec.Command("pg_restore", "--list", fileToValidate)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if it might be a SQL file
+		if !strings.HasSuffix(filename, ".proisp.bak") {
+			// For SQL files, try to validate syntax
+			cmd = exec.Command("psql",
+				"-h", h.cfg.DBHost,
+				"-p", strconv.Itoa(h.cfg.DBPort),
+				"-U", h.cfg.DBUser,
+				"-d", h.cfg.DBName,
+				"-f", filePath,
+				"--set", "ON_ERROR_STOP=1",
+				"-c", "\\q", // Just parse, don't execute
+			)
+			cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", h.cfg.DBPassword))
+			_, sqlErr := cmd.CombinedOutput()
+			if sqlErr != nil {
+				return c.JSON(fiber.Map{
+					"success": true,
+					"valid":   false,
+					"message": "Backup format validation failed. The file may be corrupted or not a valid backup.",
+					"data":    validationResult,
+				})
+			}
+			validationResult["format"] = "sql"
+		} else {
+			return c.JSON(fiber.Map{
+				"success": true,
+				"valid":   false,
+				"message": "Backup format validation failed. The backup file appears to be corrupted.",
+				"data":    validationResult,
+			})
+		}
+	} else {
+		validationResult["format"] = "pg_dump_custom"
+		// Count objects in backup
+		lines := strings.Split(string(output), "\n")
+		tableCount := 0
+		dataCount := 0
+		for _, line := range lines {
+			if strings.Contains(line, " TABLE ") {
+				tableCount++
+			}
+			if strings.Contains(line, " TABLE DATA ") {
+				dataCount++
+			}
+		}
+		validationResult["table_count"] = tableCount
+		validationResult["data_sections"] = dataCount
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"valid":   true,
+		"message": "Backup validation successful. This backup can be safely restored.",
+		"data":    validationResult,
+	})
+}
+
 // Restore restores from a backup
 func (h *BackupHandler) Restore(c *fiber.Ctx) error {
 	user := middleware.GetCurrentUser(c)
@@ -522,10 +637,19 @@ func (h *BackupHandler) Restore(c *fiber.Ctx) error {
 		if err := h.decryptBackup(filePath, tempDecrypted); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"success": false,
-				"message": fmt.Sprintf("Failed to decrypt backup: %v", err),
+				"message": fmt.Sprintf("Failed to decrypt backup: %v. This backup cannot be restored on this server - it may be from a different installation.", err),
 			})
 		}
 		defer os.Remove(tempDecrypted) // Clean up temp file after restore
+
+		// Validate the backup format before restoring
+		validateCmd := exec.Command("pg_restore", "--list", tempDecrypted)
+		if _, err := validateCmd.CombinedOutput(); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"message": "Backup validation failed. The backup file appears to be corrupted and cannot be restored safely.",
+			})
+		}
 
 		// Use pg_restore for custom format backups
 		cmd = exec.Command("pg_restore",

@@ -893,6 +893,53 @@ CREATE TABLE IF NOT EXISTS backup_logs (
     created_by_name VARCHAR(100)
 );
 
+-- Sharing Detection History
+CREATE TABLE IF NOT EXISTS sharing_detections (
+    id SERIAL PRIMARY KEY,
+    subscriber_id INTEGER NOT NULL,
+    username VARCHAR(100),
+    full_name VARCHAR(200),
+    ip_address VARCHAR(45),
+    service_name VARCHAR(100),
+    nas_id INTEGER,
+    nas_name VARCHAR(100),
+    connection_count INTEGER DEFAULT 0,
+    unique_destinations INTEGER DEFAULT 0,
+    ttl_values TEXT,
+    ttl_status VARCHAR(50),
+    suspicion_level VARCHAR(20),
+    confidence_score INTEGER DEFAULT 0,
+    reasons TEXT,
+    detected_at TIMESTAMP,
+    scan_type VARCHAR(20) DEFAULT 'automatic',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sharing_detections_subscriber_id ON sharing_detections(subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_sharing_detections_username ON sharing_detections(username);
+CREATE INDEX IF NOT EXISTS idx_sharing_detections_suspicion_level ON sharing_detections(suspicion_level);
+CREATE INDEX IF NOT EXISTS idx_sharing_detections_detected_at ON sharing_detections(detected_at);
+
+-- Sharing Detection Settings
+CREATE TABLE IF NOT EXISTS sharing_detection_settings (
+    id SERIAL PRIMARY KEY,
+    enabled BOOLEAN DEFAULT true,
+    scan_time VARCHAR(5) DEFAULT '03:00',
+    retention_days INTEGER DEFAULT 30,
+    min_suspicion_level VARCHAR(20) DEFAULT 'medium',
+    connection_threshold INTEGER DEFAULT 500,
+    notify_on_high_risk BOOLEAN DEFAULT false,
+    auto_suspend_repeat BOOLEAN DEFAULT false,
+    repeat_threshold INTEGER DEFAULT 5,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default sharing detection settings
+INSERT INTO sharing_detection_settings (enabled, scan_time, retention_days, min_suspicion_level, connection_threshold)
+SELECT true, '03:00', 30, 'medium', 500
+WHERE NOT EXISTS (SELECT 1 FROM sharing_detection_settings LIMIT 1);
+
 -- Add force_password_change column if not exists
 DO $$
 BEGIN

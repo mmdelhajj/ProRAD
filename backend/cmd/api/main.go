@@ -106,6 +106,10 @@ func main() {
 	backupSchedulerService := services.NewBackupSchedulerService(cfg)
 	go backupSchedulerService.Start()
 
+	// Start sharing detection service (nightly automatic scans)
+	sharingDetectionService := services.NewSharingDetectionService()
+	sharingDetectionService.Start()
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "ProISP API v1.0",
@@ -160,6 +164,7 @@ func main() {
 	backupHandler := handlers.NewBackupHandler(cfg)
 	twoFAHandler := handlers.NewTwoFAHandler()
 	sharingHandler := handlers.NewSharingDetectionHandler()
+	notificationHandler := handlers.NewNotificationHandler()
 	cdnHandler := handlers.NewCDNHandler()
 	cdnBandwidthHandler := handlers.NewCDNBandwidthHandler(cdnBandwidthRuleService)
 	licenseHandler := handlers.NewLicenseHandler()
@@ -313,6 +318,13 @@ func main() {
 	settings.Put("/:key", settingsHandler.Update)
 	settings.Delete("/:key", settingsHandler.Delete)
 
+	// Notification test routes (Admin only)
+	notifications := protected.Group("/notifications", middleware.AdminOnly())
+	notifications.Post("/test-smtp", notificationHandler.TestSMTP)
+	notifications.Post("/test-sms", notificationHandler.TestSMS)
+	notifications.Post("/test-whatsapp", notificationHandler.TestWhatsApp)
+	notifications.Get("/whatsapp-status", notificationHandler.GetWhatsAppStatus)
+
 	// Server time (accessible to all authenticated users for clock display)
 	protected.Get("/server-time", settingsHandler.GetServerTime)
 
@@ -444,6 +456,7 @@ func main() {
 	backups.Post("/upload", backupHandler.Upload)
 	backups.Get("/:filename/download", backupHandler.Download)
 	backups.Get("/:filename/token", backupHandler.GetDownloadToken)
+	backups.Get("/:filename/validate", backupHandler.ValidateBackup)
 	backups.Post("/:filename/restore", backupHandler.Restore)
 	backups.Delete("/:filename", backupHandler.Delete)
 	// Backup schedules
@@ -461,6 +474,12 @@ func main() {
 	sharing := protected.Group("/sharing", middleware.AdminOnly())
 	sharing.Get("/", sharingHandler.List)
 	sharing.Get("/stats", sharingHandler.GetStats)
+	sharing.Get("/history", sharingHandler.GetHistory)
+	sharing.Get("/trends", sharingHandler.GetTrends)
+	sharing.Get("/repeat-offenders", sharingHandler.GetRepeatOffenders)
+	sharing.Get("/settings", sharingHandler.GetSettings)
+	sharing.Put("/settings", sharingHandler.UpdateSettings)
+	sharing.Post("/scan", sharingHandler.RunManualScan)
 	sharing.Get("/subscriber/:id", sharingHandler.GetSubscriberDetails)
 	sharing.Get("/nas-rules", sharingHandler.ListNASRuleStatus)
 	sharing.Post("/nas/:nas_id/rules", sharingHandler.GenerateTTLRules)

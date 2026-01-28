@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
@@ -20,18 +22,20 @@ func NewSharingDetectionHandler() *SharingDetectionHandler {
 
 // SuspiciousAccount represents an account suspected of sharing
 type SuspiciousAccount struct {
-	SubscriberID    uint   `json:"subscriber_id"`
-	Username        string `json:"username"`
-	FullName        string `json:"full_name"`
-	IPAddress       string `json:"ip_address"`
-	ServiceName     string `json:"service_name"`
-	ConnectionCount int    `json:"connection_count"`
-	TTLValues       []int  `json:"ttl_values"`
-	TTLStatus       string `json:"ttl_status"` // "normal", "router_detected", "multiple_os"
-	SuspicionLevel  string `json:"suspicion_level"` // "low", "medium", "high"
-	Reasons         []string `json:"reasons"`
-	NASName         string `json:"nas_name"`
-	NASIPAddress    string `json:"nas_ip_address"`
+	SubscriberID       uint     `json:"subscriber_id"`
+	Username           string   `json:"username"`
+	FullName           string   `json:"full_name"`
+	IPAddress          string   `json:"ip_address"`
+	ServiceName        string   `json:"service_name"`
+	ConnectionCount    int      `json:"connection_count"`
+	UniqueDestinations int      `json:"unique_destinations"` // Number of unique destination IPs
+	TTLValues          []int    `json:"ttl_values"`
+	TTLStatus          string   `json:"ttl_status"`      // "normal", "router_detected", "multiple_os", "double_router"
+	SuspicionLevel     string   `json:"suspicion_level"` // "normal", "low", "medium", "high", "critical"
+	ConfidenceScore    int      `json:"confidence_score"` // 0-100% confidence that sharing is happening
+	Reasons            []string `json:"reasons"`
+	NASName            string   `json:"nas_name"`
+	NASIPAddress       string   `json:"nas_ip_address"`
 }
 
 // SharingStats represents overall sharing detection statistics
@@ -43,12 +47,21 @@ type SharingStats struct {
 	HighConnections   int `json:"high_connections"`
 }
 
-// Thresholds for detection
+// Thresholds for detection - IMPROVED for better accuracy
 const (
-	ConnectionThresholdMedium = 200  // Medium suspicion
-	ConnectionThresholdHigh   = 400  // High suspicion
-	NormalTTLWindows          = 128  // Windows default
-	NormalTTLLinux            = 64   // Linux/Android/iOS default
+	// Connection thresholds (higher = more accurate, fewer false positives)
+	ConnectionThresholdLow    = 300  // Low suspicion - could be heavy user
+	ConnectionThresholdMedium = 500  // Medium suspicion - likely sharing
+	ConnectionThresholdHigh   = 800  // High suspicion - definitely sharing
+
+	// Unique destination thresholds (many destinations = more devices)
+	DestinationThresholdLow    = 50   // Normal browsing
+	DestinationThresholdMedium = 100  // Multiple devices likely
+	DestinationThresholdHigh   = 150  // Definitely multiple devices
+
+	// TTL values
+	NormalTTLWindows = 128 // Windows default
+	NormalTTLLinux   = 64  // Linux/Android/iOS default
 )
 
 // List returns all online users with sharing detection analysis
@@ -217,7 +230,7 @@ func (h *SharingDetectionHandler) GetSubscriberDetails(c *fiber.Ctx) error {
 	})
 }
 
-// analyzeNasSubscribers analyzes all subscribers on a NAS
+// analyzeNasSubscribers analyzes all subscribers on a NAS using batch queries
 func analyzeNasSubscribers(nas *models.Nas, subscribers []models.Subscriber, connThresholdMedium, connThresholdHigh int) []SuspiciousAccount {
 	client := mikrotik.NewClient(
 		fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
@@ -225,6 +238,29 @@ func analyzeNasSubscribers(nas *models.Nas, subscribers []models.Subscriber, con
 		nas.APIPassword,
 	)
 	defer client.Close()
+
+	// Build IP to subscriber map for fast lookup
+	ipToSub := make(map[string]*models.Subscriber)
+	for i := range subscribers {
+		if subscribers[i].IPAddress != "" {
+			ipToSub[subscribers[i].IPAddress] = &subscribers[i]
+		}
+	}
+
+	// BATCH QUERY: Get all connection stats at once (connections + unique destinations)
+	log.Printf("SharingDetection: Getting connection stats for %d IPs on NAS %s", len(ipToSub), nas.Name)
+	connStats, err := client.GetAllConnectionStats()
+	if err != nil {
+		log.Printf("SharingDetection: Failed to get batch connection stats: %v", err)
+		connStats = make(map[string]*mikrotik.ConnectionStats)
+	}
+
+	// BATCH QUERY: Get all TTL marks at once
+	ttlMarks, err := client.GetAllTTLMarks()
+	if err != nil {
+		log.Printf("SharingDetection: Failed to get batch TTL marks: %v", err)
+		ttlMarks = make(map[string][]int)
+	}
 
 	var results []SuspiciousAccount
 
@@ -243,43 +279,44 @@ func analyzeNasSubscribers(nas *models.Nas, subscribers []models.Subscriber, con
 			Reasons:      []string{},
 		}
 
-		if sub.Service.ID > 0 {
+		if sub.Service != nil && sub.Service.ID > 0 {
 			result.ServiceName = sub.Service.Name
 		}
 
-		// Get connection count
-		connCount, err := client.GetConnectionCount(sub.IPAddress)
-		if err != nil {
-			log.Printf("SharingDetection: Failed to get connection count for %s: %v", sub.Username, err)
-			connCount = 0
+		// Get connection stats from batch result
+		if stats := connStats[sub.IPAddress]; stats != nil {
+			result.ConnectionCount = stats.TotalConnections
+			result.UniqueDestinations = stats.UniqueDestinations
 		}
-		result.ConnectionCount = connCount
 
-		// Get TTL values (sample from recent connections)
-		ttlValues, err := client.GetTTLValues(sub.IPAddress)
-		if err != nil {
-			log.Printf("SharingDetection: Failed to get TTL for %s: %v", sub.Username, err)
-		}
-		result.TTLValues = ttlValues
+		// Get TTL values from batch result
+		result.TTLValues = ttlMarks[sub.IPAddress]
 
-		// Analyze TTL
-		ttlStatus, ttlReasons := analyzeTTL(ttlValues)
+		// Analyze TTL with improved detection
+		ttlStatus, ttlReasons, ttlScore := analyzeTTLImproved(result.TTLValues)
 		result.TTLStatus = ttlStatus
 		result.Reasons = append(result.Reasons, ttlReasons...)
 
-		// Analyze connection count
-		if connCount >= connThresholdHigh {
-			result.Reasons = append(result.Reasons, fmt.Sprintf("Very high connection count: %d", connCount))
-		} else if connCount >= connThresholdMedium {
-			result.Reasons = append(result.Reasons, fmt.Sprintf("High connection count: %d", connCount))
+		// Calculate confidence score based on multiple factors
+		confidenceScore := calculateConfidenceScore(result.ConnectionCount, result.UniqueDestinations, ttlScore, ttlStatus)
+		result.ConfidenceScore = confidenceScore
+
+		// Add reasons based on thresholds
+		if result.ConnectionCount >= ConnectionThresholdHigh {
+			result.Reasons = append(result.Reasons, fmt.Sprintf("Very high connections: %d (threshold: %d)", result.ConnectionCount, ConnectionThresholdHigh))
+		} else if result.ConnectionCount >= ConnectionThresholdMedium {
+			result.Reasons = append(result.Reasons, fmt.Sprintf("High connections: %d (threshold: %d)", result.ConnectionCount, ConnectionThresholdMedium))
+		} else if result.ConnectionCount >= ConnectionThresholdLow {
+			result.Reasons = append(result.Reasons, fmt.Sprintf("Elevated connections: %d", result.ConnectionCount))
 		}
 
 		// Determine suspicion level
-		result.SuspicionLevel = calculateSuspicionLevel(connCount, ttlStatus, connThresholdMedium, connThresholdHigh)
+		result.SuspicionLevel = calculateSuspicionLevel(result.ConnectionCount, ttlStatus, connThresholdMedium, connThresholdHigh)
 
 		results = append(results, result)
 	}
 
+	log.Printf("SharingDetection: Analyzed %d subscribers on NAS %s", len(results), nas.Name)
 	return results
 }
 
@@ -336,6 +373,148 @@ func analyzeTTL(ttlValues []int) (string, []string) {
 	}
 
 	return status, reasons
+}
+
+// analyzeTTLImproved analyzes TTL values with improved accuracy and returns a score
+func analyzeTTLImproved(ttlValues []int) (string, []string, int) {
+	if len(ttlValues) == 0 {
+		return "unknown", []string{}, 0
+	}
+
+	var reasons []string
+	status := "normal"
+	score := 0 // 0-100 score for confidence calculation
+
+	// Count occurrences of each TTL
+	ttlCounts := make(map[int]int)
+	totalPackets := 0
+	for _, ttl := range ttlValues {
+		ttlCounts[ttl]++
+		totalPackets++
+	}
+
+	// Check for router-decremented TTL values (strongest indicator)
+	// TTL 127 = Windows behind router (128-1)
+	// TTL 63 = Linux/Android behind router (64-1)
+	// TTL 126 or 62 = Two routers (rare but definitive)
+	// TTL 125 or 61 = Three routers (very rare)
+
+	routerTTLCount := ttlCounts[127] + ttlCounts[63] + ttlCounts[126] + ttlCounts[62] + ttlCounts[125] + ttlCounts[61]
+	routerTTLPercent := 0
+	if totalPackets > 0 {
+		routerTTLPercent = (routerTTLCount * 100) / totalPackets
+	}
+
+	// Check for direct connections (normal)
+	directTTLCount := ttlCounts[128] + ttlCounts[64]
+	directTTLPercent := 0
+	if totalPackets > 0 {
+		directTTLPercent = (directTTLCount * 100) / totalPackets
+	}
+
+	// Multiple OS detection
+	hasWindows := ttlCounts[128] > 0 || ttlCounts[127] > 0
+	hasLinux := ttlCounts[64] > 0 || ttlCounts[63] > 0
+
+	// If majority is direct TTL (normal connections), reduce suspicion
+	if directTTLPercent > 80 && routerTTLPercent == 0 {
+		return "normal", []string{"Direct connections only (TTL=128/64)"}, 0
+	}
+
+	// Analyze findings
+	if routerTTLPercent > 0 {
+		status = "router_detected"
+
+		if ttlCounts[127] > 0 {
+			percent := (ttlCounts[127] * 100) / totalPackets
+			reasons = append(reasons, fmt.Sprintf("TTL=127: %d packets (%d%%) - Windows device behind router", ttlCounts[127], percent))
+			score += 30 // Strong indicator
+		}
+		if ttlCounts[63] > 0 {
+			percent := (ttlCounts[63] * 100) / totalPackets
+			reasons = append(reasons, fmt.Sprintf("TTL=63: %d packets (%d%%) - Linux/Android device behind router", ttlCounts[63], percent))
+			score += 30
+		}
+		if ttlCounts[126] > 0 || ttlCounts[62] > 0 {
+			status = "double_router"
+			reasons = append(reasons, "TTL=126/62: Multiple routers detected (double NAT)")
+			score += 50 // Very strong indicator
+		}
+		if ttlCounts[125] > 0 || ttlCounts[61] > 0 {
+			reasons = append(reasons, "TTL=125/61: Triple router chain detected")
+			score += 60
+		}
+	}
+
+	// Multiple OS types is suspicious (different devices)
+	if hasWindows && hasLinux {
+		if status == "normal" {
+			status = "multiple_os"
+		}
+		reasons = append(reasons, "Multiple OS types detected (Windows + Linux/Android devices)")
+		score += 25
+	}
+
+	// TTL diversity (many different TTL values = many hops/devices)
+	uniqueTTLs := len(ttlCounts)
+	if uniqueTTLs > 4 {
+		reasons = append(reasons, fmt.Sprintf("%d different TTL values detected (unusual diversity)", uniqueTTLs))
+		score += 15
+	}
+
+	// Cap score at 100
+	if score > 100 {
+		score = 100
+	}
+
+	return status, reasons, score
+}
+
+// calculateConfidenceScore calculates overall confidence (0-100%) that sharing is happening
+func calculateConfidenceScore(connCount, uniqueDest, ttlScore int, ttlStatus string) int {
+	score := 0
+
+	// 1. Connection count factor (0-35 points)
+	// More connections = more likely sharing
+	if connCount >= ConnectionThresholdHigh {
+		score += 35
+	} else if connCount >= ConnectionThresholdMedium {
+		score += 25
+	} else if connCount >= ConnectionThresholdLow {
+		score += 15
+	} else if connCount >= 100 {
+		score += 5
+	}
+
+	// 2. Unique destinations factor (0-25 points)
+	// Many unique destinations = multiple devices browsing
+	if uniqueDest >= DestinationThresholdHigh {
+		score += 25
+	} else if uniqueDest >= DestinationThresholdMedium {
+		score += 18
+	} else if uniqueDest >= DestinationThresholdLow {
+		score += 10
+	}
+
+	// 3. TTL score factor (0-40 points)
+	// TTL analysis is the most reliable indicator
+	score += (ttlScore * 40) / 100
+
+	// 4. Combined factors bonus
+	// If BOTH connection count AND TTL are suspicious, increase confidence
+	if connCount >= ConnectionThresholdMedium && ttlStatus == "router_detected" {
+		score += 10
+	}
+	if connCount >= ConnectionThresholdMedium && uniqueDest >= DestinationThresholdMedium {
+		score += 5
+	}
+
+	// Cap at 100
+	if score > 100 {
+		score = 100
+	}
+
+	return score
 }
 
 // calculateSuspicionLevel determines overall suspicion level
@@ -551,5 +730,394 @@ func (h *SharingDetectionHandler) RemoveTTLRules(c *fiber.Ctx) error {
 		"success":       true,
 		"message":       fmt.Sprintf("Removed %d TTL detection rules from %s", removedCount, nas.Name),
 		"removed_count": removedCount,
+	})
+}
+
+// GetHistory returns historical sharing detections
+func (h *SharingDetectionHandler) GetHistory(c *fiber.Ctx) error {
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 50)
+	suspicionLevel := c.Query("suspicion_level", "")
+	username := c.Query("username", "")
+	days := c.QueryInt("days", 7)
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	offset := (page - 1) * limit
+
+	// Build query
+	query := database.DB.Model(&models.SharingDetection{})
+
+	// Filter by date range
+	cutoff := time.Now().AddDate(0, 0, -days)
+	query = query.Where("detected_at >= ?", cutoff)
+
+	// Filter by suspicion level
+	if suspicionLevel != "" {
+		query = query.Where("suspicion_level = ?", suspicionLevel)
+	}
+
+	// Filter by username
+	if username != "" {
+		query = query.Where("username ILIKE ?", "%"+username+"%")
+	}
+
+	// Get total count
+	var total int64
+	query.Count(&total)
+
+	// Get records
+	var detections []models.SharingDetection
+	if err := query.Order("detected_at DESC").Offset(offset).Limit(limit).Find(&detections).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to get history",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    detections,
+		"meta": fiber.Map{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"totalPages": (total + int64(limit) - 1) / int64(limit),
+		},
+	})
+}
+
+// GetRepeatOffenders returns subscribers detected multiple times
+func (h *SharingDetectionHandler) GetRepeatOffenders(c *fiber.Ctx) error {
+	days := c.QueryInt("days", 30)
+	minCount := c.QueryInt("min_count", 3)
+
+	cutoff := time.Now().AddDate(0, 0, -days)
+
+	type RepeatOffender struct {
+		SubscriberID    uint    `json:"subscriber_id"`
+		Username        string  `json:"username"`
+		FullName        string  `json:"full_name"`
+		DetectionCount  int     `json:"detection_count"`
+		AvgConfidence   float64 `json:"avg_confidence"`
+		HighRiskCount   int     `json:"high_risk_count"`
+		LastDetectedAt  time.Time `json:"last_detected_at"`
+		ServiceName     string  `json:"service_name"`
+	}
+
+	var offenders []RepeatOffender
+	err := database.DB.Model(&models.SharingDetection{}).
+		Select(`
+			subscriber_id,
+			username,
+			MAX(full_name) as full_name,
+			COUNT(*) as detection_count,
+			AVG(confidence_score) as avg_confidence,
+			SUM(CASE WHEN suspicion_level = 'high' THEN 1 ELSE 0 END) as high_risk_count,
+			MAX(detected_at) as last_detected_at,
+			MAX(service_name) as service_name
+		`).
+		Where("detected_at >= ?", cutoff).
+		Group("subscriber_id, username").
+		Having("COUNT(*) >= ?", minCount).
+		Order("detection_count DESC").
+		Scan(&offenders).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to get repeat offenders",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    offenders,
+	})
+}
+
+// GetTrends returns sharing detection trends over time
+func (h *SharingDetectionHandler) GetTrends(c *fiber.Ctx) error {
+	days := c.QueryInt("days", 7)
+
+	type DailyTrend struct {
+		Date           string `json:"date"`
+		TotalDetected  int    `json:"total_detected"`
+		HighRiskCount  int    `json:"high_risk_count"`
+		MediumRiskCount int   `json:"medium_risk_count"`
+		AvgConfidence  float64 `json:"avg_confidence"`
+	}
+
+	var trends []DailyTrend
+	cutoff := time.Now().AddDate(0, 0, -days)
+
+	err := database.DB.Model(&models.SharingDetection{}).
+		Select(`
+			DATE(detected_at) as date,
+			COUNT(*) as total_detected,
+			SUM(CASE WHEN suspicion_level = 'high' THEN 1 ELSE 0 END) as high_risk_count,
+			SUM(CASE WHEN suspicion_level = 'medium' THEN 1 ELSE 0 END) as medium_risk_count,
+			AVG(confidence_score) as avg_confidence
+		`).
+		Where("detected_at >= ?", cutoff).
+		Group("DATE(detected_at)").
+		Order("date DESC").
+		Scan(&trends).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to get trends",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    trends,
+	})
+}
+
+// GetSettings returns sharing detection settings
+func (h *SharingDetectionHandler) GetSettings(c *fiber.Ctx) error {
+	var settings models.SharingDetectionSetting
+	if err := database.DB.First(&settings).Error; err != nil {
+		// Return defaults
+		settings = models.SharingDetectionSetting{
+			Enabled:             true,
+			ScanTime:            "03:00",
+			RetentionDays:       30,
+			MinSuspicionLevel:   "medium",
+			ConnectionThreshold: 500,
+			NotifyOnHighRisk:    false,
+			AutoSuspendRepeat:   false,
+			RepeatThreshold:     5,
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    settings,
+	})
+}
+
+// UpdateSettings updates sharing detection settings
+func (h *SharingDetectionHandler) UpdateSettings(c *fiber.Ctx) error {
+	var req struct {
+		Enabled             *bool   `json:"enabled"`
+		ScanTime            string  `json:"scan_time"`
+		RetentionDays       int     `json:"retention_days"`
+		MinSuspicionLevel   string  `json:"min_suspicion_level"`
+		ConnectionThreshold int     `json:"connection_threshold"`
+		NotifyOnHighRisk    *bool   `json:"notify_on_high_risk"`
+		AutoSuspendRepeat   *bool   `json:"auto_suspend_repeat"`
+		RepeatThreshold     int     `json:"repeat_threshold"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Get or create settings
+	var settings models.SharingDetectionSetting
+	if err := database.DB.First(&settings).Error; err != nil {
+		settings = models.SharingDetectionSetting{}
+	}
+
+	// Update fields
+	if req.Enabled != nil {
+		settings.Enabled = *req.Enabled
+	}
+	if req.ScanTime != "" {
+		settings.ScanTime = req.ScanTime
+	}
+	if req.RetentionDays > 0 {
+		settings.RetentionDays = req.RetentionDays
+	}
+	if req.MinSuspicionLevel != "" {
+		settings.MinSuspicionLevel = req.MinSuspicionLevel
+	}
+	if req.ConnectionThreshold > 0 {
+		settings.ConnectionThreshold = req.ConnectionThreshold
+	}
+	if req.NotifyOnHighRisk != nil {
+		settings.NotifyOnHighRisk = *req.NotifyOnHighRisk
+	}
+	if req.AutoSuspendRepeat != nil {
+		settings.AutoSuspendRepeat = *req.AutoSuspendRepeat
+	}
+	if req.RepeatThreshold > 0 {
+		settings.RepeatThreshold = req.RepeatThreshold
+	}
+	settings.UpdatedAt = time.Now()
+
+	if err := database.DB.Save(&settings).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to save settings",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Settings updated",
+		"data":    settings,
+	})
+}
+
+// RunManualScan triggers an immediate scan
+func (h *SharingDetectionHandler) RunManualScan(c *fiber.Ctx) error {
+	// Import service here to avoid circular dependency
+	// The actual scan will be done inline since we can't import services package
+
+	// Get settings
+	var settings models.SharingDetectionSetting
+	if err := database.DB.First(&settings).Error; err != nil {
+		settings = models.SharingDetectionSetting{
+			MinSuspicionLevel:   "medium",
+			ConnectionThreshold: 500,
+		}
+	}
+
+	// Get all online subscribers
+	var subscribers []models.Subscriber
+	if err := database.DB.Preload("Nas").Preload("Service").
+		Where("is_online = ?", true).Find(&subscribers).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to get subscribers",
+		})
+	}
+
+	if len(subscribers) == 0 {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "No online subscribers to scan",
+			"saved":   0,
+		})
+	}
+
+	// Group by NAS
+	nasSubs := make(map[uint][]models.Subscriber)
+	for _, sub := range subscribers {
+		if sub.NasID != nil {
+			nasSubs[*sub.NasID] = append(nasSubs[*sub.NasID], sub)
+		}
+	}
+
+	// Analyze each NAS
+	var allDetections []models.SharingDetection
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, subs := range nasSubs {
+		if len(subs) == 0 || subs[0].Nas == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(nas *models.Nas, subscribers []models.Subscriber) {
+			defer wg.Done()
+
+			client := mikrotik.NewClient(
+				fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+				nas.APIUsername,
+				nas.APIPassword,
+			)
+			defer client.Close()
+
+			connStats, _ := client.GetAllConnectionStats()
+			if connStats == nil {
+				connStats = make(map[string]*mikrotik.ConnectionStats)
+			}
+
+			ttlMarks, _ := client.GetAllTTLMarks()
+			if ttlMarks == nil {
+				ttlMarks = make(map[string][]int)
+			}
+
+			for _, sub := range subscribers {
+				if sub.IPAddress == "" {
+					continue
+				}
+
+				detection := models.SharingDetection{
+					SubscriberID: sub.ID,
+					Username:     sub.Username,
+					FullName:     sub.FullName,
+					IPAddress:    sub.IPAddress,
+					NasID:        sub.NasID,
+					NasName:      nas.Name,
+					ScanType:     "manual",
+					DetectedAt:   time.Now(),
+				}
+
+				if sub.Service != nil {
+					detection.ServiceName = sub.Service.Name
+				}
+
+				if stats := connStats[sub.IPAddress]; stats != nil {
+					detection.ConnectionCount = stats.TotalConnections
+					detection.UniqueDestinations = stats.UniqueDestinations
+				}
+
+				// Analyze TTL
+				ttlValues := ttlMarks[sub.IPAddress]
+				ttlStatus, reasons := analyzeTTL(ttlValues)
+				detection.TTLStatus = ttlStatus
+
+				// Calculate suspicion level
+				detection.SuspicionLevel = calculateSuspicionLevel(
+					detection.ConnectionCount,
+					ttlStatus,
+					settings.ConnectionThreshold,
+					settings.ConnectionThreshold*2,
+				)
+
+				// Calculate confidence
+				detection.ConfidenceScore = calculateConfidenceScore(
+					detection.ConnectionCount,
+					detection.UniqueDestinations,
+					0,
+					ttlStatus,
+				)
+
+				// Only save medium/high
+				levelOrder := map[string]int{"low": 1, "medium": 2, "high": 3}
+				if levelOrder[detection.SuspicionLevel] >= levelOrder[settings.MinSuspicionLevel] {
+					if len(reasons) > 0 {
+						reasonsJSON, _ := json.Marshal(reasons)
+						detection.Reasons = string(reasonsJSON)
+					}
+					mu.Lock()
+					allDetections = append(allDetections, detection)
+					mu.Unlock()
+				}
+			}
+		}(subs[0].Nas, subs)
+	}
+
+	wg.Wait()
+
+	// Save to database
+	savedCount := 0
+	for _, detection := range allDetections {
+		if err := database.DB.Create(&detection).Error; err == nil {
+			savedCount++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": fmt.Sprintf("Manual scan completed. Found %d suspicious accounts.", savedCount),
+		"saved":   savedCount,
+		"scanned": len(subscribers),
 	})
 }

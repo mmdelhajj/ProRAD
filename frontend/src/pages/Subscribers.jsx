@@ -95,6 +95,7 @@ export default function Subscribers() {
   const [status, setStatus] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [nasId, setNasId] = useState('')
+  const [fupLevel, setFupLevel] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [sorting, setSorting] = useState([])
   const [viewMode, setViewMode] = useState('active')
@@ -147,13 +148,13 @@ export default function Subscribers() {
 
   // Fetch subscribers
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, viewMode],
+    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, fupLevel, viewMode],
     queryFn: () => {
       if (viewMode === 'archived') {
         return subscriberApi.listArchived({ page, limit, search }).then((r) => r.data)
       }
       return subscriberApi
-        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId })
+        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId, fup_level: fupLevel })
         .then((r) => r.data)
     },
   })
@@ -572,7 +573,7 @@ export default function Subscribers() {
               >
                 {row.original.username}
               </Link>
-              {row.original.is_online && (
+              {row.original.is_online && hasPermission('subscribers.torch') && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -846,11 +847,34 @@ export default function Subscribers() {
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
           <span className="font-semibold text-yellow-600">{stats.expired || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Expired</span>
+          <span className="text-gray-500 dark:text-gray-400">Expired</span>
         </div>
+        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-2"></div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('0'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP0:</span>
+          <span className="font-semibold text-emerald-600">{stats.fup0 || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('1'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP1:</span>
+          <span className="font-semibold text-amber-600">{stats.fup1 || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('2'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP2:</span>
+          <span className="font-semibold text-orange-600">{stats.fup2 || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('3'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP3:</span>
+          <span className="font-semibold text-red-600">{stats.fup3 || 0}</span>
+        </div>
+        {stats.fup4 > 0 && (
+          <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('4'); setPage(1); }}>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP4:</span>
+            <span className="font-semibold text-purple-600">{stats.fup4 || 0}</span>
+          </div>
+        )}
         <div className="flex items-center gap-1.5 ml-auto">
-          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{data?.meta?.total || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{data?.meta?.total || 0}</span>
+          <span className="text-gray-500 dark:text-gray-400">Total</span>
         </div>
       </div>
 
@@ -977,7 +1001,7 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">NAS</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">NAS</label>
                   <select
                     value={nasId}
                     onChange={(e) => { setNasId(e.target.value); setPage(1); }}
@@ -990,7 +1014,22 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Per Page</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">FUP Level</label>
+                  <select
+                    value={fupLevel}
+                    onChange={(e) => { setFupLevel(e.target.value); setPage(1); }}
+                    className="input input-sm w-32"
+                  >
+                    <option value="">All FUP</option>
+                    <option value="0">FUP 0 (Normal)</option>
+                    <option value="1">FUP 1</option>
+                    <option value="2">FUP 2</option>
+                    <option value="3">FUP 3</option>
+                    <option value="4">FUP 4</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Per Page</label>
                   <select
                     value={limit}
                     onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
@@ -1003,7 +1042,7 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <button
-                  onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setPage(1); }}
+                  onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setFupLevel(''); setPage(1); }}
                   className="btn btn-secondary btn-sm mt-4"
                 >
                   Clear

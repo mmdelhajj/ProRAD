@@ -830,12 +830,56 @@ func (h *SystemUpdateHandler) restartContainerViaSocket(containerName string) er
 	return nil
 }
 
+// validateBackupIntegrity checks if a backup has all required files for rollback
+func (h *SystemUpdateHandler) validateBackupIntegrity(backupDir string) (bool, string) {
+	requiredFiles := []string{
+		filepath.Join("frontend", "dist", "index.html"),
+	}
+
+	// Check for at least one backend binary structure
+	apiPath1 := filepath.Join(backupDir, "backend", "proisp-api", "proisp-api")
+	apiPath2 := filepath.Join(backupDir, "backend", "proisp-api")
+	apiExists := false
+	if _, err := os.Stat(apiPath1); err == nil {
+		apiExists = true
+	} else if info, err := os.Stat(apiPath2); err == nil && !info.IsDir() {
+		apiExists = true
+	}
+	if !apiExists {
+		return false, "API binary not found in backup"
+	}
+
+	// Check required frontend files
+	for _, file := range requiredFiles {
+		fullPath := filepath.Join(backupDir, file)
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			return false, fmt.Sprintf("Missing required file: %s", file)
+		}
+	}
+
+	return true, ""
+}
+
 // performRollback restores the system to the backup state after a failed update
 func (h *SystemUpdateHandler) performRollback(backupDir, fromVersion, toVersion string) {
 	// Check if backup exists
 	if _, err := os.Stat(backupDir); os.IsNotExist(err) {
 		log.Printf("Rollback: No backup found at %s, cannot rollback", backupDir)
-		h.reportUpdateStatus(fromVersion, toVersion, "failed", h.updateStatus.Error)
+		h.reportUpdateStatus(fromVersion, toVersion, "failed", h.updateStatus.Error+" (no backup available for rollback)")
+		return
+	}
+
+	// Validate backup integrity before attempting rollback
+	log.Printf("Rollback: Validating backup integrity...")
+	if valid, reason := h.validateBackupIntegrity(backupDir); !valid {
+		log.Printf("Rollback: Backup validation failed: %s", reason)
+		h.mutex.Lock()
+		h.updateStatus.Step = "failed"
+		h.updateStatus.Progress = 0
+		h.updateStatus.Message = fmt.Sprintf("Update failed and automatic rollback is not possible: %s. Please contact support.", reason)
+		h.updateStatus.Error = fmt.Sprintf("Backup validation failed: %s", reason)
+		h.mutex.Unlock()
+		h.reportUpdateStatus(fromVersion, toVersion, "failed", fmt.Sprintf("Rollback failed - backup corrupted: %s", reason))
 		return
 	}
 
@@ -886,19 +930,43 @@ func (h *SystemUpdateHandler) performRollback(backupDir, fromVersion, toVersion 
 		exec.Command("cp", "-f", backupVersion, filepath.Join(h.installDir, "VERSION")).Run()
 	}
 
+	// Verify rollback was successful by checking critical files exist
+	criticalFiles := []string{
+		filepath.Join(h.installDir, "frontend", "dist", "index.html"),
+	}
+	rollbackSuccess := true
+	for _, file := range criticalFiles {
+		if _, err := os.Stat(file); os.IsNotExist(err) {
+			log.Printf("Rollback: Critical file missing after rollback: %s", file)
+			rollbackSuccess = false
+		}
+	}
+
 	h.setStatus("rollback", 90, "Cleaning up and reporting...")
 
-	// Report rollback status
-	h.reportUpdateStatus(fromVersion, toVersion, "rolled_back", h.updateStatus.Error)
+	if rollbackSuccess {
+		// Report rollback status
+		h.reportUpdateStatus(fromVersion, toVersion, "rolled_back", h.updateStatus.Error)
 
-	// Cleanup backup after successful rollback
-	os.RemoveAll(backupDir)
+		// Cleanup backup after successful rollback
+		os.RemoveAll(backupDir)
 
-	h.mutex.Lock()
-	h.updateStatus.Step = "rolled_back"
-	h.updateStatus.Progress = 100
-	h.updateStatus.Message = "Update failed. System has been rolled back to the previous version."
-	h.mutex.Unlock()
+		h.mutex.Lock()
+		h.updateStatus.Step = "rolled_back"
+		h.updateStatus.Progress = 100
+		h.updateStatus.Message = "Update failed. System has been rolled back to the previous version."
+		h.mutex.Unlock()
 
-	log.Println("Rollback: Automatic rollback completed successfully")
+		log.Println("Rollback: Automatic rollback completed successfully")
+	} else {
+		h.mutex.Lock()
+		h.updateStatus.Step = "failed"
+		h.updateStatus.Progress = 0
+		h.updateStatus.Message = "Update failed and rollback was incomplete. Please contact support or restore from a backup."
+		h.updateStatus.Error = "Rollback incomplete - some files may be missing"
+		h.mutex.Unlock()
+
+		h.reportUpdateStatus(fromVersion, toVersion, "failed", "Rollback incomplete - critical files missing after restore")
+		log.Println("Rollback: WARNING - Rollback was incomplete, some files may be missing")
+	}
 }

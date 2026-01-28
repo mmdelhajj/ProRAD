@@ -14,24 +14,53 @@ func NewPermissionHandler() *PermissionHandler {
 
 // Permission Groups
 
-// ListGroups returns all permission groups
+// GroupWithResellers extends PermissionGroup with assigned resellers
+type GroupWithResellers struct {
+	models.PermissionGroup
+	Resellers []ResellerInfo `json:"resellers"`
+}
+
+// ResellerInfo contains basic reseller info for display
+type ResellerInfo struct {
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	FullName string `json:"full_name"`
+}
+
+// ListGroups returns all permission groups with assigned resellers
 func (h *PermissionHandler) ListGroups(c *fiber.Ctx) error {
 	var groups []models.PermissionGroup
 	database.DB.Order("name").Find(&groups)
 
-	// Manually load permissions for each group (Preload doesn't work with gorm:"-")
+	// Build response with resellers info
+	result := make([]GroupWithResellers, len(groups))
+
 	for i := range groups {
+		// Load permissions
 		var permissions []models.Permission
 		database.DB.Table("permissions").
 			Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
 			Where("pgp.permission_group_id = ?", groups[i].ID).
 			Find(&permissions)
 		groups[i].Permissions = permissions
+
+		// Load resellers assigned to this group (join with users table to get username)
+		var resellers []ResellerInfo
+		database.DB.Table("resellers").
+			Select("resellers.id, users.username, resellers.name as full_name").
+			Joins("JOIN users ON users.id = resellers.user_id").
+			Where("resellers.permission_group = ?", groups[i].ID).
+			Find(&resellers)
+
+		result[i] = GroupWithResellers{
+			PermissionGroup: groups[i],
+			Resellers:       resellers,
+		}
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    groups,
+		"data":    result,
 	})
 }
 

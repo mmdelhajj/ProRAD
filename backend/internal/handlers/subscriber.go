@@ -89,7 +89,9 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	search := c.Query("search", "")
 	status := c.Query("status", "")
 	serviceID, _ := strconv.Atoi(c.Query("service_id", "0"))
+	nasID, _ := strconv.Atoi(c.Query("nas_id", "0"))
 	online := c.Query("online", "")
+	fupLevel := c.Query("fup_level", "")
 	sortBy := c.Query("sort_by", "created_at")
 	sortDir := c.Query("sort_dir", "desc")
 
@@ -147,6 +149,19 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	if online != "" {
 		isOnline := online == "true" || online == "1"
 		query = query.Where("is_online = ?", isOnline)
+	}
+
+	// NAS filter
+	if nasID > 0 {
+		query = query.Where("nas_id = ?", nasID)
+	}
+
+	// FUP level filter
+	if fupLevel != "" {
+		fupLevelInt, err := strconv.Atoi(fupLevel)
+		if err == nil && fupLevelInt >= 0 && fupLevelInt <= 4 {
+			query = query.Where("fup_level = ?", fupLevelInt)
+		}
 	}
 
 	// Count total
@@ -244,6 +259,11 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 		Inactive int64 `json:"inactive"`
 		Expired  int64 `json:"expired"`
 		Expiring int64 `json:"expiring"`
+		FUP0     int64 `json:"fup0"`
+		FUP1     int64 `json:"fup1"`
+		FUP2     int64 `json:"fup2"`
+		FUP3     int64 `json:"fup3"`
+		FUP4     int64 `json:"fup4"`
 	}
 
 	baseQuery := database.DB.Model(&models.Subscriber{})
@@ -252,12 +272,19 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	}
 
 	baseQuery.Count(&stats.Total)
-	baseQuery.Where("is_online = true").Count(&stats.Online)
+	database.DB.Model(&models.Subscriber{}).Where("is_online = true").Count(&stats.Online)
 	stats.Offline = stats.Total - stats.Online
-	baseQuery.Where("status = ?", models.SubscriberStatusActive).Count(&stats.Active)
-	baseQuery.Where("status = ?", models.SubscriberStatusInactive).Count(&stats.Inactive)
-	baseQuery.Where("expiry_date < ?", time.Now()).Count(&stats.Expired)
-	baseQuery.Where("expiry_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 7)).Count(&stats.Expiring)
+	database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusActive).Count(&stats.Active)
+	database.DB.Model(&models.Subscriber{}).Where("status = ?", models.SubscriberStatusInactive).Count(&stats.Inactive)
+	database.DB.Model(&models.Subscriber{}).Where("expiry_date < ?", time.Now()).Count(&stats.Expired)
+	database.DB.Model(&models.Subscriber{}).Where("expiry_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 7)).Count(&stats.Expiring)
+
+	// FUP level stats
+	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 0).Count(&stats.FUP0)
+	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 1).Count(&stats.FUP1)
+	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 2).Count(&stats.FUP2)
+	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 3).Count(&stats.FUP3)
+	database.DB.Model(&models.Subscriber{}).Where("fup_level = ?", 4).Count(&stats.FUP4)
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -2095,38 +2122,42 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			} else {
 				log.Printf("Reset FUP: DB updated %d rows for %s (ID=%d)", updateResult.RowsAffected, sub.Username, sub.ID)
 			}
-			// Update RADIUS reply to reset rate limit to full speed
-			// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
-			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").Delete(&models.RadReply{})
-			fullSpeedLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
-			database.DB.Create(&models.RadReply{
-				Username:  sub.Username,
-				Attribute: "Mikrotik-Rate-Limit",
-				Op:        "=",
-				Value:     fullSpeedLimit,
-			})
-			// Reset speed via RADIUS CoA (using pre-loaded nasMap)
-			if sub.NasID != nil && *sub.NasID > 0 && sub.ServiceID > 0 {
-				if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
-					// Build rate limit string: upload/download format for MikroTik
-					// Speeds are already in kb, no conversion needed
-					rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
-					fmt.Printf("Reset FUP: Resetting speed for %s via CoA to %s\n", sub.Username, rateLimit)
+			// Update RADIUS reply to reset rate limit to full speed (only if service exists)
+			if sub.Service != nil {
+				// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
+				database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").Delete(&models.RadReply{})
+				fullSpeedLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
+				database.DB.Create(&models.RadReply{
+					Username:  sub.Username,
+					Attribute: "Mikrotik-Rate-Limit",
+					Op:        "=",
+					Value:     fullSpeedLimit,
+				})
+				// Reset speed via RADIUS CoA (using pre-loaded nasMap)
+				if sub.NasID != nil && *sub.NasID > 0 && sub.ServiceID > 0 {
+					if nas, ok := nasMap[*sub.NasID]; ok && nas.IPAddress != "" {
+						// Build rate limit string: upload/download format for MikroTik
+						// Speeds are already in kb, no conversion needed
+						rateLimit := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
+						fmt.Printf("Reset FUP: Resetting speed for %s via CoA to %s\n", sub.Username, rateLimit)
 
-					// Use CoA to update rate limit
-					coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
-					if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sub.SessionID, rateLimit); err != nil {
-						fmt.Printf("Reset FUP: CoA failed for %s: %v, trying MikroTik API\n", sub.Username, err)
-						// Fallback to MikroTik API (speeds already in kb)
-						client := mikrotik.NewClient(
-							fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
-							nas.APIUsername,
-							nas.APIPassword,
-						)
-						client.UpdateUserRateLimit(sub.Username, int(sub.Service.DownloadSpeed), int(sub.Service.UploadSpeed))
-						client.Close()
+						// Use CoA to update rate limit
+						coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+						if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sub.SessionID, rateLimit); err != nil {
+							fmt.Printf("Reset FUP: CoA failed for %s: %v, trying MikroTik API\n", sub.Username, err)
+							// Fallback to MikroTik API (speeds already in kb)
+							client := mikrotik.NewClient(
+								fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+								nas.APIUsername,
+								nas.APIPassword,
+							)
+							client.UpdateUserRateLimit(sub.Username, int(sub.Service.DownloadSpeed), int(sub.Service.UploadSpeed))
+							client.Close()
+						}
 					}
 				}
+			} else {
+				log.Printf("Reset FUP: Skipping RADIUS update for %s - no service assigned", sub.Username)
 			}
 			success++
 
@@ -2192,21 +2223,24 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 
 // ChangeBulkRequest represents change bulk request with filters
 type ChangeBulkRequest struct {
-	ResellerID        uint   `json:"reseller_id"`        // 0 = All
-	ServiceID         uint   `json:"service_id"`         // 0 = All
-	StatusFilter      string `json:"status_filter"`      // all, active, inactive, expired
-	IncludeSubResellers bool `json:"include_sub_resellers"`
-	Action            string `json:"action"`             // set_expiry, set_service, set_reseller, set_active, set_inactive, set_monthly_quota, set_daily_quota, set_price, reset_mac
-	ActionValue       string `json:"action_value"`       // value for the action
-	Filters           []ChangeBulkFilter `json:"filters"` // additional filters
-	Preview           bool   `json:"preview"`            // if true, only return affected users
+	ResellerID          uint               `json:"reseller_id"`           // 0 = All
+	ServiceID           uint               `json:"service_id"`            // 0 = All
+	NasID               uint               `json:"nas_id"`                // 0 = All
+	StatusFilter        string             `json:"status_filter"`         // all, active, inactive, expired, active_inactive
+	OnlineFilter        string             `json:"online_filter"`         // all, online, offline
+	FUPLevelFilter      string             `json:"fup_level_filter"`      // all, 0, 1, 2, 3
+	IncludeSubResellers bool               `json:"include_sub_resellers"`
+	Action              string             `json:"action"`
+	ActionValue         string             `json:"action_value"`
+	Filters             []ChangeBulkFilter `json:"filters"`
+	Preview             bool               `json:"preview"`
 }
 
 // ChangeBulkFilter represents a custom filter
 type ChangeBulkFilter struct {
-	Field    string `json:"field"`    // username, expiry, name, address, price
-	Rule     string `json:"rule"`     // equal, notequal, greater, less, like
-	Value    string `json:"value"`    // filter value
+	Field string `json:"field"` // username, expiry, name, address, price, phone, created, daily_usage, monthly_usage
+	Rule  string `json:"rule"`  // equal, notequal, greater, less, like
+	Value string `json:"value"`
 }
 
 // ChangeBulk performs bulk changes on subscribers based on filters
@@ -2235,6 +2269,9 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 	// Build query based on filters
 	query := database.DB.Model(&models.Subscriber{})
 
+	log.Printf("ChangeBulk: Received request - ResellerID=%d, ServiceID=%d, Status=%s, Preview=%v, Action=%s",
+		req.ResellerID, req.ServiceID, req.StatusFilter, req.Preview, req.Action)
+
 	// Filter by reseller
 	if req.ResellerID > 0 {
 		if req.IncludeSubResellers {
@@ -2249,6 +2286,11 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 		query = query.Where("service_id = ?", req.ServiceID)
 	}
 
+	// Filter by NAS
+	if req.NasID > 0 {
+		query = query.Where("nas_id = ?", req.NasID)
+	}
+
 	// Filter by status
 	switch req.StatusFilter {
 	case "active":
@@ -2259,6 +2301,26 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 		query = query.Where("expiry_date < ?", time.Now())
 	case "active_inactive":
 		query = query.Where("status IN ?", []models.SubscriberStatus{models.SubscriberStatusActive, models.SubscriberStatusInactive})
+	}
+
+	// Filter by online status
+	switch req.OnlineFilter {
+	case "online":
+		query = query.Where("is_online = ?", true)
+	case "offline":
+		query = query.Where("is_online = ?", false)
+	}
+
+	// Filter by FUP level
+	switch req.FUPLevelFilter {
+	case "0":
+		query = query.Where("fup_level = ?", 0)
+	case "1":
+		query = query.Where("fup_level = ?", 1)
+	case "2":
+		query = query.Where("fup_level = ?", 2)
+	case "3":
+		query = query.Where("fup_level = ?", 3)
 	}
 
 	// Apply custom filters
@@ -2275,6 +2337,14 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 			fieldName = "address"
 		case "price":
 			fieldName = "price"
+		case "phone":
+			fieldName = "phone"
+		case "created":
+			fieldName = "created_at"
+		case "daily_usage":
+			fieldName = "daily_quota_used"
+		case "monthly_usage":
+			fieldName = "monthly_quota_used"
 		default:
 			continue
 		}
@@ -2297,6 +2367,8 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 	var total int64
 	query.Count(&total)
 
+	log.Printf("ChangeBulk: Query returned %d subscribers", total)
+
 	// If preview mode, return the list of affected subscribers
 	if req.Preview {
 		page, _ := strconv.Atoi(c.Query("page", "1"))
@@ -2304,7 +2376,7 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 		offset := (page - 1) * limit
 
 		var subscribers []models.Subscriber
-		query.Offset(offset).Limit(limit).Find(&subscribers)
+		query.Preload("Service").Preload("Reseller").Preload("Reseller.User").Preload("Nas").Offset(offset).Limit(limit).Find(&subscribers)
 
 		return c.JSON(fiber.Map{
 			"success": true,
@@ -2422,6 +2494,160 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 			actionName = "Reset MAC"
 			database.DB.Model(&sub).Update("mac_address", "")
 			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Calling-Station-Id").Delete(&models.RadCheck{})
+			success++
+
+		case "disconnect":
+			actionName = "Disconnect"
+			// Try to disconnect via CoA or MikroTik API
+			if sub.NasID != nil && sub.IPAddress != "" {
+				var nas models.Nas
+				if err := database.DB.First(&nas, *sub.NasID).Error; err == nil {
+					// Try MikroTik API disconnect
+					client := mikrotik.NewClient(
+						fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+						nas.APIUsername,
+						nas.APIPassword,
+					)
+					if err := client.DisconnectUser(sub.Username); err != nil {
+						log.Printf("ChangeBulk: Failed to disconnect %s via MikroTik: %v", sub.Username, err)
+					}
+					client.Close()
+				}
+			}
+			database.DB.Model(&sub).Update("is_online", false)
+			success++
+
+		case "renew":
+			actionName = "Renew"
+			days, err := strconv.Atoi(req.ActionValue)
+			if err != nil || days <= 0 {
+				days = 30 // Default 30 days
+			}
+			newExpiry := time.Now().AddDate(0, 0, days)
+			database.DB.Model(&sub).Updates(map[string]interface{}{
+				"expiry_date":        newExpiry,
+				"status":             models.SubscriberStatusActive,
+				"fup_level":          0,
+				"daily_quota_used":   0,
+				"daily_download_used": 0,
+				"daily_upload_used":  0,
+			})
+			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Expiration").Delete(&models.RadCheck{})
+			database.DB.Create(&models.RadCheck{
+				Username: sub.Username, Attribute: "Expiration", Op: ":=",
+				Value: newExpiry.Format("Jan 02 2006 15:04:05"),
+			})
+			success++
+
+		case "add_days":
+			actionName = "Add Days"
+			days, err := strconv.Atoi(req.ActionValue)
+			if err != nil || days <= 0 {
+				failed++
+				continue
+			}
+			currentExpiry := sub.ExpiryDate
+			if currentExpiry.Before(time.Now()) {
+				currentExpiry = time.Now()
+			}
+			newExpiry := currentExpiry.AddDate(0, 0, days)
+			database.DB.Model(&sub).Update("expiry_date", newExpiry)
+			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Expiration").Delete(&models.RadCheck{})
+			database.DB.Create(&models.RadCheck{
+				Username: sub.Username, Attribute: "Expiration", Op: ":=",
+				Value: newExpiry.Format("Jan 02 2006 15:04:05"),
+			})
+			success++
+
+		case "reset_fup":
+			actionName = "Reset FUP"
+			database.DB.Model(&sub).Updates(map[string]interface{}{
+				"fup_level":           0,
+				"daily_quota_used":    0,
+				"daily_download_used": 0,
+				"daily_upload_used":   0,
+			})
+			// Restore original speed in radreply
+			if sub.ServiceID > 0 {
+				var service models.Service
+				if err := database.DB.First(&service, sub.ServiceID).Error; err == nil {
+					rateLimit := fmt.Sprintf("%dk/%dk", service.UploadSpeed, service.DownloadSpeed)
+					database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").Delete(&models.RadReply{})
+					database.DB.Create(&models.RadReply{
+						Username: sub.Username, Attribute: "Mikrotik-Rate-Limit", Op: ":=", Value: rateLimit,
+					})
+				}
+			}
+			success++
+
+		case "reset_monthly_fup":
+			actionName = "Reset Monthly FUP"
+			database.DB.Model(&sub).Updates(map[string]interface{}{
+				"monthly_fup_level":    0,
+				"monthly_quota_used":   0,
+				"monthly_download_used": 0,
+				"monthly_upload_used":  0,
+			})
+			success++
+
+		case "reset_all_counters":
+			actionName = "Reset All Counters"
+			database.DB.Model(&sub).Updates(map[string]interface{}{
+				"fup_level":            0,
+				"daily_quota_used":     0,
+				"daily_download_used":  0,
+				"daily_upload_used":    0,
+				"monthly_fup_level":    0,
+				"monthly_quota_used":   0,
+				"monthly_download_used": 0,
+				"monthly_upload_used":  0,
+			})
+			success++
+
+		case "delete":
+			actionName = "Delete"
+			// Soft delete subscriber
+			database.DB.Delete(&sub)
+			// Remove from radcheck/radreply
+			database.DB.Where("username = ?", sub.Username).Delete(&models.RadCheck{})
+			database.DB.Where("username = ?", sub.Username).Delete(&models.RadReply{})
+			success++
+
+		case "set_nas":
+			actionName = "Set NAS"
+			nasID, err := strconv.ParseUint(req.ActionValue, 10, 32)
+			if err != nil {
+				failed++
+				continue
+			}
+			nasIDUint := uint(nasID)
+			database.DB.Model(&sub).Update("nas_id", nasIDUint)
+			success++
+
+		case "set_password":
+			actionName = "Set Password"
+			if req.ActionValue == "" {
+				failed++
+				continue
+			}
+			database.DB.Model(&sub).Update("password", req.ActionValue)
+			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Cleartext-Password").Delete(&models.RadCheck{})
+			database.DB.Create(&models.RadCheck{
+				Username: sub.Username, Attribute: "Cleartext-Password", Op: ":=", Value: req.ActionValue,
+			})
+			success++
+
+		case "set_static_ip":
+			actionName = "Set Static IP"
+			database.DB.Model(&sub).Update("static_ip", req.ActionValue)
+			if req.ActionValue != "" {
+				database.DB.Where("username = ? AND attribute = ?", sub.Username, "Framed-IP-Address").Delete(&models.RadReply{})
+				database.DB.Create(&models.RadReply{
+					Username: sub.Username, Attribute: "Framed-IP-Address", Op: ":=", Value: req.ActionValue,
+				})
+			} else {
+				database.DB.Where("username = ? AND attribute = ?", sub.Username, "Framed-IP-Address").Delete(&models.RadReply{})
+			}
 			success++
 
 		default:

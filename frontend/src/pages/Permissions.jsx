@@ -351,6 +351,9 @@ export default function Permissions() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                     Permissions
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Resellers
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                     Actions
                   </th>
@@ -359,7 +362,7 @@ export default function Permissions() {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredGroups.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       No permission groups found
                     </td>
                   </tr>
@@ -374,6 +377,23 @@ export default function Permissions() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                         {group.permissions?.length || 0}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {group.resellers && group.resellers.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {group.resellers.map(reseller => (
+                              <span
+                                key={reseller.id}
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                title={reseller.full_name || reseller.username}
+                              >
+                                {reseller.username}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex gap-2">

@@ -895,3 +895,96 @@ downloadK := baseDownloadK * (100 + int64(service.TimeDownloadRatio)) / 100
 **Migration:** Services with old ratio values need manual update:
 - Old 200% (double) → New 100%
 - Old 300% (triple) → New 200%
+
+### Sharing Detection - Automatic Nightly Scanning (Jan 2026)
+**New feature: Automatic detection of account sharing through TTL analysis**
+
+- Added `SharingDetectionService` that runs automatic scans
+- Configurable scan schedule (default: 2:00 AM nightly)
+- Detects multiple devices behind same PPPoE connection using TTL analysis
+- Auto-disconnect option for flagged subscribers
+- New database model: `sharing_detection_results` table
+- Frontend: New "Sharing Detection" page with results, settings, and manual scan trigger
+
+**Files:**
+- `internal/services/sharing_detection_service.go` - Background service
+- `internal/handlers/sharing_detection.go` - API handlers
+- `internal/models/sharing_detection.go` - Data model
+- `frontend/src/pages/SharingDetection.jsx` - UI page
+
+**Settings stored in `system_preferences`:**
+- `sharing_detection_enabled` - Enable/disable auto scanning
+- `sharing_detection_schedule` - Cron schedule (default: "0 2 * * *")
+- `sharing_detection_auto_disconnect` - Auto-disconnect flagged users
+- `sharing_detection_ttl_threshold` - TTL difference threshold
+
+### Notification System (Jan 2026)
+**Complete notification system for SMTP email, SMS, and WhatsApp**
+
+- **Email (SMTP)**: Supports TLS/STARTTLS, test connection, send test email
+- **SMS**: Multi-provider support (Twilio, Vonage, Custom HTTP API)
+- **WhatsApp**: Ultramsg API integration
+
+**Files:**
+- `internal/services/notification_email.go` - SMTP email service
+- `internal/services/notification_sms.go` - SMS service (Twilio/Vonage/Custom)
+- `internal/services/notification_whatsapp.go` - WhatsApp via Ultramsg
+- `internal/services/notification_manager.go` - Orchestrates all channels
+- `internal/handlers/notification.go` - Test endpoints
+- `frontend/src/pages/Settings.jsx` - Notifications tab with test buttons
+
+**API Endpoints:**
+- `POST /api/notifications/test-smtp` - Test SMTP configuration
+- `POST /api/notifications/test-sms` - Test SMS configuration
+- `POST /api/notifications/test-whatsapp` - Test WhatsApp configuration
+
+### Permissions Page - Show Resellers (Jan 2026)
+- Added "Resellers" column to permission groups table
+- Shows which resellers are assigned to each permission group
+- Displays reseller usernames as blue badges
+
+**Files:**
+- `internal/handlers/permission.go` - Added reseller join query with users table
+- `frontend/src/pages/Permissions.jsx` - Added Resellers column
+
+### Bulk Reset FUP Fix (Jan 2026)
+- Fixed nil pointer crash when bulk resetting FUP for subscribers without a service assigned
+- Added nil check before accessing `sub.Service.UploadSpeed` and `sub.Service.DownloadSpeed`
+- File: `internal/handlers/subscriber.go`
+
+### Nginx No-Cache for index.html (Jan 2026)
+**Fixed: Users no longer need to hard refresh after updates**
+
+- Added `Cache-Control: no-store, no-cache` header for `index.html`
+- Static assets (JS/CSS with hashes) still cached for 1 year
+- After updates, users automatically get new frontend without Ctrl+F5
+
+**nginx.conf change:**
+```nginx
+# index.html - NO CACHE
+location = /index.html {
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+    expires -1;
+}
+```
+
+### Backup Validation (Jan 2026)
+- Added `ValidateBackup` endpoint to verify backup integrity before restore
+- Validates encryption header and pg_dump format
+- Prevents restoring corrupted backups that could break the system
+- File: `internal/handlers/backup.go`
+
+### System Update Handler Fix (Jan 2026)
+- Fixed update handler not replacing binaries correctly when destination is a directory
+- Properly handles `backend/proisp-api/proisp-api` directory structure
+- File: `internal/handlers/system_update.go`
+
+### v1.0.124 Comprehensive Update (Jan 2026)
+Published version includes all fixes from Jan 27-28, 2026:
+- Sharing Detection automatic nightly scanning
+- Notification System (SMTP, SMS, WhatsApp)
+- Permissions page resellers column
+- Bulk Reset FUP nil pointer fix
+- Nginx no-cache for index.html
+- Backup validation
+- System update improvements

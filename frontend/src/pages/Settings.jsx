@@ -46,6 +46,13 @@ export default function Settings() {
   const [disablePassword, setDisablePassword] = useState('')
   const [disableCode, setDisableCode] = useState('')
 
+  // Notification test state
+  const [testingSmtp, setTestingSmtp] = useState(false)
+  const [testingSms, setTestingSms] = useState(false)
+  const [testingWhatsapp, setTestingWhatsapp] = useState(false)
+  const [testEmail, setTestEmail] = useState('')
+  const [testPhone, setTestPhone] = useState('')
+
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get('/settings').then(res => res.data.items || [])
@@ -212,6 +219,69 @@ export default function Settings() {
     }
   })
 
+  // Test SMTP configuration
+  const handleTestSmtp = async () => {
+    setTestingSmtp(true)
+    try {
+      const res = await api.post('/notifications/test-smtp', {
+        smtp_host: formData.smtp_host,
+        smtp_port: formData.smtp_port,
+        smtp_username: formData.smtp_username,
+        smtp_password: formData.smtp_password,
+        smtp_from_name: formData.smtp_from_name,
+        smtp_from_email: formData.smtp_from_email,
+        test_email: testEmail || formData.notification_email
+      })
+      toast.success(res.data.message || 'SMTP test successful!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'SMTP test failed')
+    } finally {
+      setTestingSmtp(false)
+    }
+  }
+
+  // Test SMS configuration
+  const handleTestSms = async () => {
+    setTestingSms(true)
+    try {
+      const res = await api.post('/notifications/test-sms', {
+        sms_provider: formData.sms_provider,
+        sms_twilio_sid: formData.sms_twilio_sid,
+        sms_twilio_token: formData.sms_twilio_token,
+        sms_twilio_from: formData.sms_twilio_from,
+        sms_vonage_key: formData.sms_vonage_key,
+        sms_vonage_secret: formData.sms_vonage_secret,
+        sms_vonage_from: formData.sms_vonage_from,
+        sms_custom_url: formData.sms_custom_url,
+        sms_custom_method: formData.sms_custom_method,
+        sms_custom_body: formData.sms_custom_body,
+        test_phone: testPhone
+      })
+      toast.success(res.data.message || 'SMS test successful!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'SMS test failed')
+    } finally {
+      setTestingSms(false)
+    }
+  }
+
+  // Test WhatsApp configuration
+  const handleTestWhatsapp = async () => {
+    setTestingWhatsapp(true)
+    try {
+      const res = await api.post('/notifications/test-whatsapp', {
+        whatsapp_instance_id: formData.whatsapp_instance_id,
+        whatsapp_token: formData.whatsapp_token,
+        test_phone: testPhone
+      })
+      toast.success(res.data.message || 'WhatsApp test successful!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'WhatsApp test failed')
+    } finally {
+      setTestingWhatsapp(false)
+    }
+  }
+
   const tabs = [
     { id: 'branding', label: 'Branding' },
     { id: 'general', label: 'General' },
@@ -314,18 +384,7 @@ export default function Settings() {
       { key: 'block_on_daily_quota_exceeded', label: 'Block Internet on Daily Quota Exceeded', type: 'toggle', description: 'When enabled, users will lose internet completely when daily quota is exceeded. When disabled, users get reduced FUP speed.' },
       { key: 'block_on_monthly_quota_exceeded', label: 'Block Internet on Monthly Quota Exceeded', type: 'toggle', description: 'When enabled, users will lose internet completely when monthly quota is exceeded. When disabled, users get reduced FUP speed.' },
     ],
-    notifications: [
-      { key: 'sms_enabled', label: 'SMS Notifications', type: 'toggle' },
-      { key: 'sms_provider', label: 'SMS Provider', type: 'select', options: ['disabled', 'twilio', 'africas_talking', 'nexmo'] },
-      { key: 'sms_api_key', label: 'SMS API Key', type: 'password', placeholder: 'API Key' },
-      { key: 'email_enabled', label: 'Email Notifications', type: 'toggle' },
-      { key: 'smtp_host', label: 'SMTP Host', type: 'text', placeholder: 'smtp.gmail.com' },
-      { key: 'smtp_port', label: 'SMTP Port', type: 'number', placeholder: '587' },
-      { key: 'smtp_user', label: 'SMTP Username', type: 'text', placeholder: 'user@gmail.com' },
-      { key: 'smtp_password', label: 'SMTP Password', type: 'password', placeholder: 'Password' },
-      { key: 'notification_email', label: 'Notification Email', type: 'email', placeholder: 'alerts@company.com' },
-      { key: 'whatsapp_enabled', label: 'WhatsApp Notifications', type: 'toggle' },
-    ],
+    notifications: [], // Custom rendering below
     security: [
       { key: 'session_timeout', label: 'Admin Session Timeout (min)', type: 'number', placeholder: '60' },
       { key: 'max_login_attempts', label: 'Max Login Attempts', type: 'number', placeholder: '5' },
@@ -731,6 +790,303 @@ export default function Settings() {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          ) : activeTab === 'notifications' ? (
+            <div className="space-y-8">
+              {/* Email/SMTP Settings */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Email Notifications (SMTP)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Host</label>
+                    <input
+                      type="text"
+                      value={formData.smtp_host || ''}
+                      onChange={(e) => handleChange('smtp_host', e.target.value)}
+                      placeholder="smtp.gmail.com"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Port</label>
+                    <input
+                      type="number"
+                      value={formData.smtp_port || ''}
+                      onChange={(e) => handleChange('smtp_port', e.target.value)}
+                      placeholder="587"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Username</label>
+                    <input
+                      type="text"
+                      value={formData.smtp_username || ''}
+                      onChange={(e) => handleChange('smtp_username', e.target.value)}
+                      placeholder="user@gmail.com"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Password</label>
+                    <input
+                      type="password"
+                      value={formData.smtp_password || ''}
+                      onChange={(e) => handleChange('smtp_password', e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Name</label>
+                    <input
+                      type="text"
+                      value={formData.smtp_from_name || ''}
+                      onChange={(e) => handleChange('smtp_from_name', e.target.value)}
+                      placeholder="Company Name"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Email</label>
+                    <input
+                      type="email"
+                      value={formData.smtp_from_email || ''}
+                      onChange={(e) => handleChange('smtp_from_email', e.target.value)}
+                      placeholder="noreply@company.com"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Email Address</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={testEmail}
+                        onChange={(e) => setTestEmail(e.target.value)}
+                        placeholder="test@example.com"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      />
+                      <button
+                        onClick={handleTestSmtp}
+                        disabled={testingSmtp || !formData.smtp_host}
+                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {testingSmtp ? 'Testing...' : 'Test SMTP'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SMS Settings */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">SMS Notifications</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMS Provider</label>
+                    <select
+                      value={formData.sms_provider || ''}
+                      onChange={(e) => handleChange('sms_provider', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    >
+                      <option value="">Select Provider</option>
+                      <option value="twilio">Twilio</option>
+                      <option value="vonage">Vonage (Nexmo)</option>
+                      <option value="custom">Custom API</option>
+                    </select>
+                  </div>
+
+                  {formData.sms_provider === 'twilio' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Twilio Account SID</label>
+                        <input
+                          type="text"
+                          value={formData.sms_twilio_sid || ''}
+                          onChange={(e) => handleChange('sms_twilio_sid', e.target.value)}
+                          placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Twilio Auth Token</label>
+                        <input
+                          type="password"
+                          value={formData.sms_twilio_token || ''}
+                          onChange={(e) => handleChange('sms_twilio_token', e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Twilio Phone Number</label>
+                        <input
+                          type="text"
+                          value={formData.sms_twilio_from || ''}
+                          onChange={(e) => handleChange('sms_twilio_from', e.target.value)}
+                          placeholder="+1234567890"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {formData.sms_provider === 'vonage' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vonage API Key</label>
+                        <input
+                          type="text"
+                          value={formData.sms_vonage_key || ''}
+                          onChange={(e) => handleChange('sms_vonage_key', e.target.value)}
+                          placeholder="API Key"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vonage API Secret</label>
+                        <input
+                          type="password"
+                          value={formData.sms_vonage_secret || ''}
+                          onChange={(e) => handleChange('sms_vonage_secret', e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sender Name/Number</label>
+                        <input
+                          type="text"
+                          value={formData.sms_vonage_from || ''}
+                          onChange={(e) => handleChange('sms_vonage_from', e.target.value)}
+                          placeholder="CompanyName or +1234567890"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {formData.sms_provider === 'custom' && (
+                    <>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API URL</label>
+                        <input
+                          type="text"
+                          value={formData.sms_custom_url || ''}
+                          onChange={(e) => handleChange('sms_custom_url', e.target.value)}
+                          placeholder="https://api.provider.com/sms/send"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">HTTP Method</label>
+                        <select
+                          value={formData.sms_custom_method || 'POST'}
+                          onChange={(e) => handleChange('sms_custom_method', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        >
+                          <option value="POST">POST</option>
+                          <option value="GET">GET</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Request Body (JSON)</label>
+                        <textarea
+                          value={formData.sms_custom_body || ''}
+                          onChange={(e) => handleChange('sms_custom_body', e.target.value)}
+                          placeholder='{"to": "{{to}}", "message": "{{message}}"}'
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Use {'{{to}}'} and {'{{message}}'} as placeholders</p>
+                      </div>
+                    </>
+                  )}
+
+                  {formData.sms_provider && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={testPhone}
+                          onChange={(e) => setTestPhone(e.target.value)}
+                          placeholder="+1234567890"
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        />
+                        <button
+                          onClick={handleTestSms}
+                          disabled={testingSms || !testPhone}
+                          className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {testingSms ? 'Testing...' : 'Test SMS'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* WhatsApp Settings */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">WhatsApp Notifications (Ultramsg)</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Get your Instance ID and Token from <a href="https://ultramsg.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">ultramsg.com</a>
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instance ID</label>
+                    <input
+                      type="text"
+                      value={formData.whatsapp_instance_id || ''}
+                      onChange={(e) => handleChange('whatsapp_instance_id', e.target.value)}
+                      placeholder="instanceXXXXX"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Token</label>
+                    <input
+                      type="password"
+                      value={formData.whatsapp_token || ''}
+                      onChange={(e) => handleChange('whatsapp_token', e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={testPhone}
+                        onChange={(e) => setTestPhone(e.target.value)}
+                        placeholder="+1234567890 (with country code)"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      />
+                      <button
+                        onClick={handleTestWhatsapp}
+                        disabled={testingWhatsapp || !formData.whatsapp_instance_id || !formData.whatsapp_token}
+                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {testingWhatsapp ? 'Testing...' : 'Test WhatsApp'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSave}
+                  disabled={!hasChanges || updateMutation.isPending}
+                  className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updateMutation.isPending ? 'Saving...' : 'Save Notification Settings'}
+                </button>
               </div>
             </div>
           ) : activeTab === 'license' ? (

@@ -971,6 +971,140 @@ func (c *Client) GetConnectionCount(ipAddress string) (int, error) {
 	return count, nil
 }
 
+// ConnectionStats holds connection statistics for an IP
+type ConnectionStats struct {
+	TotalConnections   int
+	UniqueDestinations int
+}
+
+// GetAllConnectionStats returns connection stats for ALL source IPs in one query
+// Returns both total connections and unique destination IPs per source
+func (c *Client) GetAllConnectionStats() (map[string]*ConnectionStats, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout * 3)) // Longer timeout for bulk query
+
+	// Query all connections
+	c.sendWord("/ip/firewall/connection/print")
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connections: %v", err)
+	}
+
+	// Track connections and unique destinations per source IP
+	stats := make(map[string]*ConnectionStats)
+	destTracker := make(map[string]map[string]bool) // srcIP -> set of destIPs
+
+	var currentSrcIP, currentDstIP string
+
+	for _, word := range response {
+		if strings.HasPrefix(word, "=src-address=") {
+			// Extract source IP (format: IP:port)
+			addrPort := strings.TrimPrefix(word, "=src-address=")
+			parts := strings.Split(addrPort, ":")
+			if len(parts) > 0 {
+				currentSrcIP = parts[0]
+			}
+		} else if strings.HasPrefix(word, "=dst-address=") {
+			// Extract destination IP (format: IP:port)
+			addrPort := strings.TrimPrefix(word, "=dst-address=")
+			parts := strings.Split(addrPort, ":")
+			if len(parts) > 0 {
+				currentDstIP = parts[0]
+			}
+		} else if strings.HasPrefix(word, "=.id=") && currentSrcIP != "" {
+			// End of a connection entry - record stats
+			if stats[currentSrcIP] == nil {
+				stats[currentSrcIP] = &ConnectionStats{}
+				destTracker[currentSrcIP] = make(map[string]bool)
+			}
+			stats[currentSrcIP].TotalConnections++
+			if currentDstIP != "" {
+				destTracker[currentSrcIP][currentDstIP] = true
+			}
+			currentDstIP = ""
+		}
+	}
+
+	// Calculate unique destination counts
+	for ip, dests := range destTracker {
+		if stats[ip] != nil {
+			stats[ip].UniqueDestinations = len(dests)
+		}
+	}
+
+	return stats, nil
+}
+
+// GetAllConnectionCounts returns connection counts for ALL source IPs (backward compatible)
+func (c *Client) GetAllConnectionCounts() (map[string]int, error) {
+	stats, err := c.GetAllConnectionStats()
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int)
+	for ip, s := range stats {
+		counts[ip] = s.TotalConnections
+	}
+	return counts, nil
+}
+
+// GetAllTTLMarks returns TTL values for ALL source IPs that have TTL marks
+// Requires pre-configured mangle rules that mark connections with TTL info
+func (c *Client) GetAllTTLMarks() (map[string][]int, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout * 2))
+
+	ttlMarks := make(map[string][]int)
+	ttlMarkNames := []string{"ttl_127", "ttl_63", "ttl_128", "ttl_64", "ttl_126", "ttl_62"}
+	ttlValues := []int{127, 63, 128, 64, 126, 62}
+
+	for i, markName := range ttlMarkNames {
+		c.conn.SetDeadline(time.Now().Add(c.timeout))
+		c.sendWord("/ip/firewall/connection/print")
+		c.sendWord("?connection-mark=" + markName)
+		c.sendWord("")
+
+		response, err := c.readResponse()
+		if err != nil {
+			continue
+		}
+
+		// Extract source IPs that have this TTL mark
+		for _, word := range response {
+			if strings.HasPrefix(word, "=src-address=") {
+				addrPort := strings.TrimPrefix(word, "=src-address=")
+				parts := strings.Split(addrPort, ":")
+				if len(parts) > 0 {
+					ip := parts[0]
+					// Add TTL value if not already present
+					found := false
+					for _, v := range ttlMarks[ip] {
+						if v == ttlValues[i] {
+							found = true
+							break
+						}
+					}
+					if !found {
+						ttlMarks[ip] = append(ttlMarks[ip], ttlValues[i])
+					}
+				}
+			}
+		}
+	}
+
+	return ttlMarks, nil
+}
+
 // GetTTLValues samples TTL values from recent connections for an IP
 // Returns unique TTL values seen for this source IP
 func (c *Client) GetTTLValues(ipAddress string) ([]int, error) {
