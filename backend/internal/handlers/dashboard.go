@@ -1,6 +1,11 @@
 package handlers
 
 import (
+	"bufio"
+	"os"
+	"strconv"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -294,4 +299,167 @@ func (h *DashboardHandler) Sessions(c *fiber.Ctx) error {
 			"totalPages": (total + int64(limit) - 1) / int64(limit),
 		},
 	})
+}
+
+// SystemMetrics returns CPU, Memory, and Disk usage percentages
+func (h *DashboardHandler) SystemMetrics(c *fiber.Ctx) error {
+	metrics := fiber.Map{
+		"cpu_percent":    getCPUPercent(),
+		"memory_percent": getMemoryPercent(),
+		"disk_percent":   getDiskPercent(),
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    metrics,
+	})
+}
+
+// getCPUPercent reads /proc/stat twice with a delay to calculate real-time CPU usage
+func getCPUPercent() float64 {
+	// Try host's /proc/stat first (mounted from host system for accurate VM CPU)
+	procPath := "/host/proc/stat"
+	if _, err := os.Stat(procPath); os.IsNotExist(err) {
+		// Fallback to container's /proc/stat if host mount not available
+		procPath = "/proc/stat"
+	}
+
+	// Take first sample
+	total1, idle1 := readCPUStat(procPath)
+	if total1 == 0 {
+		return 0
+	}
+
+	// Wait 200ms for second sample
+	time.Sleep(200 * time.Millisecond)
+
+	// Take second sample
+	total2, idle2 := readCPUStat(procPath)
+	if total2 == 0 {
+		return 0
+	}
+
+	// Calculate delta
+	totalDelta := total2 - total1
+	idleDelta := idle2 - idle1
+
+	if totalDelta == 0 {
+		return 0
+	}
+
+	// Calculate real-time usage percentage
+	usage := float64(totalDelta-idleDelta) / float64(totalDelta) * 100
+	return roundToOneDecimal(usage)
+}
+
+// readCPUStat reads /proc/stat and returns total and idle CPU times
+func readCPUStat(procPath string) (total, idle uint64) {
+	file, err := os.Open(procPath)
+	if err != nil {
+		return 0, 0
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	if !scanner.Scan() {
+		return 0, 0
+	}
+
+	line := scanner.Text()
+	if !strings.HasPrefix(line, "cpu ") {
+		return 0, 0
+	}
+
+	fields := strings.Fields(line)
+	if len(fields) < 5 {
+		return 0, 0
+	}
+
+	// Parse CPU times: user, nice, system, idle, iowait, irq, softirq, steal
+	user, _ := strconv.ParseUint(fields[1], 10, 64)
+	nice, _ := strconv.ParseUint(fields[2], 10, 64)
+	system, _ := strconv.ParseUint(fields[3], 10, 64)
+	idleTime, _ := strconv.ParseUint(fields[4], 10, 64)
+	iowait := uint64(0)
+	if len(fields) > 5 {
+		iowait, _ = strconv.ParseUint(fields[5], 10, 64)
+	}
+
+	total = user + nice + system + idleTime + iowait
+	idle = idleTime + iowait
+	return total, idle
+}
+
+// getMemoryPercent reads memory usage from host's /proc/meminfo (mounted at /host/proc)
+func getMemoryPercent() float64 {
+	// Try host's /proc/meminfo first (mounted from host system for accurate VM memory)
+	procPath := "/host/proc/meminfo"
+	if _, err := os.Stat(procPath); os.IsNotExist(err) {
+		// Fallback to container's /proc/meminfo if host mount not available
+		procPath = "/proc/meminfo"
+	}
+
+	file, err := os.Open(procPath)
+	if err != nil {
+		return 0
+	}
+	defer file.Close()
+
+	var memTotal, memAvailable uint64
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		value, _ := strconv.ParseUint(fields[1], 10, 64)
+
+		switch fields[0] {
+		case "MemTotal:":
+			memTotal = value
+		case "MemAvailable:":
+			memAvailable = value
+		}
+
+		// We have both values, can calculate
+		if memTotal > 0 && memAvailable > 0 {
+			break
+		}
+	}
+
+	if memTotal == 0 {
+		return 0
+	}
+
+	used := memTotal - memAvailable
+	usage := float64(used) / float64(memTotal) * 100
+	return roundToOneDecimal(usage)
+}
+
+// getDiskPercent uses syscall.Statfs to get disk usage of root filesystem
+func getDiskPercent() float64 {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs("/", &stat)
+	if err != nil {
+		return 0
+	}
+
+	total := stat.Blocks * uint64(stat.Bsize)
+	free := stat.Bfree * uint64(stat.Bsize)
+
+	if total == 0 {
+		return 0
+	}
+
+	used := total - free
+	usage := float64(used) / float64(total) * 100
+	return roundToOneDecimal(usage)
+}
+
+// roundToOneDecimal rounds a float to one decimal place
+func roundToOneDecimal(val float64) float64 {
+	return float64(int(val*10+0.5)) / 10
 }

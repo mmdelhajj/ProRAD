@@ -229,6 +229,7 @@ func main() {
 	protected.Get("/dashboard/transactions", dashboardHandler.RecentTransactions)
 	protected.Get("/dashboard/resellers", dashboardHandler.TopResellers)
 	protected.Get("/dashboard/sessions", dashboardHandler.Sessions)
+	protected.Get("/dashboard/system-metrics", dashboardHandler.SystemMetrics)
 
 	// Subscriber routes
 	subscribers := protected.Group("/subscribers")

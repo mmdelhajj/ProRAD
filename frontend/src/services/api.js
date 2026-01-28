@@ -245,6 +245,7 @@ export const dashboardApi = {
   transactions: (params) => api.get('/dashboard/transactions', { params }),
   resellers: (params) => api.get('/dashboard/resellers', { params }),
   sessions: (params) => api.get('/dashboard/sessions', { params }),
+  systemMetrics: () => api.get('/dashboard/system-metrics'),
 }
 
 export const sessionApi = {

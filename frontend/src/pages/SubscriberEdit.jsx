@@ -1058,8 +1058,8 @@ export default function SubscriberEdit() {
               </div>
             </div>
 
-            {/* Bandwidth Rules - Only show for existing subscribers */}
-            {!isNew && (
+            {/* Bandwidth Rules - Only show for existing subscribers with permission */}
+            {!isNew && hasPermission('subscribers.bandwidth_rules') && (
               <div className="card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bandwidth Rules</h3>

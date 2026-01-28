@@ -779,51 +779,55 @@ export default function Subscribers() {
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Subscribers</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleExport}
             className="btn btn-secondary btn-sm flex items-center gap-1"
+            title="Export"
           >
             <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </button>
           {hasPermission('subscribers.create') && (
             <button
               onClick={() => setShowBulkImport(true)}
               className="btn btn-secondary btn-sm flex items-center gap-1"
+              title="Import CSV"
             >
               <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-              Import CSV
+              <span className="hidden sm:inline">Import CSV</span>
             </button>
           )}
           {hasPermission('subscribers.create') && (
             <Link
               to="/subscribers/import"
               className="btn btn-secondary btn-sm flex items-center gap-1"
+              title="Import Excel"
             >
               <DocumentArrowUpIcon className="w-3.5 h-3.5" />
-              Import Excel
+              <span className="hidden md:inline">Import Excel</span>
             </Link>
           )}
           <button
             onClick={() => refetch()}
             className="btn btn-secondary btn-sm flex items-center gap-1"
+            title="Refresh"
           >
             <ArrowPathIcon className="w-3.5 h-3.5" />
           </button>
           {hasPermission('subscribers.create') && (
             <Link to="/subscribers/new" className="btn btn-primary btn-sm flex items-center gap-1">
               <PlusIcon className="w-3.5 h-3.5" />
-              Add
+              <span className="hidden sm:inline">Add</span>
             </Link>
           )}
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border text-sm">
+      {/* Stats Bar - Scrollable on mobile */}
+      <div className="flex items-center gap-4 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border text-sm overflow-x-auto">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-green-500"></span>
           <span className="font-semibold text-green-600">{stats.online || 0}</span>
@@ -879,16 +883,16 @@ export default function Subscribers() {
       </div>
 
       {/* Search, Filters & Tabs */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         {/* View Mode Tabs */}
-        <div className="flex rounded-lg border bg-gray-100 p-0.5">
+        <div className="flex rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 p-0.5 shrink-0">
           <button
             onClick={() => { setViewMode('active'); setPage(1); clearSelection(); }}
             className={clsx(
               'px-3 py-1 text-sm font-medium rounded-md transition-colors',
               viewMode === 'active'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
             Active
@@ -898,8 +902,8 @@ export default function Subscribers() {
             className={clsx(
               'px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-1',
               viewMode === 'archived'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
             <ArchiveBoxIcon className="w-3.5 h-3.5" />
@@ -908,11 +912,11 @@ export default function Subscribers() {
         </div>
 
         {/* Search */}
-        <div className="flex-1 relative">
-          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+        <div className="flex-1 relative min-w-0">
+          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder="Search username, name, phone, MAC, IP..."
+            placeholder="Search..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -923,14 +927,14 @@ export default function Subscribers() {
         </div>
 
         {viewMode === 'active' && (
-          <>
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value)
                 setPage(1)
               }}
-              className="input input-sm w-32"
+              className="input input-sm w-28 sm:w-32"
             >
               {statusFilters.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -946,7 +950,7 @@ export default function Subscribers() {
               )}
             >
               <FunnelIcon className="w-3.5 h-3.5" />
-              Filters
+              <span className="hidden sm:inline">Filters</span>
             </button>
             <button
               onClick={() => setShowColumnSettings(!showColumnSettings)}
@@ -956,9 +960,9 @@ export default function Subscribers() {
               )}
             >
               <EyeIcon className="w-3.5 h-3.5" />
-              Columns
+              <span className="hidden sm:inline">Columns</span>
             </button>
-          </>
+          </div>
         )}
       </div>
 
@@ -985,14 +989,14 @@ export default function Subscribers() {
           )}
 
           {showFilters && viewMode === 'active' && (
-            <div className={showColumnSettings ? 'mt-3 pt-3 border-t' : ''}>
-              <div className="flex items-center gap-3">
+            <div className={showColumnSettings ? 'mt-3 pt-3 border-t dark:border-gray-700' : ''}>
+              <div className="grid grid-cols-2 sm:flex sm:items-end gap-2 sm:gap-3">
                 <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Service</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Service</label>
                   <select
                     value={serviceId}
                     onChange={(e) => { setServiceId(e.target.value); setPage(1); }}
-                    className="input input-sm w-40"
+                    className="input input-sm w-full sm:w-40"
                   >
                     <option value="">All Services</option>
                     {services?.map((s) => (
@@ -1005,7 +1009,7 @@ export default function Subscribers() {
                   <select
                     value={nasId}
                     onChange={(e) => { setNasId(e.target.value); setPage(1); }}
-                    className="input input-sm w-40"
+                    className="input input-sm w-full sm:w-40"
                   >
                     <option value="">All NAS</option>
                     {nasList?.map((n) => (
@@ -1018,7 +1022,7 @@ export default function Subscribers() {
                   <select
                     value={fupLevel}
                     onChange={(e) => { setFupLevel(e.target.value); setPage(1); }}
-                    className="input input-sm w-32"
+                    className="input input-sm w-full sm:w-32"
                   >
                     <option value="">All FUP</option>
                     <option value="0">FUP 0 (Normal)</option>
@@ -1033,7 +1037,7 @@ export default function Subscribers() {
                   <select
                     value={limit}
                     onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
-                    className="input input-sm w-20"
+                    className="input input-sm w-full sm:w-20"
                   >
                     <option value="10">10</option>
                     <option value="25">25</option>
@@ -1043,7 +1047,7 @@ export default function Subscribers() {
                 </div>
                 <button
                   onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setFupLevel(''); setPage(1); }}
-                  className="btn btn-secondary btn-sm mt-4"
+                  className="btn btn-secondary btn-sm col-span-2 sm:col-span-1"
                 >
                   Clear
                 </button>
@@ -1063,12 +1067,13 @@ export default function Subscribers() {
               'btn btn-sm flex items-center gap-1',
               allSelected ? 'btn-primary' : 'btn-secondary'
             )}
+            title={allSelected ? 'Deselect All' : 'Select All'}
           >
             <Squares2X2Icon className="w-4 h-4" />
-            {allSelected ? 'Deselect All' : 'Select All'}
+            <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
           </button>
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
 
           {/* Bulk Action Buttons - disabled when nothing selected */}
           {hasPermission('subscribers.renew') && (
@@ -1076,9 +1081,10 @@ export default function Subscribers() {
               onClick={() => executeBulkAction('renew')}
               disabled={selectedCount === 0}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Renew"
             >
               <ClockIcon className="w-4 h-4" />
-              Renew
+              <span className="hidden sm:inline">Renew</span>
             </button>
           )}
 
@@ -1087,9 +1093,10 @@ export default function Subscribers() {
               onClick={() => executeBulkAction('reset_fup')}
               disabled={selectedCount === 0}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Reset FUP"
             >
               <ArrowPathIcon className="w-4 h-4" />
-              Reset FUP
+              <span className="hidden sm:inline">Reset FUP</span>
             </button>
           )}
 
@@ -1098,9 +1105,10 @@ export default function Subscribers() {
               onClick={() => executeBulkAction('enable')}
               disabled={selectedCount === 0}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Activate"
             >
               <PlayIcon className="w-4 h-4" />
-              Activate
+              <span className="hidden sm:inline">Activate</span>
             </button>
           )}
 
@@ -1109,9 +1117,10 @@ export default function Subscribers() {
               onClick={() => executeBulkAction('disable')}
               disabled={selectedCount === 0}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Deactivate"
             >
               <PauseIcon className="w-4 h-4" />
-              Deactivate
+              <span className="hidden sm:inline">Deactivate</span>
             </button>
           )}
 
@@ -1120,13 +1129,14 @@ export default function Subscribers() {
               onClick={() => executeBulkAction('disconnect')}
               disabled={selectedCount === 0}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Disconnect"
             >
               <XCircleIcon className="w-4 h-4" />
-              Disconnect
+              <span className="hidden sm:inline">Disconnect</span>
             </button>
           )}
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
 
           {/* Single-select only buttons */}
           {hasPermission('subscribers.rename') && (
@@ -1134,9 +1144,10 @@ export default function Subscribers() {
               onClick={() => executeAction('rename')}
               disabled={selectedCount !== 1}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Rename"
             >
               <IdentificationIcon className="w-4 h-4" />
-              Rename
+              <span className="hidden sm:inline">Rename</span>
             </button>
           )}
 
@@ -1145,9 +1156,10 @@ export default function Subscribers() {
               onClick={() => executeAction('add_days')}
               disabled={selectedCount !== 1}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Add Days"
             >
               <CalendarDaysIcon className="w-4 h-4" />
-              Add Days
+              <span className="hidden sm:inline">Add Days</span>
             </button>
           )}
 
@@ -1156,9 +1168,10 @@ export default function Subscribers() {
               onClick={() => executeAction('change_service')}
               disabled={selectedCount !== 1}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Change Service"
             >
               <ArrowsRightLeftIcon className="w-4 h-4" />
-              Change Service
+              <span className="hidden md:inline">Change Service</span>
             </button>
           )}
 
@@ -1167,9 +1180,10 @@ export default function Subscribers() {
               onClick={() => executeAction('refill')}
               disabled={selectedCount !== 1}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Refill"
             >
               <BanknotesIcon className="w-4 h-4" />
-              Refill
+              <span className="hidden sm:inline">Refill</span>
             </button>
           )}
 
@@ -1178,32 +1192,34 @@ export default function Subscribers() {
               onClick={() => executeAction('ping')}
               disabled={selectedCount !== 1}
               className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Ping"
             >
               <WifiIcon className="w-4 h-4" />
-              Ping
+              <span className="hidden sm:inline">Ping</span>
             </button>
           )}
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
 
           {hasPermission('subscribers.delete') && (
             <button
               onClick={() => executeBulkAction('delete')}
               disabled={selectedCount === 0}
-              className="btn btn-sm flex items-center gap-1 bg-red-50 text-red-600 hover:bg-red-100 border-red-200 disabled:opacity-40"
+              className="btn btn-sm flex items-center gap-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 border-red-200 dark:border-red-800 disabled:opacity-40"
+              title="Delete"
             >
               <TrashIcon className="w-4 h-4" />
-              Delete
+              <span className="hidden sm:inline">Delete</span>
             </button>
           )}
 
           {/* Selection counter */}
           {selectedCount > 0 && (
             <div className="ml-auto flex items-center gap-2 text-sm">
-              <span className="font-semibold text-primary-600">{selectedCount} selected</span>
+              <span className="font-semibold text-primary-600">{selectedCount}</span>
               <button
                 onClick={clearSelection}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>

@@ -988,3 +988,79 @@ Published version includes all fixes from Jan 27-28, 2026:
 - Nginx no-cache for index.html
 - Backup validation
 - System update improvements
+
+### Audit Logs Real IP Fix (Jan 2026)
+- Fixed audit logs showing Docker internal IP (172.18.0.x) instead of real user IP
+- Added `ProxyHeader: "X-Real-IP"` to Fiber config in `cmd/api/main.go`
+- Added `TrustedProxies` for Docker networks (172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16)
+- Now correctly shows user's actual IP address in audit logs
+
+### Dashboard System Metrics (Jan 2026)
+**Added CPU, Memory, HDD usage percentages to dashboard like ProRadius4**
+
+- New endpoint: `GET /api/dashboard/system-metrics`
+- Returns real-time CPU, Memory, and Disk usage percentages
+- Frontend displays 3 metric cards with progress bars
+- Auto-refreshes every 10 seconds
+
+**Files:**
+- `internal/handlers/dashboard.go` - SystemMetrics handler
+- `cmd/api/main.go` - Added route
+- `frontend/src/services/api.js` - Added systemMetrics() function
+- `frontend/src/pages/Dashboard.jsx` - Added SystemMetricCard component
+
+**Technical Details:**
+- **CPU**: Reads `/proc/stat` twice with 200ms delay to calculate real-time usage (not average since boot)
+- **Memory**: Reads `MemTotal` and `MemAvailable` from `/proc/meminfo`
+- **Disk**: Uses `syscall.Statfs` for root filesystem usage
+
+### Proxmox VM Memory Fix (Jan 2026)
+**Fixed memory showing Proxmox host memory instead of VM memory**
+
+- Problem: Container's `/proc/meminfo` was showing Proxmox hypervisor memory (264GB) instead of VM memory (16GB)
+- Solution: Mount host's `/proc` into container at `/host/proc`
+- Code now reads from `/host/proc/meminfo` and `/host/proc/stat` when available
+
+**docker-compose.yml change:**
+```yaml
+volumes:
+  - /proc:/host/proc:ro  # Mount host proc for accurate VM metrics
+```
+
+### Bandwidth Rules Permission (Jan 2026)
+- Added `subscribers.bandwidth_rules` permission for resellers
+- Bandwidth Rules section in subscriber edit page now requires this permission
+- Similar to how Torch permission works
+
+**Files:**
+- `frontend/src/pages/SubscriberEdit.jsx` - Added permission check
+- `internal/models/schema.sql` - Added permission to default list
+- Database: `INSERT INTO permissions (name, description) VALUES ('subscribers.bandwidth_rules', 'Manage subscriber bandwidth rules')`
+
+### Mobile Responsiveness (Jan 2026)
+**Fixed mobile-unfriendly layouts across multiple pages**
+
+**Subscribers Page:**
+- Header buttons: Show only icons on mobile, full text on desktop
+- Stats bar: Horizontal scroll on mobile
+- Search + filters: Stack vertically on mobile
+- Filter dropdowns: Full width on mobile
+- Bulk action buttons: Icons only on mobile with tooltips
+
+**Other Pages Fixed:**
+- Services, Sessions, Resellers, Transactions, NAS - Headers stack on mobile
+
+**CSS Patterns Used:**
+- `flex-col sm:flex-row` - Stack on mobile, row on desktop
+- `hidden sm:inline` - Hide text on mobile
+- `w-full sm:w-auto` - Full width buttons on mobile
+- `overflow-x-auto` - Horizontal scroll for stats
+- Added `title` attributes for icon-only buttons (tooltips)
+
+### v1.0.125 Update (Jan 2026)
+Published version includes all fixes from Jan 28-29, 2026:
+- Audit logs real IP fix
+- Dashboard system metrics (CPU, Memory, HDD)
+- Proxmox VM memory reading fix
+- Bandwidth Rules permission for resellers
+- Mobile responsiveness improvements for all main pages

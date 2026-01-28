@@ -57,6 +57,8 @@ INSERT INTO permissions (name, description) VALUES ('subscribers.ping', 'Ping su
 INSERT INTO permissions (name, description) VALUES ('subscribers.ping_all', 'Ping all subscribers') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_graph', 'View live user graph') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_graph_all', 'View live user graph for all') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.torch', 'View live torch traffic') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.bandwidth_rules', 'Manage subscriber bandwidth rules') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_fup', 'View FUP level in list') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_logs', 'View logs for subscribers') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_logs_all', 'View logs for all subscribers') ON CONFLICT (name) DO NOTHING;

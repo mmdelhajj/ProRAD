@@ -11,8 +11,58 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   ClockIcon,
+  CpuChipIcon,
+  CircleStackIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
+
+function SystemMetricCard({ title, value, icon: Icon, color = 'blue' }) {
+  const colorClasses = {
+    blue: {
+      bg: 'bg-blue-500',
+      track: 'bg-blue-100 dark:bg-blue-900/30',
+      text: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-50 dark:bg-blue-900/50',
+    },
+    green: {
+      bg: 'bg-green-500',
+      track: 'bg-green-100 dark:bg-green-900/30',
+      text: 'text-green-600 dark:text-green-400',
+      iconBg: 'bg-green-50 dark:bg-green-900/50',
+    },
+    purple: {
+      bg: 'bg-purple-500',
+      track: 'bg-purple-100 dark:bg-purple-900/30',
+      text: 'text-purple-600 dark:text-purple-400',
+      iconBg: 'bg-purple-50 dark:bg-purple-900/50',
+    },
+  }
+
+  const colors = colorClasses[color]
+  const percentage = value || 0
+
+  return (
+    <div className="stat-card">
+      <div className="flex items-center gap-4">
+        <div className={clsx('p-3 rounded-xl', colors.iconBg)}>
+          <Icon className={clsx('w-6 h-6', colors.text)} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+          <div className="flex items-center gap-3 mt-1">
+            <div className={clsx('flex-1 h-2.5 rounded-full', colors.track)}>
+              <div
+                className={clsx('h-2.5 rounded-full transition-all duration-500', colors.bg)}
+                style={{ width: `${Math.min(percentage, 100)}%` }}
+              />
+            </div>
+            <span className={clsx('text-lg font-bold', colors.text)}>{percentage}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function StatCard({ title, value, icon: Icon, trend, color = 'primary' }) {
   const colors = {
@@ -71,6 +121,12 @@ export default function Dashboard() {
   const { data: transactions } = useQuery({
     queryKey: ['dashboard-transactions'],
     queryFn: () => dashboardApi.transactions({ limit: 5 }).then((r) => r.data.data),
+  })
+
+  const { data: systemMetrics } = useQuery({
+    queryKey: ['dashboard-system-metrics'],
+    queryFn: () => dashboardApi.systemMetrics().then((r) => r.data.data),
+    refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
   })
 
   const lineChartOption = {
@@ -217,6 +273,28 @@ export default function Dashboard() {
           value={stats?.total_resellers?.toLocaleString() || 0}
           icon={UsersIcon}
           color="primary"
+        />
+      </div>
+
+      {/* System Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SystemMetricCard
+          title="CPU"
+          value={systemMetrics?.cpu_percent}
+          icon={CpuChipIcon}
+          color="blue"
+        />
+        <SystemMetricCard
+          title="Memory"
+          value={systemMetrics?.memory_percent}
+          icon={ServerIcon}
+          color="green"
+        />
+        <SystemMetricCard
+          title="HDD"
+          value={systemMetrics?.disk_percent}
+          icon={CircleStackIcon}
+          color="purple"
         />
       </div>
 
