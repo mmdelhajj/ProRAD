@@ -1040,8 +1040,9 @@ func isWithinTimeWindow(service *models.Service, now time.Time) bool {
 	if !service.TimeBasedSpeedEnabled {
 		return false
 	}
-	// Skip if ratios are both 100 (no change) or time window not configured
-	if service.TimeDownloadRatio == 100 && service.TimeUploadRatio == 100 {
+	// Skip if ratios are both 0 (no boost) or time window not configured
+	// Ratio is a BOOST percentage: 100% = double speed, 200% = triple speed, 0% = no change
+	if service.TimeDownloadRatio == 0 && service.TimeUploadRatio == 0 {
 		return false
 	}
 	if service.TimeFromHour == 0 && service.TimeFromMinute == 0 &&
@@ -1126,12 +1127,14 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 	}
 
 	if inTimeWindow && !wasApplied {
-		// Apply time-based speed ratio to base speed
-		downloadK := baseDownloadK * int64(service.TimeDownloadRatio) / 100
-		uploadK := baseUploadK * int64(service.TimeUploadRatio) / 100
+		// Apply time-based speed BOOST to base speed
+		// Ratio is a BOOST percentage: 100% = double speed, 200% = triple, 0% = no change
+		// Formula: base_speed * (100 + boost_percent) / 100
+		downloadK := baseDownloadK * (100 + int64(service.TimeDownloadRatio)) / 100
+		uploadK := baseUploadK * (100 + int64(service.TimeUploadRatio)) / 100
 		rateLimit := fmt.Sprintf("%dk/%dk", uploadK, downloadK)
 
-		log.Printf("TimeSpeed: Applying time-based speed for %s (%02d:%02d-%02d:%02d, ratio: dl=%d%% ul=%d%%, FUP=%d) -> %s",
+		log.Printf("TimeSpeed: Applying time-based speed BOOST for %s (%02d:%02d-%02d:%02d, boost: dl=+%d%% ul=+%d%%, FUP=%d) -> %s",
 			sub.Username,
 			service.TimeFromHour, service.TimeFromMinute,
 			service.TimeToHour, service.TimeToMinute,

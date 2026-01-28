@@ -66,8 +66,8 @@ export default function Services() {
     time_to_hour: '12',
     time_to_minute: '0',
     time_to_ampm: 'AM',
-    time_download_ratio: '100',
-    time_upload_ratio: '100',
+    time_download_ratio: '0',
+    time_upload_ratio: '0',
     // MikroTik/RADIUS settings
     pool_name: '',
     address_list_in: '',
@@ -137,7 +137,7 @@ export default function Services() {
           time_from_minute: parseInt(sc.time_from_minute) || 0,
           time_to_hour: toHour24,
           time_to_minute: parseInt(sc.time_to_minute) || 0,
-          time_speed_ratio: parseInt(sc.time_speed_ratio) || 100,
+          time_speed_ratio: parseInt(sc.time_speed_ratio) || 0,
         }
       })
 
@@ -229,8 +229,8 @@ export default function Services() {
         })(),
         time_to_minute: service.time_to_minute?.toString() || '0',
         time_to_ampm: (service.time_to_hour || 0) >= 12 ? 'PM' : 'AM',
-        time_download_ratio: service.time_download_ratio?.toString() || '100',
-        time_upload_ratio: service.time_upload_ratio?.toString() || '100',
+        time_download_ratio: service.time_download_ratio?.toString() || '0',
+        time_upload_ratio: service.time_upload_ratio?.toString() || '0',
         pool_name: service.pool_name || '',
         address_list_in: service.address_list_in || '',
         address_list_out: service.address_list_out || '',
@@ -281,8 +281,8 @@ export default function Services() {
         time_to_hour: '12',
         time_to_minute: '0',
         time_to_ampm: 'AM',
-        time_download_ratio: '100',
-        time_upload_ratio: '100',
+        time_download_ratio: '0',
+        time_upload_ratio: '0',
         pool_name: '',
         address_list_in: '',
         address_list_out: '',
@@ -315,7 +315,7 @@ export default function Services() {
             time_to_hour: toHour24 === 0 ? 12 : (toHour24 > 12 ? toHour24 - 12 : toHour24),
             time_to_minute: sc.time_to_minute || 0,
             time_to_ampm: toHour24 >= 12 ? 'PM' : 'AM',
-            time_speed_ratio: sc.time_speed_ratio || 100,
+            time_speed_ratio: sc.time_speed_ratio || 0,
           }
         }))
         setCdnsLoaded(true)
@@ -393,8 +393,8 @@ export default function Services() {
         return h
       })(),
       time_to_minute: parseInt(formData.time_to_minute) || 0,
-      time_download_ratio: parseInt(formData.time_download_ratio) || 100,
-      time_upload_ratio: parseInt(formData.time_upload_ratio) || 100,
+      time_download_ratio: parseInt(formData.time_download_ratio) || 0,
+      time_upload_ratio: parseInt(formData.time_upload_ratio) || 0,
     }
     saveMutation.mutate(data)
   }
@@ -1019,7 +1019,7 @@ export default function Services() {
                     </label>
                   </div>
                   <p className="text-sm text-gray-500 mb-4">
-                    Automatically apply different speed during specified hours. Set ratio to 100 for no change, 200 for double speed, 50 for half speed.
+                    Automatically BOOST speed during specified hours. Set ratio to 0% for no boost, 100% for double speed, 200% for triple speed.
                   </p>
 
                   <div className={`grid grid-cols-2 gap-4 mb-4 ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -1097,7 +1097,7 @@ export default function Services() {
 
                   <div className={`grid grid-cols-2 gap-4 p-3 bg-indigo-50 rounded-lg ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
-                      <label className="label text-indigo-700">Download Ratio (%)</label>
+                      <label className="label text-indigo-700">Download Boost (%)</label>
                       <input
                         type="number"
                         name="time_download_ratio"
@@ -1109,7 +1109,7 @@ export default function Services() {
                       />
                     </div>
                     <div>
-                      <label className="label text-indigo-700">Upload Ratio (%)</label>
+                      <label className="label text-indigo-700">Upload Boost (%)</label>
                       <input
                         type="number"
                         name="time_upload_ratio"

@@ -854,3 +854,44 @@ SELECT username, value FROM radreply WHERE attribute = 'Mikrotik-Rate-Limit';
   - "2000" (plain number) → "2000k"
   - "2000k" → "2000k" (unchanged)
 - Applied to download_speed_str, upload_speed_str, burst fields when saving services
+
+### Time-Based Speed Boost Formula Fix (Jan 2026)
+**Changed time-based speed from "ratio" to "boost percentage"**
+
+**Old behavior (confusing):**
+- 100% = same speed (no change)
+- 200% = double speed
+- 300% = triple speed
+
+**New behavior (intuitive):**
+- 0% = same speed (no boost)
+- 100% = double speed (base + 100% boost)
+- 200% = triple speed (base + 200% boost)
+
+**Formula change:**
+```go
+// OLD: speed * ratio / 100
+downloadK := baseDownloadK * int64(service.TimeDownloadRatio) / 100
+
+// NEW: speed * (100 + boost) / 100
+downloadK := baseDownloadK * (100 + int64(service.TimeDownloadRatio)) / 100
+```
+
+**Files changed:**
+- `internal/services/quota_sync.go`: Updated formula and skip condition (check for 0 instead of 100)
+- `internal/radius/server.go`: Updated isWithinTimeWindow skip condition
+- `frontend/src/pages/Services.jsx`:
+  - Changed labels from "Ratio" to "Boost"
+  - Updated help text to explain boost percentage
+  - Changed default values from 100 to 0
+
+**Example:**
+| Base Speed | Boost % | Result |
+|------------|---------|--------|
+| 4000k | 0% | 4000k (same) |
+| 4000k | 100% | 8000k (double) |
+| 4000k | 200% | 12000k (triple) |
+
+**Migration:** Services with old ratio values need manual update:
+- Old 200% (double) → New 100%
+- Old 300% (triple) → New 200%

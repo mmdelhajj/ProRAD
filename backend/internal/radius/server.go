@@ -633,8 +633,9 @@ func (s *Server) logPostAuth(username, callingStationID, reply string) {
 
 // isWithinTimeWindow checks if the current time falls within the service's time-based speed window (FREE time)
 func isWithinTimeWindow(service *models.Service, now time.Time) bool {
-	// Skip if ratios are both 100 (no change) or time window not configured
-	if service.TimeDownloadRatio == 100 && service.TimeUploadRatio == 100 {
+	// Skip if ratios are both 0 (no boost) or time window not configured
+	// Ratio is a BOOST percentage: 100% = double speed, 200% = triple speed, 0% = no change
+	if service.TimeDownloadRatio == 0 && service.TimeUploadRatio == 0 {
 		return false
 	}
 	if service.TimeFromHour == 0 && service.TimeFromMinute == 0 &&
