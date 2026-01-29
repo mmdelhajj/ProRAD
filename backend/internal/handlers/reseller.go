@@ -196,9 +196,9 @@ func (h *ResellerHandler) Create(c *fiber.Ctx) error {
 	// Use the determined name
 	req.Name = resellerName
 
-	// Check if username exists
+	// Check if username exists (including soft-deleted to prevent conflicts)
 	var existingCount int64
-	database.DB.Model(&models.User{}).Where("username = ?", req.Username).Count(&existingCount)
+	database.DB.Unscoped().Model(&models.User{}).Where("username = ?", req.Username).Count(&existingCount)
 	if existingCount > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,

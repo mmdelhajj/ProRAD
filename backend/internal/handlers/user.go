@@ -125,9 +125,9 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if username exists
+	// Check if username exists (including soft-deleted to prevent conflicts)
 	var exists int64
-	database.DB.Model(&models.User{}).Where("username = ?", req.Username).Count(&exists)
+	database.DB.Unscoped().Model(&models.User{}).Where("username = ?", req.Username).Count(&exists)
 	if exists > 0 {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"success": false,

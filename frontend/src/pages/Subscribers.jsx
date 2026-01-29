@@ -679,7 +679,7 @@ export default function Subscribers() {
           return (
             <div className="min-w-[120px]">
               <div className="text-center font-medium text-sm">{serviceName}</div>
-              <div className="w-full bg-gray-200 rounded-full h-4 mt-1 relative border border-gray-300 dark:border-gray-600">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mt-1 relative border border-gray-300 dark:border-gray-600">
                 <div
                   className={`h-full rounded-full transition-all ${
                     percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
@@ -716,10 +716,10 @@ export default function Subscribers() {
           const daysLeft = Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24))
           return (
             <div>
-              <div className={clsx(isExpired ? 'text-red-600' : 'text-gray-900', 'text-sm')}>
+              <div className={clsx(isExpired ? 'text-red-600' : 'text-gray-900 dark:text-white', 'text-sm')}>
                 {formatDate(row.original.expiry_date)}
               </div>
-              <div className={clsx('text-xs', isExpired ? 'text-red-500' : 'text-gray-500')}>
+              <div className={clsx('text-xs', isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400')}>
                 {isExpired ? `${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
               </div>
             </div>
@@ -733,20 +733,20 @@ export default function Subscribers() {
           const used = row.original.monthly_quota_used || 0
           const limit = row.original.service?.monthly_quota || 0
 
-          if (limit === 0) return <span className="text-gray-400 text-xs">Unlimited</span>
+          if (limit === 0) return <span className="text-gray-400 dark:text-gray-500 text-xs">Unlimited</span>
           const percent = Math.min(100, (used / limit) * 100)
           const usedFormatted = formatBytes(used)
 
           return (
             <div className="min-w-[80px]">
-              <div className="w-full bg-gray-200 rounded-full h-3 relative border border-gray-300 dark:border-gray-600">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 relative border border-gray-300 dark:border-gray-600">
                 <div
                   className={`h-full rounded-full ${
                     percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
                   }`}
                   style={{ width: `${Math.min(100, percent)}%` }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium">
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-gray-800 dark:text-gray-200">
                   {usedFormatted}
                 </span>
               </div>
