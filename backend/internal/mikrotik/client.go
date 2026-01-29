@@ -486,32 +486,47 @@ func (c *Client) GetActiveSession(username string) (*ActiveSession, error) {
 		}
 	}
 
-	// Fallback: try interface stats
+	// Fallback: try interface stats with different name formats
 	if session.RxBytes == 0 && session.TxBytes == 0 {
-		interfaceName := "<pppoe-" + username + ">"
-		c.conn.SetDeadline(time.Now().Add(c.timeout))
-		c.sendWord("/interface/print")
-		c.sendWord("?name=" + interfaceName)
-		c.sendWord("")
+		fallbackInterfaceNames := []string{
+			"<pppoe-" + username + ">",
+			"<pppoe-" + username + "-1>",
+			"<pppoe-" + username + "-2>",
+		}
+		for _, interfaceName := range fallbackInterfaceNames {
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/interface/print")
+			c.sendWord("?name=" + interfaceName)
+			c.sendWord("")
 
-		response, err = c.readResponse()
-		if err == nil {
-			for _, word := range response {
-				if strings.HasPrefix(word, "=rx-byte=") {
-					val := strings.TrimPrefix(word, "=rx-byte=")
-					session.RxBytes, _ = strconv.ParseInt(val, 10, 64)
-				} else if strings.HasPrefix(word, "=tx-byte=") {
-					val := strings.TrimPrefix(word, "=tx-byte=")
-					session.TxBytes, _ = strconv.ParseInt(val, 10, 64)
+			response, err = c.readResponse()
+			if err == nil {
+				for _, word := range response {
+					if strings.HasPrefix(word, "=rx-byte=") {
+						val := strings.TrimPrefix(word, "=rx-byte=")
+						session.RxBytes, _ = strconv.ParseInt(val, 10, 64)
+					} else if strings.HasPrefix(word, "=tx-byte=") {
+						val := strings.TrimPrefix(word, "=tx-byte=")
+						session.TxBytes, _ = strconv.ParseInt(val, 10, 64)
+					}
+				}
+				if session.RxBytes > 0 || session.TxBytes > 0 {
+					break // Found data, stop trying
 				}
 			}
 		}
 	}
 
 	// Try different interface name formats for PPPoE
+	// MikroTik creates dynamic interfaces with -1, -2, etc. suffixes
 	interfaceNames := []string{
 		"<pppoe-" + username + ">",
+		"<pppoe-" + username + "-1>",
+		"<pppoe-" + username + "-2>",
+		"<pppoe-" + username + "-3>",
 		"pppoe-" + username,
+		"pppoe-" + username + "-1",
+		"pppoe-" + username + "-2",
 		username,
 	}
 
@@ -707,15 +722,32 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 	}
 
 	// Find the main PPPoE queue (matches target but has NO dst - not a CDN queue)
+	// Also try matching with -1, -2, -3 suffixes for dynamic PPPoE queues
+	interfaceTargets := []string{
+		interfaceTarget,                              // <pppoe-username>
+		"<pppoe-" + username + "-1>",                 // <pppoe-username-1>
+		"<pppoe-" + username + "-2>",                 // <pppoe-username-2>
+		"<pppoe-" + username + "-3>",                 // <pppoe-username-3>
+	}
 	for _, q := range queues {
 		// Skip CDN queues (they have dst set)
 		if q.dst != "" {
 			continue
 		}
-		// Match by name (exact interface name) or by target
-		if q.name == interfaceTarget || q.target == interfaceTarget || (ipTarget != "" && q.target == ipTarget) {
+		// Match by name or target against all possible interface formats
+		for _, target := range interfaceTargets {
+			if q.name == target || q.target == target {
+				queueID = q.id
+				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s", q.id, q.name, q.target, username)
+				break
+			}
+		}
+		// Also match by IP target
+		if queueID == "" && ipTarget != "" && q.target == ipTarget {
 			queueID = q.id
-			log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s", q.id, q.name, q.target, username)
+			log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s via IP", q.id, q.name, q.target, username)
+		}
+		if queueID != "" {
 			break
 		}
 	}

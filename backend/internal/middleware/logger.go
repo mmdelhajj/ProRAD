@@ -19,9 +19,43 @@ type RateLimitEntry struct {
 }
 
 var (
-	rateLimitMap   = make(map[string]*RateLimitEntry)
-	rateLimitMutex sync.RWMutex
+	rateLimitMap       = make(map[string]*RateLimitEntry)
+	rateLimitMutex     sync.RWMutex
+	rateLimitCleanupOnce sync.Once
 )
+
+// startRateLimitCleanup starts a background goroutine to clean up expired rate limit entries
+// This prevents unbounded memory growth from stale IP entries
+func startRateLimitCleanup() {
+	rateLimitCleanupOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(2 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				cleanupExpiredRateLimits()
+			}
+		}()
+	})
+}
+
+// cleanupExpiredRateLimits removes rate limit entries that have expired
+func cleanupExpiredRateLimits() {
+	rateLimitMutex.Lock()
+	defer rateLimitMutex.Unlock()
+
+	now := time.Now()
+	expiredCount := 0
+	for ip, entry := range rateLimitMap {
+		// Remove entries that expired more than 1 minute ago
+		if now.After(entry.ResetTime.Add(1 * time.Minute)) {
+			delete(rateLimitMap, ip)
+			expiredCount++
+		}
+	}
+	if expiredCount > 0 {
+		log.Printf("Rate limiter cleanup: removed %d expired entries, %d remaining", expiredCount, len(rateLimitMap))
+	}
+}
 
 // getRateLimitSetting gets rate limit from settings
 func getRateLimitSetting() int {
@@ -136,7 +170,11 @@ func isAllowedOrigin(origin string) bool {
 }
 
 // RateLimiter middleware for rate limiting (simple implementation)
+// Includes automatic cleanup of expired entries to prevent memory leaks
 func RateLimiter(maxRequests int, window time.Duration) fiber.Handler {
+	// Start cleanup goroutine (only once)
+	startRateLimitCleanup()
+
 	return func(c *fiber.Ctx) error {
 		ip := c.IP()
 

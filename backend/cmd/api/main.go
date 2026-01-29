@@ -296,6 +296,7 @@ func main() {
 	resellers.Post("/", middleware.ResellerOrAdmin(), resellerHandler.Create)
 	resellers.Put("/:id", middleware.ResellerOrAdmin(), resellerHandler.Update)
 	resellers.Delete("/:id", middleware.AdminOnly(), resellerHandler.Delete)
+	resellers.Delete("/:id/permanent", middleware.AdminOnly(), resellerHandler.PermanentDelete)
 	resellers.Post("/:id/transfer", middleware.ResellerOrAdmin(), resellerHandler.Transfer)
 	resellers.Post("/:id/withdraw", middleware.ResellerOrAdmin(), resellerHandler.Withdraw)
 	resellers.Post("/:id/impersonate", middleware.AdminOnly(), resellerHandler.Impersonate)

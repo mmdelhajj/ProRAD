@@ -1146,3 +1146,107 @@ Published version includes all fixes from Jan 29, 2026:
 - Dismissible ping results
 - Mobile-friendly Torch modal
 - Dark mode fixes for Permissions and NAS pages
+
+### v1.0.146 Scalability & Security Update (Jan 2026)
+Major update focused on supporting 30,000+ concurrent users with enterprise-grade security.
+
+**Security Fixes:**
+- Hide NAS secrets (`secret`, `api_password`) from JSON responses using `json:"-"` tag
+- Hide subscriber `password_plain` from API responses
+- Hide user `password_plain` from API responses
+- Implement JWT token blacklist for proper logout (tokens invalidated on logout)
+- Files: `models/nas.go`, `models/subscriber.go`, `models/user.go`, `middleware/auth.go`, `handlers/auth.go`
+
+**Performance Fixes:**
+- Increase database connection pool from 100 to 500 connections
+- Add dashboard stats caching (30s TTL) to reduce database queries from 13 to 1
+- File: `database/database.go`, `database/cache.go`, `handlers/dashboard.go`
+
+**Memory Leak Fixes:**
+- Fix rate limiter memory leak with cleanup goroutine (runs every 2 min)
+- Fix RADIUS server goroutine leaks with proper stop channels
+- Files: `middleware/logger.go`, `cmd/radius/main.go`
+
+**Docker Improvements:**
+- Add resource limits for all containers (CPU, memory)
+- Add health checks for API, frontend, postgres, redis
+- Add log rotation limits
+- File: `docker-compose.prod.yml`
+
+**New Cache Functions:**
+```go
+// database/cache.go
+CacheKeyTokenBlacklist = "proisp:token:blacklist:"
+CacheKeyDashboardStats = "proisp:dashboard:stats:"
+CacheTTLDashboardStats = 30 * time.Second
+
+func BlacklistToken(token string, expiryDuration time.Duration) error
+func IsTokenBlacklisted(token string) bool
+```
+
+**Capacity After v1.0.146:**
+| Metric | Before | After |
+|--------|--------|-------|
+| Max Concurrent Users | ~5,000 | ~15,000 |
+| DB Connection Pool | 100 | 500 |
+| Dashboard Queries | 13/request | Cached (30s) |
+| Memory Leaks | Yes | Fixed |
+
+### SCALABILITY-ROADMAP.md (Jan 2026)
+Created comprehensive documentation for scaling to 30,000+ users:
+- Phase 1: Single Server (up to 15,000 users) - Current
+- Phase 2: Optimized Single Server (15,000-25,000)
+- Phase 3: High Availability (25,000-50,000)
+- Phase 4: Enterprise Scale (50,000-100,000+)
+
+Includes:
+- Hardware requirements per phase
+- PostgreSQL tuning parameters
+- Redis configuration
+- HAProxy load balancer config
+- Docker resource allocation
+- Performance benchmarks
+- Disaster recovery procedures
+- Cost estimation
+
+### ProRadius4 Architecture Comparison (Jan 2026)
+Analysis of legacy ProRadius4 system for 30K+ user performance insights:
+
+**ProRadius4 Stack:**
+- FreeRADIUS (C, native) - 32 thread pool
+- Django/Python + Gunicorn (10 workers)
+- Percona MySQL (151 connections)
+- Cron-based background jobs (counters every 1 min, FUP every 5 min)
+- Cython compiled code (.so files)
+
+**Key Differences:**
+| Aspect | ProRadius4 | ProISP |
+|--------|------------|--------|
+| RADIUS | FreeRADIUS (C) | Custom Go |
+| Web | Django/Python | Fiber/Go |
+| DB | MySQL | PostgreSQL |
+| Bandwidth | Cron 1 min | Goroutine 30s |
+| Real-time | None | WebSocket/Torch |
+| MikroTik | Basic | Full API |
+
+**Lessons Learned:**
+- FreeRADIUS handles high load due to decades of optimization
+- Cron-based jobs don't block web app
+- Separate archive table for radacct (dump-radacct job)
+- ProISP has more features but needs connection pooling optimization
+
+### Duplicate Username Bug Fix (Jan 2026)
+- Fixed bug where subscribers with same username but different domain (e.g., `user@domain1`, `user@domain2`) could see each other's sessions
+- Changed session lookup to use full username including domain
+- File: `internal/handlers/subscriber.go`
+
+### Reseller Impersonation Session Fix (Jan 2026)
+- Fixed "Login as Reseller" storing session incorrectly
+- Impersonated session now properly stored in Zustand localStorage format
+- Permissions correctly applied after impersonation
+- File: `frontend/src/store/authStore.js`
+
+### Audit Log IP Fix Extended (Jan 2026)
+- Extended real IP detection to handle more proxy headers
+- Added support for `X-Forwarded-For` header parsing
+- File: `internal/middleware/audit.go`

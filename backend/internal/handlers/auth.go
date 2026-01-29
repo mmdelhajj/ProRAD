@@ -197,6 +197,21 @@ func getResellerPermissions(resellerID uint) []string {
 	return permissions
 }
 
+// getUserPermissions returns the list of permission names for a user based on their permission_group
+func getUserPermissions(permissionGroupID *uint) []string {
+	if permissionGroupID == nil {
+		return nil
+	}
+
+	var permissions []string
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", *permissionGroupID).
+		Pluck("name", &permissions)
+
+	return permissions
+}
+
 // Login handles user login
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	clientIP := c.IP()
@@ -328,6 +343,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		permissions = getResellerPermissions(*user.ResellerID)
 	}
 
+	// Get permissions for non-reseller users (support, collector, readonly) based on their permission_group
+	if user.UserType != models.UserTypeReseller && user.UserType != models.UserTypeAdmin {
+		permissions = getUserPermissions(user.PermissionGroup)
+	}
+
 	return c.JSON(LoginResponse{
 		Success:             true,
 		Token:               token,
@@ -365,7 +385,21 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 		database.DB.Create(&auditLog)
 	}
 
-	// TODO: Add token to blacklist in Redis
+	// Add token to blacklist in Redis
+	// This prevents the token from being used after logout
+	authHeader := c.Get("Authorization")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			token := parts[1]
+			// Blacklist token for the remaining JWT expiry duration (default 168 hours = 7 days)
+			expiryDuration := time.Duration(h.cfg.JWTExpireHours) * time.Hour
+			if err := database.BlacklistToken(token, expiryDuration); err != nil {
+				// Log error but don't fail logout
+				// Token will still expire naturally
+			}
+		}
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -395,21 +429,27 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 		}
 	}
 
+	// Get permissions for non-reseller users (support, collector, readonly) based on their permission_group
+	if user.UserType != models.UserTypeReseller && user.UserType != models.UserTypeAdmin {
+		permissions = getUserPermissions(user.PermissionGroup)
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"user": fiber.Map{
-			"id":          user.ID,
-			"username":    user.Username,
-			"email":       user.Email,
-			"full_name":   user.FullName,
-			"phone":       user.Phone,
-			"user_type":   user.UserType,
-			"reseller_id": user.ResellerID,
-			"reseller":    reseller,
-			"is_active":   user.IsActive,
-			"last_login":  user.LastLogin,
-			"created_at":  user.CreatedAt,
-			"permissions": permissions,
+			"id":               user.ID,
+			"username":         user.Username,
+			"email":            user.Email,
+			"full_name":        user.FullName,
+			"phone":            user.Phone,
+			"user_type":        user.UserType,
+			"reseller_id":      user.ResellerID,
+			"reseller":         reseller,
+			"is_active":        user.IsActive,
+			"last_login":       user.LastLogin,
+			"created_at":       user.CreatedAt,
+			"permissions":      permissions,
+			"permission_group": user.PermissionGroup,
 		},
 	})
 }

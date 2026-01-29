@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { subscriberApi, serviceApi, nasApi } from '../services/api'
+import { subscriberApi, serviceApi, nasApi, resellerApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { formatDate } from '../utils/timezone'
 import {
@@ -95,6 +95,7 @@ export default function Subscribers() {
   const [status, setStatus] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [nasId, setNasId] = useState('')
+  const [resellerId, setResellerId] = useState('')
   const [fupLevel, setFupLevel] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [sorting, setSorting] = useState([])
@@ -103,23 +104,44 @@ export default function Subscribers() {
   // Selected rows - stores subscriber IDs
   const [selectedIds, setSelectedIds] = useState(new Set())
 
-  // Column visibility
-  const [visibleColumns, setVisibleColumns] = useState({
-    username: true,
-    full_name: true,
-    phone: true,
-    mac_address: true,
-    ip_address: true,
-    service: true,
-    status: true,
-    expiry_date: true,
-    daily_quota: true,
-    monthly_quota: true,
-    balance: false,
-    address: false,
-    region: false,
+  // Column visibility - load from localStorage
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const defaultColumns = {
+      username: true,
+      full_name: true,
+      phone: true,
+      mac_address: true,
+      ip_address: true,
+      service: true,
+      status: true,
+      expiry_date: true,
+      daily_quota: true,
+      monthly_quota: true,
+      balance: false,
+      address: false,
+      region: false,
+      notes: false,
+    }
+    try {
+      const saved = localStorage.getItem('subscriberColumns')
+      if (saved) {
+        return { ...defaultColumns, ...JSON.parse(saved) }
+      }
+    } catch (e) {
+      console.error('Failed to load column settings:', e)
+    }
+    return defaultColumns
   })
   const [showColumnSettings, setShowColumnSettings] = useState(false)
+
+  // Save column visibility to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('subscriberColumns', JSON.stringify(visibleColumns))
+    } catch (e) {
+      console.error('Failed to save column settings:', e)
+    }
+  }, [visibleColumns])
 
   // Modal states
   const [showBulkImport, setShowBulkImport] = useState(false)
@@ -148,13 +170,13 @@ export default function Subscribers() {
 
   // Fetch subscribers
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, fupLevel, viewMode],
+    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, resellerId, fupLevel, viewMode],
     queryFn: () => {
       if (viewMode === 'archived') {
         return subscriberApi.listArchived({ page, limit, search }).then((r) => r.data)
       }
       return subscriberApi
-        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId, fup_level: fupLevel })
+        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId, reseller_id: resellerId, fup_level: fupLevel })
         .then((r) => r.data)
     },
   })
@@ -167,6 +189,11 @@ export default function Subscribers() {
   const { data: nasList } = useQuery({
     queryKey: ['nas-list'],
     queryFn: () => nasApi.list().then((r) => r.data.data),
+  })
+
+  const { data: resellers } = useQuery({
+    queryKey: ['resellers-list'],
+    queryFn: () => resellerApi.list().then((r) => r.data.data),
   })
 
   // Get selected subscribers
@@ -769,6 +796,15 @@ export default function Subscribers() {
         accessorKey: 'region',
         header: 'Region',
       }] : []),
+      ...(visibleColumns.notes ? [{
+        accessorKey: 'note',
+        header: 'Notes',
+        cell: ({ row }) => (
+          <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[150px] block" title={row.original.note}>
+            {row.original.note || '-'}
+          </span>
+        ),
+      }] : []),
       ...(viewMode === 'archived' ? [{
         accessorKey: 'deleted_at',
         header: 'Deleted At',
@@ -1037,6 +1073,19 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Reseller</label>
+                  <select
+                    value={resellerId}
+                    onChange={(e) => { setResellerId(e.target.value); setPage(1); }}
+                    className="input input-sm w-full sm:w-40"
+                  >
+                    <option value="">All Resellers</option>
+                    {resellers?.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="text-xs text-gray-500 dark:text-gray-400">FUP Level</label>
                   <select
                     value={fupLevel}
@@ -1065,7 +1114,7 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <button
-                  onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setFupLevel(''); setPage(1); }}
+                  onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setResellerId(''); setFupLevel(''); setPage(1); }}
                   className="btn btn-secondary btn-sm col-span-2 sm:col-span-1"
                 >
                   Clear

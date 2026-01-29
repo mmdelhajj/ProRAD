@@ -122,8 +122,10 @@ export const useAuthStore = create(
         if (!user) return false
         // Admin has all permissions
         if (user.user_type === 'admin') return true
-        // Reseller with no permission group has all permissions (default)
-        if (!user.permissions || user.permissions.length === 0) return true
+        // Reseller with no permission group has all permissions (backward compatibility)
+        if (user.user_type === 'reseller' && (!user.permissions || user.permissions.length === 0)) return true
+        // Other users (support, collector, readonly) with no permissions array = no access
+        if (!user.permissions || user.permissions.length === 0) return false
         // Check if permission exists in user's permissions
         return user.permissions.includes(permission)
       },
@@ -133,7 +135,10 @@ export const useAuthStore = create(
         const user = get().user
         if (!user) return false
         if (user.user_type === 'admin') return true
-        if (!user.permissions || user.permissions.length === 0) return true
+        // Reseller with no permission group has all permissions (backward compatibility)
+        if (user.user_type === 'reseller' && (!user.permissions || user.permissions.length === 0)) return true
+        // Other users (support, collector, readonly) with no permissions array = no access
+        if (!user.permissions || user.permissions.length === 0) return false
         return permissions.some(p => user.permissions.includes(p))
       },
 

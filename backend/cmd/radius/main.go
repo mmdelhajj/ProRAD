@@ -63,29 +63,46 @@ func main() {
 
 	log.Printf("RADIUS server started (auth: %d, acct: %d)", cfg.RadiusAuthPort, cfg.RadiusAcctPort)
 
-	// Periodically reload NAS secrets
+	// Create stop channel for graceful shutdown of background goroutines
+	stopChan := make(chan struct{})
+
+	// Periodically reload NAS secrets - with proper cleanup
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
-		for range ticker.C {
-			if err := server.LoadSecrets(); err != nil {
-				log.Printf("Failed to reload secrets: %v", err)
+		defer ticker.Stop() // Prevent goroutine leak
+		for {
+			select {
+			case <-ticker.C:
+				if err := server.LoadSecrets(); err != nil {
+					log.Printf("Failed to reload secrets: %v", err)
+				}
+			case <-stopChan:
+				log.Println("Secrets reload goroutine stopped")
+				return
 			}
 		}
 	}()
 
-	// Periodic license check - every hour
+	// Periodic license check - every hour - with proper cleanup
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
-		for range ticker.C {
-			if err := license.Revalidate(); err != nil {
-				log.Printf("License revalidation failed: %v", err)
-			}
-			if !license.IsValid() {
-				log.Fatalf("License invalid - RADIUS shutting down")
-			}
-			// Also check binary expiry
-			if err := checkBinaryExpiry(); err != nil {
-				log.Fatalf("Binary expired: %v - Please update to latest version", err)
+		defer ticker.Stop() // Prevent goroutine leak
+		for {
+			select {
+			case <-ticker.C:
+				if err := license.Revalidate(); err != nil {
+					log.Printf("License revalidation failed: %v", err)
+				}
+				if !license.IsValid() {
+					log.Fatalf("License invalid - RADIUS shutting down")
+				}
+				// Also check binary expiry
+				if err := checkBinaryExpiry(); err != nil {
+					log.Fatalf("Binary expired: %v - Please update to latest version", err)
+				}
+			case <-stopChan:
+				log.Println("License check goroutine stopped")
+				return
 			}
 		}
 	}()
@@ -95,8 +112,15 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	license.Stop()
 	log.Println("Shutting down RADIUS server...")
+
+	// Signal all background goroutines to stop
+	close(stopChan)
+
+	// Give goroutines time to cleanup
+	time.Sleep(100 * time.Millisecond)
+
+	license.Stop()
 }
 
 // checkBinaryExpiry checks if the binary has expired

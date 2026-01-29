@@ -10,15 +10,18 @@ import (
 
 const (
 	// Cache key prefixes
-	CacheKeySettings   = "proisp:settings"
-	CacheKeyNASList    = "proisp:nas:list"
-	CacheKeyServices   = "proisp:services:all"
-	CacheKeyNAS        = "proisp:nas:"
+	CacheKeySettings       = "proisp:settings"
+	CacheKeyNASList        = "proisp:nas:list"
+	CacheKeyServices       = "proisp:services:all"
+	CacheKeyNAS            = "proisp:nas:"
+	CacheKeyTokenBlacklist = "proisp:token:blacklist:" // Token blacklist for logout
+	CacheKeyDashboardStats = "proisp:dashboard:stats:" // Dashboard stats cache
 
 	// Cache TTLs
-	CacheTTLSettings = 5 * time.Minute
-	CacheTTLNAS      = 2 * time.Minute
-	CacheTTLServices = 2 * time.Minute
+	CacheTTLSettings       = 5 * time.Minute
+	CacheTTLNAS            = 2 * time.Minute
+	CacheTTLServices       = 2 * time.Minute
+	CacheTTLDashboardStats = 30 * time.Second // Dashboard stats refresh every 30s
 )
 
 // CacheGet retrieves a value from Redis cache and unmarshals it into dest
@@ -81,6 +84,25 @@ func InvalidateServicesCache() {
 // InvalidateSettingsCache clears settings cache
 func InvalidateSettingsCache() {
 	CacheDelete(CacheKeySettings)
+}
+
+// BlacklistToken adds a token to the blacklist (called on logout)
+// The token stays blacklisted until its original expiry time
+func BlacklistToken(token string, expiryDuration time.Duration) error {
+	ctx := context.Background()
+	key := CacheKeyTokenBlacklist + token
+	return Redis.Set(ctx, key, "1", expiryDuration).Err()
+}
+
+// IsTokenBlacklisted checks if a token has been blacklisted (logged out)
+func IsTokenBlacklisted(token string) bool {
+	ctx := context.Background()
+	key := CacheKeyTokenBlacklist + token
+	exists, err := Redis.Exists(ctx, key).Result()
+	if err != nil {
+		return false // On error, allow token (fail open)
+	}
+	return exists > 0
 }
 
 // GetCompanyName retrieves the company name from system preferences for branding

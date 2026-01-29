@@ -286,6 +286,7 @@ CREATE TABLE IF NOT EXISTS users (
     two_factor_enabled BOOLEAN DEFAULT false,
     two_factor_secret VARCHAR(255),
     reseller_id INTEGER,
+    permission_group INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
@@ -513,6 +514,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     reseller_id INTEGER NOT NULL,
     subscriber_id INTEGER,
     target_reseller_id INTEGER,
+    permission_group INTEGER,
     ip_address VARCHAR(50),
     user_agent VARCHAR(255),
     created_by INTEGER,
@@ -662,6 +664,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     creator_type VARCHAR(20),
     subscriber_id INTEGER,
     reseller_id INTEGER,
+    permission_group INTEGER,
     created_by INTEGER,
     assigned_to INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -703,6 +706,7 @@ CREATE TABLE IF NOT EXISTS communication_rules (
     enabled BOOLEAN DEFAULT true,
     send_to_reseller BOOLEAN DEFAULT false,
     reseller_id INTEGER,
+    permission_group INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -718,6 +722,7 @@ CREATE TABLE IF NOT EXISTS communication_logs (
     error_message VARCHAR(500),
     subscriber_id INTEGER,
     reseller_id INTEGER,
+    permission_group INTEGER,
     rule_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sent_at TIMESTAMP

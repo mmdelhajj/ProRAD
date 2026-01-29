@@ -229,6 +229,7 @@ export const resellerApi = {
   create: (data) => api.post('/resellers', data),
   update: (id, data) => api.put(`/resellers/${id}`, data),
   delete: (id) => api.delete(`/resellers/${id}`),
+  permanentDelete: (id) => api.delete(`/resellers/${id}/permanent`),
   transfer: (id, data) => api.post(`/resellers/${id}/transfer`, data),
   withdraw: (id, data) => api.post(`/resellers/${id}/withdraw`, data),
   impersonate: (id) => api.post(`/resellers/${id}/impersonate`),

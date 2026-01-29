@@ -486,6 +486,75 @@ func (h *ResellerHandler) Delete(c *fiber.Ctx) error {
 	})
 }
 
+// PermanentDelete permanently removes a reseller from database (cannot be undone)
+func (h *ResellerHandler) PermanentDelete(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	// Use Unscoped to find even soft-deleted resellers
+	var reseller models.Reseller
+	if err := database.DB.Unscoped().First(&reseller, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	// Check if reseller has subscribers (including soft-deleted)
+	var subscriberCount int64
+	database.DB.Unscoped().Model(&models.Subscriber{}).Where("reseller_id = ?", id).Count(&subscriberCount)
+	if subscriberCount > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot permanently delete reseller with subscribers. Delete subscribers first.",
+		})
+	}
+
+	// Check if reseller has sub-resellers (including soft-deleted)
+	var childCount int64
+	database.DB.Unscoped().Model(&models.Reseller{}).Where("parent_id = ?", id).Count(&childCount)
+	if childCount > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot permanently delete reseller with sub-resellers. Delete sub-resellers first.",
+		})
+	}
+
+	// Get the username before permanent deletion for audit
+	var user models.User
+	database.DB.Unscoped().First(&user, reseller.UserID)
+	username := user.Username
+
+	// Permanently delete reseller and user (Unscoped + Delete = hard delete)
+	database.DB.Unscoped().Delete(&reseller)
+	database.DB.Unscoped().Delete(&models.User{}, reseller.UserID)
+
+	// Create audit log
+	currentUser := middleware.GetCurrentUser(c)
+	auditLog := models.AuditLog{
+		UserID:      currentUser.ID,
+		Username:    currentUser.Username,
+		UserType:    currentUser.UserType,
+		Action:      models.AuditActionDelete,
+		EntityType:  "reseller",
+		EntityID:    reseller.ID,
+		EntityName:  reseller.Name,
+		Description: "Permanently deleted reseller \"" + username + "\" (username can be reused)",
+		IPAddress:   c.IP(),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Reseller permanently deleted. Username can now be reused.",
+	})
+}
+
 // Transfer transfers money to reseller
 func (h *ResellerHandler) Transfer(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))

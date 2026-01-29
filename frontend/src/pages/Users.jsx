@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { permissionApi } from '../services/api'
 import { formatDateTime } from '../utils/timezone'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 
@@ -33,12 +33,18 @@ export default function Users() {
     phone: '',
     full_name: '',
     user_type: 'support',
-    is_active: true
+    is_active: true,
+    permission_group: ''
   })
 
   const { data, isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: () => api.get('/users').then(res => res.data.data)
+  })
+
+  const { data: permissionGroups } = useQuery({
+    queryKey: ['permissionGroups'],
+    queryFn: () => permissionApi.listGroups().then(r => r.data.data || [])
   })
 
   const createMutation = useMutation({
@@ -74,7 +80,8 @@ export default function Users() {
       phone: '',
       full_name: '',
       user_type: 'support',
-      is_active: true
+      is_active: true,
+      permission_group: ''
     })
   }
 
@@ -87,17 +94,23 @@ export default function Users() {
       phone: user.phone,
       full_name: user.full_name,
       user_type: user.user_type,
-      is_active: user.is_active
+      is_active: user.is_active,
+      permission_group: user.permission_group || ''
     })
     setShowModal(true)
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    // Clean up data - convert empty string to null for permission_group
+    const submitData = {
+      ...formData,
+      permission_group: formData.permission_group === '' ? null : formData.permission_group
+    }
     if (editUser) {
-      updateMutation.mutate({ id: editUser.id, data: formData })
+      updateMutation.mutate({ id: editUser.id, data: submitData })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(submitData)
     }
   }
 
@@ -254,6 +267,20 @@ export default function Users() {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Permission Group</label>
+                <select
+                  value={formData.permission_group || ''}
+                  onChange={(e) => setFormData({ ...formData, permission_group: e.target.value ? parseInt(e.target.value) : null })}
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+                >
+                  <option value="">All Permissions (No Restriction)</option>
+                  {(permissionGroups || []).map((group) => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to grant all permissions</p>
               </div>
               <div className="flex items-center">
                 <input

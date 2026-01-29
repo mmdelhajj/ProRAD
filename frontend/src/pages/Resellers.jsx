@@ -13,6 +13,7 @@ import {
   PencilIcon,
   TrashIcon,
   XMarkIcon,
+  XCircleIcon,
   BanknotesIcon,
   ArrowUpIcon,
   ArrowDownIcon,
@@ -134,6 +135,15 @@ export default function Resellers() {
       queryClient.invalidateQueries(['resellers'])
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete'),
+  })
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (id) => resellerApi.permanentDelete(id),
+    onSuccess: () => {
+      toast.success('Reseller permanently deleted. Username can be reused.')
+      queryClient.invalidateQueries(['resellers'])
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to permanently delete'),
   })
 
   const transferMutation = useMutation({
@@ -461,15 +471,26 @@ export default function Resellers() {
                 }
               }}
               className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
-              title="Delete"
+              title="Delete (can restore)"
             >
               <TrashIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('⚠️ PERMANENT DELETE ⚠️\n\nThis will permanently remove the reseller from the database.\nThe username can be reused after this.\n\nTHIS CANNOT BE UNDONE!\n\nAre you sure?')) {
+                  permanentDeleteMutation.mutate(row.original.id)
+                }
+              }}
+              className="p-1.5 text-gray-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 rounded"
+              title="Permanent Delete (cannot undo)"
+            >
+              <XCircleIcon className="w-4 h-4" />
             </button>
           </div>
         ),
       },
     ],
-    [deleteMutation, impersonateMutation, visiblePasswords]
+    [deleteMutation, permanentDeleteMutation, impersonateMutation, visiblePasswords]
   )
 
   const table = useReactTable({

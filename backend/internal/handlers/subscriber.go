@@ -164,6 +164,13 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 		}
 	}
 
+	// Reseller filter (for admin to filter by specific reseller)
+	filterResellerID, _ := strconv.Atoi(c.Query("reseller_id", "0"))
+	if filterResellerID > 0 {
+		// Include the reseller and their sub-resellers
+		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", filterResellerID, filterResellerID)
+	}
+
 	// Count total
 	var total int64
 	query.Count(&total)

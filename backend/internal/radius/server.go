@@ -543,9 +543,15 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 			"acctoutputoctets": outputOctets,
 		})
 
-		// Update last seen
+		// Update last seen AND ensure is_online is true
+		// This fixes the case where RADIUS restarts and misses the Start packet
 		go func() {
-			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Update("last_seen", now)
+			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Updates(map[string]interface{}{
+				"last_seen":  now,
+				"is_online":  true,
+				"session_id": sessionID,
+				"ip_address": framedIP.String(),
+			})
 
 			// Update quota
 			s.updateQuota(username, int64(inputOctets), int64(outputOctets))

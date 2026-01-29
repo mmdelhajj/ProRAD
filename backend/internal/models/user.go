@@ -77,7 +77,7 @@ type User struct {
 	ID            uint           `gorm:"column:id;primaryKey" json:"id"`
 	Username      string         `gorm:"column:username;uniqueIndex;size:100;not null" json:"username"`
 	Password      string         `gorm:"column:password;size:255;not null" json:"-"`
-	PasswordPlain string         `gorm:"column:password_plain;size:255" json:"password_plain,omitempty"`
+	PasswordPlain string         `gorm:"column:password_plain;size:255" json:"-"` // Hidden from API responses for security
 	Email         string         `gorm:"column:email;size:255" json:"email"`
 	Phone         string         `gorm:"column:phone;size:50" json:"phone"`
 	FullName      string         `gorm:"column:full_name;size:255" json:"full_name"`
@@ -94,6 +94,9 @@ type User struct {
 
 	// Force password change on first login
 	ForcePasswordChange bool `gorm:"column:force_password_change;default:false" json:"force_password_change"`
+
+	// Permission group for non-admin users
+	PermissionGroup *uint `gorm:"column:permission_group" json:"permission_group"`
 
 	// Relations - No FK constraint to avoid circular dependency with Reseller
 	ResellerID *uint     `gorm:"column:reseller_id;index" json:"reseller_id"`

@@ -20,11 +20,56 @@ func NewDashboardHandler() *DashboardHandler {
 	return &DashboardHandler{}
 }
 
-// Stats returns dashboard statistics
+// DashboardStats holds the dashboard statistics structure
+type DashboardStats struct {
+	// Users
+	TotalSubscribers    int64   `json:"total_subscribers"`
+	OnlineSubscribers   int64   `json:"online_subscribers"`
+	OfflineSubscribers  int64   `json:"offline_subscribers"`
+	ActiveSubscribers   int64   `json:"active_subscribers"`
+	InactiveSubscribers int64   `json:"inactive_subscribers"`
+	ExpiredSubscribers  int64   `json:"expired_subscribers"`
+	ExpiringSubscribers int64   `json:"expiring_subscribers"`
+	NewSubscribers      int64   `json:"new_subscribers"`
+
+	// Resellers
+	TotalResellers int64   `json:"total_resellers"`
+	TotalBalance   float64 `json:"total_balance"`
+
+	// Revenue
+	TodayRevenue   float64 `json:"today_revenue"`
+	MonthRevenue   float64 `json:"month_revenue"`
+	UnpaidInvoices int64   `json:"unpaid_invoices"`
+	UnpaidAmount   float64 `json:"unpaid_amount"`
+
+	// System
+	TotalNas       int64 `json:"total_nas"`
+	OnlineNas      int64 `json:"online_nas"`
+	TotalServices  int64 `json:"total_services"`
+	ActiveSessions int64 `json:"active_sessions"`
+}
+
+// Stats returns dashboard statistics with caching to reduce database load
 func (h *DashboardHandler) Stats(c *fiber.Ctx) error {
 	user := middleware.GetCurrentUser(c)
 	if user == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	// Build cache key based on user type/reseller (different users see different stats)
+	cacheKey := database.CacheKeyDashboardStats + "admin"
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		cacheKey = database.CacheKeyDashboardStats + "reseller:" + strconv.FormatUint(uint64(*user.ResellerID), 10)
+	}
+
+	// Try to get from cache first (reduces 13+ COUNT queries)
+	var cachedStats DashboardStats
+	if err := database.CacheGet(cacheKey, &cachedStats); err == nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    cachedStats,
+			"cached":  true,
+		})
 	}
 
 	var stats struct {
@@ -124,9 +169,14 @@ func (h *DashboardHandler) Stats(c *fiber.Ctx) error {
 	database.DB.Model(&models.Service{}).Where("is_active = ?", true).Count(&stats.TotalServices)
 	database.DB.Model(&models.RadAcct{}).Where("acctstoptime IS NULL").Count(&stats.ActiveSessions)
 
+	// Cache the stats for 30 seconds to reduce database load
+	// This is especially important for systems with 30,000+ users
+	database.CacheSet(cacheKey, stats, database.CacheTTLDashboardStats)
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    stats,
+		"cached":  false,
 	})
 }
 

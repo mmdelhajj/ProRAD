@@ -60,6 +60,14 @@ func AuthRequired(cfg *config.Config) fiber.Handler {
 
 		tokenString := parts[1]
 
+		// Check if token is blacklisted (user logged out)
+		if database.IsTokenBlacklisted(tokenString) {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"success": false,
+				"message": "Token has been revoked (logged out)",
+			})
+		}
+
 		// Parse and validate token
 		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 			return []byte(cfg.JWTSecret), nil

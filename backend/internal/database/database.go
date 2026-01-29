@@ -51,9 +51,15 @@ func Connect(cfg *config.Config) error {
 		return fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	// Connection pool optimized for 30,000+ users
+	// MaxOpenConns: Should be ~500 for high concurrency (adjust based on PostgreSQL max_connections)
+	// MaxIdleConns: Keep 50 connections ready for burst traffic
+	// ConnMaxLifetime: Recycle connections every 30 minutes to prevent stale connections
+	// ConnMaxIdleTime: Close idle connections after 5 minutes to free resources
+	sqlDB.SetMaxIdleConns(50)
+	sqlDB.SetMaxOpenConns(500)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
 	log.Println("Database connected successfully")
 

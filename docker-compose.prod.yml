@@ -19,13 +19,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Resource limits for scalability
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: proxpanel-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-ProxPanel@Redis2024!}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-ProxPanel@Redis2024!} --maxmemory 1gb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     ports:
@@ -35,6 +49,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Resource limits for scalability
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   # Go API Server
   api:
@@ -83,6 +111,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Health check for API
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Resource limits for scalability (30,000+ users)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
 
   # RADIUS Server
   radius:
@@ -118,6 +167,20 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Resource limits for RADIUS (handles 30,000+ auth requests)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   # Frontend with Nginx
   frontend:
@@ -131,6 +194,26 @@ services:
       - "80:80"
     depends_on:
       - api
+    # Health check for frontend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Resource limits for frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
 volumes:
   postgres_data:
