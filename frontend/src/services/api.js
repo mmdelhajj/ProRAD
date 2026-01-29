@@ -187,6 +187,7 @@ export const subscriberApi = {
   deactivate: (id) => api.post(`/subscribers/${id}/deactivate`),
   refill: (id, data) => api.post(`/subscribers/${id}/refill`, data),
   ping: (id) => api.post(`/subscribers/${id}/ping`),
+  getPassword: (id) => api.get(`/subscribers/${id}/password`),
   getBandwidth: (id) => api.get(`/subscribers/${id}/bandwidth`),
   getTorch: (id, duration = 3) => api.get(`/subscribers/${id}/torch?duration=${duration}`),
   bulkImport: (formData) => api.post('/subscribers/bulk-import', formData, {

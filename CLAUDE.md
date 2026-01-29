@@ -1250,3 +1250,39 @@ Analysis of legacy ProRadius4 system for 30K+ user performance insights:
 - Extended real IP detection to handle more proxy headers
 - Added support for `X-Forwarded-For` header parsing
 - File: `internal/middleware/audit.go`
+
+### Static IP Conflict Resolution (Jan 2026)
+**Problem:** When a subscriber has a static IP assigned via Framed-IP-Address, other users connecting could get the same IP from the MikroTik pool, causing conflicts.
+
+**Solution:**
+- Added duplicate IP detection in RADIUS server during authentication
+- System sends CoA disconnect to kick conflicting users who got a static IP from pool
+- Added conflict counter using `sync.Map` to prevent infinite kick loops
+- After 3 kicks, auto-assigns a different available IP from the same /24 subnet via radreply
+- Added `findAvailableIP()` function to find unused IPs in the subnet
+- Added radreply Framed-IP-Address check during RADIUS auth
+
+**Files:**
+- `internal/radius/server.go` - Static IP conflict detection, CoA disconnect, findAvailableIP()
+
+### Password Display in Subscriber Edit Page (Jan 2026)
+**Problem:** User couldn't see subscriber passwords when editing - password field was always empty.
+
+**Solution:**
+- Changed `PasswordPlain` field in Subscriber model from `json:"-"` to `json:"password_plain"` to include in API response
+- Added `"password"` field at top level of subscriber GET response with decrypted password
+- Added `security.DecryptPassword()` call to decrypt encrypted passwords (ENC: prefix)
+- Updated frontend to display password from API response in the edit form
+- Added separate raw SQL query to fetch password to avoid GORM relation issues
+
+**Files:**
+- `internal/models/subscriber.go` - Changed JSON tag for PasswordPlain
+- `internal/handlers/subscriber.go` - Added password to GET response, separate password query
+- `frontend/src/pages/SubscriberEdit.jsx` - Display password from API response
+- `frontend/src/services/api.js` - Added getPassword() API function
+
+### v1.0.147 Release (Jan 2026)
+- Static IP conflict auto-resolution with CoA disconnect
+- Password display in subscriber edit page
+- Fixed GORM relation errors with garble obfuscation
+- Improved subscriber GET handler with raw SQL queries for password

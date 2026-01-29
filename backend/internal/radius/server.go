@@ -11,6 +11,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/proisp/backend/internal/database"
@@ -22,6 +23,15 @@ import (
 	"layeh.com/radius/rfc2866"
 	"layeh.com/radius/rfc2869"
 )
+
+// staticIPConflictTracker tracks users who keep getting IPs that conflict with static IPs
+// Key: "username:conflicting_ip", Value: {count, lastTime}
+type conflictEntry struct {
+	count    int
+	lastTime time.Time
+}
+
+var staticIPConflicts sync.Map
 
 // normalizeSpeedForMikrotik converts all speeds to kb format
 // Examples: "1.2M" -> "1200k", "2M" -> "2000k", "1200k" -> "1200k"
@@ -109,6 +119,50 @@ func getSettingBool(key string, defaultVal bool) bool {
 		return defaultVal
 	}
 	return pref.Value == "true" || pref.Value == "1"
+}
+
+// findAvailableIP finds an available IP in the same /24 subnet that's not used by any online user
+// or assigned as a static IP to anyone
+func findAvailableIP(conflictIP string) string {
+	// Parse the conflict IP to get the subnet
+	parts := strings.Split(conflictIP, ".")
+	if len(parts) != 4 {
+		return ""
+	}
+
+	// Get the /24 subnet base (e.g., "10.180.96")
+	subnetBase := fmt.Sprintf("%s.%s.%s", parts[0], parts[1], parts[2])
+
+	// Get all IPs currently in use by online users in this subnet
+	var usedIPs []string
+	database.DB.Model(&models.Subscriber{}).
+		Where("ip_address LIKE ? AND is_online = ?", subnetBase+".%", true).
+		Pluck("ip_address", &usedIPs)
+
+	// Get all static IPs in this subnet
+	var staticIPs []string
+	database.DB.Model(&models.Subscriber{}).
+		Where("static_ip LIKE ?", subnetBase+".%").
+		Pluck("static_ip", &staticIPs)
+
+	// Create a set of used IPs
+	usedSet := make(map[string]bool)
+	for _, ip := range usedIPs {
+		usedSet[ip] = true
+	}
+	for _, ip := range staticIPs {
+		usedSet[ip] = true
+	}
+
+	// Find an available IP (start from .10 to avoid gateway/network addresses)
+	for i := 10; i < 250; i++ {
+		candidateIP := fmt.Sprintf("%s.%d", subnetBase, i)
+		if !usedSet[candidateIP] {
+			return candidateIP
+		}
+	}
+
+	return ""
 }
 
 // Server represents a RADIUS server
@@ -392,11 +446,21 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		rfc2869.FramedPool_SetString(response, subscriber.Service.PoolName)
 	}
 
-	// Add static IP if assigned
-	if subscriber.StaticIP != "" {
-		ip := net.ParseIP(subscriber.StaticIP)
+	// Add static IP if assigned (from subscriber record OR radreply table)
+	framedIPToSend := subscriber.StaticIP
+	if framedIPToSend == "" {
+		// Check radreply table for Framed-IP-Address (set by conflict resolution)
+		var radreply models.RadReply
+		if err := database.DB.Where("username = ? AND attribute = ?", username, "Framed-IP-Address").First(&radreply).Error; err == nil {
+			framedIPToSend = radreply.Value
+			log.Printf("Found radreply Framed-IP-Address=%s for %s (conflict resolution)", framedIPToSend, username)
+		}
+	}
+	if framedIPToSend != "" {
+		ip := net.ParseIP(framedIPToSend)
 		if ip != nil {
 			rfc2865.FramedIPAddress_Set(response, ip)
+			log.Printf("Sending Framed-IP-Address=%s for %s", framedIPToSend, username)
 		}
 	}
 
@@ -465,6 +529,124 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 
 	switch acctStatusType {
 	case rfc2866.AcctStatusType_Value_Start:
+		// DUPLICATE IP PROTECTION: Close any existing session with this IP (different user)
+		// BUT: Don't close session of a user who has this IP as their STATIC IP
+		ipStr := framedIP.String()
+		if ipStr != "" && ipStr != "<nil>" && ipStr != "0.0.0.0" {
+			// Find other users with this IP
+			var oldSessions []models.Subscriber
+			database.DB.Where("ip_address = ? AND is_online = ? AND username != ?", ipStr, true, username).Find(&oldSessions)
+			for _, oldSub := range oldSessions {
+				// IMPORTANT: If old user has this as their STATIC IP, they have priority
+				// We need to kick the NEW user (current session), not the static IP user
+				if oldSub.StaticIP == ipStr {
+					// Track how many times this user has been kicked for this conflict
+					conflictKey := fmt.Sprintf("%s:%s", username, ipStr)
+					var entry conflictEntry
+					if val, ok := staticIPConflicts.Load(conflictKey); ok {
+						entry = val.(conflictEntry)
+					}
+
+					// Reset counter if last attempt was more than 5 minutes ago
+					if time.Since(entry.lastTime) > 5*time.Minute {
+						entry.count = 0
+					}
+					entry.count++
+					entry.lastTime = time.Now()
+					staticIPConflicts.Store(conflictKey, entry)
+
+					// After 3 attempts, assign the user a different IP via radreply Framed-IP-Address
+					// This forces MikroTik to give them a specific IP instead of picking from pool
+					if entry.count >= 3 {
+						log.Printf("STATIC IP CONFLICT - ASSIGNING NEW IP: %s has been kicked %d times for IP %s (static IP of %s). Finding available IP...",
+							username, entry.count, ipStr, oldSub.Username)
+
+						// Find an available IP from the same subnet that's not used
+						newIP := findAvailableIP(ipStr)
+						if newIP != "" {
+							// Add radreply entry to force this IP on next connection
+							database.DB.Where("username = ? AND attribute = ?", username, "Framed-IP-Address").Delete(&models.RadReply{})
+							database.DB.Create(&models.RadReply{
+								Username:  username,
+								Attribute: "Framed-IP-Address",
+								Op:        "=",
+								Value:     newIP,
+							})
+							log.Printf("STATIC IP CONFLICT RESOLVED: Assigned %s to %s via radreply. They will get this IP on reconnect.",
+								newIP, username)
+
+							// Disconnect and let them reconnect with new IP
+							var nas models.Nas
+							if err := database.DB.Where("ip_address = ?", nasIP.String()).First(&nas).Error; err == nil {
+								go func(newUsername, newSessionID string, nasInfo models.Nas, assignedIP string) {
+									time.Sleep(500 * time.Millisecond)
+									coaClient := NewCOAClient(nasInfo.IPAddress, nasInfo.CoAPort, nasInfo.Secret)
+									coaClient.DisconnectViaRadclient(newUsername, newSessionID)
+									log.Printf("Disconnected %s to apply new IP %s", newUsername, assignedIP)
+								}(username, sessionID, nas, newIP)
+							}
+						} else {
+							log.Printf("STATIC IP CONFLICT - NO AVAILABLE IP: Could not find available IP for %s. Allowing duplicate.", username)
+						}
+						staticIPConflicts.Delete(conflictKey)
+						continue
+					}
+
+					log.Printf("DUPLICATE IP CONFLICT (%d/3): %s has static IP %s, but %s got assigned same IP from pool. Kicking new user.",
+						entry.count, oldSub.Username, ipStr, username)
+
+					// Get NAS info to send CoA disconnect to the NEW user
+					var nas models.Nas
+					if err := database.DB.Where("ip_address = ?", nasIP.String()).First(&nas).Error; err == nil {
+						go func(newUsername, newSessionID string, nasInfo models.Nas, conflictIP string, staticIPOwner string) {
+							// Wait a moment for session to be fully established
+							time.Sleep(500 * time.Millisecond)
+							coaClient := NewCOAClient(nasInfo.IPAddress, nasInfo.CoAPort, nasInfo.Secret)
+							if err := coaClient.DisconnectViaRadclient(newUsername, newSessionID); err != nil {
+								log.Printf("CoA disconnect failed for new user %s: %v", newUsername, err)
+							} else {
+								log.Printf("CoA disconnected new user %s who had static IP %s belonging to %s",
+									newUsername, conflictIP, staticIPOwner)
+							}
+						}(username, sessionID, nas, ipStr, oldSub.Username)
+					}
+
+					// Don't process this session - the user will reconnect and hopefully get a different IP
+					continue
+				}
+
+				log.Printf("DUPLICATE IP DETECTED: %s has IP %s, but %s is starting new session with same IP. Disconnecting old user.",
+					oldSub.Username, ipStr, username)
+
+				// Send CoA disconnect to kick the old user from MikroTik
+				if oldSub.NasID != nil && oldSub.SessionID != "" {
+					go func(subUsername, subSessionID string, subNasID uint) {
+						var nas models.Nas
+						if err := database.DB.First(&nas, subNasID).Error; err == nil {
+							coaClient := NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+							if err := coaClient.DisconnectViaRadclient(subUsername, subSessionID); err != nil {
+								log.Printf("CoA disconnect failed for %s: %v", subUsername, err)
+							} else {
+								log.Printf("CoA disconnected %s (duplicate IP cleanup)", subUsername)
+							}
+						}
+					}(oldSub.Username, oldSub.SessionID, *oldSub.NasID)
+				}
+
+				// Mark old user as offline
+				database.DB.Model(&models.Subscriber{}).Where("id = ?", oldSub.ID).Updates(map[string]interface{}{
+					"is_online":  false,
+					"session_id": "",
+				})
+				// Close old radacct record
+				database.DB.Model(&models.RadAcct{}).Where("username = ? AND framedipaddress = ? AND acctstoptime IS NULL",
+					oldSub.Username, ipStr).Updates(map[string]interface{}{
+					"acctstoptime":       now,
+					"acctterminatecause": "Duplicate-IP-Cleanup",
+				})
+			}
+		}
+
 		// Session start - use shorter unique ID (sessionID + timestamp hex)
 		uniqueID := fmt.Sprintf("%s-%x", sessionID, now.Unix())
 		if len(uniqueID) > 32 {

@@ -31,6 +31,7 @@ import {
   CalendarDaysIcon,
   ArrowDownTrayIcon,
   EyeIcon,
+  EyeSlashIcon,
   WifiIcon,
   PlayIcon,
   PauseIcon,
@@ -1029,12 +1030,12 @@ export default function Subscribers() {
               <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Visible Columns</div>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(visibleColumns).map(([key, visible]) => (
-                  <label key={key} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded cursor-pointer hover:bg-gray-200 text-xs">
+                  <label key={key} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 text-xs dark:text-gray-200">
                     <input
                       type="checkbox"
                       checked={visible}
                       onChange={(e) => setVisibleColumns({ ...visibleColumns, [key]: e.target.checked })}
-                      className="rounded border-gray-300 w-3 h-3"
+                      className="rounded border-gray-300 dark:border-gray-600 w-3 h-3"
                     />
                     <span className="capitalize">{key.replace('_', ' ')}</span>
                   </label>

@@ -3069,6 +3069,105 @@ func (c *Client) ensureStaticIPProtectionScript() {
 	log.Printf("MikroTik: Created static IP protection scheduler")
 }
 
+// ReserveStaticIPInPPP creates a disabled PPP secret to reserve an IP from the pool
+// This prevents MikroTik from assigning this IP to dynamic users
+func (c *Client) ReserveStaticIPInPPP(ip string, subscriberUsername string) error {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return err
+		}
+	}
+
+	// Use a unique name for the reservation
+	secretName := fmt.Sprintf("static-%s", strings.ReplaceAll(ip, ".", "-"))
+	comment := fmt.Sprintf("Reserved for %s (RADIUS static IP)", subscriberUsername)
+
+	// Check if reservation already exists
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/ppp/secret/print")
+	c.sendWord("?remote-address=" + ip)
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return fmt.Errorf("failed to query PPP secrets: %v", err)
+	}
+
+	// If exists, update it
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			id := strings.TrimPrefix(word, "=.id=")
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/ppp/secret/set")
+			c.sendWord("=.id=" + id)
+			c.sendWord("=comment=" + comment)
+			c.sendWord("=disabled=yes")
+			c.sendWord("")
+			c.readResponse()
+			log.Printf("MikroTik: Updated PPP reservation for static IP %s (%s)", ip, subscriberUsername)
+			return nil
+		}
+	}
+
+	// Create new disabled PPP secret to reserve the IP
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/ppp/secret/add")
+	c.sendWord("=name=" + secretName)
+	c.sendWord("=password=reserved")
+	c.sendWord("=service=pppoe")
+	c.sendWord("=remote-address=" + ip)
+	c.sendWord("=disabled=yes")
+	c.sendWord("=comment=" + comment)
+	c.sendWord("")
+
+	_, err = c.readResponse()
+	if err != nil {
+		// Might fail if name exists, try with different name
+		log.Printf("MikroTik: Note - PPP reservation may already exist: %v", err)
+	} else {
+		log.Printf("MikroTik: Reserved static IP %s in PPP for %s", ip, subscriberUsername)
+	}
+
+	return nil
+}
+
+// RemoveStaticIPReservation removes a PPP secret reservation for a static IP
+func (c *Client) RemoveStaticIPReservation(ip string) error {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return err
+		}
+	}
+
+	// Find and remove PPP secret with this remote-address
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/ppp/secret/print")
+	c.sendWord("?remote-address=" + ip)
+	c.sendWord("?disabled=yes")
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return fmt.Errorf("failed to query PPP secrets: %v", err)
+	}
+
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			id := strings.TrimPrefix(word, "=.id=")
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/ppp/secret/remove")
+			c.sendWord("=.id=" + id)
+			c.sendWord("")
+			c.readResponse()
+			log.Printf("MikroTik: Removed PPP reservation for static IP %s", ip)
+			return nil
+		}
+	}
+
+	log.Printf("MikroTik: No PPP reservation found for static IP %s", ip)
+	return nil
+}
+
 // RemoveStaticIPFromAddressList removes a static IP from the STATIC-IPS address list on MikroTik
 func (c *Client) RemoveStaticIPFromAddressList(ip string) error {
 	if c.conn == nil {

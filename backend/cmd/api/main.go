@@ -260,6 +260,7 @@ func main() {
 	subscribers.Post("/:id/deactivate", middleware.RequirePermission("subscribers.inactivate"), subscriberHandler.Deactivate)
 	subscribers.Post("/:id/refill", middleware.RequirePermission("subscribers.refill_quota"), subscriberHandler.Refill)
 	subscribers.Post("/:id/ping", middleware.RequirePermission("subscribers.ping"), subscriberHandler.Ping)
+	subscribers.Get("/:id/password", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetPassword)
 	subscribers.Get("/:id/bandwidth", middleware.RequirePermission("subscribers.view_graph"), subscriberHandler.GetBandwidth)
 	subscribers.Get("/:id/torch", middleware.RequirePermission("subscribers.view_graph"), subscriberHandler.GetTorch)
 	// Subscriber bandwidth rules

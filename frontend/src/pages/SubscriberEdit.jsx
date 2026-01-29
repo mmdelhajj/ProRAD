@@ -99,6 +99,7 @@ export default function SubscriberEdit() {
 
   // Extract subscriber data, quota info, and sessions
   const subscriber = subscriberResponse?.data
+  const subscriberPassword = subscriberResponse?.password || ''
   const dailyQuota = subscriberResponse?.daily_quota
   const monthlyQuota = subscriberResponse?.monthly_quota
   const sessions = subscriberResponse?.sessions || []
@@ -250,7 +251,7 @@ export default function SubscriberEdit() {
     if (subscriber) {
       setFormData({
         username: subscriber.username || '',
-        password: subscriber.password_plain || '',
+        password: subscriberPassword || '',
         full_name: subscriber.full_name || '',
         email: subscriber.email || '',
         phone: subscriber.phone || '',
@@ -271,8 +272,9 @@ export default function SubscriberEdit() {
         expiry_date: subscriber.expiry_date ? subscriber.expiry_date.split('T')[0] : '',
         note: subscriber.note || '',
       })
+
     }
-  }, [subscriber])
+  }, [subscriber, subscriberPassword, id, isNew])
 
   // Start/stop polling when graph tab is active
   useEffect(() => {

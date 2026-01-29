@@ -63,6 +63,46 @@ func checkUserPermission(user *models.User, permission string) bool {
 	return count > 0
 }
 
+// disconnectSubscriberByCoA sends CoA disconnect to force user offline
+// Used when assigning static IP that's currently in use by another user
+func disconnectSubscriberByCoA(sub *models.Subscriber) {
+	if sub == nil || sub.NasID == nil || sub.SessionID == "" {
+		log.Printf("Cannot disconnect subscriber %s: missing NAS or session info", sub.Username)
+		return
+	}
+
+	// Get NAS info
+	var nas models.Nas
+	if err := database.DB.First(&nas, *sub.NasID).Error; err != nil {
+		log.Printf("Cannot disconnect %s: NAS not found", sub.Username)
+		return
+	}
+
+	// Try CoA disconnect via radclient
+	coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+	if err := coaClient.DisconnectViaRadclient(sub.Username, sub.SessionID); err != nil {
+		log.Printf("CoA disconnect failed for %s: %v, trying MikroTik API", sub.Username, err)
+
+		// Fallback to MikroTik API
+		if nas.APIUsername != "" && nas.APIPassword != "" {
+			client := mikrotik.NewClient(nas.IPAddress, nas.APIUsername, nas.APIPassword)
+			if err := client.DisconnectUser(sub.Username); err != nil {
+				log.Printf("MikroTik API disconnect also failed for %s: %v", sub.Username, err)
+			} else {
+				log.Printf("Disconnected %s via MikroTik API (static IP conflict)", sub.Username)
+			}
+		}
+	} else {
+		log.Printf("Disconnected %s via CoA (static IP conflict)", sub.Username)
+	}
+
+	// Mark as offline in database
+	database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).Updates(map[string]interface{}{
+		"is_online":  false,
+		"session_id": "",
+	})
+}
+
 // ListRequest represents list request params
 type ListRequest struct {
 	Page     int    `query:"page"`
@@ -328,8 +368,21 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get password via direct map query first
+	var passwordResult map[string]interface{}
+	if err := database.DB.Raw("SELECT password_plain FROM subscribers WHERE id = ? AND deleted_at IS NULL", id).Scan(&passwordResult).Error; err != nil {
+		log.Printf("Password query error: %v", err)
+	}
+	passwordPlain := ""
+	if passwordResult != nil {
+		if pw, ok := passwordResult["password_plain"].(string); ok {
+			passwordPlain = pw
+		}
+	}
+
 	var subscriber models.Subscriber
-	if err := database.DB.First(&subscriber, id).Error; err != nil {
+	// Use Table() instead of model directly to avoid GORM relation errors with garble
+	if err := database.DB.Table("subscribers").Where("id = ? AND deleted_at IS NULL", id).First(&subscriber).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
 			"message": "Subscriber not found",
@@ -500,12 +553,13 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 	}
 
 	// Decrypt password for display in edit form
-	subscriber.PasswordPlain = security.DecryptPassword(subscriber.PasswordPlain)
+	decryptedPassword := security.DecryptPassword(passwordPlain)
 
 	return c.JSON(fiber.Map{
-		"success":  true,
-		"data":     subscriber,
-		"sessions": sessions,
+		"success":       true,
+		"data":          subscriber,
+		"password":      decryptedPassword,
+		"sessions":      sessions,
 		"daily_quota": fiber.Map{
 			"download_used":   dailyQuota.Download,
 			"upload_used":     dailyQuota.Upload,
@@ -550,6 +604,39 @@ type CreateSubscriberRequest struct {
 	StaticIP             string  `json:"static_ip"`
 	MACAddress           string  `json:"mac_address"`
 	SaveMAC              bool    `json:"save_mac"`
+}
+
+// GetPassword returns the password for a subscriber (requires subscribers.view permission)
+func (h *SubscriberHandler) GetPassword(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid subscriber ID"})
+	}
+
+	var subscriber models.Subscriber
+	query := database.DB.Where("id = ?", id)
+
+	// Resellers can only view their own subscribers
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+	}
+
+	if err := query.First(&subscriber).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Subscriber not found"})
+	}
+
+	// Decrypt password before returning
+	decryptedPassword := security.DecryptPassword(subscriber.PasswordPlain)
+
+	return c.JSON(fiber.Map{
+		"success":  true,
+		"password": decryptedPassword,
+	})
 }
 
 // Create creates a new subscriber
@@ -607,7 +694,7 @@ func (h *SubscriberHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if static IP is already assigned to another subscriber (check both static_ip and current ip_address)
+	// Check if static IP is already assigned to another subscriber
 	if req.StaticIP != "" {
 		var staticIPCount int64
 		database.DB.Model(&models.Subscriber{}).Where("static_ip = ?", req.StaticIP).Count(&staticIPCount)
@@ -617,14 +704,12 @@ func (h *SubscriberHandler) Create(c *fiber.Ctx) error {
 				"message": "Static IP is already assigned to another subscriber",
 			})
 		}
-		// Also check if IP is currently in use by another subscriber
-		var currentIPCount int64
-		database.DB.Model(&models.Subscriber{}).Where("ip_address = ? AND is_online = ?", req.StaticIP, true).Count(&currentIPCount)
-		if currentIPCount > 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"success": false,
-				"message": "This IP is currently in use by another online subscriber",
-			})
+		// If IP is currently in use by another subscriber (dynamic), auto-disconnect them
+		var currentUser models.Subscriber
+		if err := database.DB.Where("ip_address = ? AND is_online = ?", req.StaticIP, true).First(&currentUser).Error; err == nil {
+			log.Printf("Static IP %s requested - auto-disconnecting current user %s", req.StaticIP, currentUser.Username)
+			// Send CoA disconnect
+			disconnectSubscriberByCoA(&currentUser)
 		}
 	}
 
@@ -801,6 +886,10 @@ func (h *SubscriberHandler) Create(c *fiber.Ctx) error {
 				if err := client.AddStaticIPToAddressList(req.StaticIP, subscriber.Username); err != nil {
 					log.Printf("Failed to add static IP to MikroTik address-list: %v", err)
 				}
+				// Also reserve in PPP secrets to prevent pool from assigning this IP
+				if err := client.ReserveStaticIPInPPP(req.StaticIP, subscriber.Username); err != nil {
+					log.Printf("Failed to reserve static IP in MikroTik PPP: %v", err)
+				}
 				client.Close()
 			}
 		}()
@@ -852,14 +941,12 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 				"message": "Static IP is already assigned to another subscriber",
 			})
 		}
-		// Also check if IP is currently in use by another online subscriber
-		var currentIPCount int64
-		database.DB.Model(&models.Subscriber{}).Where("ip_address = ? AND is_online = ? AND id != ?", staticIP, true, id).Count(&currentIPCount)
-		if currentIPCount > 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"success": false,
-				"message": "This IP is currently in use by another online subscriber",
-			})
+		// If IP is currently in use by another subscriber (dynamic), auto-disconnect them
+		var currentUser models.Subscriber
+		if err := database.DB.Where("ip_address = ? AND is_online = ? AND id != ?", staticIP, true, id).First(&currentUser).Error; err == nil {
+			log.Printf("Static IP %s requested - auto-disconnecting current user %s", staticIP, currentUser.Username)
+			// Send CoA disconnect
+			disconnectSubscriberByCoA(&currentUser)
 		}
 	}
 
@@ -1020,11 +1107,18 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 						if err := client.RemoveStaticIPFromAddressList(oldStaticIP); err != nil {
 							log.Printf("Failed to remove old static IP from MikroTik: %v", err)
 						}
+						if err := client.RemoveStaticIPReservation(oldStaticIP); err != nil {
+							log.Printf("Failed to remove old static IP PPP reservation: %v", err)
+						}
 					}
 					// Add new static IP if set
 					if newStaticIP != "" {
 						if err := client.AddStaticIPToAddressList(newStaticIP, subscriber.Username); err != nil {
 							log.Printf("Failed to add static IP to MikroTik address-list: %v", err)
+						}
+						// Reserve in PPP secrets to prevent pool from assigning this IP
+						if err := client.ReserveStaticIPInPPP(newStaticIP, subscriber.Username); err != nil {
+							log.Printf("Failed to reserve static IP in MikroTik PPP: %v", err)
 						}
 					}
 					client.Close()

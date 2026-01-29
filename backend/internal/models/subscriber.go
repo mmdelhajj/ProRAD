@@ -22,7 +22,7 @@ type Subscriber struct {
 	ID              uint             `gorm:"column:id;primaryKey" json:"id"`
 	Username        string           `gorm:"column:username;uniqueIndex;size:100;not null" json:"username"`
 	Password        string           `gorm:"column:password;size:255;not null" json:"-"`
-	PasswordPlain   string           `gorm:"column:password_plain;size:255" json:"-"` // Hidden from API - use GetPassword endpoint for authorized access
+	PasswordPlain   string           `gorm:"column:password_plain;size:255" json:"password_plain"` // Shown in edit form
 	FullName        string           `gorm:"column:full_name;size:255" json:"full_name"`
 	Email           string           `gorm:"column:email;size:255" json:"email"`
 	Phone           string           `gorm:"column:phone;size:50" json:"phone"`
