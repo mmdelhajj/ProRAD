@@ -1828,3 +1828,104 @@ docker exec proxpanel-frontend nginx -s reload
 ```
 /radius set [find] address=NEW_SERVER_IP
 ```
+
+### Server Migration to VM (Jan 2026)
+
+**Migrated from LXC container (10.0.0.212) to VM (10.0.0.250)**
+
+**Why VM over LXC?**
+- LXC containers share host kernel → /proc/stat shows HOST CPU, not container
+- VM provides isolated metrics for accurate System Info display
+- Production deployments should use Physical Server or VM, not containers
+
+**Migration Steps Performed:**
+1. Install Docker on new VM
+2. Copy /opt/proxpanel files from old server
+3. Update .env with new server details (IP, MAC, hostname)
+4. Start containers with `docker compose up -d`
+5. Restore database from old server
+6. Update license binding (see below)
+7. Restart API to clear cached query plans
+8. Update MikroTik RADIUS to point to new IP
+
+### License Hardware Binding (Jan 2026)
+
+**When migrating to new hardware, license binding must be updated.**
+
+**License uses "stable" hardware ID format:**
+```
+stable_<sha256(stable|MAC|hostname)>
+```
+
+**Update license binding on license server (109.110.185.33):**
+```bash
+# Calculate new hardware ID
+echo -n "stable|NEW_MAC|NEW_HOSTNAME" | sha256sum
+# Result: abc123... → use as "stable_abc123..."
+
+# Update licenses table
+docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c \
+  "UPDATE licenses SET hardware_id = 'stable_NEW_HASH' WHERE license_key = 'PROXP-XXXXX';"
+
+# Update activations table
+docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c \
+  "UPDATE activations SET 
+    server_mac = 'NEW_MAC',
+    server_ip = 'NEW_IP', 
+    hostname = 'NEW_HOSTNAME',
+    hardware_id = 'stable_NEW_HASH'
+   WHERE license_id = X;"
+```
+
+**Restart RADIUS after license update:**
+```bash
+docker compose restart radius
+docker logs proxpanel-radius --tail 20
+# Should show: "License client initialized. Customer: X, Tier: X"
+```
+
+### PostgreSQL Cached Plan Error (Jan 2026)
+
+**Error after database restore:**
+```
+ERROR: cached plan must not change result type (SQLSTATE 0A000)
+```
+
+**Cause:** PostgreSQL caches query plans. After restoring a database with different schema, cached plans become invalid.
+
+**Symptoms:**
+- BandwidthRuleService fails to apply rules
+- CDNBandwidthRuleService shows errors
+- Other services may fail silently
+
+**Solution:** Restart the API container to clear cached plans:
+```bash
+docker compose restart api
+docker logs proxpanel-api --tail 30 | grep -i bandwidth
+# Should show: "BandwidthRule: Applied X to user@domain"
+```
+
+### MikroTik API Access (Jan 2026)
+
+**When changing server IP, update MikroTik allowed addresses:**
+
+```routeros
+# Check current API settings
+/ip service print where name=api
+
+# Add new server IP to allowed list
+/ip service set api address=NEW_IP/32,OLD_IP/32
+
+# Or replace entirely
+/ip service set api address=NEW_IP/32
+```
+
+**Symptoms of blocked API:**
+- Dashboard shows "✗ API | ✓ RADIUS"
+- Error: "Failed to send password: broken pipe"
+- CoA still works (port 1700)
+
+**Update RADIUS address:**
+```routeros
+/radius set [find] address=NEW_SERVER_IP
+```
