@@ -78,6 +78,11 @@ export default function Services() {
   const [serviceCDNs, setServiceCDNs] = useState([])
   const [cdnsLoaded, setCdnsLoaded] = useState(false)
 
+  // IP Pool state for RADIUS settings
+  const [selectedNasId, setSelectedNasId] = useState(null)
+  const [ipPools, setIpPools] = useState([])
+  const [ipPoolsLoading, setIpPoolsLoading] = useState(false)
+
   const { data: services, isLoading } = useQuery({
     queryKey: ['services'],
     queryFn: () => serviceApi.list().then((r) => r.data.data),
@@ -106,6 +111,26 @@ export default function Services() {
     } catch (err) {
       console.error('Failed to fetch pools:', err)
       setPcqPools(prev => ({ ...prev, [cdnId]: { loading: false, pools: [] } }))
+    }
+  }
+
+  // Fetch IP pools for RADIUS settings when NAS is selected
+  const fetchIPPoolsForService = async (nasId) => {
+    if (!nasId) {
+      setIpPools([])
+      return
+    }
+    setIpPoolsLoading(true)
+    try {
+      const response = await nasApi.getPools(nasId)
+      const pools = response.data.data || []
+      setIpPools(pools)
+    } catch (err) {
+      console.error('Failed to fetch IP pools:', err)
+      setIpPools([])
+      toast.error('Failed to fetch IP pools from NAS')
+    } finally {
+      setIpPoolsLoading(false)
     }
   }
 
@@ -289,6 +314,11 @@ export default function Services() {
         queue_type: 'simple',
       })
     }
+    // Reset IP pools state
+    setSelectedNasId(null)
+    setIpPools([])
+    setIpPoolsLoading(false)
+
     // Load service CDNs if editing
     setCdnsLoaded(false)
     if (service) {
@@ -825,17 +855,71 @@ export default function Services() {
 
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-3">RADIUS Settings</h3>
-                  <div>
-                    <label className="label">IP Pool Name</label>
-                    <input
-                      type="text"
-                      name="pool_name"
-                      value={formData.pool_name}
-                      onChange={handleChange}
-                      className="input"
-                      placeholder="e.g., pool-10mbps"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">MikroTik IP pool name (must match pool configured on router)</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Select NAS/Router</label>
+                      <select
+                        value={selectedNasId || ''}
+                        onChange={(e) => {
+                          const nasId = e.target.value ? parseInt(e.target.value) : null
+                          setSelectedNasId(nasId)
+                          if (nasId) {
+                            fetchIPPoolsForService(nasId)
+                          } else {
+                            setIpPools([])
+                          }
+                        }}
+                        className="input"
+                      >
+                        <option value="">-- Select NAS to fetch pools --</option>
+                        {nasList?.filter(n => n.is_active).map(nas => (
+                          <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select router to load available IP pools</p>
+                    </div>
+                    <div>
+                      <label className="label">IP Pool Name</label>
+                      {ipPoolsLoading ? (
+                        <div className="input flex items-center text-gray-500 dark:text-gray-400">
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Loading pools...
+                        </div>
+                      ) : ipPools.length > 0 ? (
+                        <select
+                          name="pool_name"
+                          value={formData.pool_name}
+                          onChange={handleChange}
+                          className="input"
+                        >
+                          <option value="">-- Select Pool --</option>
+                          {ipPools.map(pool => (
+                            <option key={pool.name} value={pool.name}>
+                              {pool.name} ({pool.ranges})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          name="pool_name"
+                          value={formData.pool_name}
+                          onChange={handleChange}
+                          className="input"
+                          placeholder={selectedNasId ? "No pools found - enter manually" : "Select NAS first or enter manually"}
+                        />
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {formData.pool_name ? (
+                          <span className="text-green-600 dark:text-green-400">Selected: {formData.pool_name}</span>
+                        ) : (
+                          "Pool for Framed-Pool RADIUS attribute"
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
