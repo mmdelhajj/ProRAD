@@ -727,8 +727,84 @@ func getActiveSubscriberBandwidthRule(subscriberID uint, ruleType models.Subscri
 	return nil
 }
 
+// getActiveBandwidthRuleForService returns the active time-based bandwidth rule multiplier for a service
+// Returns downloadMultiplier, uploadMultiplier (100 = no change, 200 = double speed)
+func getActiveBandwidthRuleForService(serviceID uint) (int, int) {
+	now := getNow()
+	currentTime := now.Format("15:04")
+	currentWeekday := int(now.Weekday())
+
+	// Get all enabled bandwidth rules with auto_apply enabled
+	var rules []models.BandwidthRule
+	if err := database.DB.Where("enabled = ? AND auto_apply = ?", true, true).Order("priority ASC").Find(&rules).Error; err != nil {
+		return 100, 100
+	}
+
+	for _, rule := range rules {
+		// Check if rule applies to this service
+		var serviceIDs []uint
+		if len(rule.ServiceIDs) > 0 {
+			if err := json.Unmarshal(rule.ServiceIDs, &serviceIDs); err != nil {
+				continue
+			}
+		}
+		if len(serviceIDs) == 0 {
+			continue
+		}
+
+		serviceMatches := false
+		for _, svcID := range serviceIDs {
+			if svcID == serviceID {
+				serviceMatches = true
+				break
+			}
+		}
+		if !serviceMatches {
+			continue
+		}
+
+		// Check days of week
+		if len(rule.DaysOfWeek) > 0 {
+			var days []int
+			if err := json.Unmarshal(rule.DaysOfWeek, &days); err == nil && len(days) > 0 {
+				dayMatch := false
+				for _, day := range days {
+					if day == currentWeekday {
+						dayMatch = true
+						break
+					}
+				}
+				if !dayMatch {
+					continue
+				}
+			}
+		}
+
+		// Check time range
+		if rule.StartTime == "" || rule.EndTime == "" {
+			continue
+		}
+
+		isActive := false
+		if rule.StartTime <= rule.EndTime {
+			isActive = currentTime >= rule.StartTime && currentTime < rule.EndTime
+		} else {
+			isActive = currentTime >= rule.StartTime || currentTime < rule.EndTime
+		}
+
+		if isActive {
+			log.Printf("BandwidthRuleMultiplier: Found active rule '%s' for service %d (dl=%d%%, ul=%d%%)",
+				rule.Name, serviceID, rule.DownloadMultiplier, rule.UploadMultiplier)
+			return rule.DownloadMultiplier, rule.UploadMultiplier
+		}
+	}
+
+	return 100, 100 // No active rule
+}
+
 // applySubscriberBandwidthRule applies a per-subscriber bandwidth rule if active
 // Returns true if a rule was applied, false otherwise
+// Now also applies time-based bandwidth rule multiplier on top of subscriber rule
 func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) bool {
 	rule := getActiveSubscriberBandwidthRule(sub.ID, models.BandwidthRuleTypeInternet)
 	if rule == nil {
@@ -737,11 +813,29 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 		return false
 	}
 
-	// Apply the subscriber's custom bandwidth rule
-	rateLimit := fmt.Sprintf("%dk/%dk", rule.UploadSpeed, rule.DownloadSpeed)
+	// Start with subscriber's custom bandwidth rule speeds as BASE
+	baseDownloadK := int64(rule.DownloadSpeed)
+	baseUploadK := int64(rule.UploadSpeed)
 
-	log.Printf("SubscriberRule: Applying custom bandwidth for %s: %s (rule_id=%d, duration=%s, remaining=%s)",
-		sub.Username, rateLimit, rule.ID, rule.Duration, rule.TimeRemaining())
+	// Check for active time-based bandwidth rules for this subscriber's service
+	// If active, multiply the subscriber rule speeds by the bandwidth rule multiplier
+	downloadMultiplier, uploadMultiplier := getActiveBandwidthRuleForService(sub.ServiceID)
+
+	// Apply multiplier: FINAL = BASE × (Multiplier / 100)
+	// 100% = same speed, 200% = double speed, 150% = 1.5x speed
+	finalDownloadK := baseDownloadK * int64(downloadMultiplier) / 100
+	finalUploadK := baseUploadK * int64(uploadMultiplier) / 100
+
+	// Format rate limit for MikroTik (upload/download)
+	rateLimit := fmt.Sprintf("%dk/%dk", finalUploadK, finalDownloadK)
+
+	if downloadMultiplier != 100 || uploadMultiplier != 100 {
+		log.Printf("SubscriberRule: Applying custom bandwidth for %s: base=%dk/%dk × %d%%/%d%% = %s (rule_id=%d)",
+			sub.Username, baseUploadK, baseDownloadK, uploadMultiplier, downloadMultiplier, rateLimit, rule.ID)
+	} else {
+		log.Printf("SubscriberRule: Applying custom bandwidth for %s: %s (rule_id=%d, duration=%s, remaining=%s)",
+			sub.Username, rateLimit, rule.ID, rule.Duration, rule.TimeRemaining())
+	}
 
 	// Update radreply to ensure RADIUS has correct speed for future reconnects
 	result := database.DB.Exec("UPDATE radreply SET value = ? WHERE username = ? AND attribute = ?",
@@ -755,7 +849,7 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 	// Apply speed change - try MikroTik API first, then CoA
 	coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
 
-	if err := client.UpdateUserRateLimitWithIP(sub.Username, sessionIP, rule.DownloadSpeed, rule.UploadSpeed); err != nil {
+	if err := client.UpdateUserRateLimitWithIP(sub.Username, sessionIP, int(finalDownloadK), int(finalUploadK)); err != nil {
 		log.Printf("SubscriberRule: MikroTik API failed for %s: %v, trying CoA", sub.Username, err)
 		if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sessionID, rateLimit); err != nil {
 			log.Printf("SubscriberRule: CoA also failed for %s: %v", sub.Username, err)
@@ -1154,6 +1248,12 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 		return
 	}
 
+	// Check if subscriber has a subscriber bandwidth rule
+	// If yes, the speed is already set correctly (with global bandwidth rule multiplier applied)
+	// Service TimeSpeed should use the subscriber rule speed as base, not service speed
+	subscriberRule := getActiveSubscriberBandwidthRule(sub.ID, models.BandwidthRuleTypeInternet)
+	hasSubscriberRule := subscriberRule != nil
+
 	service := sub.Service
 	now := getNow()
 	inTimeWindow := isWithinTimeWindow(service, now)
@@ -1182,9 +1282,31 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 		effectiveFUPLevel = sub.MonthlyFUPLevel
 	}
 
-	// Calculate base speed (considering FUP)
+	// Calculate base speed
+	// Priority: 1. Subscriber Bandwidth Rule, 2. FUP speed, 3. Service normal speed
 	var baseDownloadK, baseUploadK int64
-	if effectiveFUPLevel > 0 {
+	if hasSubscriberRule {
+		// Use subscriber's custom rule as base
+		// Check if there's an active global bandwidth rule
+		downloadMultiplier, uploadMultiplier := getActiveBandwidthRuleForService(sub.ServiceID)
+		if downloadMultiplier != 100 || uploadMultiplier != 100 {
+			// Global bandwidth rule is active - skip Service TimeSpeed for this subscriber
+			// because applySubscriberBandwidthRule() already applied the multiplier
+			// This prevents double-boosting
+			log.Printf("TimeSpeed: Skipping for %s - global bandwidth rule already applied (dl=%d%%, ul=%d%%)",
+				sub.Username, downloadMultiplier, uploadMultiplier)
+			s.mu.Lock()
+			s.timeBasedSpeedState[sub.Username] = &TimeSpeedState{
+				Applied:   true, // Mark as applied to prevent repeated processing
+				SessionID: sessionID,
+			}
+			s.mu.Unlock()
+			return
+		}
+		// No global bandwidth rule - use subscriber rule as base for Service TimeSpeed
+		baseDownloadK = int64(subscriberRule.DownloadSpeed)
+		baseUploadK = int64(subscriberRule.UploadSpeed)
+	} else if effectiveFUPLevel > 0 {
 		// Use FUP speed as base
 		switch effectiveFUPLevel {
 		case 1:

@@ -209,6 +209,20 @@ func (s *BandwidthRuleService) applyRule(rule *BandwidthRule) {
 	}
 }
 
+// getActiveSubscriberBandwidthRuleInternet returns the active internet bandwidth rule for a subscriber
+func getActiveSubscriberBandwidthRuleInternet(subscriberID uint) *models.SubscriberBandwidthRule {
+	var rules []models.SubscriberBandwidthRule
+	database.DB.Where("subscriber_id = ? AND rule_type = ? AND enabled = ?", subscriberID, models.BandwidthRuleTypeInternet, true).
+		Order("priority DESC").Find(&rules)
+
+	for _, rule := range rules {
+		if rule.IsActiveNow() {
+			return &rule
+		}
+	}
+	return nil
+}
+
 // applyRuleToNasSubscribers applies a bandwidth rule to subscribers on a specific NAS
 func (s *BandwidthRuleService) applyRuleToNasSubscribers(rule *BandwidthRule, nas *models.Nas, subscribers []models.Subscriber) {
 	client := mikrotik.NewClient(
@@ -240,9 +254,20 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribers(rule *BandwidthRule, na
 		s.mu.RUnlock()
 
 		// Calculate adjusted speed based on multiplier
-		// If user has FUP active, use FUP speed as base
+		// Priority: 1. Subscriber Bandwidth Rule, 2. FUP speed, 3. Service normal speed
 		var baseDownload, baseUpload int64
-		if sub.FUPLevel > 0 {
+		var usingSubscriberRule bool
+
+		// Check if subscriber has a custom bandwidth rule
+		subscriberRule := getActiveSubscriberBandwidthRuleInternet(sub.ID)
+		if subscriberRule != nil {
+			// Use subscriber's custom rule as base speed
+			baseDownload = int64(subscriberRule.DownloadSpeed)
+			baseUpload = int64(subscriberRule.UploadSpeed)
+			usingSubscriberRule = true
+			log.Printf("BandwidthRule: Using subscriber rule as base for %s: %dk/%dk", sub.Username, baseUpload, baseDownload)
+		} else if sub.FUPLevel > 0 {
+			// Use FUP speed as base
 			switch sub.FUPLevel {
 			case 1:
 				baseDownload = sub.Service.FUP1DownloadSpeed // Already in Kbps
@@ -259,6 +284,7 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribers(rule *BandwidthRule, na
 			baseDownload = int64(sub.Service.DownloadSpeed)
 			baseUpload = int64(sub.Service.UploadSpeed)
 		}
+		_ = usingSubscriberRule // Used in logging above
 
 		// Apply multiplier percentage (100% = same speed, 200% = double speed)
 		// Formula: base * multiplier / 100
@@ -454,8 +480,17 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribersCount(rule *BandwidthRul
 		}
 
 		// Calculate adjusted speed based on multiplier
+		// Priority: 1. Subscriber Bandwidth Rule, 2. FUP speed, 3. Service normal speed
 		var baseDownload, baseUpload int64
-		if sub.FUPLevel > 0 {
+
+		// Check if subscriber has a custom bandwidth rule
+		subscriberRule := getActiveSubscriberBandwidthRuleInternet(sub.ID)
+		if subscriberRule != nil {
+			// Use subscriber's custom rule as base speed
+			baseDownload = int64(subscriberRule.DownloadSpeed)
+			baseUpload = int64(subscriberRule.UploadSpeed)
+			log.Printf("BandwidthRule: Using subscriber rule as base for %s: %dk/%dk", sub.Username, baseUpload, baseDownload)
+		} else if sub.FUPLevel > 0 {
 			switch sub.FUPLevel {
 			case 1:
 				baseDownload = sub.Service.FUP1DownloadSpeed

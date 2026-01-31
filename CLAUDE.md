@@ -1929,3 +1929,47 @@ docker logs proxpanel-api --tail 30 | grep -i bandwidth
 ```routeros
 /radius set [find] address=NEW_SERVER_IP
 ```
+
+### Subscriber Bandwidth Rules + Time-Based Rules Fix (Jan 2026)
+
+**Problem:** Time-based bandwidth rules (like "NIGHT" rule that doubles speed) were not being applied to subscribers who have per-subscriber bandwidth rules (custom speed overrides).
+
+**Example:**
+- Subscriber hasanajam1 has a custom bandwidth rule: 50M/50M
+- NIGHT bandwidth rule active: 200% (double speed)
+- Before fix: User gets 50M (NIGHT rule ignored)
+- After fix: User gets 100M (50M × 200%)
+
+**Formula:** `FINAL_SPEED = Subscriber_Rule_Speed × (Bandwidth_Rule_Multiplier / 100)`
+
+**Files Modified:**
+- `internal/services/quota_sync.go`:
+  - Added `getActiveBandwidthRuleForService()` function to check for active time-based bandwidth rules
+  - Modified `applySubscriberBandwidthRule()` to multiply subscriber rule speed by active bandwidth rule multiplier
+  - Modified `checkAndApplyTimeBasedSpeed()` to skip if global bandwidth rule already applied (prevents double-boost)
+
+- `internal/services/bandwidth_rule_service.go`:
+  - Added `getActiveSubscriberBandwidthRuleInternet()` function
+  - Modified `applyRuleToNasSubscribers()` to use subscriber bandwidth rule as base speed when available
+  - Modified `applyRuleToNasSubscribersCount()` with same logic
+
+**Speed Priority Order:**
+1. **Subscriber Bandwidth Rule** (per-user custom speed) - highest priority
+2. **FUP Speed** (if user is in FUP tier 1/2/3)
+3. **Service Speed** (normal plan speed)
+
+**How Rules Stack:**
+```
+Base Speed (from priority above)
+    × Time-Based Bandwidth Rule (e.g., NIGHT = 200%)
+    = Final Speed
+```
+
+**Log Messages:**
+```
+BandwidthRuleMultiplier: Found active rule 'NIGHT' for service 3 (dl=200%, ul=200%)
+SubscriberRule: Applying custom bandwidth for hasanajam1@mes.net.lb: base=50000k/50000k × 200%/200% = 100000k/100000k
+TimeSpeed: Skipping for hasanajam1@mes.net.lb - global bandwidth rule already applied (dl=200%, ul=200%)
+```
+
+**Note:** If both a global Bandwidth Rule (from bandwidth_rules table) AND Service TimeSpeed (from service settings) are configured for the same time window, only the global Bandwidth Rule is applied to prevent double-boosting.
