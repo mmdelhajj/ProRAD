@@ -2127,3 +2127,85 @@ CGO_ENABLED=0 go build -ldflags '-s -w' -o proisp-radius ./cmd/radius/
 **Files Changed:**
 - `internal/handlers/sharing_detection.go` - Added TTL Rules timeout (5s per NAS, 10s overall)
 - Build system reverted to standard Go build (no garble)
+
+### v1.0.157 NAS Page Secret/API Display Fix (Jan 2026)
+
+**Problem:** NAS page showing "No Secret" and "No API" warnings even when credentials were configured.
+
+**Root Cause:** The `Secret` and `APIPassword` fields were hidden from JSON responses using `json:"-"` tag for security. But this meant the frontend couldn't tell if they were set or not.
+
+**Solution:** Added computed boolean fields to indicate if secrets are configured without exposing the actual values.
+
+**Model Changes (`internal/models/nas.go`):**
+```go
+// RADIUS
+Secret          string         `gorm:"column:secret;size:100;not null" json:"-"` // Hidden from API
+HasSecret       bool           `gorm:"-" json:"has_secret"`                       // Computed field
+
+// Mikrotik API  
+APIPassword     string         `gorm:"column:api_password;size:255" json:"-"` // Hidden from API
+HasAPIPassword  bool           `gorm:"-" json:"has_api_password"`             // Computed field
+```
+
+**Handler Changes (`internal/handlers/nas.go`):**
+```go
+// In List and Get functions:
+for i := range nasList {
+    nasList[i].HasSecret = nasList[i].Secret != ""
+    nasList[i].HasAPIPassword = nasList[i].APIPassword != ""
+}
+```
+
+**Frontend Changes (`frontend/src/pages/Nas.jsx`):**
+- Changed from checking `row.original.secret` to `row.original.has_secret`
+- Changed from checking `row.original.api_password` to `row.original.has_api_password`
+
+### v1.0.158 Subscribers Page Enhancements (Jan 2026)
+
+**New Features:**
+1. **Reseller Column** - Shows which reseller owns each subscriber
+2. **Last Seen Column** - Shows when subscriber was last online
+
+**Reseller Column:**
+- Shows reseller's username
+- For sub-resellers, shows "↳ Sub of: [parent username]"
+- Backend preloads `Reseller.User` and `Reseller.Parent.User` for display
+
+**Handler Changes (`internal/handlers/subscriber.go`):**
+```go
+// Load resellers with User and Parent info
+if err := database.DB.Preload("User").Preload("Parent").Preload("Parent.User").Where("id IN ?", ids).Find(&resellers).Error; err != nil {
+    log.Printf("ERROR: Failed to load resellers: %v", err)
+}
+```
+
+**Last Seen Column:**
+- Shows "Online Now" (green) if currently connected
+- Shows relative time: "5m ago", "3h ago", "2d ago"
+- Shows "Never" if user has never connected
+- Uses `last_seen` field from subscriber model
+
+**Frontend Column Definitions (`frontend/src/pages/Subscribers.jsx`):**
+```javascript
+// Default visible columns now include:
+const defaultColumns = {
+  username: true,
+  full_name: true,
+  phone: true,
+  mac_address: true,
+  ip_address: true,
+  service: true,
+  reseller: true,      // NEW
+  status: true,
+  expiry_date: true,
+  last_seen: true,     // NEW
+  daily_quota: true,
+  monthly_quota: true,
+  balance: false,
+  address: false,
+  region: false,
+  notes: false,
+}
+```
+
+**Column Visibility:** Users can toggle these columns on/off via the Columns settings button.

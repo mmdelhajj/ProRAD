@@ -28,6 +28,7 @@ type Nas struct {
 
 	// RADIUS
 	Secret          string         `gorm:"column:secret;size:100;not null" json:"-"` // Hidden from API responses for security
+	HasSecret       bool           `gorm:"-" json:"has_secret"`                       // Computed field to indicate if secret is set
 	AuthPort        int            `gorm:"column:auth_port;default:1812" json:"auth_port"`
 	AcctPort        int            `gorm:"column:acct_port;default:1813" json:"acct_port"`
 	CoAPort         int            `gorm:"column:coa_port;default:1700" json:"coa_port"`
@@ -35,6 +36,7 @@ type Nas struct {
 	// Mikrotik API
 	APIUsername     string         `gorm:"column:api_username;size:100" json:"api_username"`
 	APIPassword     string         `gorm:"column:api_password;size:255" json:"-"` // Hidden from API responses for security
+	HasAPIPassword  bool           `gorm:"-" json:"has_api_password"`             // Computed field to indicate if API password is set
 	APIPort         int            `gorm:"column:api_port;default:8728" json:"api_port"`
 	APISSLPort      int            `gorm:"column:api_ssl_port;default:8729" json:"api_ssl_port"`
 	UseSSL          bool           `gorm:"column:use_ssl;default:false" json:"use_ssl"`

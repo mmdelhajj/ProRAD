@@ -299,7 +299,7 @@ export default function Nas() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {row.original.secret ? (
+              {row.original.has_secret ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-green-500"></span>
                   <span className="text-xs text-green-600">Secret ✓</span>
@@ -313,7 +313,7 @@ export default function Nas() {
             </div>
             {row.original.type === 'mikrotik' && (
               <div className="flex items-center gap-2">
-                {row.original.api_password ? (
+                {row.original.has_api_password ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-green-500"></span>
                     <span className="text-xs text-green-600">API ✓</span>

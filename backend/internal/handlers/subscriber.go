@@ -269,14 +269,14 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 			serviceMap[services[i].ID] = &services[i]
 		}
 
-		// Load resellers
+		// Load resellers with User and Parent info
 		var resellers []models.Reseller
 		if len(resellerIDs) > 0 {
 			ids := make([]uint, 0, len(resellerIDs))
 			for id := range resellerIDs {
 				ids = append(ids, id)
 			}
-			if err := database.DB.Where("id IN ?", ids).Find(&resellers).Error; err != nil {
+			if err := database.DB.Preload("User").Preload("Parent").Preload("Parent.User").Where("id IN ?", ids).Find(&resellers).Error; err != nil {
 				log.Printf("ERROR: Failed to load resellers: %v", err)
 			}
 		}

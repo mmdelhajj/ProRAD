@@ -114,8 +114,10 @@ export default function Subscribers() {
       mac_address: true,
       ip_address: true,
       service: true,
+      reseller: true,
       status: true,
       expiry_date: true,
+      last_seen: true,
       daily_quota: true,
       monthly_quota: true,
       balance: false,
@@ -722,6 +724,26 @@ export default function Subscribers() {
           )
         },
       }] : []),
+      ...(visibleColumns.reseller ? [{
+        id: 'reseller',
+        header: 'Reseller',
+        cell: ({ row }) => {
+          const reseller = row.original.reseller
+          if (!reseller) return <span className="text-gray-400 dark:text-gray-500 text-xs">-</span>
+          return (
+            <div className="text-xs">
+              <div className="font-medium text-gray-900 dark:text-white">
+                {reseller.user?.username || reseller.name}
+              </div>
+              {reseller.parent && (
+                <div className="text-gray-500 dark:text-gray-400 text-[10px]">
+                  ↳ Sub of: {reseller.parent.user?.username || reseller.parent.name}
+                </div>
+              )}
+            </div>
+          )
+        },
+      }] : []),
       ...(visibleColumns.status ? [{
         accessorKey: 'status',
         header: 'Status',
@@ -750,6 +772,37 @@ export default function Subscribers() {
               <div className={clsx('text-xs', isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400')}>
                 {isExpired ? `${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
               </div>
+            </div>
+          )
+        },
+      }] : []),
+      ...(visibleColumns.last_seen ? [{
+        accessorKey: 'last_seen',
+        header: 'Last Seen',
+        cell: ({ row }) => {
+          if (row.original.is_online) {
+            return <span className="text-green-600 dark:text-green-400 text-xs font-medium">Online Now</span>
+          }
+          if (!row.original.last_seen) {
+            return <span className="text-gray-400 dark:text-gray-500 text-xs">Never</span>
+          }
+          const lastSeen = new Date(row.original.last_seen)
+          const now = new Date()
+          const diffMs = now - lastSeen
+          const diffMins = Math.floor(diffMs / (1000 * 60))
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+          let timeAgo
+          if (diffMins < 1) timeAgo = 'Just now'
+          else if (diffMins < 60) timeAgo = `${diffMins}m ago`
+          else if (diffHours < 24) timeAgo = `${diffHours}h ago`
+          else if (diffDays < 30) timeAgo = `${diffDays}d ago`
+          else timeAgo = formatDate(row.original.last_seen)
+
+          return (
+            <div className="text-xs">
+              <div className="text-gray-600 dark:text-gray-300">{timeAgo}</div>
             </div>
           )
         },

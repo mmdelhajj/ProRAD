@@ -52,6 +52,12 @@ func (h *NasHandler) List(c *fiber.Ctx) error {
 		})
 	}
 
+	// Set computed fields for security indicators
+	for i := range nasList {
+		nasList[i].HasSecret = nasList[i].Secret != ""
+		nasList[i].HasAPIPassword = nasList[i].APIPassword != ""
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    nasList,
@@ -81,6 +87,10 @@ func (h *NasHandler) Get(c *fiber.Ctx) error {
 	database.DB.Model(&models.RadAcct{}).
 		Where("nasipaddress = ? AND acctstoptime IS NULL", nas.IPAddress).
 		Count(&sessionCount)
+
+	// Set computed fields for security indicators
+	nas.HasSecret = nas.Secret != ""
+	nas.HasAPIPassword = nas.APIPassword != ""
 
 	return c.JSON(fiber.Map{
 		"success":        true,
