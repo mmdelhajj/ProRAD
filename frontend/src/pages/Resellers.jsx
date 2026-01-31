@@ -187,28 +187,18 @@ export default function Resellers() {
   })
 
   const impersonateMutation = useMutation({
-    mutationFn: (id) => resellerApi.impersonate(id),
+    mutationFn: (id) => resellerApi.getImpersonateToken(id),
     onSuccess: (response) => {
-      const { token, user } = response.data.data
-      // Manually update localStorage in Zustand's format
-      const authState = {
-        state: {
-          user: user,
-          token: token,
-          isAuthenticated: true,
-          isCustomer: false,
-          customerData: null,
-        },
-        version: 0
+      const { token } = response.data
+      // Open new tab with impersonation token
+      const newWindow = window.open(`/impersonate?token=${token}`, '_blank')
+      if (newWindow) {
+        toast.success('Opening reseller session in new tab...')
+      } else {
+        toast.error('Popup blocked! Please allow popups for this site.')
       }
-      localStorage.setItem('proisp-auth', JSON.stringify(authState))
-      // Also set the API header
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      toast.success(`Logged in as ${user.username}`)
-      // Reload to apply new auth
-      window.location.href = '/'
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to login as reseller'),
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to get impersonation token'),
   })
 
   const togglePasswordVisibility = (id) => {

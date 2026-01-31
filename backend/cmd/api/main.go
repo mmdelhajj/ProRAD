@@ -210,6 +210,7 @@ func main() {
 
 	// Public routes
 	api.Post("/auth/login", authHandler.Login)
+	api.Post("/auth/impersonate-exchange", authHandler.ExchangeImpersonateToken) // Exchange temp token for session (no auth - uses one-time token)
 	api.Get("/branding", settingsHandler.GetBranding)
 	api.Get("/backups/public-download/:token", backupHandler.PublicDownload)
 
@@ -341,6 +342,7 @@ func main() {
 	resellers.Post("/:id/transfer", middleware.ResellerOrAdmin(), resellerHandler.Transfer)
 	resellers.Post("/:id/withdraw", middleware.ResellerOrAdmin(), resellerHandler.Withdraw)
 	resellers.Post("/:id/impersonate", middleware.AdminOnly(), resellerHandler.Impersonate)
+	resellers.Post("/:id/impersonate-token", middleware.AdminOnly(), authHandler.GetImpersonateToken) // Get temp token for new tab login
 	// Reseller assignments (admin only)
 	resellers.Get("/:id/assigned-nas", middleware.AdminOnly(), resellerHandler.GetAssignedNAS)
 	resellers.Put("/:id/assigned-nas", middleware.AdminOnly(), resellerHandler.UpdateAssignedNAS)

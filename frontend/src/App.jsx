@@ -8,6 +8,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import CustomerPortal from './pages/CustomerPortal'
 import ChangePassword from './pages/ChangePassword'
+import Impersonate from './pages/Impersonate'
 
 // Lazy load all other pages for code splitting
 const Subscribers = lazy(() => import('./pages/Subscribers'))
@@ -111,6 +112,7 @@ function App() {
     <Routes>
       <Route path="/portal" element={<CustomerPortal />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/impersonate" element={<Impersonate />} />
       <Route path="/change-password" element={<ChangePassword />} />
       <Route
         path="/*"

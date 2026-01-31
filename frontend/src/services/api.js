@@ -234,6 +234,7 @@ export const resellerApi = {
   transfer: (id, data) => api.post(`/resellers/${id}/transfer`, data),
   withdraw: (id, data) => api.post(`/resellers/${id}/withdraw`, data),
   impersonate: (id) => api.post(`/resellers/${id}/impersonate`),
+  getImpersonateToken: (id) => api.post(`/resellers/${id}/impersonate-token`), // Get temp token for new tab
   // NAS and Service assignments
   getAssignedNAS: (id) => api.get(`/resellers/${id}/assigned-nas`),
   updateAssignedNAS: (id, nasIds) => api.put(`/resellers/${id}/assigned-nas`, { nas_ids: nasIds }),
@@ -371,4 +372,5 @@ export const cdnApi = {
 // Public API - no auth required
 export const publicApi = {
   getBranding: () => axios.get('/api/branding'),
+  exchangeImpersonateToken: (token) => axios.post('/api/auth/impersonate-exchange', { token }),
 }
