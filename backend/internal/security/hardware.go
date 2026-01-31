@@ -135,7 +135,13 @@ func getDiskSerial() string {
 		return ""
 	}
 
-	// Try lsblk to get disk serial
+	// Method 1: Read from /dev/disk/by-id/ (most reliable, hard to spoof)
+	diskByID := getDiskByID()
+	if diskByID != "" {
+		return diskByID
+	}
+
+	// Method 2: Try lsblk to get disk serial (fallback)
 	cmd := exec.Command("lsblk", "-o", "SERIAL", "-n", "-d")
 	output, err := cmd.Output()
 	if err != nil {
@@ -147,6 +153,37 @@ func getDiskSerial() string {
 		serial := strings.TrimSpace(line)
 		if serial != "" {
 			return serial
+		}
+	}
+	return ""
+}
+
+// getDiskByID reads disk identifier from /dev/disk/by-id/ - very hard to spoof
+func getDiskByID() string {
+	entries, err := os.ReadDir("/dev/disk/by-id")
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		// Skip partition entries, get main disk only
+		if strings.Contains(name, "-part") {
+			continue
+		}
+		// Prefer SCSI/SATA/NVMe identifiers
+		if strings.HasPrefix(name, "scsi-") ||
+			strings.HasPrefix(name, "ata-") ||
+			strings.HasPrefix(name, "nvme-") ||
+			strings.HasPrefix(name, "wwn-") {
+			return name
+		}
+	}
+
+	// Fallback: return first non-partition entry
+	for _, entry := range entries {
+		if !strings.Contains(entry.Name(), "-part") {
+			return entry.Name()
 		}
 	}
 	return ""

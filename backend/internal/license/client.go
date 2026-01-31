@@ -106,9 +106,7 @@ func Initialize(serverURL, licenseKey string) error {
 
 	client := &Client{
 		config: config,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient: security.CreatePinnedHTTPClient(),
 		stopChan: make(chan struct{}),
 	}
 

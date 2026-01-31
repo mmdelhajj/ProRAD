@@ -6,16 +6,19 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 )
 
+// CertPinningMode controls how certificate pinning behaves
+// "strict" = block on mismatch, "warn" = log warning but allow, "disabled" = no check
+var CertPinningMode = "warn"
+
 // Pinned certificate fingerprints for license server
-// These are SHA-256 hashes of the server's public key
+// These are SHA-256 hashes of the server's public key (SPKI)
 var pinnedFingerprints = []string{
-	// Add your license server certificate fingerprints here
-	// Format: SHA-256 hash of the certificate's public key (SPKI)
-	// Example: "a]4b5c6d7e8f9..."
+	"f0470a620dc33ffa0b9462cf5db3202230e55548e74041bc3dcc4a59fc2e3e26", // license.proxpanel.com primary
 }
 
 // LicenseServerHost is the expected hostname
@@ -27,8 +30,8 @@ func CreatePinnedHTTPClient() *http.Client {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: false,
 			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-				// If no pinned fingerprints configured, skip pinning
-				if len(pinnedFingerprints) == 0 {
+				// If pinning disabled or no fingerprints, skip
+				if CertPinningMode == "disabled" || len(pinnedFingerprints) == 0 {
 					return nil
 				}
 
@@ -49,7 +52,13 @@ func CreatePinnedHTTPClient() *http.Client {
 					}
 				}
 
-				return errors.New("certificate pinning validation failed")
+				// Certificate mismatch detected
+				if CertPinningMode == "warn" {
+					log.Println("WARNING: License server certificate fingerprint mismatch - possible MITM attack")
+					return nil // Allow connection but log warning
+				}
+
+				return errors.New("certificate pinning validation failed - possible MITM attack")
 			},
 		},
 		DisableKeepAlives: false,
