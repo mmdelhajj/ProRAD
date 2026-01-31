@@ -1675,19 +1675,6 @@ export default function Settings() {
             <ClusterTab />
           ) : activeTab === 'system' ? (
             <div className="space-y-6">
-              {/* Environment Warning */}
-              {systemInfo?.environment?.warning && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <ExclamationTriangleIcon className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h3 className="font-medium text-yellow-800 dark:text-yellow-200">Environment Warning</h3>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">{systemInfo.environment.warning}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* System Info Header */}
               <div className="flex items-center justify-between">
                 <div>
@@ -1709,43 +1696,6 @@ export default function Settings() {
                 </div>
               ) : systemInfo ? (
                 <>
-                  {/* Environment Card */}
-                  <div className={`rounded-lg p-6 ${
-                    systemInfo.environment?.is_production
-                      ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
-                      : 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700'
-                  }`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-full ${
-                        systemInfo.environment?.is_production
-                          ? 'bg-green-100 dark:bg-green-800'
-                          : 'bg-yellow-100 dark:bg-yellow-800'
-                      }`}>
-                        <ServerIcon className={`w-8 h-8 ${
-                          systemInfo.environment?.is_production
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-yellow-600 dark:text-yellow-400'
-                        }`} />
-                      </div>
-                      <div>
-                        <h4 className={`text-lg font-semibold ${
-                          systemInfo.environment?.is_production
-                            ? 'text-green-800 dark:text-green-200'
-                            : 'text-yellow-800 dark:text-yellow-200'
-                        }`}>
-                          {systemInfo.environment?.details}
-                        </h4>
-                        <p className={`text-sm ${
-                          systemInfo.environment?.is_production
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-yellow-600 dark:text-yellow-400'
-                        }`}>
-                          {systemInfo.environment?.is_production ? '✓ Production Ready' : '⚠ Not Recommended for Production'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Hardware Specs Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* CPU */}
@@ -1900,78 +1850,6 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  {/* Recommendations */}
-                  {systemInfo.recommendations && systemInfo.recommendations.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-gray-900 dark:text-white">Recommendations</h4>
-                      {systemInfo.recommendations.map((rec, index) => (
-                        <div
-                          key={index}
-                          className={`rounded-lg p-4 flex items-start gap-3 ${
-                            rec.type === 'critical' ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700' :
-                            rec.type === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700' :
-                            rec.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700' :
-                            'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
-                          }`}
-                        >
-                          {rec.type === 'critical' || rec.type === 'warning' ? (
-                            <ExclamationTriangleIcon className={`w-5 h-5 flex-shrink-0 ${
-                              rec.type === 'critical' ? 'text-red-500' : 'text-yellow-500'
-                            }`} />
-                          ) : rec.type === 'success' ? (
-                            <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
-                          ) : (
-                            <InformationCircleIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                          )}
-                          <div>
-                            <h5 className={`font-medium ${
-                              rec.type === 'critical' ? 'text-red-800 dark:text-red-200' :
-                              rec.type === 'warning' ? 'text-yellow-800 dark:text-yellow-200' :
-                              rec.type === 'info' ? 'text-blue-800 dark:text-blue-200' :
-                              'text-green-800 dark:text-green-200'
-                            }`}>{rec.title}</h5>
-                            <p className={`text-sm ${
-                              rec.type === 'critical' ? 'text-red-600 dark:text-red-300' :
-                              rec.type === 'warning' ? 'text-yellow-600 dark:text-yellow-300' :
-                              rec.type === 'info' ? 'text-blue-600 dark:text-blue-300' :
-                              'text-green-600 dark:text-green-300'
-                            }`}>{rec.message}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Minimum Requirements Info */}
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-4">Minimum System Requirements</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Deployment</span>
-                        <span className="text-gray-900 dark:text-white font-medium">Physical Server or VM</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">CPU</span>
-                        <span className="text-gray-900 dark:text-white font-medium">4+ cores (8+ recommended)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Memory</span>
-                        <span className="text-gray-900 dark:text-white font-medium">8 GB minimum (16+ recommended)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Storage</span>
-                        <span className="text-gray-900 dark:text-white font-medium">100 GB SSD (NVMe recommended)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Network</span>
-                        <span className="text-gray-900 dark:text-white font-medium">1 Gbps minimum</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">OS</span>
-                        <span className="text-gray-900 dark:text-white font-medium">Ubuntu 22.04 LTS or Debian 12</span>
-                      </div>
-                    </div>
-                  </div>
                 </>
               ) : (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
