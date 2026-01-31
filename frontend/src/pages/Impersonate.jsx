@@ -26,7 +26,7 @@ export default function Impersonate() {
         if (response.data.success) {
           const { token: jwtToken, user } = response.data.data
 
-          // Store session in Zustand's localStorage format
+          // Store session in sessionStorage (tab-specific, won't affect admin tab)
           const authState = {
             state: {
               user: user,
@@ -37,7 +37,8 @@ export default function Impersonate() {
             },
             version: 0
           }
-          localStorage.setItem('proisp-auth', JSON.stringify(authState))
+          // Use sessionStorage instead of localStorage - each tab has its own sessionStorage
+          sessionStorage.setItem('proisp-auth', JSON.stringify(authState))
 
           // Set the API header
           api.defaults.headers.common['Authorization'] = `Bearer ${jwtToken}`

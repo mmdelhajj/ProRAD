@@ -2,6 +2,33 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import api from '../services/api'
 
+// Custom storage that checks sessionStorage first (for impersonated tabs), then localStorage
+const customStorage = {
+  getItem: (name) => {
+    // Check sessionStorage first (impersonated sessions are tab-specific)
+    const sessionData = sessionStorage.getItem(name)
+    if (sessionData) {
+      return sessionData
+    }
+    // Fall back to localStorage (normal admin/reseller sessions)
+    return localStorage.getItem(name)
+  },
+  setItem: (name, value) => {
+    // If there's data in sessionStorage, update sessionStorage (impersonated tab)
+    if (sessionStorage.getItem(name)) {
+      sessionStorage.setItem(name, value)
+    } else {
+      // Otherwise use localStorage (normal session)
+      localStorage.setItem(name, value)
+    }
+  },
+  removeItem: (name) => {
+    // Remove from both to be safe
+    sessionStorage.removeItem(name)
+    localStorage.removeItem(name)
+  },
+}
+
 export const useAuthStore = create(
   persist(
     (set, get) => ({
@@ -80,6 +107,9 @@ export const useAuthStore = create(
           customerData: null,
         })
         delete api.defaults.headers.common['Authorization']
+        // Clear auth from both storages
+        sessionStorage.removeItem('proisp-auth')
+        localStorage.removeItem('proisp-auth')
         // Also clear customer token from localStorage (legacy)
         localStorage.removeItem('customer_token')
       },
@@ -156,6 +186,7 @@ export const useAuthStore = create(
     }),
     {
       name: 'proisp-auth',
+      storage: customStorage,
       partialize: (state) => ({
         user: state.user,
         token: state.token,
