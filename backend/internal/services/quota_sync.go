@@ -860,6 +860,7 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 }
 
 // restoreOriginalSpeedIfNeeded checks if speed needs to be restored to original service speed
+// Now also considers active time-based bandwidth rules to avoid restoring during NIGHT hours etc.
 func (s *QuotaSyncService) restoreOriginalSpeedIfNeeded(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) {
 	// Calculate expected original service speed
 	if sub.Service == nil {
@@ -870,9 +871,18 @@ func (s *QuotaSyncService) restoreOriginalSpeedIfNeeded(client *mikrotik.Client,
 	downloadSpeed := service.DownloadSpeed
 	uploadSpeed := service.UploadSpeed
 
+	// Check if there's an active time-based bandwidth rule
+	// If yes, apply the multiplier to get the expected speed
+	downloadMultiplier, uploadMultiplier := getActiveBandwidthRuleForService(sub.ServiceID)
+	if downloadMultiplier != 100 || uploadMultiplier != 100 {
+		// Apply multiplier to service speeds
+		downloadSpeed = downloadSpeed * int64(downloadMultiplier) / 100
+		uploadSpeed = uploadSpeed * int64(uploadMultiplier) / 100
+	}
+
 	// Use string speeds if available, otherwise use numeric speeds
 	var expectedRateLimit string
-	if service.DownloadSpeedStr != "" || service.UploadSpeedStr != "" {
+	if downloadMultiplier == 100 && uploadMultiplier == 100 && (service.DownloadSpeedStr != "" || service.UploadSpeedStr != "") {
 		expectedRateLimit = fmt.Sprintf("%s/%s", service.UploadSpeedStr, service.DownloadSpeedStr)
 	} else if downloadSpeed > 0 || uploadSpeed > 0 {
 		expectedRateLimit = fmt.Sprintf("%dk/%dk", uploadSpeed, downloadSpeed)
