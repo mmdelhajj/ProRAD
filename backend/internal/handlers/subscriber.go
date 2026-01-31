@@ -4070,9 +4070,13 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 			cdnCounters, err := client.GetCDNTrafficForSubscriber(session.Address, cdnConfigs)
 			log.Printf("CDN Debug: GetCDNTrafficForSubscriber for %s returned %d entries, err=%v", session.Address, len(cdnCounters), err)
 
-			// Build CDN traffic response
+			// Build CDN traffic response - ONLY show CDNs with actual traffic (bytes > 0)
 			if err == nil {
 				for _, counter := range cdnCounters {
+					// Skip CDNs with no traffic
+					if counter.Bytes <= 0 {
+						continue
+					}
 					log.Printf("CDN Debug: CDN %s bytes=%d", counter.CDNName, counter.Bytes)
 					color := cdnColorMap[counter.CDNID]
 					if color == "" {
@@ -4085,24 +4089,8 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 						Color:   color,
 					})
 				}
-			} else {
-				log.Printf("CDN Debug: Error getting CDN traffic: %v", err)
-				// If error, still return CDNs with 0 bytes
-				for _, serviceCDN := range serviceCDNs {
-					if serviceCDN.CDN != nil && serviceCDN.CDN.ID > 0 {
-						color := cdnColorMap[serviceCDN.CDNID]
-						if color == "" {
-							color = defaultColor
-						}
-						response.CDNTraffic = append(response.CDNTraffic, CDNBandwidth{
-							CDNID:   serviceCDN.CDNID,
-							CDNName: serviceCDN.CDN.Name,
-							Bytes:   0,
-							Color:   color,
-						})
-					}
-				}
 			}
+			// If error or no traffic, don't show any CDN (no 0.00 Mbps display)
 		}
 	}
 
