@@ -110,11 +110,26 @@ func Initialize(serverURL, licenseKey string) error {
 		stopChan: make(chan struct{}),
 	}
 
+	// Initialize enterprise security features
+	security.InitEnterpriseSecurity(licenseKey)
+
+	// Register stealth check function for random delayed checks
+	security.RegisterStealthCheck(func() bool {
+		if client == nil {
+			return false
+		}
+		err := client.validate()
+		return err == nil
+	})
+
 	// Initial validation - always set defaultClient so status can be queried
 	validationErr := client.validate()
 
 	// Set the client even if validation failed, so status can still be reported
 	defaultClient = client
+
+	// Set validation point for initialization
+	security.SetValidationPoint("init", validationErr == nil)
 
 	// Start background validation
 	go client.backgroundCheck()
@@ -141,6 +156,15 @@ func IsValid() bool {
 	}
 	defaultClient.mutex.RLock()
 	defer defaultClient.mutex.RUnlock()
+
+	// Also check all validation points (multi-point validation)
+	if !security.CheckAllValidationPoints() {
+		// Set validation point to track this check
+		security.SetValidationPoint("isvalid_check", false)
+		return false
+	}
+
+	security.SetValidationPoint("isvalid_check", true)
 	return defaultClient.isValid
 }
 
@@ -413,6 +437,12 @@ func (c *Client) validate() error {
 	c.gracePeriod = info.GracePeriod
 	c.lastCheck = time.Now()
 
+	// Record check time for timing anomaly detection
+	security.RecordCheckTime()
+
+	// Set validation point
+	security.SetValidationPoint("validate", info.Valid)
+
 	// Kill switch - immediate termination if license is killed by server
 	if info.LicenseStatus == "killed" || info.LicenseStatus == "terminated" {
 		log.Println("FATAL: License has been terminated by server. Shutting down.")
@@ -490,9 +520,11 @@ func (c *Client) sendHeartbeat(subscriberCount, onlineCount int, cpuUsage, memUs
 	}
 
 	if !result.Success {
+		security.SetValidationPoint("heartbeat", false)
 		return fmt.Errorf("heartbeat failed: %s", result.Message)
 	}
 
+	security.SetValidationPoint("heartbeat", true)
 	return nil
 }
 
