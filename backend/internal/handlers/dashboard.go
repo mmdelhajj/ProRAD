@@ -1212,3 +1212,521 @@ func getDiskIOSpeed() int64 {
 	}
 	return 100 // Conservative HDD estimate
 }
+
+// =====================================
+// ENVIRONMENT DETECTION & SYSTEM INFO
+// =====================================
+
+// EnvironmentType represents the deployment environment
+type EnvironmentType string
+
+const (
+	EnvironmentPhysical  EnvironmentType = "physical"
+	EnvironmentVM        EnvironmentType = "vm"
+	EnvironmentLXC       EnvironmentType = "lxc"
+	EnvironmentDocker    EnvironmentType = "docker"
+	EnvironmentUnknown   EnvironmentType = "unknown"
+)
+
+// detectEnvironment detects the deployment environment type
+func detectEnvironment() EnvironmentType {
+	// Check for LXC container first
+	if isLXCContainer() {
+		return EnvironmentLXC
+	}
+
+	// Check for Docker container
+	if isDockerContainer() {
+		return EnvironmentDocker
+	}
+
+	// Check for VM
+	if isVirtualMachine() {
+		return EnvironmentVM
+	}
+
+	// Default to physical
+	return EnvironmentPhysical
+}
+
+// isLXCContainer checks if running inside an LXC container
+func isLXCContainer() bool {
+	// Check /proc/1/environ for container=lxc
+	data, err := os.ReadFile("/proc/1/environ")
+	if err == nil {
+		if strings.Contains(string(data), "container=lxc") {
+			return true
+		}
+	}
+
+	// Check /run/systemd/container
+	data, err = os.ReadFile("/run/systemd/container")
+	if err == nil {
+		content := strings.TrimSpace(string(data))
+		if content == "lxc" || content == "lxc-libvirt" {
+			return true
+		}
+	}
+
+	// Check cgroup for lxc
+	data, err = os.ReadFile("/proc/1/cgroup")
+	if err == nil {
+		if strings.Contains(string(data), "/lxc/") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isDockerContainer checks if running inside a Docker container
+func isDockerContainer() bool {
+	// Check for .dockerenv file
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	// Check cgroup for docker
+	data, err := os.ReadFile("/proc/1/cgroup")
+	if err == nil {
+		if strings.Contains(string(data), "/docker/") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isVirtualMachine checks if running in a virtual machine
+func isVirtualMachine() bool {
+	// Check /sys/class/dmi/id/product_name
+	productPaths := []string{
+		"/sys/class/dmi/id/product_name",
+		"/host/sys/class/dmi/id/product_name",
+	}
+
+	vmIndicators := []string{
+		"VirtualBox", "VMware", "QEMU", "KVM", "Xen",
+		"Microsoft Corporation Virtual", "Hyper-V",
+		"Bochs", "Parallels", "BHYVE",
+	}
+
+	for _, path := range productPaths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		content := string(data)
+		for _, indicator := range vmIndicators {
+			if strings.Contains(content, indicator) {
+				return true
+			}
+		}
+	}
+
+	// Check /sys/class/dmi/id/sys_vendor
+	vendorPaths := []string{
+		"/sys/class/dmi/id/sys_vendor",
+		"/host/sys/class/dmi/id/sys_vendor",
+	}
+
+	vmVendors := []string{
+		"QEMU", "VMware", "Xen", "Microsoft Corporation",
+		"innotek GmbH", "Parallels", "Red Hat",
+	}
+
+	for _, path := range vendorPaths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		content := string(data)
+		for _, vendor := range vmVendors {
+			if strings.Contains(content, vendor) {
+				return true
+			}
+		}
+	}
+
+	// Check for hypervisor in cpuinfo
+	cpuinfoPath := "/proc/cpuinfo"
+	if _, err := os.Stat("/host/proc/cpuinfo"); err == nil {
+		cpuinfoPath = "/host/proc/cpuinfo"
+	}
+
+	data, err := os.ReadFile(cpuinfoPath)
+	if err == nil {
+		if strings.Contains(string(data), "hypervisor") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getVMType returns the specific VM hypervisor type
+func getVMType() string {
+	productPaths := []string{
+		"/sys/class/dmi/id/product_name",
+		"/host/sys/class/dmi/id/product_name",
+	}
+
+	for _, path := range productPaths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		content := strings.TrimSpace(string(data))
+
+		if strings.Contains(content, "VMware") {
+			return "VMware"
+		}
+		if strings.Contains(content, "VirtualBox") {
+			return "VirtualBox"
+		}
+		if strings.Contains(content, "QEMU") || strings.Contains(content, "KVM") {
+			return "KVM/QEMU"
+		}
+		if strings.Contains(content, "Xen") {
+			return "Xen"
+		}
+		if strings.Contains(content, "Hyper-V") || strings.Contains(content, "Microsoft") {
+			return "Hyper-V"
+		}
+	}
+
+	return "Unknown"
+}
+
+// getOSInfo returns OS information
+func getOSInfo() (string, string) {
+	// Read /etc/os-release
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return "Linux", "Unknown"
+	}
+
+	var name, version string
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "NAME=") {
+			name = strings.Trim(strings.TrimPrefix(line, "NAME="), "\"")
+		}
+		if strings.HasPrefix(line, "VERSION=") {
+			version = strings.Trim(strings.TrimPrefix(line, "VERSION="), "\"")
+		}
+		if strings.HasPrefix(line, "VERSION_ID=") && version == "" {
+			version = strings.Trim(strings.TrimPrefix(line, "VERSION_ID="), "\"")
+		}
+	}
+
+	if name == "" {
+		name = "Linux"
+	}
+	if version == "" {
+		version = "Unknown"
+	}
+
+	return name, version
+}
+
+// getUptime returns system uptime in seconds
+func getUptime() int64 {
+	uptimePath := "/proc/uptime"
+	if _, err := os.Stat("/host/proc/uptime"); err == nil {
+		uptimePath = "/host/proc/uptime"
+	}
+
+	data, err := os.ReadFile(uptimePath)
+	if err != nil {
+		return 0
+	}
+
+	fields := strings.Fields(string(data))
+	if len(fields) < 1 {
+		return 0
+	}
+
+	uptime, _ := strconv.ParseFloat(fields[0], 64)
+	return int64(uptime)
+}
+
+// formatUptime formats uptime seconds to human readable string
+func formatUptime(seconds int64) string {
+	days := seconds / 86400
+	hours := (seconds % 86400) / 3600
+	minutes := (seconds % 3600) / 60
+
+	if days > 0 {
+		return fmt.Sprintf("%d days, %d hours, %d minutes", days, hours, minutes)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%d hours, %d minutes", hours, minutes)
+	}
+	return fmt.Sprintf("%d minutes", minutes)
+}
+
+// getDiskInfo returns disk size and used space in GB
+func getDiskInfo() (total int64, used int64, free int64) {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs("/", &stat)
+	if err != nil {
+		return 0, 0, 0
+	}
+
+	totalBytes := stat.Blocks * uint64(stat.Bsize)
+	freeBytes := stat.Bfree * uint64(stat.Bsize)
+	usedBytes := totalBytes - freeBytes
+
+	return int64(totalBytes / 1024 / 1024 / 1024),
+		int64(usedBytes / 1024 / 1024 / 1024),
+		int64(freeBytes / 1024 / 1024 / 1024)
+}
+
+// getMemoryInfo returns memory in MB
+func getMemoryInfo() (total int64, used int64, available int64) {
+	meminfoPath := "/proc/meminfo"
+	if _, err := os.Stat("/host/proc/meminfo"); err == nil {
+		meminfoPath = "/host/proc/meminfo"
+	}
+
+	file, err := os.Open(meminfoPath)
+	if err != nil {
+		return 0, 0, 0
+	}
+	defer file.Close()
+
+	var memTotal, memAvailable uint64
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		value, _ := strconv.ParseUint(fields[1], 10, 64)
+		switch fields[0] {
+		case "MemTotal:":
+			memTotal = value
+		case "MemAvailable:":
+			memAvailable = value
+		}
+	}
+
+	totalMB := int64(memTotal / 1024)
+	availableMB := int64(memAvailable / 1024)
+	usedMB := totalMB - availableMB
+
+	return totalMB, usedMB, availableMB
+}
+
+// SystemInfo returns comprehensive system information for the dashboard
+func (h *DashboardHandler) SystemInfo(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	// Only admins can see system info
+	if user.UserType != models.UserTypeAdmin {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"success": false, "message": "Admin access required"})
+	}
+
+	// Detect environment
+	envType := detectEnvironment()
+	envName := string(envType)
+
+	// Get detailed info based on environment
+	var envDetails string
+	var envWarning string
+	var isProduction bool = true
+
+	switch envType {
+	case EnvironmentPhysical:
+		envDetails = "Physical Server (Recommended)"
+		isProduction = true
+	case EnvironmentVM:
+		vmType := getVMType()
+		envDetails = fmt.Sprintf("Virtual Machine (%s)", vmType)
+		isProduction = true
+	case EnvironmentLXC:
+		envDetails = "LXC Container (Proxmox)"
+		envWarning = "⚠️ LXC containers are NOT recommended for production. System metrics may be inaccurate. Please use a Physical Server or VM for enterprise deployments."
+		isProduction = false
+	case EnvironmentDocker:
+		envDetails = "Docker Container"
+		envWarning = "⚠️ Docker is for development/testing only. Please use a Physical Server or VM for production deployments."
+		isProduction = false
+	default:
+		envDetails = "Unknown Environment"
+	}
+
+	// Get hardware info
+	cpuCores := getCPUCores()
+	cpuModel := getCPUModel()
+	cpuSpeed := getCPUSpeed()
+
+	memTotal, memUsed, memAvailable := getMemoryInfo()
+	diskTotal, diskUsed, diskFree := getDiskInfo()
+	storageType := getStorageType()
+
+	osName, osVersion := getOSInfo()
+	uptimeSeconds := getUptime()
+	uptimeFormatted := formatUptime(uptimeSeconds)
+
+	// Get current usage
+	cpuPercent := getCPUPercent()
+	memPercent := getMemoryPercent()
+	diskPercent := getDiskPercent()
+
+	// Calculate capacity estimate (simple formula)
+	// Base: 2000 users per CPU core
+	// Adjusted by storage type
+	usersPerCore := int64(2000)
+	storageMultiplier := 1.0
+	switch storageType {
+	case "nvme":
+		storageMultiplier = 1.5
+	case "ssd":
+		storageMultiplier = 1.2
+	case "hdd":
+		storageMultiplier = 0.7
+	}
+	estimatedCapacity := int64(float64(cpuCores*usersPerCore) * storageMultiplier)
+
+	// Get current subscriber count
+	var subscriberCount int64
+	database.DB.Model(&models.Subscriber{}).Where("deleted_at IS NULL").Count(&subscriberCount)
+
+	capacityUsed := float64(0)
+	if estimatedCapacity > 0 {
+		capacityUsed = float64(subscriberCount) / float64(estimatedCapacity) * 100
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			// Environment
+			"environment": fiber.Map{
+				"type":          envName,
+				"details":       envDetails,
+				"warning":       envWarning,
+				"is_production": isProduction,
+			},
+			// CPU
+			"cpu": fiber.Map{
+				"model":   cpuModel,
+				"cores":   cpuCores,
+				"speed":   cpuSpeed,
+				"usage":   cpuPercent,
+			},
+			// Memory
+			"memory": fiber.Map{
+				"total_mb":     memTotal,
+				"used_mb":      memUsed,
+				"available_mb": memAvailable,
+				"total_gb":     memTotal / 1024,
+				"usage":        memPercent,
+			},
+			// Disk
+			"disk": fiber.Map{
+				"total_gb": diskTotal,
+				"used_gb":  diskUsed,
+				"free_gb":  diskFree,
+				"type":     storageType,
+				"usage":    diskPercent,
+			},
+			// OS
+			"os": fiber.Map{
+				"name":    osName,
+				"version": osVersion,
+				"uptime":  uptimeFormatted,
+				"uptime_seconds": uptimeSeconds,
+			},
+			// Capacity
+			"capacity": fiber.Map{
+				"estimated_max":    estimatedCapacity,
+				"current_subscribers": subscriberCount,
+				"usage_percent":    roundToOneDecimal(capacityUsed),
+				"status":           getCapacityStatus(capacityUsed),
+			},
+			// Recommendations
+			"recommendations": getSystemRecommendations(envType, cpuCores, memTotal/1024, storageType, capacityUsed),
+		},
+	})
+}
+
+// getCapacityStatus returns a status string based on capacity usage
+func getCapacityStatus(usagePercent float64) string {
+	if usagePercent < 50 {
+		return "healthy"
+	}
+	if usagePercent < 70 {
+		return "moderate"
+	}
+	if usagePercent < 85 {
+		return "warning"
+	}
+	return "critical"
+}
+
+// getSystemRecommendations returns recommendations based on system config
+func getSystemRecommendations(env EnvironmentType, cpuCores int64, ramGB int64, storageType string, capacityUsed float64) []fiber.Map {
+	var recommendations []fiber.Map
+
+	// Environment recommendation
+	if env == EnvironmentLXC || env == EnvironmentDocker {
+		recommendations = append(recommendations, fiber.Map{
+			"type":     "critical",
+			"title":    "Use Physical Server or VM",
+			"message":  "Containers are not recommended for production. Migrate to a physical server or virtual machine for accurate metrics and better performance.",
+		})
+	}
+
+	// CPU recommendation
+	if cpuCores < 4 {
+		recommendations = append(recommendations, fiber.Map{
+			"type":    "warning",
+			"title":   "Low CPU Cores",
+			"message": fmt.Sprintf("Current: %d cores. Recommended: 4+ cores for production workloads.", cpuCores),
+		})
+	}
+
+	// RAM recommendation
+	if ramGB < 8 {
+		recommendations = append(recommendations, fiber.Map{
+			"type":    "warning",
+			"title":   "Low Memory",
+			"message": fmt.Sprintf("Current: %d GB. Recommended: 8+ GB for production workloads.", ramGB),
+		})
+	}
+
+	// Storage recommendation
+	if storageType == "hdd" {
+		recommendations = append(recommendations, fiber.Map{
+			"type":    "info",
+			"title":   "Upgrade to SSD",
+			"message": "HDD storage detected. SSD/NVMe significantly improves database performance and user capacity.",
+		})
+	}
+
+	// Capacity recommendation
+	if capacityUsed > 70 {
+		recommendations = append(recommendations, fiber.Map{
+			"type":    "warning",
+			"title":   "High Capacity Usage",
+			"message": fmt.Sprintf("System at %.1f%% capacity. Consider upgrading hardware or adding cluster nodes.", capacityUsed),
+		})
+	}
+
+	// If no recommendations, system is healthy
+	if len(recommendations) == 0 {
+		recommendations = append(recommendations, fiber.Map{
+			"type":    "success",
+			"title":   "System Healthy",
+			"message": "Your system meets all recommended specifications for production use.",
+		})
+	}
+
+	return recommendations
+}

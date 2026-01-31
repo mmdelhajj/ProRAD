@@ -266,6 +266,7 @@ func main() {
 	protected.Get("/dashboard/sessions", dashboardHandler.Sessions)
 	protected.Get("/dashboard/system-metrics", dashboardHandler.SystemMetrics)
 	protected.Get("/dashboard/system-capacity", dashboardHandler.SystemCapacity)
+	protected.Get("/dashboard/system-info", dashboardHandler.SystemInfo)
 
 	// Subscriber routes
 	subscribers := protected.Group("/subscribers")

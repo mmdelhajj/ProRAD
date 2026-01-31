@@ -6,8 +6,9 @@ import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import { setTimezone } from '../utils/timezone'
 import toast from 'react-hot-toast'
-import { PhotoIcon, TrashIcon, SwatchIcon } from '@heroicons/react/24/outline'
+import { PhotoIcon, TrashIcon, SwatchIcon, CpuChipIcon, ServerIcon, ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import ClusterTab from '../components/ClusterTab'
+import { dashboardApi } from '../services/api'
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -16,7 +17,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // All valid tab IDs
-  const validTabs = ['branding', 'general', 'billing', 'service_change', 'radius', 'notifications', 'security', 'account', 'license', 'cluster']
+  const validTabs = ['branding', 'general', 'billing', 'service_change', 'radius', 'notifications', 'security', 'account', 'license', 'cluster', 'system']
 
   // Check if we should open a specific tab (from URL params)
   const urlTab = searchParams.get('tab')
@@ -224,6 +225,15 @@ export default function Settings() {
     }
   })
 
+  // System Info query
+  const { data: systemInfo, isLoading: systemInfoLoading, refetch: refetchSystemInfo } = useQuery({
+    queryKey: ['system-info', activeTab],
+    queryFn: () => dashboardApi.systemInfo().then(res => res.data.data),
+    enabled: activeTab === 'system',
+    staleTime: 30000,
+    refetchOnMount: 'always'
+  })
+
   // Test SMTP configuration
   const handleTestSmtp = async () => {
     setTestingSmtp(true)
@@ -298,6 +308,7 @@ export default function Settings() {
     { id: 'account', label: 'My Account' },
     { id: 'license', label: 'License' },
     { id: 'cluster', label: 'HA Cluster' },
+    { id: 'system', label: 'System Info' },
   ]
 
   // Logo upload handler
@@ -1662,6 +1673,312 @@ export default function Settings() {
             </div>
           ) : activeTab === 'cluster' ? (
             <ClusterTab />
+          ) : activeTab === 'system' ? (
+            <div className="space-y-6">
+              {/* Environment Warning */}
+              {systemInfo?.environment?.warning && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <ExclamationTriangleIcon className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium text-yellow-800 dark:text-yellow-200">Environment Warning</h3>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">{systemInfo.environment.warning}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* System Info Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">System Information</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Hardware specifications and system health</p>
+                </div>
+                <button
+                  onClick={() => refetchSystemInfo()}
+                  disabled={systemInfoLoading}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
+                >
+                  {systemInfoLoading ? 'Loading...' : 'Refresh'}
+                </button>
+              </div>
+
+              {systemInfoLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                </div>
+              ) : systemInfo ? (
+                <>
+                  {/* Environment Card */}
+                  <div className={`rounded-lg p-6 ${
+                    systemInfo.environment?.is_production
+                      ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
+                      : 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700'
+                  }`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-full ${
+                        systemInfo.environment?.is_production
+                          ? 'bg-green-100 dark:bg-green-800'
+                          : 'bg-yellow-100 dark:bg-yellow-800'
+                      }`}>
+                        <ServerIcon className={`w-8 h-8 ${
+                          systemInfo.environment?.is_production
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-yellow-600 dark:text-yellow-400'
+                        }`} />
+                      </div>
+                      <div>
+                        <h4 className={`text-lg font-semibold ${
+                          systemInfo.environment?.is_production
+                            ? 'text-green-800 dark:text-green-200'
+                            : 'text-yellow-800 dark:text-yellow-200'
+                        }`}>
+                          {systemInfo.environment?.details}
+                        </h4>
+                        <p className={`text-sm ${
+                          systemInfo.environment?.is_production
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-yellow-600 dark:text-yellow-400'
+                        }`}>
+                          {systemInfo.environment?.is_production ? '✓ Production Ready' : '⚠ Not Recommended for Production'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hardware Specs Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* CPU */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                          <CpuChipIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">CPU</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{systemInfo.cpu?.cores} Cores</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate" title={systemInfo.cpu?.model}>{systemInfo.cpu?.model}</p>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-500 dark:text-gray-400">Usage</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{systemInfo.cpu?.usage}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              systemInfo.cpu?.usage > 80 ? 'bg-red-500' :
+                              systemInfo.cpu?.usage > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(systemInfo.cpu?.usage || 0, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Memory */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                          <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                          </svg>
+                        </div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">Memory</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{systemInfo.memory?.total_gb} GB</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {Math.round(systemInfo.memory?.used_mb / 1024 * 10) / 10} GB used
+                      </p>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-500 dark:text-gray-400">Usage</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{systemInfo.memory?.usage}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              systemInfo.memory?.usage > 80 ? 'bg-red-500' :
+                              systemInfo.memory?.usage > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(systemInfo.memory?.usage || 0, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Disk */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+                          <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                          </svg>
+                        </div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">Storage</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{systemInfo.disk?.total_gb} GB</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {systemInfo.disk?.type?.toUpperCase()} • {systemInfo.disk?.free_gb} GB free
+                      </p>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-500 dark:text-gray-400">Usage</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{systemInfo.disk?.usage}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              systemInfo.disk?.usage > 80 ? 'bg-red-500' :
+                              systemInfo.disk?.usage > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(systemInfo.disk?.usage || 0, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Capacity */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                          <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        </div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">Capacity</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {systemInfo.capacity?.current_subscribers?.toLocaleString()}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        of {systemInfo.capacity?.estimated_max?.toLocaleString()} max subscribers
+                      </p>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-500 dark:text-gray-400">Usage</span>
+                          <span className={`font-medium ${
+                            systemInfo.capacity?.status === 'critical' ? 'text-red-600' :
+                            systemInfo.capacity?.status === 'warning' ? 'text-yellow-600' :
+                            'text-green-600'
+                          }`}>{systemInfo.capacity?.usage_percent}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              systemInfo.capacity?.status === 'critical' ? 'bg-red-500' :
+                              systemInfo.capacity?.status === 'warning' ? 'bg-yellow-500' :
+                              systemInfo.capacity?.status === 'moderate' ? 'bg-blue-500' :
+                              'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(systemInfo.capacity?.usage_percent || 0, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* OS Info */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-4">Operating System</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">OS</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.os?.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Version</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.os?.version}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Uptime</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.os?.uptime}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">CPU Speed</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.cpu?.speed || 'N/A'} MHz</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommendations */}
+                  {systemInfo.recommendations && systemInfo.recommendations.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-gray-900 dark:text-white">Recommendations</h4>
+                      {systemInfo.recommendations.map((rec, index) => (
+                        <div
+                          key={index}
+                          className={`rounded-lg p-4 flex items-start gap-3 ${
+                            rec.type === 'critical' ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700' :
+                            rec.type === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700' :
+                            rec.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700' :
+                            'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
+                          }`}
+                        >
+                          {rec.type === 'critical' || rec.type === 'warning' ? (
+                            <ExclamationTriangleIcon className={`w-5 h-5 flex-shrink-0 ${
+                              rec.type === 'critical' ? 'text-red-500' : 'text-yellow-500'
+                            }`} />
+                          ) : rec.type === 'success' ? (
+                            <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
+                          ) : (
+                            <InformationCircleIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                          )}
+                          <div>
+                            <h5 className={`font-medium ${
+                              rec.type === 'critical' ? 'text-red-800 dark:text-red-200' :
+                              rec.type === 'warning' ? 'text-yellow-800 dark:text-yellow-200' :
+                              rec.type === 'info' ? 'text-blue-800 dark:text-blue-200' :
+                              'text-green-800 dark:text-green-200'
+                            }`}>{rec.title}</h5>
+                            <p className={`text-sm ${
+                              rec.type === 'critical' ? 'text-red-600 dark:text-red-300' :
+                              rec.type === 'warning' ? 'text-yellow-600 dark:text-yellow-300' :
+                              rec.type === 'info' ? 'text-blue-600 dark:text-blue-300' :
+                              'text-green-600 dark:text-green-300'
+                            }`}>{rec.message}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Minimum Requirements Info */}
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-4">Minimum System Requirements</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Deployment</span>
+                        <span className="text-gray-900 dark:text-white font-medium">Physical Server or VM</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">CPU</span>
+                        <span className="text-gray-900 dark:text-white font-medium">4+ cores (8+ recommended)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Memory</span>
+                        <span className="text-gray-900 dark:text-white font-medium">8 GB minimum (16+ recommended)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Storage</span>
+                        <span className="text-gray-900 dark:text-white font-medium">100 GB SSD (NVMe recommended)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Network</span>
+                        <span className="text-gray-900 dark:text-white font-medium">1 Gbps minimum</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">OS</span>
+                        <span className="text-gray-900 dark:text-white font-medium">Ubuntu 22.04 LTS or Debian 12</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  Failed to load system information
+                </div>
+              )}
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {settingGroups[activeTab]?.map(field => (

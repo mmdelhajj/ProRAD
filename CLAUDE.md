@@ -1625,3 +1625,206 @@ if isInRecovery {
 3. Enter current main server IP + password
 4. Click "Recover Data"
 5. Done (5 minutes)
+
+### System Info & Environment Detection (v1.0.152 - Jan 2026)
+
+**New System Info page in Settings → System Info tab showing:**
+- Environment type detection (Physical Server / VM / LXC / Docker)
+- Production readiness warning for containers
+- Hardware specifications (CPU model, cores, speed)
+- Memory total and usage
+- Disk size, type (SSD/NVMe/HDD), and usage
+- Capacity estimation based on hardware
+- OS information and uptime
+- Recommendations based on system configuration
+
+**Environment Detection Logic:**
+```go
+// Detection priority:
+1. Check for LXC: /proc/1/environ contains "container=lxc"
+2. Check for Docker: /.dockerenv file exists
+3. Check for VM: /sys/class/dmi/id/product_name contains VMware/QEMU/etc.
+4. Default: Physical Server
+```
+
+**Deployment Recommendations:**
+| Environment | Production Ready | Recommendation |
+|-------------|-----------------|----------------|
+| Physical Server | ✅ Yes | Best for enterprise |
+| VM (KVM/VMware/Hyper-V) | ✅ Yes | Good, accurate metrics |
+| LXC Container | ❌ No | Warning shown, inaccurate metrics |
+| Docker Container | ❌ No | Warning shown, dev/test only |
+
+**Capacity Formula:**
+```
+Max Subscribers = CPU Cores × 2000 × Storage Multiplier
+
+Storage Multipliers:
+- NVMe: 1.5x
+- SSD: 1.2x
+- HDD: 0.7x
+```
+
+**Files:**
+- `backend/internal/handlers/dashboard.go` - SystemInfo handler, environment detection functions
+- `backend/cmd/api/main.go` - Added `/api/dashboard/system-info` route
+- `frontend/src/services/api.js` - Added `dashboardApi.systemInfo()`
+- `frontend/src/pages/Settings.jsx` - Added System Info tab with full UI
+
+**API Endpoint:**
+```
+GET /api/dashboard/system-info
+
+Response:
+{
+  "success": true,
+  "data": {
+    "environment": {
+      "type": "physical|vm|lxc|docker",
+      "details": "Physical Server (Recommended)",
+      "warning": "...", // Only for containers
+      "is_production": true
+    },
+    "cpu": {
+      "model": "Intel Xeon E5-2697 v4",
+      "cores": 8,
+      "speed": 2300,
+      "usage": 6.3
+    },
+    "memory": {
+      "total_gb": 16,
+      "used_mb": 8192,
+      "usage": 50.0
+    },
+    "disk": {
+      "total_gb": 100,
+      "free_gb": 80,
+      "type": "ssd",
+      "usage": 20.0
+    },
+    "capacity": {
+      "estimated_max": 19200,
+      "current_subscribers": 317,
+      "usage_percent": 1.7,
+      "status": "healthy"
+    },
+    "os": {
+      "name": "Ubuntu",
+      "version": "22.04",
+      "uptime": "5 days, 3 hours"
+    },
+    "recommendations": [...]
+  }
+}
+```
+
+**Minimum System Requirements (displayed in UI):**
+- Deployment: Physical Server or VM (NOT containers)
+- CPU: 4+ cores (8+ recommended)
+- Memory: 8 GB minimum (16+ recommended)
+- Storage: 100 GB SSD (NVMe recommended)
+- Network: 1 Gbps minimum
+- OS: Ubuntu 22.04 LTS or Debian 12
+
+### Subscriber Bandwidth Rules - How They Work (Jan 2026)
+
+**Per-subscriber bandwidth rules** allow custom speed overrides for individual subscribers.
+
+**How Rules Are Applied:**
+1. Rule created via UI → Saved to `subscriber_bandwidth_rules` table
+2. QuotaSync runs every 30 seconds
+3. For each online subscriber, checks `getActiveSubscriberBandwidthRule()`
+4. If active rule found:
+   - Updates `radreply` table (for future reconnects)
+   - Applies to MikroTik via API (UpdateUserRateLimitWithIP)
+   - Falls back to CoA if API fails
+5. Speed change takes effect within 30 seconds
+
+**Important Notes:**
+- Rules only apply to **online** subscribers
+- If user is offline when rule created, speed applies on next login
+- MikroTik queue must exist (dynamic PPPoE queue)
+- Queue name format: `<pppoe-username@domain>`
+
+**Files:**
+- `backend/internal/services/quota_sync.go` - `applySubscriberBandwidthRule()` function
+- `backend/internal/handlers/subscriber.go` - `CreateBandwidthRule()` handler
+- `backend/internal/models/subscriber.go` - `SubscriberBandwidthRule` model
+
+### Daily Quota Reset Service (Jan 2026)
+
+**DailyQuotaResetService** resets all subscriber quotas at configured time.
+
+**Configuration:**
+- Settings → RADIUS → "Daily Quota Reset Time" (e.g., 00:05)
+- Uses configured timezone from `system_preferences.system_timezone`
+
+**What Gets Reset:**
+```sql
+UPDATE subscribers SET
+  daily_quota_used = 0,
+  daily_download_used = 0,
+  daily_upload_used = 0,
+  fup_level = 0,
+  last_daily_reset = NOW()
+WHERE deleted_at IS NULL;
+```
+
+**Debugging Reset Issues:**
+```bash
+# Check if reset service ran
+docker logs proxpanel-api 2>&1 | grep "DailyQuotaResetService"
+
+# Check configured reset time
+docker exec proxpanel-db psql -U proxpanel -d proxpanel -c \
+  "SELECT * FROM system_preferences WHERE key IN ('daily_quota_reset_time', 'system_timezone');"
+
+# Check specific user's last reset
+docker exec proxpanel-db psql -U proxpanel -d proxpanel -c \
+  "SELECT username, daily_download_used, fup_level, last_daily_reset FROM subscribers WHERE username = 'user@domain';"
+```
+
+**Common Issues:**
+- API container restarted at reset time → Reset missed
+- Timezone mismatch → Reset happens at wrong time
+- User shows usage after reset → That's TODAY's usage, reset worked
+
+### Data Migration Between Servers (Jan 2026)
+
+**How to move data from one server to another:**
+
+**On Old Server:**
+```bash
+# Create database backup
+docker exec proxpanel-db pg_dump -U proxpanel -d proxpanel > /opt/proxpanel/backup.sql
+
+# Create uploads backup
+tar -czvf /opt/proxpanel/uploads.tar.gz /opt/proxpanel/frontend/dist/uploads/
+```
+
+**Copy to New Server:**
+```bash
+scp /opt/proxpanel/backup.sql root@NEW_IP:/opt/proxpanel/
+scp /opt/proxpanel/uploads.tar.gz root@NEW_IP:/opt/proxpanel/
+```
+
+**On New Server:**
+```bash
+# Stop API
+docker-compose stop api
+
+# Restore database
+cat backup.sql | docker exec -i proxpanel-db psql -U proxpanel -d proxpanel
+
+# Restore uploads
+tar -xzvf uploads.tar.gz -C /
+
+# Start API
+docker-compose start api
+docker exec proxpanel-frontend nginx -s reload
+```
+
+**Update MikroTik:**
+```
+/radius set [find] address=NEW_SERVER_IP
+```

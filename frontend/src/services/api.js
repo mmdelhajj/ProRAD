@@ -249,6 +249,7 @@ export const dashboardApi = {
   sessions: (params) => api.get('/dashboard/sessions', { params }),
   systemMetrics: () => api.get('/dashboard/system-metrics'),
   systemCapacity: () => api.get('/dashboard/system-capacity'),
+  systemInfo: () => api.get('/dashboard/system-info'),
 }
 
 export const sessionApi = {
