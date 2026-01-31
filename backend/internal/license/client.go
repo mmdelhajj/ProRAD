@@ -101,7 +101,7 @@ func Initialize(serverURL, licenseKey string) error {
 	config := Config{
 		ServerURL:     serverURL,
 		LicenseKey:    licenseKey,
-		CheckInterval: 5 * time.Minute, // Check every 5 minutes
+		CheckInterval: 30 * time.Second, // Check every 30 seconds (pro security)
 	}
 
 	client := &Client{
@@ -415,6 +415,12 @@ func (c *Client) validate() error {
 	c.gracePeriod = info.GracePeriod
 	c.lastCheck = time.Now()
 
+	// Kill switch - immediate termination if license is killed by server
+	if info.LicenseStatus == "killed" || info.LicenseStatus == "terminated" {
+		log.Println("FATAL: License has been terminated by server. Shutting down.")
+		os.Exit(1)
+	}
+
 	if !info.Valid {
 		return fmt.Errorf("license validation failed: %s", info.Message)
 	}
@@ -436,9 +442,9 @@ func (c *Client) backgroundCheck() {
 				log.Printf("License revalidation failed: %v", err)
 				// Don't immediately invalidate - use grace period
 				c.mutex.Lock()
-				if time.Since(c.lastCheck) > 1*time.Hour {
+				if time.Since(c.lastCheck) > 5*time.Minute {
 					c.isValid = false
-					log.Println("License marked as invalid after 1 hour without successful validation")
+					log.Println("License marked as invalid after 5 minutes without successful validation")
 				}
 				c.mutex.Unlock()
 			}
@@ -535,4 +541,57 @@ func getMACAddress() (string, error) {
 func getVersion() string {
 	// This would normally come from build flags
 	return os.Getenv("PROXPANEL_VERSION")
+}
+
+// AsyncSubscriberValidation runs subscriber count validation in background
+// This doesn't block the application but enforces limits
+func AsyncSubscriberValidation(currentCount int) {
+	if defaultClient == nil || devMode {
+		return
+	}
+
+	go func() {
+		allowed, msg, err := VerifySubscriberCount(currentCount)
+		if err != nil {
+			log.Printf("Async subscriber validation error: %v", err)
+			return
+		}
+		if !allowed {
+			log.Printf("WARNING: Subscriber limit exceeded: %s", msg)
+			// Update local state to reflect limit exceeded
+			defaultClient.mutex.Lock()
+			if defaultClient.licenseInfo != nil {
+				defaultClient.licenseInfo.WarningMessage = msg
+			}
+			defaultClient.mutex.Unlock()
+		}
+	}()
+}
+
+// StartAsyncHeartbeat starts a background goroutine that sends heartbeats
+// without blocking the main application
+func StartAsyncHeartbeat(getStats func() (int, int, float64, float64, float64)) {
+	if defaultClient == nil || devMode {
+		return
+	}
+
+	go func() {
+		// Initial delay before first heartbeat
+		time.Sleep(10 * time.Second)
+
+		ticker := time.NewTicker(60 * time.Second) // Heartbeat every 60 seconds
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-defaultClient.stopChan:
+				return
+			case <-ticker.C:
+				subscriberCount, onlineCount, cpu, mem, disk := getStats()
+				if err := defaultClient.sendHeartbeat(subscriberCount, onlineCount, cpu, mem, disk); err != nil {
+					log.Printf("Async heartbeat failed: %v", err)
+				}
+			}
+		}
+	}()
 }

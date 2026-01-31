@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ProxPanel Installer v1.0.158
+# ProxPanel Installer v1.0.159
 # Enterprise ISP Management System
 # 48-Hour FREE Trial
 #
