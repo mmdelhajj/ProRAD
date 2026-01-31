@@ -596,43 +596,91 @@ func (h *SharingDetectionHandler) ListNASRuleStatus(c *fiber.Ctx) error {
 		})
 	}
 
+	// Return empty if no NAS devices
+	if len(nasList) == 0 {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    []NASRuleStatus{},
+		})
+	}
+
 	results := make([]NASRuleStatus, len(nasList))
-	var wg sync.WaitGroup
-	var mu sync.Mutex
+	resultChan := make(chan struct {
+		idx    int
+		status NASRuleStatus
+	}, len(nasList))
 
+	// Start goroutines with individual timeouts
 	for i, nas := range nasList {
-		wg.Add(1)
 		go func(idx int, n models.Nas) {
-			defer wg.Done()
-
 			status := NASRuleStatus{
 				NASID:        n.ID,
 				NASName:      n.Name,
 				NASIPAddress: n.IPAddress,
 			}
 
-			client := mikrotik.NewClient(
-				fmt.Sprintf("%s:%d", n.IPAddress, n.APIPort),
-				n.APIUsername,
-				n.APIPassword,
-			)
-			defer client.Close()
+			// Create a channel for this specific NAS check
+			checkDone := make(chan bool, 1)
+			go func() {
+				client := mikrotik.NewClient(
+					fmt.Sprintf("%s:%d", n.IPAddress, n.APIPort),
+					n.APIUsername,
+					n.APIPassword,
+				)
+				defer client.Close()
 
-			count, err := client.CountTTLRules(getTTLRuleComment())
-			if err != nil {
-				status.Error = err.Error()
-			} else {
-				status.RuleCount = count
-				status.RulesConfigured = count >= 4 // We expect 4 rules
+				count, err := client.CountTTLRules(getTTLRuleComment())
+				if err != nil {
+					status.Error = err.Error()
+				} else {
+					status.RuleCount = count
+					status.RulesConfigured = count >= 4
+				}
+				checkDone <- true
+			}()
+
+			// Wait max 5 seconds per NAS
+			select {
+			case <-checkDone:
+				// Completed
+			case <-time.After(5 * time.Second):
+				status.Error = "Connection timeout"
 			}
 
-			mu.Lock()
-			results[idx] = status
-			mu.Unlock()
+			resultChan <- struct {
+				idx    int
+				status NASRuleStatus
+			}{idx, status}
 		}(i, nas)
 	}
 
-	wg.Wait()
+	// Collect results with overall 10 second timeout
+	timeout := time.After(10 * time.Second)
+	collected := 0
+	for collected < len(nasList) {
+		select {
+		case result := <-resultChan:
+			results[result.idx] = result.status
+			collected++
+		case <-timeout:
+			// Fill remaining with timeout error
+			for i := range results {
+				if results[i].NASID == 0 {
+					results[i] = NASRuleStatus{
+						NASID:        nasList[i].ID,
+						NASName:      nasList[i].Name,
+						NASIPAddress: nasList[i].IPAddress,
+						Error:        "Connection timeout",
+					}
+				}
+			}
+			log.Printf("SharingDetection: ListNASRuleStatus timed out, collected %d/%d", collected, len(nasList))
+			return c.JSON(fiber.Map{
+				"success": true,
+				"data":    results,
+			})
+		}
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,

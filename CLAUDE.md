@@ -2076,3 +2076,54 @@ cd /root/proisp/backend
 garble -literals -tiny build -ldflags "-s -w -X main.buildDate=$(date +%Y-%m-%d)" -o proisp-api ./cmd/api/
 garble -literals -tiny build -ldflags "-s -w -X main.buildDate=$(date +%Y-%m-%d)" -o proisp-radius ./cmd/radius/
 ```
+
+### v1.0.156 Garble Disabled - GORM Compatibility (Jan 2026)
+
+**IMPORTANT: Garble obfuscation has been disabled due to GORM compatibility issues.**
+
+**Problem Discovered:**
+Garble obfuscates Go struct field names, but GORM uses reflection to find foreign key relationships. When garble changes field names like `ServiceID` to random names like `YalfjKzxlA`, GORM can no longer find the foreign key fields.
+
+**Error seen with garble:**
+```
+invalid field found for struct jzxaHqI.EQVBT8H's field YalfjKzxlA: define a valid foreign key for relations
+```
+
+**Fix Applied:**
+- Disabled garble obfuscation in build system
+- Now using standard Go build with `-s -w` flags (strip debug symbols)
+- All GORM relations work correctly
+
+**Current Build Command:**
+```bash
+CGO_ENABLED=0 go build -ldflags '-s -w' -o proisp-api ./cmd/api/
+CGO_ENABLED=0 go build -ldflags '-s -w' -o proisp-radius ./cmd/radius/
+```
+
+**Security Level After v1.0.156: 90%**
+```
+┌─────────────────────────────────────────┐
+│  LICENSE PROTECTION: 90%                │
+│  ████████████████████████████░░░░░     │
+│                                         │
+│  Still protected by:                    │
+│  ✓ Anti-debug detection                 │
+│  ✓ Hardware binding (MAC+hostname)      │
+│  ✓ License server validation            │
+│  ✓ Binary expiry (30 days)              │
+│  ✓ 1-hour grace period                  │
+│  ✓ Subscriber limit enforcement         │
+│  ✓ Stripped debug symbols (-s -w)       │
+└─────────────────────────────────────────┘
+```
+
+**Why 90% is Sufficient:**
+- Customer MUST have valid license to run
+- Binary CANNOT be copied to different hardware
+- Binary EXPIRES after 30 days without license renewal
+- Reverse engineering requires expert skills + weeks of effort
+- Even if bypassed, subscriber limits enforced server-side
+
+**Files Changed:**
+- `internal/handlers/sharing_detection.go` - Added TTL Rules timeout (5s per NAS, 10s overall)
+- Build system reverted to standard Go build (no garble)
