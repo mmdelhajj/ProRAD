@@ -1193,8 +1193,8 @@ export default function Services() {
                                 <span className="text-sm text-green-700 font-medium">Bypass Quota</span>
                               </label>
                             </div>
-                            <div className="flex items-end">
-                              <label className="flex items-center gap-2 pb-2">
+                            <div className="flex flex-col">
+                              <label className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={sc.is_active}
@@ -1203,6 +1203,7 @@ export default function Services() {
                                 />
                                 <span className="text-sm">Active</span>
                               </label>
+                              <span className="text-xs text-gray-400 mt-1">Show in Live Graph</span>
                             </div>
                           </div>
 
