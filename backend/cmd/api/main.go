@@ -144,6 +144,9 @@ func main() {
 		EnableTrustedProxyCheck: true,
 		TrustedProxies:          []string{"172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"}, // Docker networks
 		BodyLimit:               50 * 1024 * 1024, // 50MB
+		ReadTimeout:             30 * time.Second, // Request read timeout - prevents slow client attacks
+		WriteTimeout:            30 * time.Second, // Response write timeout - prevents resource exhaustion
+		IdleTimeout:             60 * time.Second, // Keep-alive connection timeout
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

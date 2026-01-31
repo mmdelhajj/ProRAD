@@ -436,9 +436,9 @@ func (c *Client) backgroundCheck() {
 				log.Printf("License revalidation failed: %v", err)
 				// Don't immediately invalidate - use grace period
 				c.mutex.Lock()
-				if time.Since(c.lastCheck) > 24*time.Hour {
+				if time.Since(c.lastCheck) > 1*time.Hour {
 					c.isValid = false
-					log.Println("License marked as invalid after 24 hours without successful validation")
+					log.Println("License marked as invalid after 1 hour without successful validation")
 				}
 				c.mutex.Unlock()
 			}
