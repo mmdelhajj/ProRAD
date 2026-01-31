@@ -709,6 +709,11 @@ func (h *CDNHandler) UpdateServiceCDNs(c *fiber.Ctx) error {
 		})
 	}
 
+	// Debug: Log received CDN configs
+	for i, cdn := range input.CDNs {
+		log.Printf("UpdateServiceCDNs: Received CDN[%d] cdn_id=%d is_active=%v", i, cdn.CDNID, cdn.IsActive)
+	}
+
 	// Fetch old configs with PCQ enabled BEFORE deleting (for cleanup)
 	var oldConfigs []models.ServiceCDN
 	database.DB.Preload("CDN").Where("service_id = ? AND pcq_enabled = ?", serviceID, true).Find(&oldConfigs)
@@ -762,6 +767,12 @@ func (h *CDNHandler) UpdateServiceCDNs(c *fiber.Ctx) error {
 			TimeSpeedRatio: timeSpeedRatio,
 		}
 		database.DB.Create(&serviceCDN)
+		// Explicitly update boolean fields (GORM ignores false due to default:true in model)
+		database.DB.Model(&serviceCDN).Updates(map[string]interface{}{
+			"is_active":    cdnConfig.IsActive,
+			"bypass_quota": cdnConfig.BypassQuota,
+			"pcq_enabled":  cdnConfig.PCQEnabled,
+		})
 
 		// If PCQ enabled, sync PCQ setup to the specific NAS
 		if cdnConfig.PCQEnabled && cdnConfig.IsActive && cdnConfig.SpeedLimit > 0 && cdnConfig.PCQNASID != nil && cdnConfig.PCQTargetPools != "" {
