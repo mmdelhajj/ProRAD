@@ -255,12 +255,13 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribers(rule *BandwidthRule, na
 				baseUpload = sub.Service.FUP3UploadSpeed
 			}
 		} else {
-			// Normal speed - convert from Mbps to Kbps
-			baseDownload = int64(sub.Service.DownloadSpeed) * 1000
-			baseUpload = int64(sub.Service.UploadSpeed) * 1000
+			// Normal speed - already in Kbps
+			baseDownload = int64(sub.Service.DownloadSpeed)
+			baseUpload = int64(sub.Service.UploadSpeed)
 		}
 
-		// Apply multiplier (e.g., 80 = 80%)
+		// Apply multiplier percentage (100% = same speed, 200% = double speed)
+		// Formula: base * multiplier / 100
 		newDownloadK := baseDownload * int64(rule.DownloadMultiplier) / 100
 		newUploadK := baseUpload * int64(rule.UploadMultiplier) / 100
 
@@ -349,9 +350,9 @@ func (s *BandwidthRuleService) restoreSpeedsForRule(ruleID uint) {
 				restoreUploadK = subscriber.Service.FUP3UploadSpeed
 			}
 		} else {
-			// Restore to normal service speed
-			restoreDownloadK = applied.OriginalDownloadM * 1000
-			restoreUploadK = applied.OriginalUploadM * 1000
+			// Restore to normal service speed (already in Kbps)
+			restoreDownloadK = applied.OriginalDownloadM
+			restoreUploadK = applied.OriginalUploadM
 		}
 
 		rateLimit := fmt.Sprintf("%dk/%dk", restoreUploadK, restoreDownloadK)
@@ -467,10 +468,12 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribersCount(rule *BandwidthRul
 				baseUpload = sub.Service.FUP3UploadSpeed
 			}
 		} else {
-			baseDownload = int64(sub.Service.DownloadSpeed) * 1000
-			baseUpload = int64(sub.Service.UploadSpeed) * 1000
+			// Normal speed - already in Kbps
+			baseDownload = int64(sub.Service.DownloadSpeed)
+			baseUpload = int64(sub.Service.UploadSpeed)
 		}
 
+		// Apply multiplier percentage (100% = same speed, 200% = double speed)
 		newDownloadK := baseDownload * int64(rule.DownloadMultiplier) / 100
 		newUploadK := baseUpload * int64(rule.UploadMultiplier) / 100
 		rateLimit := fmt.Sprintf("%dk/%dk", newUploadK, newDownloadK)

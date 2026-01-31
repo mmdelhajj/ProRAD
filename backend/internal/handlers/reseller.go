@@ -356,10 +356,19 @@ func (h *ResellerHandler) Update(c *fiber.Ctx) error {
 		resellerUpdates["is_active"] = val
 	}
 	if val, ok := req["permission_group"]; ok {
-		resellerUpdates["permission_group"] = val
+		// Handle null/empty case
+		if val == nil || val == "" {
+			resellerUpdates["permission_group"] = nil
+		} else if floatVal, ok := val.(float64); ok {
+			// JSON numbers come as float64, convert to int
+			resellerUpdates["permission_group"] = int(floatVal)
+		} else {
+			resellerUpdates["permission_group"] = val
+		}
 	}
 	if len(resellerUpdates) > 0 {
-		database.DB.Model(&reseller).Updates(resellerUpdates)
+		// Use Table() to explicitly target resellers table (avoids GORM confusion with preloaded User)
+		database.DB.Table("resellers").Where("id = ?", reseller.ID).Updates(resellerUpdates)
 	}
 
 	// Update user fields

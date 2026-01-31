@@ -248,6 +248,7 @@ export const dashboardApi = {
   resellers: (params) => api.get('/dashboard/resellers', { params }),
   sessions: (params) => api.get('/dashboard/sessions', { params }),
   systemMetrics: () => api.get('/dashboard/system-metrics'),
+  systemCapacity: () => api.get('/dashboard/system-capacity'),
 }
 
 export const sessionApi = {
@@ -332,6 +333,22 @@ export const settingsApi = {
   }),
   deleteFavicon: () => api.delete('/settings/favicon'),
   restartServices: (services) => api.post('/system/restart-services', { services }),
+}
+
+export const clusterApi = {
+  getConfig: () => api.get('/cluster/config'),
+  getStatus: () => api.get('/cluster/status'),
+  setupMain: (data) => api.post('/cluster/setup-main', data),
+  setupSecondary: (data) => api.post('/cluster/setup-secondary', data),
+  joinCluster: (data) => api.post('/cluster/join', data),
+  leaveCluster: () => api.post('/cluster/leave'),
+  removeNode: (id) => api.delete(`/cluster/nodes/${id}`),
+  manualFailover: (targetNodeId) => api.post('/cluster/failover', { target_node_id: targetNodeId }),
+  testConnection: (data) => api.post('/cluster/test-connection', data),
+  checkMainStatus: () => api.get('/cluster/check-main-status'),
+  promoteToMain: () => api.post('/cluster/promote-to-main'),
+  testSourceConnection: (data) => api.post('/cluster/test-source-connection', data),
+  recoverFromServer: (data) => api.post('/cluster/recover-from-server', data),
 }
 
 export const cdnApi = {

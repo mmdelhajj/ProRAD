@@ -13,7 +13,7 @@ export default function CDNBandwidthRules() {
     start_time: '16:00',
     end_time: '23:00',
     days_of_week: [0, 1, 2, 3, 4, 5, 6],
-    speed_multiplier: 50,
+    speed_multiplier: 100,
     cdn_ids: [],
     priority: 10,
     enabled: true,
@@ -95,7 +95,7 @@ export default function CDNBandwidthRules() {
       start_time: '16:00',
       end_time: '23:00',
       days_of_week: [0, 1, 2, 3, 4, 5, 6],
-      speed_multiplier: 50,
+      speed_multiplier: 100,
       cdn_ids: [],
       priority: 10,
       enabled: true,
@@ -344,6 +344,9 @@ export default function CDNBandwidthRules() {
                   </div>
                 </div>
 
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 bg-blue-50 dark:bg-blue-900/30 p-2 rounded">
+                  Speed multiplier: 100% = same speed, 200% = double speed, 50% = half speed
+                </p>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
                     CDN Speed: <span className={`font-bold ${formData.speed_multiplier > 100 ? 'text-green-600' : formData.speed_multiplier < 100 ? 'text-orange-600' : 'text-gray-600'}`}>{formData.speed_multiplier}%</span>
@@ -367,9 +370,6 @@ export default function CDNBandwidthRules() {
                     <span>200%</span>
                     <span>300%</span>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
-                    100% = no change, 50% = half speed, 300% = triple speed
-                  </p>
                 </div>
 
                 <div>

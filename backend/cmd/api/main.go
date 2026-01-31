@@ -17,6 +17,7 @@ import (
 	"github.com/proisp/backend/internal/handlers"
 	"github.com/proisp/backend/internal/license"
 	"github.com/proisp/backend/internal/middleware"
+	"github.com/proisp/backend/internal/mikrotik"
 	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/security"
 	"github.com/proisp/backend/internal/services"
@@ -61,6 +62,9 @@ func main() {
 	// Create performance indexes
 	database.EnsureIndexes()
 
+	// Ensure JWT secret is persisted (prevents session loss on restart)
+	cfg.JWTSecret = database.EnsureJWTSecret(cfg)
+
 	// Seed admin user if not exists
 	seedAdminUser()
 
@@ -84,9 +88,16 @@ func main() {
 		log.Println("Warning: No encryption key from license server - sensitive data will not be encrypted")
 	}
 
+	// Initialize MikroTik connection pool (for 30K+ users performance)
+	mikrotik.InitializePool()
+
 	// Start quota sync service (syncs MikroTik bytes to database every 30 seconds)
 	quotaSyncService := services.NewQuotaSyncService(30 * time.Second)
 	quotaSyncService.Start()
+
+	// Start daily quota reset service (resets ALL users at configured time)
+	dailyQuotaResetService := services.NewDailyQuotaResetService()
+	dailyQuotaResetService.Start()
 
 	// Start bandwidth rule service (checks time-based bandwidth rules every minute)
 	bandwidthRuleService := services.NewBandwidthRuleService(1 * time.Minute)
@@ -109,6 +120,21 @@ func main() {
 	// Start sharing detection service (nightly automatic scans)
 	sharingDetectionService := services.NewSharingDetectionService()
 	sharingDetectionService.Start()
+
+	// Start HA Cluster service (heartbeat, replication monitoring)
+	clusterService := services.NewClusterService()
+	clusterService.Start()
+
+	// Start HA Cluster failover service (monitors main server from secondary, triggers failover)
+	clusterFailoverService := services.NewClusterFailover()
+	clusterFailoverService.Start()
+
+	// Start rad_acct archival service (keeps main table small for performance)
+	radAcctArchivalService := services.NewRadAcctArchivalService(90) // Keep 90 days
+	radAcctArchivalService.Start()
+
+	// Warmup subscriber cache for online users (improves RADIUS performance)
+	go database.WarmupSubscriberCache()
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -184,6 +210,15 @@ func main() {
 	api.Get("/branding", settingsHandler.GetBranding)
 	api.Get("/backups/public-download/:token", backupHandler.PublicDownload)
 
+	// HA Cluster public routes (use cluster secret for auth, not JWT)
+	// Must be registered before protected group
+	clusterHandler := handlers.NewClusterHandler()
+	api.Post("/cluster/join", clusterHandler.JoinCluster)
+	api.Post("/cluster/heartbeat", clusterHandler.Heartbeat)
+	api.Post("/cluster/promote", clusterHandler.HandlePromote)
+	api.Post("/cluster/notify", clusterHandler.HandleNotify)
+	api.Post("/cluster/uploads", clusterHandler.GetUploads)
+
 	// Serve uploaded files (logos, etc.)
 	app.Static("/uploads", "/app/uploads")
 
@@ -230,6 +265,7 @@ func main() {
 	protected.Get("/dashboard/resellers", dashboardHandler.TopResellers)
 	protected.Get("/dashboard/sessions", dashboardHandler.Sessions)
 	protected.Get("/dashboard/system-metrics", dashboardHandler.SystemMetrics)
+	protected.Get("/dashboard/system-capacity", dashboardHandler.SystemCapacity)
 
 	// Subscriber routes
 	subscribers := protected.Group("/subscribers")
@@ -352,6 +388,22 @@ func main() {
 	remoteSupport := protected.Group("/system/remote-support", middleware.AdminOnly())
 	remoteSupport.Get("/status", settingsHandler.GetRemoteSupportStatus)
 	remoteSupport.Post("/toggle", settingsHandler.ToggleRemoteSupport)
+
+	// HA Cluster routes (Admin only) - clusterHandler already created in public routes section
+	cluster := protected.Group("/cluster", middleware.AdminOnly())
+	cluster.Get("/config", clusterHandler.GetConfig)
+	cluster.Get("/status", clusterHandler.GetStatus)
+	cluster.Get("/replication-status", clusterHandler.GetReplicationStatus)
+	cluster.Post("/setup-main", clusterHandler.SetupMain)
+	cluster.Post("/setup-secondary", clusterHandler.SetupSecondary)
+	cluster.Post("/leave", clusterHandler.LeaveCluster)
+	cluster.Delete("/nodes/:id", clusterHandler.RemoveNode)
+	cluster.Post("/failover", clusterHandler.ManualFailover)
+	cluster.Post("/test-connection", clusterHandler.TestConnection)
+	cluster.Get("/check-main-status", clusterHandler.CheckMainStatus)
+	cluster.Post("/promote-to-main", clusterHandler.PromoteToMain)
+	cluster.Post("/test-source-connection", clusterHandler.TestSourceConnection)
+	cluster.Post("/recover-from-server", clusterHandler.RecoverFromServer)
 
 	// User management routes (Admin only)
 	users := protected.Group("/users", middleware.AdminOnly())
@@ -534,6 +586,10 @@ func main() {
 		bandwidthRuleService.Stop()
 		cdnBandwidthRuleService.Stop()
 		backupSchedulerService.Stop()
+		radAcctArchivalService.Stop()
+		clusterFailoverService.Stop()
+		clusterService.Stop()
+		mikrotik.ShutdownPool()
 		license.Stop()
 		app.Shutdown()
 	}()

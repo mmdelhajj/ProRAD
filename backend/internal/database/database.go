@@ -52,12 +52,12 @@ func Connect(cfg *config.Config) error {
 	}
 
 	// Connection pool optimized for 30,000+ users
-	// MaxOpenConns: Should be ~500 for high concurrency (adjust based on PostgreSQL max_connections)
-	// MaxIdleConns: Keep 50 connections ready for burst traffic
+	// MaxOpenConns: 1500 for high concurrency (requires PostgreSQL max_connections = 2000)
+	// MaxIdleConns: Keep 100 connections ready for burst traffic
 	// ConnMaxLifetime: Recycle connections every 30 minutes to prevent stale connections
 	// ConnMaxIdleTime: Close idle connections after 5 minutes to free resources
-	sqlDB.SetMaxIdleConns(50)
-	sqlDB.SetMaxOpenConns(500)
+	sqlDB.SetMaxIdleConns(100)
+	sqlDB.SetMaxOpenConns(1500)
 	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 

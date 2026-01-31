@@ -106,6 +106,87 @@ func shouldResetDailyQuota(lastReset *time.Time, now time.Time) bool {
 	return false
 }
 
+// DailyQuotaResetService handles scheduled daily quota reset for ALL users
+type DailyQuotaResetService struct {
+	stopChan    chan struct{}
+	wg          sync.WaitGroup
+	lastResetAt time.Time
+}
+
+// NewDailyQuotaResetService creates a new daily quota reset service
+func NewDailyQuotaResetService() *DailyQuotaResetService {
+	return &DailyQuotaResetService{
+		stopChan: make(chan struct{}),
+	}
+}
+
+// Start begins the daily quota reset scheduler
+func (s *DailyQuotaResetService) Start() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		log.Println("DailyQuotaResetService started")
+
+		// Check every minute
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				s.checkAndReset()
+			case <-s.stopChan:
+				log.Println("DailyQuotaResetService stopped")
+				return
+			}
+		}
+	}()
+}
+
+// Stop stops the daily quota reset service
+func (s *DailyQuotaResetService) Stop() {
+	close(s.stopChan)
+	s.wg.Wait()
+}
+
+// checkAndReset checks if it's time to reset and performs the reset
+func (s *DailyQuotaResetService) checkAndReset() {
+	now := getNow()
+	resetHour, resetMinute := getDailyQuotaResetTime()
+
+	// Check if current time matches reset time (within the current minute)
+	if now.Hour() != resetHour || now.Minute() != resetMinute {
+		return
+	}
+
+	// Check if we already reset today
+	todayReset := time.Date(now.Year(), now.Month(), now.Day(), resetHour, resetMinute, 0, 0, now.Location())
+	if !s.lastResetAt.IsZero() && s.lastResetAt.After(todayReset.Add(-1*time.Minute)) {
+		return // Already reset in this time window
+	}
+
+	log.Printf("DailyQuotaResetService: Running scheduled reset at %02d:%02d", resetHour, resetMinute)
+
+	// Reset daily quotas for ALL subscribers (online and offline)
+	result := database.DB.Model(&models.Subscriber{}).
+		Where("deleted_at IS NULL").
+		Updates(map[string]interface{}{
+			"daily_quota_used":     0,
+			"daily_download_used":  0,
+			"daily_upload_used":    0,
+			"fup_level":            0,
+			"last_daily_reset":     now,
+		})
+
+	if result.Error != nil {
+		log.Printf("DailyQuotaResetService: Failed to reset quotas: %v", result.Error)
+		return
+	}
+
+	s.lastResetAt = now
+	log.Printf("DailyQuotaResetService: Reset daily quotas for %d subscribers", result.RowsAffected)
+}
+
 // TimeSpeedState tracks time-based speed state for a user session
 type TimeSpeedState struct {
 	Applied   bool   // whether time-based speed is currently applied

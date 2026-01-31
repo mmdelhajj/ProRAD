@@ -706,23 +706,35 @@ export default function SubscriberEdit() {
                     </button>
                   </div>
                 </div>
-                <div>
-                  <label className="label">Service Plan</label>
-                  <select
-                    name="service_id"
-                    value={formData.service_id}
-                    onChange={handleChange}
-                    className="input"
-                    required
-                  >
-                    <option value="">Select Service</option>
-                    {services?.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} - ${s.price}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {(isNew || hasPermission('subscribers.change_service')) ? (
+                  <div>
+                    <label className="label">Service Plan</label>
+                    <select
+                      name="service_id"
+                      value={formData.service_id}
+                      onChange={handleChange}
+                      className="input"
+                      required
+                    >
+                      <option value="">Select Service</option>
+                      {services?.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} - ${s.price}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="label">Service Plan</label>
+                    <input
+                      type="text"
+                      value={services?.find(s => s.id === parseInt(formData.service_id))?.name || 'N/A'}
+                      className="input bg-gray-100 dark:bg-gray-700"
+                      disabled
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="label">NAS</label>
                   <select

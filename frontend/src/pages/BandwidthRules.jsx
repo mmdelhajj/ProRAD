@@ -330,6 +330,9 @@ export default function BandwidthRules() {
                   </div>
                 </div>
 
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 bg-blue-50 dark:bg-blue-900/30 p-2 rounded">
+                  Speed multiplier: 100% = same speed, 200% = double speed, 50% = half speed
+                </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">

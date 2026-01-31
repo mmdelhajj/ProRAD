@@ -7,6 +7,7 @@ import { useBrandingStore } from '../store/brandingStore'
 import { setTimezone } from '../utils/timezone'
 import toast from 'react-hot-toast'
 import { PhotoIcon, TrashIcon, SwatchIcon } from '@heroicons/react/24/outline'
+import ClusterTab from '../components/ClusterTab'
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -15,7 +16,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // All valid tab IDs
-  const validTabs = ['branding', 'general', 'billing', 'service_change', 'radius', 'notifications', 'security', 'account', 'license']
+  const validTabs = ['branding', 'general', 'billing', 'service_change', 'radius', 'notifications', 'security', 'account', 'license', 'cluster']
 
   // Check if we should open a specific tab (from URL params)
   const urlTab = searchParams.get('tab')
@@ -296,6 +297,7 @@ export default function Settings() {
     { id: 'security', label: 'Security' },
     { id: 'account', label: 'My Account' },
     { id: 'license', label: 'License' },
+    { id: 'cluster', label: 'HA Cluster' },
   ]
 
   // Logo upload handler
@@ -1658,6 +1660,8 @@ export default function Settings() {
                 </div>
               )}
             </div>
+          ) : activeTab === 'cluster' ? (
+            <ClusterTab />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {settingGroups[activeTab]?.map(field => (

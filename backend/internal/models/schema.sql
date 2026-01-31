@@ -967,6 +967,81 @@ BEGIN
     END IF;
 END $$;
 
+-- HA Cluster Configuration
+CREATE TABLE IF NOT EXISTS cluster_config (
+    id SERIAL PRIMARY KEY,
+    cluster_id VARCHAR(50) UNIQUE,
+    cluster_secret VARCHAR(100),
+    server_role VARCHAR(20) DEFAULT 'standalone',
+    server_ip VARCHAR(45),
+    server_name VARCHAR(100),
+    main_server_ip VARCHAR(45),
+    main_server_port INTEGER DEFAULT 8080,
+    db_replication_enabled BOOLEAN DEFAULT false,
+    db_replication_status VARCHAR(20) DEFAULT 'offline',
+    db_replication_lag INTEGER DEFAULT 0,
+    db_sync_port INTEGER DEFAULT 5433,
+    redis_replication_enabled BOOLEAN DEFAULT false,
+    redis_replication_status VARCHAR(20) DEFAULT 'offline',
+    radius_enabled BOOLEAN DEFAULT true,
+    radius_role VARCHAR(20) DEFAULT 'primary',
+    api_enabled BOOLEAN DEFAULT true,
+    api_role VARCHAR(20) DEFAULT 'active',
+    auto_failover_enabled BOOLEAN DEFAULT true,
+    failover_priority INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT false,
+    last_heartbeat TIMESTAMP,
+    last_sync_time TIMESTAMP,
+    database_id VARCHAR(100),
+    hardware_id VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- HA Cluster Nodes (tracked by main server)
+CREATE TABLE IF NOT EXISTS cluster_nodes (
+    id SERIAL PRIMARY KEY,
+    cluster_id VARCHAR(50),
+    hardware_id VARCHAR(100) UNIQUE,
+    server_role VARCHAR(20),
+    server_name VARCHAR(100),
+    server_ip VARCHAR(45),
+    status VARCHAR(20) DEFAULT 'offline',
+    db_sync_status VARCHAR(20) DEFAULT 'offline',
+    redis_sync_status VARCHAR(20) DEFAULT 'offline',
+    db_replication_lag INTEGER DEFAULT 0,
+    cpu_usage DECIMAL(5,2) DEFAULT 0,
+    memory_usage DECIMAL(5,2) DEFAULT 0,
+    disk_usage DECIMAL(5,2) DEFAULT 0,
+    last_heartbeat TIMESTAMP,
+    last_sync_time TIMESTAMP,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    database_id VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cluster_nodes_cluster_id ON cluster_nodes(cluster_id);
+CREATE INDEX IF NOT EXISTS idx_cluster_nodes_status ON cluster_nodes(status);
+
+-- HA Cluster Events (audit log)
+CREATE TABLE IF NOT EXISTS cluster_events (
+    id SERIAL PRIMARY KEY,
+    cluster_id VARCHAR(50),
+    event_type VARCHAR(50),
+    node_id INTEGER,
+    node_ip VARCHAR(45),
+    node_role VARCHAR(20),
+    description VARCHAR(500),
+    severity VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cluster_events_cluster_id ON cluster_events(cluster_id);
+CREATE INDEX IF NOT EXISTS idx_cluster_events_event_type ON cluster_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_cluster_events_severity ON cluster_events(severity);
+
 -- Create default admin user if not exists
 INSERT INTO users (username, password, password_plain, full_name, user_type, is_active, force_password_change)
 SELECT 'admin', '$2b$12$gTtR9Kks5AVDaIJSeMAiZ.eFvZF9CYHzdTJEhxzzWMpZzW5Vvgqoq', 'admin123', 'Administrator', 4, true, true

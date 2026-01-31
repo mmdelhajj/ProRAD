@@ -132,6 +132,18 @@ export default function Dashboard() {
     enabled: isAdmin(), // Only fetch for admins
   })
 
+  const { data: systemCapacityResponse } = useQuery({
+    queryKey: ['dashboard-system-capacity'],
+    queryFn: () => dashboardApi.systemCapacity().then((r) => r.data),
+    refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: isAdmin(), // Only fetch for admins
+  })
+
+  // Don't show capacity on secondary/replica servers
+  // API returns { success, is_replica, data } - extract data only for main server
+  const systemCapacity = systemCapacityResponse?.is_replica ? null : systemCapacityResponse?.data
+
+
   const lineChartOption = {
     tooltip: {
       trigger: 'axis',
@@ -302,6 +314,159 @@ export default function Dashboard() {
           />
         </div>
       )}
+
+      {/* Server Capacity & Cluster - Admin Only */}
+      {isAdmin() && systemCapacity && (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Server Capacity</h2>
+              {systemCapacity.cluster_enabled ? (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                  Cluster: {systemCapacity.online_nodes}/{systemCapacity.total_nodes} Online
+                </span>
+              ) : (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                  Standalone
+                </span>
+              )}
+            </div>
+            <span className={clsx(
+              'px-3 py-1 rounded-full text-sm font-medium',
+              systemCapacity.status === 'healthy' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+              systemCapacity.status === 'warning' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+              systemCapacity.status === 'critical' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+            )}>
+              {systemCapacity.status === 'healthy' ? 'Healthy' : systemCapacity.status === 'warning' ? 'Warning' : 'Critical'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{systemCapacity.online_users?.toLocaleString()}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Online Users</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{systemCapacity.recommended_capacity?.toLocaleString()}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Recommended (70%)</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{systemCapacity.maximum_capacity?.toLocaleString()}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Maximum</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{systemCapacity.usage_percent}%</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Usage</p>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-600 dark:text-gray-400">Capacity Usage</span>
+              <span className="font-medium text-gray-900 dark:text-white">{systemCapacity.online_users?.toLocaleString()} / {systemCapacity.maximum_capacity?.toLocaleString()} users</span>
+            </div>
+            <div className="w-full h-3 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+              <div
+                className={clsx(
+                  'h-full rounded-full transition-all duration-500',
+                  systemCapacity.usage_percent < 70 && 'bg-green-500',
+                  systemCapacity.usage_percent >= 70 && systemCapacity.usage_percent < 90 && 'bg-yellow-500',
+                  systemCapacity.usage_percent >= 90 && 'bg-red-500'
+                )}
+                style={{ width: `${Math.min(systemCapacity.usage_percent, 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Cluster Nodes */}
+          {systemCapacity.nodes && systemCapacity.nodes.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {systemCapacity.cluster_enabled ? 'Cluster Nodes' : 'Server Specs'}
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-600">
+                      <th className="pb-2 pr-4">Server</th>
+                      <th className="pb-2 pr-4">Role</th>
+                      <th className="pb-2 pr-4">Status</th>
+                      <th className="pb-2 pr-4">CPU</th>
+                      <th className="pb-2 pr-4">RAM</th>
+                      <th className="pb-2 pr-4">Capacity</th>
+                      {systemCapacity.cluster_enabled && <th className="pb-2 pr-4">CPU%</th>}
+                      {systemCapacity.cluster_enabled && <th className="pb-2">MEM%</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {systemCapacity.nodes.map((node, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
+                        <td className="py-2 pr-4">
+                          <div className="font-medium text-gray-900 dark:text-white">{node.name}</div>
+                          <div className="text-gray-500 dark:text-gray-400">{node.ip}</div>
+                        </td>
+                        <td className="py-2 pr-4">
+                          <span className={clsx(
+                            'px-2 py-0.5 rounded text-xs',
+                            node.role === 'main' && 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+                            node.role === 'secondary' && 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+                            node.role === 'standalone' && 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          )}>
+                            {node.role}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4">
+                          <span className={clsx(
+                            'px-2 py-0.5 rounded text-xs',
+                            node.status === 'online' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                            node.status === 'offline' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          )}>
+                            {node.status}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4 text-gray-900 dark:text-white">{node.cpu_cores} cores</td>
+                        <td className="py-2 pr-4 text-gray-900 dark:text-white">{node.ram_gb} GB</td>
+                        <td className="py-2 pr-4 font-medium text-gray-900 dark:text-white">{node.capacity?.toLocaleString()}</td>
+                        {systemCapacity.cluster_enabled && (
+                          <td className="py-2 pr-4 text-gray-900 dark:text-white">{node.cpu_usage?.toFixed(1)}%</td>
+                        )}
+                        {systemCapacity.cluster_enabled && (
+                          <td className="py-2 text-gray-900 dark:text-white">{node.mem_usage?.toFixed(1)}%</td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Capacity Formula Explanation */}
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs">
+            <div className="font-medium text-blue-800 dark:text-blue-300 mb-1">Capacity Formula</div>
+            <div className="text-blue-700 dark:text-blue-400 space-y-1">
+              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">{systemCapacity.total_cpu_cores} cores × 2000</span> = {(systemCapacity.total_cpu_cores * 2000).toLocaleString()} base users/CPU</div>
+              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">× {systemCapacity.storage_multiplier}</span> storage factor ({systemCapacity.storage_type?.toUpperCase()})</div>
+              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">× {systemCapacity.interim_factor}</span> interim factor ({systemCapacity.interim_interval} min)</div>
+              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">× {systemCapacity.safety_margin}</span> safety margin (15% reserve)</div>
+              <div className="pt-1 border-t border-blue-200 dark:border-blue-700">
+                <span className="font-medium">= {systemCapacity.maximum_capacity?.toLocaleString()} max users</span>
+                {systemCapacity.limiting_factor && (
+                  <span className="ml-2 text-blue-600 dark:text-blue-400">(limited by {systemCapacity.limiting_factor?.toUpperCase()})</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4 text-xs text-gray-500 dark:text-gray-400">
+            <div><span className="font-medium">CPU Model:</span> {systemCapacity.cpu_model?.split('@')[0]?.trim() || 'N/A'}</div>
+            <div><span className="font-medium">DB Writes/sec:</span> {systemCapacity.db_writes_per_sec}</div>
+            <div><span className="font-medium">NAS Routers:</span> {systemCapacity.nas_count}</div>
+            <div><span className="font-medium">Total Subs:</span> {systemCapacity.total_subscribers?.toLocaleString()}</div>
+          </div>
+        </div>
+      )}
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
