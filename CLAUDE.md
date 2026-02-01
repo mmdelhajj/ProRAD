@@ -2628,3 +2628,84 @@ define a valid foreign key for relations
 ```
 
 **Conclusion:** Keep garble DISABLED. 90% security is sufficient.
+
+### Duplicate IP Problem Fix (Feb 2026)
+
+**Problem:** Multiple PPPoE users getting the same IP address, causing internet connectivity issues.
+
+**Root Cause:** Same static IP was manually assigned to multiple users in radreply table.
+
+**Solution Applied:**
+
+1. **Fixed Duplicate Static IPs**
+   - Identified users sharing same IP via query
+   - Assigned unique IPs to each affected user
+
+2. **Created IP Pool Tracking System**
+   ```sql
+   CREATE TABLE ip_pool_assignments (
+       id SERIAL PRIMARY KEY,
+       ip_address VARCHAR(15) NOT NULL UNIQUE,
+       pool_name VARCHAR(64) NOT NULL,
+       status VARCHAR(20) DEFAULT 'available', -- 'available' or 'in_use'
+       username VARCHAR(100),
+       subscriber_id INTEGER,
+       nas_id INTEGER,
+       assigned_at TIMESTAMP,
+       created_at TIMESTAMP DEFAULT NOW(),
+       updated_at TIMESTAMP DEFAULT NOW()
+   );
+   ```
+
+3. **Assigned Static IPs to ALL Users**
+   - Every subscriber now has unique Framed-IP-Address in radreply
+   - No users rely on MikroTik pool assignment
+   - Eliminates race conditions
+
+**Detection Query - Find Duplicate IPs:**
+```sql
+-- Check for duplicate static IPs in radreply
+SELECT value as ip, COUNT(*) as users, STRING_AGG(username, ', ') as usernames
+FROM radreply WHERE attribute = 'Framed-IP-Address'
+GROUP BY value HAVING COUNT(*) > 1;
+
+-- Check for duplicate IPs among online users
+SELECT ip_address, COUNT(*) as count, STRING_AGG(username, ', ') as users
+FROM subscribers WHERE is_online = true AND ip_address IS NOT NULL
+GROUP BY ip_address HAVING COUNT(*) > 1;
+```
+
+**Fix Query - Assign Static IP to User:**
+```sql
+-- Add static IP for a user (check available first!)
+INSERT INTO radreply (username, attribute, op, value)
+VALUES ('user@domain', 'Framed-IP-Address', ':=', '10.180.96.100');
+
+-- Mark IP as in_use in tracking table
+UPDATE ip_pool_assignments SET status = 'in_use', username = 'user@domain' 
+WHERE ip_address = '10.180.96.100';
+```
+
+**Bulk Assign Static IPs to Users Without One:**
+```sql
+WITH available_ips AS (
+    SELECT ip_address, pool_name, ROW_NUMBER() OVER (PARTITION BY pool_name ORDER BY ip_address) as rn
+    FROM ip_pool_assignments WHERE status = 'available'
+),
+users_needing_ip AS (
+    SELECT s.username, sv.pool_name, ROW_NUMBER() OVER (PARTITION BY sv.pool_name ORDER BY s.id) as rn
+    FROM subscribers s
+    JOIN services sv ON sv.id = s.service_id
+    WHERE NOT EXISTS (SELECT 1 FROM radreply r WHERE r.username = s.username AND r.attribute = 'Framed-IP-Address')
+)
+INSERT INTO radreply (username, attribute, op, value)
+SELECT u.username, 'Framed-IP-Address', ':=', a.ip_address
+FROM users_needing_ip u
+JOIN available_ips a ON a.pool_name = u.pool_name AND a.rn = u.rn;
+```
+
+**Prevention:**
+- Always check if IP is already assigned before giving to new user
+- Use unique constraint on radreply (username, attribute) if not exists
+- IP Pool Management system tracks all IPs
+

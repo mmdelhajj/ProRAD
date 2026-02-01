@@ -1042,6 +1042,27 @@ CREATE INDEX IF NOT EXISTS idx_cluster_events_cluster_id ON cluster_events(clust
 CREATE INDEX IF NOT EXISTS idx_cluster_events_event_type ON cluster_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_cluster_events_severity ON cluster_events(severity);
 
+-- IP Pool Assignments (ProISP-managed IP allocation)
+CREATE TABLE IF NOT EXISTS ip_pool_assignments (
+    id SERIAL PRIMARY KEY,
+    ip_address VARCHAR(15) NOT NULL,
+    pool_name VARCHAR(64) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'available',
+    username VARCHAR(100),
+    subscriber_id INTEGER,
+    nas_id INTEGER,
+    session_id VARCHAR(100),
+    assigned_at TIMESTAMP,
+    released_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ip_pool_ip_address ON ip_pool_assignments(ip_address);
+CREATE INDEX IF NOT EXISTS idx_ip_pool_pool_name ON ip_pool_assignments(pool_name);
+CREATE INDEX IF NOT EXISTS idx_ip_pool_status ON ip_pool_assignments(status);
+CREATE INDEX IF NOT EXISTS idx_ip_pool_username ON ip_pool_assignments(username);
+
 -- Create default admin user if not exists
 INSERT INTO users (username, password, password_plain, full_name, user_type, is_active, force_password_change)
 SELECT 'admin', '$2b$12$gTtR9Kks5AVDaIJSeMAiZ.eFvZF9CYHzdTJEhxzzWMpZzW5Vvgqoq', 'admin123', 'Administrator', 4, true, true
