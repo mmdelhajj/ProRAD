@@ -2758,3 +2758,91 @@ NAS Create: Synced 50 active sessions from RouterName
 - Manual migration still needed (run bulk IP assignment query)
 - Or enable via Settings → IP Pools → Enable
 
+### v1.0.165 Permission System Overhaul for Resellers (Feb 2026)
+
+**Complete overhaul of the permission system so ALL permissions work correctly for resellers.**
+
+**Problem:** Resellers with permissions assigned were still seeing "Access Denied" on many pages (NAS, Settings, Backups, Change Bulk, etc.) even when they had the correct permissions enabled.
+
+**Root Causes:**
+1. **Backend:** Many routes used `middleware.AdminOnly()` which blocked ALL resellers, ignoring their permissions
+2. **Frontend:** Permissions loaded from localStorage BEFORE `refreshUser()` completed, so old cached permissions were used
+
+**Backend Fix - Changed AdminOnly to RequirePermission:**
+
+All routes in `cmd/api/main.go` now use `RequirePermission()` instead of `AdminOnly()`:
+
+| Route Group | Old Middleware | New Middleware |
+|-------------|----------------|----------------|
+| NAS | `AdminOnly()` | `RequirePermission("nas.view")`, etc. |
+| Services | `AdminOnly()` | `RequirePermission("services.view")`, etc. |
+| Settings | `AdminOnly()` | `RequirePermission("settings.view")` |
+| Users | `AdminOnly()` | `RequirePermission("users.view")`, etc. |
+| Communication | `AdminOnly()` | `RequirePermission("communication.view")`, etc. |
+| Bandwidth | `AdminOnly()` | `RequirePermission("bandwidth.view")`, etc. |
+| FUP | `AdminOnly()` | `RequirePermission("fup.view")`, `RequirePermission("fup.reset")` |
+| Prepaid | `AdminOnly()` | `RequirePermission("prepaid.view")`, etc. |
+| Audit | `AdminOnly()` | `RequirePermission("audit.view")` |
+| Permissions | `AdminOnly()` | `RequirePermission("permissions.view")`, etc. |
+| Backups | `AdminOnly()` | `RequirePermission("backups.view")`, etc. |
+| Sharing | `AdminOnly()` | `RequirePermission("sharing.view")`, etc. |
+| CDN | `AdminOnly()` | `RequirePermission("cdn.view")`, etc. |
+| Change Bulk | `AdminOnly()` | `RequirePermission("subscribers.change_bulk")` |
+
+**Frontend Fix - Permission Persistence:**
+
+Updated `frontend/src/store/authStore.js` to save permissions to localStorage when `refreshUser()` updates them:
+
+```javascript
+refreshUser: async () => {
+  const { isCustomer, token } = get()
+  if (!isCustomer) {
+    try {
+      const response = await api.get('/auth/me')
+      if (response.data.success) {
+        const newState = { user: response.data.user }
+        set(newState)
+        // Also save to storage so permissions persist across page refreshes
+        saveToStorage({ user: response.data.user, token, isCustomer: false, customerData: null })
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error)
+    }
+  }
+}
+```
+
+**Schema Updates - Added Missing Permissions:**
+
+Added to `internal/models/schema.sql`:
+```sql
+INSERT INTO permissions (name, description) VALUES ('backups.edit', 'Edit backup schedules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.create', 'Generate prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.edit', 'Use/edit prepaid cards') ON CONFLICT (name) DO NOTHING;
+```
+
+**How Permissions Work Now:**
+
+1. **Admin users** - Always have ALL permissions (bypass check)
+2. **Resellers with NO permission group** - Have ALL permissions (backward compatibility)
+3. **Resellers WITH permission group** - Only have permissions assigned to their group
+
+**Permission Refresh Behavior:**
+- Permissions refresh on page load via `/api/auth/me`
+- Updated permissions are saved to localStorage immediately
+- No logout required when admin changes reseller's permission group
+- Just refresh the page (F5) to get updated permissions
+
+**Files Changed:**
+- `backend/cmd/api/main.go` - All routes now use RequirePermission instead of AdminOnly
+- `frontend/src/store/authStore.js` - refreshUser saves to localStorage
+- `backend/internal/models/schema.sql` - Added missing permission INSERT statements
+
+**Testing:**
+After this fix, resellers can access ALL pages where they have permission enabled:
+- NAS/Routers (nas.view, nas.create, nas.edit, nas.delete)
+- Settings (settings.view)
+- Backups (backups.view, backups.create, backups.restore, backups.delete)
+- Change Bulk (subscribers.change_bulk)
+- And all other permission-protected pages
+

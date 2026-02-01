@@ -118,6 +118,8 @@ INSERT INTO permissions (name, description) VALUES ('invoices.print', 'Print inv
 INSERT INTO permissions (name, description) VALUES ('invoices.email', 'Email invoices') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('invoices.mark_paid', 'Mark invoices as paid') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('prepaid.view', 'View/list prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.create', 'Generate prepaid cards') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('prepaid.edit', 'Use/edit prepaid cards') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('prepaid.generate', 'Generate prepaid cards for users') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('prepaid.generate_all', 'Generate prepaid cards for all users') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('prepaid.delete', 'Delete prepaid cards') ON CONFLICT (name) DO NOTHING;
@@ -146,12 +148,38 @@ INSERT INTO permissions (name, description) VALUES ('tickets.assign', 'Assign ti
 INSERT INTO permissions (name, description) VALUES ('tickets.close', 'Close tickets') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('backups.view', 'View backups') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('backups.create', 'Create backups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('backups.edit', 'Edit backup schedules') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('backups.restore', 'Restore backups') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('backups.delete', 'Delete backups') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('backups.download', 'Download backups') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('settings.view', 'View settings') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('settings.edit', 'Edit settings') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('audit.view', 'View audit logs') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('users.view', 'View/list users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('users.create', 'Create users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('users.edit', 'Edit users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('users.delete', 'Delete users') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('communication.view', 'View communication rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('communication.create', 'Create communication rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('communication.edit', 'Edit communication rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('communication.delete', 'Delete communication rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('bandwidth.view', 'View bandwidth rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('bandwidth.create', 'Create bandwidth rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('bandwidth.edit', 'Edit bandwidth rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('bandwidth.delete', 'Delete bandwidth rules') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('fup.view', 'View FUP counters') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('fup.reset', 'Reset FUP counters') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('sharing.view', 'View sharing detection') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('sharing.scan', 'Run sharing detection scan') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('sharing.settings', 'Edit sharing detection settings') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('cdn.view', 'View CDN settings') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('cdn.create', 'Create CDN entries') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('cdn.edit', 'Edit CDN entries') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('cdn.delete', 'Delete CDN entries') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('permissions.view', 'View permission groups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('permissions.create', 'Create permission groups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('permissions.edit', 'Edit permission groups') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('permissions.delete', 'Delete permission groups') ON CONFLICT (name) DO NOTHING;
 
 -- Permission Groups
 CREATE TABLE IF NOT EXISTS permission_groups (

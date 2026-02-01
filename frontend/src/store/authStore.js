@@ -140,7 +140,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   refreshUser: async () => {
-    const { isCustomer } = get()
+    const { isCustomer, token } = get()
     if (isCustomer) {
       try {
         const response = await api.get('/customer/dashboard')
@@ -154,7 +154,10 @@ export const useAuthStore = create((set, get) => ({
       try {
         const response = await api.get('/auth/me')
         if (response.data.success) {
-          set({ user: response.data.user })
+          const newState = { user: response.data.user }
+          set(newState)
+          // Also save to storage so permissions persist across page refreshes
+          saveToStorage({ user: response.data.user, token, isCustomer: false, customerData: null })
         }
       } catch (error) {
         console.error('Failed to refresh user data:', error)
@@ -172,8 +175,12 @@ export const useAuthStore = create((set, get) => ({
   hasPermission: (permission) => {
     const user = get().user
     if (!user) return false
-    if (user.user_type === 'admin') return true
-    if (user.user_type === 'reseller' && (!user.permissions || user.permissions.length === 0)) return true
+    // Check for admin (user_type can be 'admin' or 4)
+    if (user.user_type === 'admin' || user.user_type === 4) return true
+    // Resellers with no permission group have all permissions (backward compatibility)
+    const isReseller = user.user_type === 'reseller' || user.user_type === 2
+    if (isReseller && (!user.permissions || user.permissions.length === 0)) return true
+    // Check specific permission
     if (!user.permissions || user.permissions.length === 0) return false
     return user.permissions.includes(permission)
   },
@@ -181,19 +188,23 @@ export const useAuthStore = create((set, get) => ({
   hasAnyPermission: (permissions) => {
     const user = get().user
     if (!user) return false
-    if (user.user_type === 'admin') return true
-    if (user.user_type === 'reseller' && (!user.permissions || user.permissions.length === 0)) return true
+    // Check for admin (user_type can be 'admin' or 4)
+    if (user.user_type === 'admin' || user.user_type === 4) return true
+    // Resellers with no permission group have all permissions (backward compatibility)
+    const isReseller = user.user_type === 'reseller' || user.user_type === 2
+    if (isReseller && (!user.permissions || user.permissions.length === 0)) return true
+    // Check specific permissions
     if (!user.permissions || user.permissions.length === 0) return false
     return permissions.some(p => user.permissions.includes(p))
   },
 
   isAdmin: () => {
     const user = get().user
-    return user?.user_type === 'admin'
+    return user?.user_type === 'admin' || user?.user_type === 4
   },
 
   isReseller: () => {
     const user = get().user
-    return user?.user_type === 'reseller'
+    return user?.user_type === 'reseller' || user?.user_type === 2
   },
 }))
