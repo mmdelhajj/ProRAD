@@ -2709,3 +2709,52 @@ JOIN available_ips a ON a.pool_name = u.pool_name AND a.rn = u.rn;
 - Use unique constraint on radreply (username, attribute) if not exists
 - IP Pool Management system tracks all IPs
 
+### Automatic IP Pool Management (Feb 2026) - v1.0.164+
+
+**For fresh installs, IP Pool Management is now 100% automatic:**
+
+1. **Auto-Enable on Fresh Install**
+   - `proisp_ip_management` setting automatically enabled when system starts
+   - No manual steps needed
+   - File: `cmd/api/main.go` → `enableProISPIPManagement()`
+
+2. **Auto-Import Pools When NAS Added**
+   - When a NAS is created with API credentials, IP pools are automatically imported
+   - Runs in background (async) so NAS creation is fast
+   - Also syncs active sessions to mark IPs as in-use
+   - File: `internal/handlers/nas.go` → Create handler
+
+3. **Auto-Import on API Credential Update**
+   - If NAS is updated with API credentials, pools are auto-imported
+   - Ensures pools are always synced when access is configured
+
+**What Happens Automatically:**
+```
+Fresh Install
+    ↓
+API Starts
+    ↓
+proisp_ip_management = true (auto-enabled)
+    ↓
+Admin adds NAS with API credentials
+    ↓
+IP pools auto-imported from MikroTik
+    ↓
+Active sessions synced
+    ↓
+RADIUS allocates IPs from pool (no duplicates!)
+```
+
+**Log Messages to Look For:**
+```
+Fresh install detected: Enabling ProISP IP Pool Management...
+ProISP IP Pool Management enabled automatically
+NAS Create: Auto-importing IP pools from NAS RouterName (10.0.0.1)
+NAS Create: Auto-imported 500 IPs from RouterName
+NAS Create: Synced 50 active sessions from RouterName
+```
+
+**For Existing Installations:**
+- Manual migration still needed (run bulk IP assignment query)
+- Or enable via Settings → IP Pools → Enable
+

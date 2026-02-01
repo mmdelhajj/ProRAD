@@ -68,6 +68,9 @@ func main() {
 	// Seed admin user if not exists
 	seedAdminUser()
 
+	// Auto-enable ProISP IP Pool Management for fresh installs
+	enableProISPIPManagement()
+
 	// Initialize license client
 	licenseServer := os.Getenv("LICENSE_SERVER")
 	licenseKey := os.Getenv("LICENSE_KEY")
@@ -331,6 +334,18 @@ func main() {
 	nas.Post("/:id/test", middleware.AdminOnly(), nasHandler.TestConnection)
 	nas.Get("/:id/pools", middleware.AdminOnly(), nasHandler.GetIPPools)
 	nas.Put("/:id/pools", middleware.AdminOnly(), nasHandler.UpdateSubscriberPools)
+
+	// IP Pool Management routes (Admin only)
+	ipPools := protected.Group("/ip-pools", middleware.AdminOnly())
+	ipPools.Get("/stats", handlers.GetIPPoolStats)
+	ipPools.Get("/status", handlers.GetIPManagementStatus)
+	ipPools.Get("/assignments", handlers.GetIPPoolAssignments)
+	ipPools.Post("/import", handlers.ImportIPPools)
+	ipPools.Post("/import/:id", handlers.ImportIPPoolsFromNAS)
+	ipPools.Post("/sync-sessions", handlers.SyncActiveSessions)
+	ipPools.Post("/sync-sessions/:id", handlers.SyncActiveSessionsFromNAS)
+	ipPools.Post("/enable", handlers.EnableProISPIPManagement)
+	ipPools.Post("/disable", handlers.DisableProISPIPManagement)
 
 	// Reseller routes
 	resellers := protected.Group("/resellers")
@@ -728,4 +743,33 @@ func checkBinaryExpiry() error {
 	}
 
 	return nil
+}
+
+// enableProISPIPManagement auto-enables ProISP IP Pool Management on fresh installs
+// This prevents duplicate IP issues by having ProISP manage all IP assignments
+func enableProISPIPManagement() {
+	// Check if the setting already exists
+	var pref models.SystemPreference
+	err := database.DB.Where("key = ?", "proisp_ip_management").First(&pref).Error
+
+	if err != nil {
+		// Setting doesn't exist - this is a fresh install, enable it
+		log.Println("Fresh install detected: Enabling ProISP IP Pool Management...")
+		if err := database.DB.Exec(`
+			INSERT INTO system_preferences (key, value, value_type, created_at, updated_at)
+			VALUES ('proisp_ip_management', 'true', 'bool', NOW(), NOW())
+			ON CONFLICT (key) DO NOTHING
+		`).Error; err != nil {
+			log.Printf("Warning: Failed to enable ProISP IP Management: %v", err)
+		} else {
+			log.Println("ProISP IP Pool Management enabled automatically")
+		}
+	} else {
+		// Setting exists - this is an existing installation
+		if pref.Value == "true" {
+			log.Println("ProISP IP Pool Management is enabled")
+		} else {
+			log.Println("ProISP IP Pool Management is disabled (MikroTik managing IPs)")
+		}
+	}
 }
