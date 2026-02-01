@@ -127,13 +127,9 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid - only logout if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        localStorage.removeItem('proisp-auth')
-        window.location.href = '/login'
-      }
-    }
+    // NOTE: We do NOT auto-logout on 401 here anymore
+    // The PrivateRoute component handles auth redirects after Zustand hydration
+    // Auto-logout was causing issues because requests could fire before hydration completed
 
     // Handle license-related errors
     if (error.response?.status === 403) {

@@ -26,19 +26,17 @@ export default function Impersonate() {
         if (response.data.success) {
           const { token: jwtToken, user } = response.data.data
 
-          // Store session in sessionStorage (tab-specific, won't affect admin tab)
+          // Store session in sessionStorage with special impersonate key
+          // This key is used by authStore to detect impersonated sessions
+          // Format must match what authStore.loadInitialState() expects (flat structure)
           const authState = {
-            state: {
-              user: user,
-              token: jwtToken,
-              isAuthenticated: true,
-              isCustomer: false,
-              customerData: null,
-            },
-            version: 0
+            user: user,
+            token: jwtToken,
+            isCustomer: false,
+            customerData: null,
           }
-          // Use sessionStorage instead of localStorage - each tab has its own sessionStorage
-          sessionStorage.setItem('proisp-auth', JSON.stringify(authState))
+          // Use the special impersonate key - authStore checks for this on load
+          sessionStorage.setItem('proisp-impersonate', JSON.stringify(authState))
 
           // Set the API header
           api.defaults.headers.common['Authorization'] = `Bearer ${jwtToken}`

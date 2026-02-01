@@ -888,7 +888,7 @@ export default function Services() {
                           </svg>
                           Loading pools...
                         </div>
-                      ) : ipPools.length > 0 ? (
+                      ) : ipPools.length > 0 || formData.pool_name ? (
                         <select
                           name="pool_name"
                           value={formData.pool_name}
@@ -896,6 +896,12 @@ export default function Services() {
                           className="input"
                         >
                           <option value="">-- Select Pool --</option>
+                          {/* Show current pool_name as option if not in ipPools list */}
+                          {formData.pool_name && !ipPools.find(p => p.name === formData.pool_name) && (
+                            <option key={formData.pool_name} value={formData.pool_name}>
+                              {formData.pool_name} (current)
+                            </option>
+                          )}
                           {ipPools.map(pool => (
                             <option key={pool.name} value={pool.name}>
                               {pool.name} ({pool.ranges})

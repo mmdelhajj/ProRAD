@@ -212,6 +212,7 @@ func main() {
 	api.Post("/auth/login", authHandler.Login)
 	api.Post("/auth/impersonate-exchange", authHandler.ExchangeImpersonateToken) // Exchange temp token for session (no auth - uses one-time token)
 	api.Get("/branding", settingsHandler.GetBranding)
+	api.Get("/server-time", settingsHandler.GetServerTime) // Public - needed for timezone before auth
 	api.Get("/backups/public-download/:token", backupHandler.PublicDownload)
 
 	// HA Cluster public routes (use cluster secret for auth, not JWT)
@@ -378,7 +379,6 @@ func main() {
 	notifications.Get("/whatsapp-status", notificationHandler.GetWhatsAppStatus)
 
 	// Server time (accessible to all authenticated users for clock display)
-	protected.Get("/server-time", settingsHandler.GetServerTime)
 
 	// License info (Admin only) - revalidate moved to criticalSystem group to bypass license check
 	protected.Get("/license", middleware.AdminOnly(), licenseHandler.GetLicenseInfo)

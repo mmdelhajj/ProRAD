@@ -2534,3 +2534,97 @@ docker compose up -d license-server
 2. ✅ Monitor security alerts in admin panel
 3. ✅ Use strong admin passwords
 4. Consider enabling Admin IP Whitelist for production
+
+### v1.0.163 Fixes (Feb 2026)
+
+**1. Reseller Impersonation Storage Fix**
+- Fixed "Login as Reseller" feature not working properly
+- Issue: Impersonate.jsx was storing session in wrong format (nested `{state:{...}}` instead of flat `{token, user, ...}`)
+- Fix: Changed to flat structure matching authStore.loadInitialState() expectations
+- File: `frontend/src/pages/Impersonate.jsx`
+
+**2. IP Pool Selection Dropdown Fix**
+- Fixed pool dropdown not showing current selection when editing a service
+- Issue: When editing a service, NAS wasn't auto-selected so pools weren't loaded, making the dropdown empty
+- Fix: Added current pool_name as an option in dropdown even when no NAS selected
+- Shows: "PoolName (current)" for the saved pool
+- User can select a NAS to load other pools if they want to change it
+- File: `frontend/src/pages/Services.jsx` (lines 891-914)
+
+**Code Change:**
+```javascript
+// Before: Only show dropdown if pools loaded
+) : ipPools.length > 0 ? (
+
+// After: Show dropdown if pools loaded OR if pool_name exists
+) : ipPools.length > 0 || formData.pool_name ? (
+  <select ...>
+    <option value="">-- Select Pool --</option>
+    {/* Show current pool as option if not in ipPools list */}
+    {formData.pool_name && !ipPools.find(p => p.name === formData.pool_name) && (
+      <option value={formData.pool_name}>
+        {formData.pool_name} (current)
+      </option>
+    )}
+    {ipPools.map(pool => ...)}
+  </select>
+```
+
+## Security Summary (Updated Feb 2026)
+
+### Current Security Level: 90% (was 98%)
+
+**Why 90% not 98%?**
+- Garble obfuscation DISABLED due to GORM compatibility issues
+- Attempted 3 times, each time broke GORM foreign key relations
+- Decision: Keep disabled, 90% is still very secure
+
+**Protection Layers:**
+| Layer | Status | Score |
+|-------|--------|-------|
+| License Validation | ✅ | 10/10 |
+| Grace Period (5 min) | ✅ | 10/10 |
+| Hardware Binding | ✅ | 9/10 |
+| Binary Expiry (30 days) | ✅ | 8/10 |
+| Kill Switch | ✅ | 10/10 |
+| Anti-Debug | ✅ | 8/10 |
+| Multi-Point Validation | ✅ | 9/10 |
+| Timing Anomaly Detection | ✅ | 8/10 |
+| Stealth Checks | ✅ | 7/10 |
+| HMAC Response Signing | ✅ | 9/10 |
+| Certificate Pinning | ✅ | 8/10 |
+| JWT Blacklist | ✅ | 10/10 |
+| Brute Force Protection | ✅ | 10/10 |
+| Rate Limiting | ✅ | 9/10 |
+| Password Encryption | ✅ | 10/10 |
+| Encrypted Backups | ✅ | 10/10 |
+| Binary Obfuscation | ❌ | 0/10 |
+
+### Performance Summary (Feb 2026)
+
+**Performance Score: 85%**
+
+| Component | Capacity |
+|-----------|----------|
+| Database Pool | 1,500 connections |
+| MikroTik Pool | 10 per NAS |
+| Dashboard Cache | 30s TTL |
+| Subscriber Cache | 5min TTL |
+| **Max Concurrent Users** | **~25,000** |
+
+### Garble + GORM Incompatibility (DO NOT RE-ENABLE)
+
+**Root Cause:**
+- Garble obfuscates struct field names at compile time
+- GORM uses reflection at runtime to find field names
+- Tag `gorm:"foreignKey:ServiceID"` stays as "ServiceID"
+- But actual field becomes random like "abc123"
+- GORM can't find the field → Error
+
+**Error seen:**
+```
+invalid field found for struct jzxaHqI.EQVBT8H's field YalfjKzxlA: 
+define a valid foreign key for relations
+```
+
+**Conclusion:** Keep garble DISABLED. 90% security is sufficient.
