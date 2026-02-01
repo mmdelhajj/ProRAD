@@ -201,6 +201,71 @@ func GetMaxSubscribers() int {
 	return 0
 }
 
+// Secrets contains database/service secrets fetched from license server
+type Secrets struct {
+	DBPassword    string `json:"db_password"`
+	RedisPassword string `json:"redis_password"`
+	JWTSecret     string `json:"jwt_secret"`
+	EncryptionKey string `json:"encryption_key"`
+}
+
+// FetchSecrets retrieves database/service secrets from the license server
+// This is used for Option 2 security - secrets are not stored on customer disk
+func FetchSecrets(serverURL, licenseKey string) (*Secrets, error) {
+	if serverURL == "" || licenseKey == "" {
+		return nil, fmt.Errorf("server URL and license key are required")
+	}
+
+	// Build hardware ID for verification
+	hardwareID := security.GetHardwareID()
+
+	url := fmt.Sprintf("%s/api/v1/license/secrets", serverURL)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("X-License-Key", licenseKey)
+	req.Header.Set("X-Hardware-ID", hardwareID)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch secrets: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		var errResp struct {
+			Message string `json:"message"`
+		}
+		json.Unmarshal(body, &errResp)
+		return nil, fmt.Errorf("license server error: %s", errResp.Message)
+	}
+
+	var response struct {
+		Success bool    `json:"success"`
+		Data    Secrets `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	if !response.Success {
+		return nil, fmt.Errorf("failed to fetch secrets")
+	}
+
+	log.Printf("Secrets fetched from license server successfully")
+	return &response.Data, nil
+}
+
 // CanAddSubscriber checks if adding a new subscriber is allowed
 // Returns: allowed, currentCount, maxAllowed, error
 func CanAddSubscriber(currentCount int) (bool, int, int, error) {
