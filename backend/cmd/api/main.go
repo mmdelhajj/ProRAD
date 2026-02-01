@@ -286,7 +286,7 @@ func main() {
 	subscribers.Post("/import-excel", middleware.AdminOnly(), subscriberHandler.BulkImportExcel)
 	subscribers.Post("/bulk-update", middleware.RequirePermission("subscribers.edit"), subscriberHandler.BulkUpdate)
 	subscribers.Post("/bulk-action", middleware.ResellerOrAdmin(), subscriberHandler.BulkAction) // BulkAction checks permissions internally per action
-	subscribers.Post("/change-bulk", middleware.AdminOnly(), subscriberHandler.ChangeBulk)
+	subscribers.Post("/change-bulk", middleware.RequirePermission("subscribers.change_bulk"), subscriberHandler.ChangeBulk)
 	subscribers.Put("/:id", middleware.RequirePermission("subscribers.edit"), subscriberHandler.Update)
 	subscribers.Delete("/:id", middleware.RequirePermission("subscribers.delete"), subscriberHandler.Delete)
 	subscribers.Post("/:id/renew", middleware.RequirePermission("subscribers.renew"), subscriberHandler.Renew)

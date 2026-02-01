@@ -144,7 +144,7 @@ function App() {
                   <Route path="/tickets" element={<PermissionRoute permission="tickets.view"><Tickets /></PermissionRoute>} />
                   <Route path="/backups" element={<PermissionRoute adminOnly><Backups /></PermissionRoute>} />
                   <Route path="/permissions" element={<PermissionRoute adminOnly><Permissions /></PermissionRoute>} />
-                  <Route path="/change-bulk" element={<PermissionRoute adminOnly><ChangeBulk /></PermissionRoute>} />
+                  <Route path="/change-bulk" element={<PermissionRoute permission="subscribers.change_bulk"><ChangeBulk /></PermissionRoute>} />
                   <Route path="/sharing" element={<PermissionRoute adminOnly><SharingDetection /></PermissionRoute>} />
                   <Route path="/cdn" element={<PermissionRoute adminOnly><CDNList /></PermissionRoute>} />
                   <Route path="/cdn-bandwidth-rules" element={<PermissionRoute adminOnly><CDNBandwidthRules /></PermissionRoute>} />
