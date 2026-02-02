@@ -17,7 +17,7 @@ LICENSE_SERVER="https://license.proxpanel.com"
 INSTALL_DIR="/opt/proxpanel"
 VERSION="1.0.172"
 
-step_count=7
+step_count=8
 current_step=0
 
 show_step() {
@@ -626,7 +626,286 @@ else
 fi
 
 # ============================================
-# STEP 7: Finalizing
+# STEP 7: Setup Data Encryption
+# ============================================
+show_step "Setting up Data Encryption"
+
+# Install encryption dependencies
+show_info "Installing encryption dependencies..."
+apt-get install -y -qq cryptsetup openssl jq >/dev/null 2>&1 &
+spinner $! "Installing cryptsetup and openssl"
+
+# Create proxpanel config directory
+mkdir -p /etc/proxpanel
+
+# Save license configuration for LUKS
+cat > /etc/proxpanel/license.conf << LUKSCONF
+# ProxPanel License Configuration
+LICENSE_KEY="${LICENSE_KEY}"
+LICENSE_SERVER="${LICENSE_SERVER}"
+LUKSCONF
+chmod 600 /etc/proxpanel/license.conf
+show_ok "License configuration saved"
+
+# Get hardware ID function
+get_hardware_id() {
+    local hw_id=""
+    if [ -f /sys/class/dmi/id/product_uuid ]; then
+        hw_id=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null)
+    fi
+    if [ -z "$hw_id" ] && [ -f /etc/machine-id ]; then
+        hw_id=$(cat /etc/machine-id 2>/dev/null)
+    fi
+    echo -n "$hw_id" | openssl sha256 -r | cut -d' ' -f1
+}
+
+HARDWARE_ID=$(get_hardware_id)
+
+# Fetch LUKS key from license server
+show_info "Fetching encryption key from license server..."
+LUKS_RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
+    -X POST "${LICENSE_SERVER}/api/v1/license/luks-key" \
+    -H "Content-Type: application/json" \
+    -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"stable_${HARDWARE_ID}\"}" 2>/dev/null)
+
+LUKS_SUCCESS=$(echo "$LUKS_RESPONSE" | jq -r '.success' 2>/dev/null)
+if [ "$LUKS_SUCCESS" = "true" ]; then
+    LUKS_KEY=$(echo "$LUKS_RESPONSE" | jq -r '.luks_key' 2>/dev/null)
+    LUKS_EXPIRES=$(echo "$LUKS_RESPONSE" | jq -r '.expires_at' 2>/dev/null)
+
+    # Cache the key
+    cat > /etc/proxpanel/luks-key-cache << LUKSCACHE
+KEY=${LUKS_KEY}
+EXPIRES=${LUKS_EXPIRES}
+FETCHED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+LUKSCACHE
+    chmod 600 /etc/proxpanel/luks-key-cache
+    show_ok "Encryption key cached"
+else
+    show_warn "Could not fetch encryption key - will be fetched on encrypted boot"
+fi
+
+# Install LUKS keyscript for key retrieval
+cat > /usr/local/sbin/proxpanel-luks-keyscript << 'KEYSCRIPTEOF'
+#!/bin/sh
+CONFIG_FILE="/etc/proxpanel/license.conf"
+CACHE_FILE="/etc/proxpanel/luks-key-cache"
+
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+get_hardware_id() {
+    local hw_id=""
+    [ -f /sys/class/dmi/id/product_uuid ] && hw_id=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null)
+    [ -z "$hw_id" ] && [ -f /etc/machine-id ] && hw_id=$(cat /etc/machine-id 2>/dev/null)
+    echo -n "$hw_id" | openssl sha256 -r | cut -d' ' -f1
+}
+
+fetch_key() {
+    local server="${LICENSE_SERVER:-https://license.proxpanel.com}"
+    local response
+    response=$(curl -sk --connect-timeout 10 --max-time 30 \
+        -X POST "$server/api/v1/license/luks-key" \
+        -H "Content-Type: application/json" \
+        -d "{\"license_key\":\"$LICENSE_KEY\",\"hardware_id\":\"stable_$(get_hardware_id)\"}" 2>/dev/null)
+
+    [ $? -ne 0 ] && return 1
+
+    local success=$(echo "$response" | jq -r '.success' 2>/dev/null)
+    if [ "$success" = "true" ]; then
+        local key=$(echo "$response" | jq -r '.luks_key' 2>/dev/null)
+        local expires=$(echo "$response" | jq -r '.expires_at' 2>/dev/null)
+        echo "KEY=$key" > "$CACHE_FILE"
+        echo "EXPIRES=$expires" >> "$CACHE_FILE"
+        chmod 600 "$CACHE_FILE"
+        echo -n "$key"
+        return 0
+    fi
+    return 1
+}
+
+check_cache() {
+    [ ! -f "$CACHE_FILE" ] && return 1
+    . "$CACHE_FILE"
+    [ -z "$KEY" ] && return 1
+    echo -n "$KEY"
+    return 0
+}
+
+# Main - try to fetch from server, fallback to cache
+if fetch_key; then
+    exit 0
+fi
+
+if check_cache; then
+    exit 0
+fi
+
+exit 1
+KEYSCRIPTEOF
+chmod 755 /usr/local/sbin/proxpanel-luks-keyscript
+show_ok "Encryption keyscript installed"
+
+# Check if we can do LUKS encryption (requires loop device support)
+LUKS_ENABLED=false
+if [ -e /dev/loop0 ] || [ -d /dev/loop ] || modprobe loop 2>/dev/null; then
+    # Only encrypt if we have a valid LUKS key
+    if [ -n "$LUKS_KEY" ] && [ "$LUKS_KEY" != "null" ]; then
+        show_info "Setting up encrypted data container..."
+
+        LUKS_CONTAINER="/var/lib/proxpanel-encrypted.img"
+        LUKS_SIZE="50G"
+        LUKS_NAME="proxpanel_data"
+
+        # Check if enough space
+        FREE_SPACE=$(df -BG /var/lib | awk 'NR==2 {print $4}' | tr -d 'G')
+        if [ "$FREE_SPACE" -gt 55 ]; then
+            # Create sparse file
+            (
+                truncate -s ${LUKS_SIZE} ${LUKS_CONTAINER}
+                echo -n "$LUKS_KEY" | cryptsetup luksFormat --type luks2 ${LUKS_CONTAINER} - >/dev/null 2>&1
+                echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} - >/dev/null 2>&1
+                mkfs.ext4 -q -L proxpanel_data /dev/mapper/${LUKS_NAME}
+                cryptsetup close ${LUKS_NAME}
+            ) >/dev/null 2>&1 &
+            spinner $! "Creating encrypted container"
+
+            if [ -f "$LUKS_CONTAINER" ]; then
+                LUKS_ENABLED=true
+                show_ok "Encrypted container created"
+
+                # Stop ProxPanel services to move data
+                show_info "Stopping services for data migration..."
+                cd ${INSTALL_DIR} && (docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true)
+
+                # Open encrypted container and mount
+                echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} -
+                mkdir -p /mnt/proxpanel-encrypted
+                mount /dev/mapper/${LUKS_NAME} /mnt/proxpanel-encrypted
+
+                # Move all ProxPanel data to encrypted volume
+                show_info "Moving data to encrypted volume..."
+                (
+                    cp -a ${INSTALL_DIR}/* /mnt/proxpanel-encrypted/ 2>/dev/null
+                    # Copy docker volumes if they exist
+                    mkdir -p /mnt/proxpanel-encrypted/docker-volumes
+                    if [ -d /var/lib/docker/volumes/proxpanel_pgdata ]; then
+                        cp -a /var/lib/docker/volumes/proxpanel_pgdata /mnt/proxpanel-encrypted/docker-volumes/
+                    fi
+                    if [ -d /var/lib/docker/volumes/proxpanel_redisdata ]; then
+                        cp -a /var/lib/docker/volumes/proxpanel_redisdata /mnt/proxpanel-encrypted/docker-volumes/
+                    fi
+                ) &
+                spinner $! "Moving data to encrypted volume"
+
+                # Backup and swap directories
+                mv ${INSTALL_DIR} ${INSTALL_DIR}.unencrypted
+                mkdir -p ${INSTALL_DIR}
+                umount /mnt/proxpanel-encrypted
+                mount /dev/mapper/${LUKS_NAME} ${INSTALL_DIR}
+                show_ok "Data migrated to encrypted volume"
+
+                # Restart ProxPanel
+                show_info "Restarting services on encrypted volume..."
+                cd ${INSTALL_DIR} && (docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null)
+                show_ok "Services restarted on encrypted volume"
+
+                # Create unlock/lock scripts
+                cat > /usr/local/sbin/proxpanel-luks-unlock << 'UNLOCKEOF'
+#!/bin/bash
+LUKS_CONTAINER="/var/lib/proxpanel-encrypted.img"
+LUKS_NAME="proxpanel_data"
+MOUNT_POINT="/opt/proxpanel"
+
+# Check if already unlocked
+if [ -b /dev/mapper/$LUKS_NAME ]; then
+    echo "Already unlocked"
+    exit 0
+fi
+
+# Get key from license server
+MAX_RETRIES=5
+RETRY=0
+while [ $RETRY -lt $MAX_RETRIES ]; do
+    LUKS_KEY=$(/usr/local/sbin/proxpanel-luks-keyscript 2>/dev/null)
+    if [ -n "$LUKS_KEY" ]; then
+        break
+    fi
+    RETRY=$((RETRY + 1))
+    echo "Retry $RETRY/$MAX_RETRIES..."
+    sleep 10
+done
+
+if [ -z "$LUKS_KEY" ]; then
+    echo "ERROR: Failed to get encryption key"
+    exit 1
+fi
+
+# Unlock
+echo -n "$LUKS_KEY" | cryptsetup open $LUKS_CONTAINER $LUKS_NAME -
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to unlock"
+    exit 1
+fi
+
+# Mount
+mkdir -p $MOUNT_POINT
+mount /dev/mapper/$LUKS_NAME $MOUNT_POINT
+echo "ProxPanel data unlocked"
+UNLOCKEOF
+                chmod +x /usr/local/sbin/proxpanel-luks-unlock
+
+                cat > /usr/local/sbin/proxpanel-luks-lock << 'LOCKEOF'
+#!/bin/bash
+LUKS_NAME="proxpanel_data"
+MOUNT_POINT="/opt/proxpanel"
+
+# Stop Docker
+cd $MOUNT_POINT && docker-compose down 2>/dev/null || docker compose down 2>/dev/null || true
+
+# Unmount
+umount $MOUNT_POINT 2>/dev/null || true
+
+# Close LUKS
+cryptsetup close $LUKS_NAME 2>/dev/null || true
+echo "ProxPanel data locked"
+LOCKEOF
+                chmod +x /usr/local/sbin/proxpanel-luks-lock
+
+                # Create systemd service
+                cat > /etc/systemd/system/proxpanel-luks.service << 'SERVICEEOF'
+[Unit]
+Description=ProxPanel Data Unlock
+Before=docker.service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/proxpanel-luks-unlock
+ExecStop=/usr/local/sbin/proxpanel-luks-lock
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF
+                systemctl daemon-reload
+                systemctl enable proxpanel-luks.service >/dev/null 2>&1
+                show_ok "Encryption service installed"
+            else
+                show_warn "Failed to create encrypted container"
+            fi
+        else
+            show_warn "Not enough disk space for encryption (need 55GB free)"
+        fi
+    fi
+else
+    show_warn "Loop device not available - encryption skipped (VM/Container)"
+fi
+
+show_ok "Data encryption setup complete"
+
+# ============================================
+# STEP 8: Finalizing
 # ============================================
 show_step "Finalizing Installation"
 
@@ -718,6 +997,19 @@ echo -e "      ✓ PostgreSQL tuned for 30K+ users"
 echo -e "      ✓ HA Cluster ready"
 echo -e "      ✓ Auto-updates enabled"
 echo -e "      ✓ RADIUS on ports 1812/1813"
+if [ "$LUKS_ENABLED" = "true" ]; then
+    echo -e "      ✓ ${GREEN}Data Encryption ENABLED${NC}"
+    echo ""
+    echo -e "    ${BOLD}Encryption Details:${NC}"
+    echo -e "      Container: /var/lib/proxpanel-encrypted.img"
+    echo -e "      Mount: /opt/proxpanel (encrypted)"
+    echo -e "      Key: Fetched from license server at boot"
+    echo -e "      Database: Encrypted at rest"
+    echo ""
+    echo -e "    ${YELLOW}Note: If license is revoked, data stays encrypted${NC}"
+else
+    echo -e "      - Data Encryption: Not enabled (VM/Container or insufficient space)"
+fi
 echo ""
 echo -e "    ${CYAN}Documentation:${NC} https://docs.proxpanel.com"
 echo ""

@@ -3126,3 +3126,76 @@ healthcheck:
 **Files Changed:**
 - `/opt/proxpanel-license/internal/handlers/build.go` - Secure docker-compose template
 - `frontend/nginx.conf` - Security headers + rate limiting
+
+### v1.0.179 IP Pool Duplicate Fix + LUKS Support (Feb 2026)
+
+**Critical fix for duplicate IP addresses being assigned to multiple users.**
+
+#### Root Cause
+The `AllocateIP` function in `internal/ippool/pool.go` only checked `ip_pool_assignments` table for available IPs but did NOT check `radreply` table. When a user had a static IP in radreply (Framed-IP-Address), the pool could still allocate that same IP to another user.
+
+#### Fix Applied
+Updated `AllocateIP` to check BOTH tables:
+```sql
+-- Now excludes IPs already assigned in radreply
+SELECT ipa.* FROM ip_pool_assignments ipa
+WHERE ipa.pool_name = ?
+AND ipa.status = 'available'
+AND NOT EXISTS (
+    SELECT 1 FROM radreply r
+    WHERE r.attribute = 'Framed-IP-Address'
+    AND r.value = ipa.ip_address
+    AND r.username != ?
+)
+```
+
+#### New Function Added
+`SyncWithRadreply()` - Syncs ip_pool_assignments with radreply table, marking IPs as "in_use" if they have a Framed-IP-Address entry. Call this after bulk IP assignments.
+
+**Files Changed:**
+- `backend/internal/ippool/pool.go` - Fixed AllocateIP, added SyncWithRadreply
+
+#### LUKS Remote Disk Encryption (License Server)
+
+Added support for remote LUKS key management for encrypted ProxPanel data volumes.
+
+**How It Works:**
+1. Fresh install creates encrypted LUKS container at `/var/lib/proxpanel-encrypted.img`
+2. At boot, initramfs fetches LUKS key from license server
+3. Key is hardware-bound (SHA256 of hardware ID)
+4. 7-day offline cache for boot without network
+
+**New Database Table (License Server):**
+```sql
+CREATE TABLE luks_keys (
+    id SERIAL PRIMARY KEY,
+    license_id INTEGER NOT NULL UNIQUE REFERENCES licenses(id),
+    luks_key VARCHAR(64) NOT NULL,  -- Base64 encoded 256-bit key
+    key_slot INTEGER DEFAULT 1,
+    hardware_hash VARCHAR(64),
+    is_active BOOLEAN DEFAULT true,
+    expires_at TIMESTAMP,
+    last_used TIMESTAMP,
+    use_count INTEGER DEFAULT 0
+);
+```
+
+**New Endpoints (License Server):**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/license/luks-key` | POST | Get LUKS key (public, for boot) |
+| `/api/v1/admin/licenses/:id/luks` | GET | Get LUKS status |
+| `/api/v1/admin/licenses/:id/luks/revoke` | POST | Revoke LUKS key |
+| `/api/v1/admin/licenses/:id/luks/regenerate` | POST | Regenerate LUKS key |
+
+**Files Changed (License Server):**
+- `internal/handlers/luks.go` - New LUKS handler
+- `internal/models/models.go` - Added LuksKey model
+- `internal/database/database.go` - Added luks_keys migration
+- `cmd/server/main.go` - Added LUKS routes
+
+**Security Benefits:**
+- Data encrypted at rest with AES-256
+- Key never stored on customer disk
+- License revocation = server won't boot after cache expires
+- Hardware binding prevents moving disk to different machine

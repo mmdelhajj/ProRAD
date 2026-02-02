@@ -21,28 +21,37 @@ type IPPoolManager struct {
 var Manager = &IPPoolManager{}
 
 // AllocateIP finds and allocates an available IP from the specified pool
+// IMPORTANT: Also checks radreply table to ensure IP is not statically assigned to another user
 func (m *IPPoolManager) AllocateIP(poolName, username string, subscriberID uint, nasID uint, sessionID string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	now := time.Now()
 
-	// Find an available IP from the pool using FOR UPDATE to prevent race conditions
+	// Find an available IP from the pool that is NOT already assigned in radreply
+	// This query joins ip_pool_assignments with radreply to exclude IPs that are statically assigned
 	var assignment models.IPPoolAssignment
 	result := database.DB.Raw(`
-		SELECT * FROM ip_pool_assignments
-		WHERE pool_name = ? AND status = 'available'
-		ORDER BY id
+		SELECT ipa.* FROM ip_pool_assignments ipa
+		WHERE ipa.pool_name = ?
+		AND ipa.status = 'available'
+		AND NOT EXISTS (
+			SELECT 1 FROM radreply r
+			WHERE r.attribute = 'Framed-IP-Address'
+			AND r.value = ipa.ip_address
+			AND r.username != ?
+		)
+		ORDER BY ipa.id
 		LIMIT 1
 		FOR UPDATE SKIP LOCKED
-	`, poolName).Scan(&assignment)
+	`, poolName, username).Scan(&assignment)
 
 	if result.Error != nil {
 		return "", fmt.Errorf("failed to find available IP: %v", result.Error)
 	}
 
 	if assignment.ID == 0 {
-		return "", fmt.Errorf("no available IPs in pool %s", poolName)
+		return "", fmt.Errorf("no available IPs in pool %s (all IPs are either in use or statically assigned in radreply)", poolName)
 	}
 
 	// Mark as in use
@@ -333,4 +342,34 @@ func MarkIPAsUsed(ipAddress, username, sessionID string, nasID uint) error {
 			"assigned_at": now,
 			"updated_at":  now,
 		}).Error
+}
+
+// SyncWithRadreply ensures ip_pool_assignments is consistent with radreply table
+// This marks IPs as "in_use" if they have a Framed-IP-Address entry in radreply
+// Call this periodically or after bulk IP assignments to prevent duplicates
+func SyncWithRadreply() (int64, error) {
+	now := time.Now()
+
+	// Find all IPs in radreply that are marked as "available" in ip_pool_assignments
+	// and mark them as "in_use" with the username from radreply
+	result := database.DB.Exec(`
+		UPDATE ip_pool_assignments ipa
+		SET status = 'in_use',
+			username = r.username,
+			updated_at = ?
+		FROM radreply r
+		WHERE r.attribute = 'Framed-IP-Address'
+		AND r.value = ipa.ip_address
+		AND ipa.status = 'available'
+	`, now)
+
+	if result.Error != nil {
+		return 0, fmt.Errorf("failed to sync with radreply: %v", result.Error)
+	}
+
+	if result.RowsAffected > 0 {
+		log.Printf("IPPool: Synced %d IPs from radreply (marked as in_use)", result.RowsAffected)
+	}
+
+	return result.RowsAffected, nil
 }
