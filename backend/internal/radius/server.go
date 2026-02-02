@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/ippool"
 	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/security"
 	"golang.org/x/crypto/md4"
@@ -441,27 +442,66 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		log.Printf("Sending rate limit for %s: %s", username, rateLimit)
 	}
 
-	// Add IP pool
-	if subscriber.Service != nil && subscriber.Service.PoolName != "" {
-		rfc2869.FramedPool_SetString(response, subscriber.Service.PoolName)
+	// Check if ProISP IP management is enabled
+	proispIPManagement := getSettingBool("proisp_ip_management", false)
+
+	// Determine the IP to send
+	var framedIPToSend string
+
+	// Priority 1: Static IP from subscriber record
+	if subscriber.StaticIP != "" {
+		framedIPToSend = subscriber.StaticIP
+		log.Printf("Using static IP=%s for %s", framedIPToSend, username)
 	}
 
-	// Add static IP if assigned (from subscriber record OR radreply table)
-	framedIPToSend := subscriber.StaticIP
+	// Priority 2: Check radreply table for Framed-IP-Address (set by conflict resolution)
 	if framedIPToSend == "" {
-		// Check radreply table for Framed-IP-Address (set by conflict resolution)
 		var radreply models.RadReply
 		if err := database.DB.Where("username = ? AND attribute = ?", username, "Framed-IP-Address").First(&radreply).Error; err == nil {
 			framedIPToSend = radreply.Value
 			log.Printf("Found radreply Framed-IP-Address=%s for %s (conflict resolution)", framedIPToSend, username)
 		}
 	}
+
+	// Priority 3: ProISP IP management - allocate from pool
+	if framedIPToSend == "" && proispIPManagement && subscriber.Service != nil && subscriber.Service.PoolName != "" {
+		// Get NAS ID for the allocation
+		var nasID uint
+		var nas models.Nas
+		if err := database.DB.Where("ip_address = ?", rfc2865.NASIPAddress_Get(r.Packet).String()).First(&nas).Error; err == nil {
+			nasID = nas.ID
+		}
+
+		// Allocate IP from the pool
+		allocatedIP, err := ippool.AllocateIPForUser(
+			subscriber.Service.PoolName,
+			username,
+			subscriber.ID,
+			nasID,
+			"", // Session ID not available yet during auth
+		)
+		if err != nil {
+			log.Printf("ProISP IP Management: Failed to allocate IP for %s from pool %s: %v",
+				username, subscriber.Service.PoolName, err)
+			// Fall back to Framed-Pool for MikroTik to assign
+		} else {
+			framedIPToSend = allocatedIP
+			log.Printf("ProISP IP Management: Allocated IP=%s for %s from pool %s",
+				framedIPToSend, username, subscriber.Service.PoolName)
+		}
+	}
+
+	// Send IP to MikroTik
 	if framedIPToSend != "" {
 		ip := net.ParseIP(framedIPToSend)
 		if ip != nil {
 			rfc2865.FramedIPAddress_Set(response, ip)
 			log.Printf("Sending Framed-IP-Address=%s for %s", framedIPToSend, username)
 		}
+	} else if subscriber.Service != nil && subscriber.Service.PoolName != "" {
+		// No specific IP - send Framed-Pool for MikroTik to assign (legacy mode)
+		rfc2869.FramedPool_SetString(response, subscriber.Service.PoolName)
+		log.Printf("Sending Framed-Pool=%s for %s (MikroTik will assign IP)", subscriber.Service.PoolName, username)
 	}
 
 	// Add session timeout - use minimum of (time until expiry, default_session_timeout)
@@ -674,6 +714,18 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 			nasID = &nas.ID
 		}
 
+		// Update IP pool assignment with session ID (if ProISP IP management is enabled)
+		if getSettingBool("proisp_ip_management", false) {
+			ipStr := framedIP.String()
+			if ipStr != "" && ipStr != "<nil>" && ipStr != "0.0.0.0" {
+				go func(ip, user, sessID string) {
+					database.DB.Model(&models.IPPoolAssignment{}).
+						Where("ip_address = ? AND username = ?", ip, user).
+						Update("session_id", sessID)
+				}(ipStr, username, sessionID)
+			}
+		}
+
 		// Update subscriber online status with nas_id
 		go func(nasIDPtr *uint) {
 			updates := map[string]interface{}{
@@ -703,6 +755,20 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 			"acctoutputoctets":   outputOctets,
 			"acctterminatecause": cause,
 		})
+
+		// Release IP if ProISP IP management is enabled
+		if getSettingBool("proisp_ip_management", false) {
+			ipStr := framedIP.String()
+			if ipStr != "" && ipStr != "<nil>" && ipStr != "0.0.0.0" {
+				go func(ip, user string) {
+					if err := ippool.ReleaseIP(ip); err != nil {
+						log.Printf("ProISP IP Management: Failed to release IP %s for %s: %v", ip, user, err)
+					} else {
+						log.Printf("ProISP IP Management: Released IP %s for %s", ip, user)
+					}
+				}(ipStr, username)
+			}
+		}
 
 		// Update subscriber status
 		go func() {

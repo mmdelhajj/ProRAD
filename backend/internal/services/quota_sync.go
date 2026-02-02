@@ -244,6 +244,10 @@ func (s *QuotaSyncService) Stop() {
 
 // syncAllQuotas syncs quota for all online subscribers
 func (s *QuotaSyncService) syncAllQuotas() {
+	// Detect and resolve static IP conflicts first
+	// This kicks dynamic users who got a static IP from the pool
+	s.detectAndResolveStaticIPConflicts()
+
 	// Get all online subscribers with their NAS and Service
 	var subscribers []models.Subscriber
 	if err := database.DB.Preload("Nas").Preload("Service").
@@ -290,11 +294,12 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 	for _, sub := range subscribers {
 		session, err := client.GetActiveSession(sub.Username)
 		if err != nil {
-			// Session ended - mark user as offline
+			// Session ended - mark user as offline and clear IP
 			log.Printf("QuotaSync: GetActiveSession failed for %s: %v - marking offline", sub.Username, err)
 			result := database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).Updates(map[string]interface{}{
-				"is_online":            false,
-				"last_quota_sync":      getNow(),
+				"is_online":             false,
+				"ip_address":            nil, // Clear IP so it doesn't show as duplicate
+				"last_quota_sync":       getNow(),
 				"last_bypass_cdn_bytes": 0, // Reset bypass tracking for next session
 			})
 			if result.Error != nil {
@@ -1559,4 +1564,104 @@ func getCDNBandwidthMultiplier(activeRules []CDNBandwidthRule, cdnID uint) int {
 	}
 
 	return 100 // No active rule, return normal speed
+}
+
+// detectAndResolveStaticIPConflicts checks for users who have an IP that belongs to someone else's static_ip
+// and disconnects them so they can reconnect and get a different IP from the pool
+func (s *QuotaSyncService) detectAndResolveStaticIPConflicts() {
+	// Get all static IPs
+	var staticIPUsers []models.Subscriber
+	if err := database.DB.Where("static_ip IS NOT NULL AND static_ip != '' AND deleted_at IS NULL").
+		Find(&staticIPUsers).Error; err != nil {
+		log.Printf("StaticIPConflict: Failed to get static IP users: %v", err)
+		return
+	}
+
+	if len(staticIPUsers) == 0 {
+		return
+	}
+
+	// Build a map of static_ip -> owner username
+	staticIPOwners := make(map[string]string)
+	for _, user := range staticIPUsers {
+		if user.StaticIP != "" {
+			staticIPOwners[user.StaticIP] = user.Username
+		}
+	}
+
+	log.Printf("StaticIPConflict: Checking %d static IPs for conflicts", len(staticIPOwners))
+
+	// Get all online users with their current IP (don't use Select with Preload)
+	var onlineUsers []models.Subscriber
+	if err := database.DB.Preload("Nas").
+		Where("is_online = ? AND ip_address IS NOT NULL AND ip_address != '' AND deleted_at IS NULL", true).
+		Find(&onlineUsers).Error; err != nil {
+		log.Printf("StaticIPConflict: Failed to get online users: %v", err)
+		return
+	}
+
+	log.Printf("StaticIPConflict: Checking %d online users", len(onlineUsers))
+
+	// Check each online user
+	for _, user := range onlineUsers {
+		// Skip if user has no IP
+		if user.IPAddress == "" {
+			continue
+		}
+
+		// Check if this IP is someone else's static IP
+		owner, isStaticIP := staticIPOwners[user.IPAddress]
+		if !isStaticIP {
+			continue // This IP is not a static IP, no conflict
+		}
+
+		// If the owner is this user, no conflict
+		if owner == user.Username {
+			continue
+		}
+
+		// CONFLICT DETECTED: This user has an IP that belongs to someone else
+		log.Printf("StaticIPConflict: User %s has IP %s which is static IP of %s - disconnecting",
+			user.Username, user.IPAddress, owner)
+
+		// Get NAS info for disconnect
+		if user.Nas == nil || user.NasID == nil {
+			// Try to load NAS
+			var nas models.Nas
+			if user.NasID != nil {
+				if err := database.DB.First(&nas, *user.NasID).Error; err != nil {
+					log.Printf("StaticIPConflict: Failed to get NAS for user %s: %v", user.Username, err)
+					continue
+				}
+				user.Nas = &nas
+			} else {
+				log.Printf("StaticIPConflict: User %s has no NAS assigned", user.Username)
+				continue
+			}
+		}
+
+		// Disconnect the user via CoA
+		coaClient := radius.NewCOAClient(user.Nas.IPAddress, user.Nas.CoAPort, user.Nas.Secret)
+		if err := coaClient.DisconnectViaRadclient(user.Username, ""); err != nil {
+			log.Printf("StaticIPConflict: CoA disconnect failed for %s: %v, trying MikroTik API", user.Username, err)
+
+			// Fallback to MikroTik API
+			client := mikrotik.NewClient(
+				fmt.Sprintf("%s:%d", user.Nas.IPAddress, user.Nas.APIPort),
+				user.Nas.APIUsername,
+				user.Nas.APIPassword,
+			)
+			if err := client.DisconnectUser(user.Username); err != nil {
+				log.Printf("StaticIPConflict: MikroTik disconnect also failed for %s: %v", user.Username, err)
+			} else {
+				log.Printf("StaticIPConflict: Disconnected %s via MikroTik API", user.Username)
+			}
+			client.Close()
+		} else {
+			log.Printf("StaticIPConflict: Disconnected %s via CoA", user.Username)
+		}
+
+		// Clear the IP address in database so it doesn't show as duplicate
+		database.DB.Model(&models.Subscriber{}).Where("id = ?", user.ID).Update("ip_address", nil)
+	}
 }

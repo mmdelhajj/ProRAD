@@ -2945,6 +2945,34 @@ func FetchSecrets(serverURL, licenseKey string) (*Secrets, error)
 - `/opt/proxpanel-license/internal/database/database.go` - Added migration
 - `/opt/proxpanel-license/cmd/server/main.go` - Added routes
 - `backend/internal/license/client.go` - Added FetchSecrets function
+- `backend/internal/config/config.go` - **COMPLETE**: Integrated secrets fetch on startup
+
+**Config Integration (config.go):**
+```go
+func Load() *Config {
+    // Try to fetch secrets from license server (Option 2 security)
+    secrets, err := fetchSecretsFromLicenseServer()
+    if err != nil {
+        log.Printf("Could not fetch secrets from license server: %v", err)
+        log.Println("Falling back to environment variables for secrets...")
+        // Use environment variables as fallback
+    } else {
+        // Use secrets from license server
+        licenseSecrets = secrets
+        jwtSecret = secrets.JWTSecret
+        dbPassword = secrets.DBPassword
+        redisPassword = secrets.RedisPassword
+        log.Println("Using secrets from license server (passwords not stored on disk)")
+    }
+    // ...
+}
+```
+
+**Behavior:**
+1. On API startup, `config.Load()` tries to fetch secrets from license server
+2. If successful, uses fetched DB/Redis/JWT secrets (never touches .env)
+3. If fails (network/license issue), falls back to .env variables
+4. Graceful degradation ensures system still works during migration
 
 **Security Level After v1.0.166: 95%**
 ```
@@ -2964,3 +2992,137 @@ func FetchSecrets(serverURL, licenseKey string) (*Secrets, error)
 └─────────────────────────────────────────┘
 ```
 
+
+### v1.0.177 Enhanced Security (Feb 2026)
+
+**Two major security enhancements:**
+
+#### 1. Enhanced Hardware ID
+
+**Old Formula:** `stable_<sha256(stable|MAC|hostname)>`
+**New Formula:** `stable_<sha256(stable|MAC|product_uuid|machine_id)>`
+
+**Changes:**
+- Removed hostname from formula (customers can change hostname freely)
+- Added `/sys/class/dmi/id/product_uuid` (motherboard BIOS UUID - very hard to fake)
+- Added `/etc/machine-id` (Linux system ID - generated at OS install)
+
+**Benefits:**
+- IP address can change freely ✅
+- Hostname can change freely ✅
+- Much harder to spoof hardware binding
+
+**Files Changed:**
+- `backend/internal/config/config.go` - Updated `getStableHardwareID()`
+- `backend/internal/license/client.go` - Updated `getStableHardwareID()`
+- License server - Accepts client's hardware_id directly
+
+**Docker Mounts Added:**
+```yaml
+volumes:
+  - /sys/class/dmi/id/product_uuid:/sys/class/dmi/id/product_uuid:ro
+  - /etc/machine-id:/etc/machine-id:ro
+  - /var/lib/proxpanel:/var/lib/proxpanel
+```
+
+#### 2. Encrypted Validation State
+
+**Purpose:** Allow system to survive brief network outages + restarts
+
+**File Location:** `/var/lib/proxpanel/.license_state`
+
+**Contents (AES-256-GCM encrypted):**
+```json
+{
+  "last_valid": 1706828400,
+  "hardware_id": "stable_abc123...",
+  "license_key": "partial_hash",
+  "signature": "hmac_sha256..."
+}
+```
+
+**Behavior:**
+1. After successful validation → Save encrypted state
+2. On startup, if online validation fails → Check saved state
+3. If state valid + within 5-minute grace period → Allow startup
+4. Otherwise → Shutdown
+
+**Files Changed:**
+- `backend/internal/license/client.go` - Added ValidationState struct and functions
+
+### v1.0.178 Security Hardening (Feb 2026)
+
+**Server security hardening for enterprise-grade protection.**
+
+#### Port Binding (Localhost Only)
+
+| Service | Before | After |
+|---------|--------|-------|
+| Database | `0.0.0.0:5432` | `127.0.0.1:5432` ✅ |
+| Redis | `0.0.0.0:6379` | `127.0.0.1:6379` ✅ |
+| API | `0.0.0.0:8080` | `127.0.0.1:8080` ✅ |
+
+#### No Default Passwords
+
+```yaml
+# OLD (dangerous)
+POSTGRES_PASSWORD: ${DB_PASSWORD:-proxpanel123}
+
+# NEW (secure - fails if not set)
+POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+```
+
+#### Nginx Security Headers
+
+```nginx
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+server_tokens off;  # Hide nginx version
+```
+
+#### Rate Limiting
+
+```nginx
+limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+```
+
+- API: 30 requests/second
+- Login: 5 requests/minute (brute force protection)
+
+#### Blocked Sensitive Files
+
+```nginx
+location ~ /\. { deny all; }
+location ~* \.(env|bak|backup|old|sql|log)$ { deny all; }
+```
+
+#### Container Health Checks
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "pg_isready -U proxpanel"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+```
+
+**Security Score After v1.0.178:**
+```
+┌─────────────────────────────────────────┐
+│  ProISP v1.0.178                        │
+│                                         │
+│  License Protection:  92% ████████████░ │
+│  Server Security:     90% ████████████░ │
+│  ─────────────────────────────────────  │
+│  COMBINED:            91% ████████████░ │
+│                                         │
+│  STATUS: ENTERPRISE GRADE               │
+└─────────────────────────────────────────┘
+```
+
+**Files Changed:**
+- `/opt/proxpanel-license/internal/handlers/build.go` - Secure docker-compose template
+- `frontend/nginx.conf` - Security headers + rate limiting

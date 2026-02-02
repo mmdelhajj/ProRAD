@@ -128,26 +128,26 @@ function App() {
                   <Route path="/subscribers/:id" element={<PermissionRoute permission="subscribers.view"><SubscriberEdit /></PermissionRoute>} />
                   <Route path="/subscribers/import" element={<PermissionRoute permission="subscribers.create"><SubscriberImport /></PermissionRoute>} />
                   <Route path="/services" element={<PermissionRoute permission="services.view"><Services /></PermissionRoute>} />
-                  <Route path="/nas" element={<PermissionRoute adminOnly><Nas /></PermissionRoute>} />
+                  <Route path="/nas" element={<PermissionRoute permission="nas.view"><Nas /></PermissionRoute>} />
                   <Route path="/resellers" element={<PermissionRoute permission="resellers.view"><Resellers /></PermissionRoute>} />
                   <Route path="/sessions" element={<PermissionRoute permission="sessions.view"><Sessions /></PermissionRoute>} />
                   <Route path="/transactions" element={<PermissionRoute permission="transactions.view"><Transactions /></PermissionRoute>} />
-                  <Route path="/settings" element={<PermissionRoute adminOnly><Settings /></PermissionRoute>} />
-                  <Route path="/users" element={<PermissionRoute adminOnly><Users /></PermissionRoute>} />
+                  <Route path="/settings" element={<PermissionRoute permission="settings.view"><Settings /></PermissionRoute>} />
+                  <Route path="/users" element={<PermissionRoute permission="users.view"><Users /></PermissionRoute>} />
                   <Route path="/invoices" element={<PermissionRoute permission="invoices.view"><Invoices /></PermissionRoute>} />
                   <Route path="/prepaid" element={<PermissionRoute permission="prepaid.view"><Prepaid /></PermissionRoute>} />
                   <Route path="/reports" element={<PermissionRoute permission="reports.view"><Reports /></PermissionRoute>} />
-                  <Route path="/audit" element={<PermissionRoute adminOnly><AuditLogs /></PermissionRoute>} />
-                  <Route path="/communication" element={<PermissionRoute adminOnly><CommunicationRules /></PermissionRoute>} />
-                  <Route path="/bandwidth" element={<PermissionRoute adminOnly><BandwidthRules /></PermissionRoute>} />
-                  <Route path="/fup" element={<PermissionRoute adminOnly><FUPCounters /></PermissionRoute>} />
+                  <Route path="/audit" element={<PermissionRoute permission="audit.view"><AuditLogs /></PermissionRoute>} />
+                  <Route path="/communication" element={<PermissionRoute permission="communication.view"><CommunicationRules /></PermissionRoute>} />
+                  <Route path="/bandwidth" element={<PermissionRoute permission="bandwidth.view"><BandwidthRules /></PermissionRoute>} />
+                  <Route path="/fup" element={<PermissionRoute permission="fup.view"><FUPCounters /></PermissionRoute>} />
                   <Route path="/tickets" element={<PermissionRoute permission="tickets.view"><Tickets /></PermissionRoute>} />
-                  <Route path="/backups" element={<PermissionRoute adminOnly><Backups /></PermissionRoute>} />
-                  <Route path="/permissions" element={<PermissionRoute adminOnly><Permissions /></PermissionRoute>} />
+                  <Route path="/backups" element={<PermissionRoute permission="backups.view"><Backups /></PermissionRoute>} />
+                  <Route path="/permissions" element={<PermissionRoute permission="permissions.view"><Permissions /></PermissionRoute>} />
                   <Route path="/change-bulk" element={<PermissionRoute permission="subscribers.change_bulk"><ChangeBulk /></PermissionRoute>} />
-                  <Route path="/sharing" element={<PermissionRoute adminOnly><SharingDetection /></PermissionRoute>} />
-                  <Route path="/cdn" element={<PermissionRoute adminOnly><CDNList /></PermissionRoute>} />
-                  <Route path="/cdn-bandwidth-rules" element={<PermissionRoute adminOnly><CDNBandwidthRules /></PermissionRoute>} />
+                  <Route path="/sharing" element={<PermissionRoute permission="sharing.view"><SharingDetection /></PermissionRoute>} />
+                  <Route path="/cdn" element={<PermissionRoute permission="cdn.view"><CDNList /></PermissionRoute>} />
+                  <Route path="/cdn-bandwidth-rules" element={<PermissionRoute permission="cdn.view"><CDNBandwidthRules /></PermissionRoute>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>

@@ -2,6 +2,12 @@ package license
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,11 +15,218 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/proisp/backend/internal/security"
 )
+
+// ValidationState holds the encrypted validation state for offline grace period
+type ValidationState struct {
+	LastValid   int64  `json:"last_valid"`   // Unix timestamp of last successful validation
+	HardwareID  string `json:"hardware_id"`  // Hardware ID to ensure state is from this machine
+	LicenseKey  string `json:"license_key"`  // License key hash (not full key)
+	Signature   string `json:"signature"`    // HMAC signature for tamper detection
+}
+
+const (
+	validationStateFile = "/var/lib/proxpanel/.license_state"
+	validationGracePeriod = 5 * time.Minute
+)
+
+// saveValidationState saves encrypted validation state after successful validation
+func saveValidationState(licenseKey string) error {
+	hardwareID := getStableHardwareID()
+
+	// Create state without signature first
+	state := ValidationState{
+		LastValid:  time.Now().Unix(),
+		HardwareID: hardwareID,
+		LicenseKey: hashString(licenseKey)[:16], // Only store partial hash
+	}
+
+	// Create signature
+	stateData := fmt.Sprintf("%d|%s|%s", state.LastValid, state.HardwareID, state.LicenseKey)
+	state.Signature = createHMAC(stateData, hardwareID+licenseKey)
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+
+	// Encrypt the state
+	encryptedData, err := encryptState(jsonData, hardwareID+licenseKey)
+	if err != nil {
+		return err
+	}
+
+	// Ensure directory exists
+	dir := filepath.Dir(validationStateFile)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+
+	// Write to file
+	return os.WriteFile(validationStateFile, encryptedData, 0600)
+}
+
+// loadValidationState loads and verifies the encrypted validation state
+// Returns the state and whether it's still within the grace period
+func loadValidationState(licenseKey string) (*ValidationState, bool) {
+	hardwareID := getStableHardwareID()
+
+	// Read encrypted file
+	encryptedData, err := os.ReadFile(validationStateFile)
+	if err != nil {
+		return nil, false
+	}
+
+	// Decrypt
+	jsonData, err := decryptState(encryptedData, hardwareID+licenseKey)
+	if err != nil {
+		log.Printf("Failed to decrypt validation state: %v", err)
+		return nil, false
+	}
+
+	// Parse JSON
+	var state ValidationState
+	if err := json.Unmarshal(jsonData, &state); err != nil {
+		log.Printf("Failed to parse validation state: %v", err)
+		return nil, false
+	}
+
+	// Verify hardware ID matches
+	if state.HardwareID != hardwareID {
+		log.Printf("Validation state hardware ID mismatch")
+		return nil, false
+	}
+
+	// Verify license key hash matches
+	if state.LicenseKey != hashString(licenseKey)[:16] {
+		log.Printf("Validation state license key mismatch")
+		return nil, false
+	}
+
+	// Verify signature
+	stateData := fmt.Sprintf("%d|%s|%s", state.LastValid, state.HardwareID, state.LicenseKey)
+	expectedSig := createHMAC(stateData, hardwareID+licenseKey)
+	if state.Signature != expectedSig {
+		log.Printf("Validation state signature mismatch (tampering detected)")
+		return nil, false
+	}
+
+	// Check if within grace period
+	lastValidTime := time.Unix(state.LastValid, 0)
+	withinGrace := time.Since(lastValidTime) <= validationGracePeriod
+
+	return &state, withinGrace
+}
+
+// hashString creates SHA256 hash of a string
+func hashString(s string) string {
+	hash := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(hash[:])
+}
+
+// createHMAC creates HMAC-SHA256 signature
+func createHMAC(data, key string) string {
+	h := hmac.New(sha256.New, []byte(key))
+	h.Write([]byte(data))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// encryptState encrypts data using AES-256-GCM
+func encryptState(data []byte, key string) ([]byte, error) {
+	// Derive 32-byte key from password
+	keyHash := sha256.Sum256([]byte(key))
+
+	block, err := aes.NewCipher(keyHash[:])
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+
+	return gcm.Seal(nonce, nonce, data, nil), nil
+}
+
+// decryptState decrypts AES-256-GCM encrypted data
+func decryptState(data []byte, key string) ([]byte, error) {
+	// Derive 32-byte key from password
+	keyHash := sha256.Sum256([]byte(key))
+
+	block, err := aes.NewCipher(keyHash[:])
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(data) < gcm.NonceSize() {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, ciphertext := data[:gcm.NonceSize()], data[gcm.NonceSize():]
+	return gcm.Open(nil, nonce, ciphertext, nil)
+}
+
+// getStableHardwareID generates hardware ID in the same format as license server expects
+// Format: stable_<sha256(stable|MAC|product_uuid|machine_id)>
+// Note: Hostname and IP are NOT included - customers can change them freely
+// This must match the format used in config.go for secrets fetching
+func getStableHardwareID() string {
+	serverMAC := os.Getenv("SERVER_MAC")
+
+	// Read product_uuid (motherboard BIOS UUID - very stable, hard to fake)
+	productUUID := readFileContent("/sys/class/dmi/id/product_uuid")
+	if productUUID == "" {
+		// Try mounted host path (for Docker containers)
+		productUUID = readFileContent("/host/sys/class/dmi/id/product_uuid")
+	}
+
+	// Read machine_id (Linux system ID - generated at OS install)
+	machineID := readFileContent("/etc/machine-id")
+	if machineID == "" {
+		// Try mounted host path (for Docker containers)
+		machineID = readFileContent("/host/etc/machine-id")
+	}
+
+	if serverMAC == "" {
+		// Fallback to security package hardware ID
+		return security.GetHardwareID()
+	}
+
+	// Generate stable hardware ID: stable_<sha256(stable|MAC|product_uuid|machine_id)>
+	// This is much harder to spoof than MAC + hostname
+	data := fmt.Sprintf("stable|%s|%s|%s", serverMAC, productUUID, machineID)
+	hash := sha256.Sum256([]byte(data))
+	return "stable_" + hex.EncodeToString(hash[:])
+}
+
+// readFileContent reads a file and returns its trimmed content
+func readFileContent(path string) string {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	if len(content) > 0 && content[len(content)-1] == '\n' {
+		return string(content[:len(content)-1])
+	}
+	return string(content)
+}
 
 // Config holds license client configuration
 type Config struct {
@@ -128,6 +341,37 @@ func Initialize(serverURL, licenseKey string) error {
 	// Set the client even if validation failed, so status can still be reported
 	defaultClient = client
 
+	// If online validation failed, check saved state for grace period
+	if validationErr != nil {
+		log.Printf("Online validation failed: %v. Checking saved validation state...", validationErr)
+
+		state, withinGrace := loadValidationState(licenseKey)
+		if state != nil && withinGrace {
+			log.Printf("Valid saved state found (last validation: %v ago). Allowing startup in grace period.",
+				time.Since(time.Unix(state.LastValid, 0)).Round(time.Second))
+
+			// Set client as valid with grace period flag
+			client.mutex.Lock()
+			client.isValid = true
+			client.gracePeriod = true
+			client.lastCheck = time.Unix(state.LastValid, 0)
+			client.licenseInfo = &LicenseInfo{
+				Valid:         true,
+				GracePeriod:   true,
+				LicenseStatus: "grace",
+				Message:       "Operating in grace period (offline)",
+			}
+			client.mutex.Unlock()
+
+			validationErr = nil // Clear error - we're allowing startup
+		} else if state != nil {
+			log.Printf("Saved state found but expired (last validation: %v ago). Grace period exceeded.",
+				time.Since(time.Unix(state.LastValid, 0)).Round(time.Second))
+		} else {
+			log.Printf("No valid saved state found.")
+		}
+	}
+
 	// Set validation point for initialization
 	security.SetValidationPoint("init", validationErr == nil)
 
@@ -216,8 +460,8 @@ func FetchSecrets(serverURL, licenseKey string) (*Secrets, error) {
 		return nil, fmt.Errorf("server URL and license key are required")
 	}
 
-	// Build hardware ID for verification
-	hardwareID := security.GetHardwareID()
+	// Build hardware ID for verification (must match stable format)
+	hardwareID := getStableHardwareID()
 
 	url := fmt.Sprintf("%s/api/v1/license/secrets", serverURL)
 	req, err := http.NewRequest("GET", url, nil)
@@ -457,7 +701,7 @@ func (c *Client) validate() error {
 	if hostname == "" {
 		hostname, _ = os.Hostname()
 	}
-	hardwareID := security.GetHardwareID()
+	hardwareID := getStableHardwareID()
 
 	req := map[string]string{
 		"license_key": c.config.LicenseKey,
@@ -516,6 +760,11 @@ func (c *Client) validate() error {
 
 	if !info.Valid {
 		return fmt.Errorf("license validation failed: %s", info.Message)
+	}
+
+	// Save validation state for offline grace period support
+	if err := saveValidationState(c.config.LicenseKey); err != nil {
+		log.Printf("Warning: Failed to save validation state: %v", err)
 	}
 
 	return nil

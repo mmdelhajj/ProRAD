@@ -591,6 +591,58 @@ func (c *Client) GetActiveSession(username string) (*ActiveSession, error) {
 	return session, nil
 }
 
+// GetAllActiveSessions gets all active PPPoE sessions
+func (c *Client) GetAllActiveSessions() ([]ActiveSession, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+
+	// Query all active PPP sessions
+	c.sendWord("/ppp/active/print")
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sessions: %v", err)
+	}
+
+	var sessions []ActiveSession
+	var current ActiveSession
+
+	for _, word := range response {
+		if word == "!re" {
+			if current.Name != "" {
+				sessions = append(sessions, current)
+			}
+			current = ActiveSession{}
+		} else if strings.HasPrefix(word, "=.id=") {
+			current.ID = strings.TrimPrefix(word, "=.id=")
+		} else if strings.HasPrefix(word, "=name=") {
+			current.Name = strings.TrimPrefix(word, "=name=")
+		} else if strings.HasPrefix(word, "=service=") {
+			current.Service = strings.TrimPrefix(word, "=service=")
+		} else if strings.HasPrefix(word, "=caller-id=") {
+			current.CallerID = strings.TrimPrefix(word, "=caller-id=")
+		} else if strings.HasPrefix(word, "=address=") {
+			current.Address = strings.TrimPrefix(word, "=address=")
+		} else if strings.HasPrefix(word, "=uptime=") {
+			current.Uptime = strings.TrimPrefix(word, "=uptime=")
+		} else if strings.HasPrefix(word, "=session-id=") {
+			current.SessionID = strings.TrimPrefix(word, "=session-id=")
+		}
+	}
+
+	// Don't forget the last session
+	if current.Name != "" {
+		sessions = append(sessions, current)
+	}
+
+	return sessions, nil
+}
+
 // DisconnectUser disconnects a PPPoE user by username
 func (c *Client) DisconnectUser(username string) error {
 	if c.conn == nil {

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ProxPanel Installer v1.0.160
+# ProxPanel Installer v1.0.171
 # Enterprise ISP Management System
 # 48-Hour FREE Trial
 #
@@ -15,7 +15,7 @@ NC="\033[0m"
 
 LICENSE_SERVER="https://license.proxpanel.com"
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.151"
+VERSION="1.0.172"
 
 step_count=7
 current_step=0

@@ -109,18 +109,21 @@ export default function Layout({ children }) {
 
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, hasPermission, isAdmin } = useAuthStore()
+  const { user, logout, hasPermission, isAdmin, refreshUser } = useAuthStore()
   const { companyName, companyLogo, fetchBranding, loaded } = useBrandingStore()
   const { theme, toggleTheme } = useThemeStore()
 
-  // Fetch branding on mount
+  // Fetch branding on mount and refresh user permissions
   useEffect(() => {
     if (!loaded) {
       fetchBranding()
     }
-  }, [loaded, fetchBranding])
+    // Refresh user permissions on page load to get latest from server
+    refreshUser()
+  }, [loaded, fetchBranding, refreshUser])
 
-  // Filter and order navigation
+  // Filter and order navigation based on user permissions
+  // Re-run when user changes (including permissions)
   useEffect(() => {
     const filtered = allNavigation.filter((item) => {
       if (item.permission === null) return true
@@ -130,7 +133,7 @@ export default function Layout({ children }) {
     const savedOrder = getSavedMenuOrder()
     const ordered = applyMenuOrder(filtered, savedOrder)
     setOrderedNav(ordered)
-  }, [hasPermission, isAdmin])
+  }, [user, hasPermission, isAdmin])
 
   const handleLogout = () => {
     logout()
