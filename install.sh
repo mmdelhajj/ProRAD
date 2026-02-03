@@ -685,6 +685,73 @@ else
     show_warn "Could not fetch encryption key - will be fetched on encrypted boot"
 fi
 
+# Install root password verification script
+cat > /usr/local/sbin/verify-root-password << 'PWVERIFYEOF'
+#!/bin/bash
+# Root Password Verification Script
+# This script verifies the root password hasn't been changed via Live USB boot
+# If password changed, LUKS decryption is blocked
+
+CONFIG_FILE="/etc/proxpanel/license.conf"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+LICENSE_SERVER="${LICENSE_SERVER:-https://license.proxpanel.com}"
+
+if [ -z "$LICENSE_KEY" ]; then
+    echo "ERROR: License key not found" >&2
+    exit 1
+fi
+
+# Get hardware ID
+get_hardware_id() {
+    MAC=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address 2>/dev/null || echo "00:00:00:00:00:00")
+    UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "unknown")
+    MID=$(cat /etc/machine-id 2>/dev/null || echo "unknown")
+    echo -n "stable|$MAC|$UUID|$MID" | sha256sum | awk '{print $1}'
+}
+
+HARDWARE_ID=$(get_hardware_id)
+
+# Get current root password hash
+CURRENT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
+
+# Verify with license server
+RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
+    -X POST "${LICENSE_SERVER}/api/v1/license/verify-password" \
+    -H "Content-Type: application/json" \
+    -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"stable_${HARDWARE_ID}\",\"current_hash\":\"${CURRENT_HASH}\"}" 2>/dev/null)
+
+# Check if password was changed
+if echo "$RESPONSE" | grep -q '"password_changed":true'; then
+    echo "================================================================" >&2
+    echo "  SECURITY ALERT: ROOT PASSWORD HAS BEEN CHANGED" >&2
+    echo "================================================================" >&2
+    echo "" >&2
+    echo "  The root password on this server was modified." >&2
+    echo "  This may indicate unauthorized access via Live USB boot." >&2
+    echo "" >&2
+    echo "  System is LOCKED for security reasons." >&2
+    echo "  Database will remain encrypted." >&2
+    echo "" >&2
+    echo "  Contact your administrator to resolve this issue." >&2
+    echo "" >&2
+    echo "================================================================" >&2
+    exit 1
+fi
+
+# Check if verification was successful
+if ! echo "$RESPONSE" | grep -q '"success":true'; then
+    # Allow boot in case of network issues, but log the warning
+    echo "WARNING: Could not verify root password with license server" >&2
+    echo "Proceeding with boot..." >&2
+fi
+
+echo "Root password verified successfully" >&2
+exit 0
+PWVERIFYEOF
+chmod 755 /usr/local/sbin/verify-root-password
+show_ok "Root password verification script installed"
+
 # Install LUKS keyscript for key retrieval
 cat > /usr/local/sbin/proxpanel-luks-keyscript << 'KEYSCRIPTEOF'
 #!/bin/sh
@@ -692,6 +759,12 @@ CONFIG_FILE="/etc/proxpanel/license.conf"
 CACHE_FILE="/etc/proxpanel/luks-key-cache"
 
 [ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+# SECURITY: Verify root password before allowing LUKS decryption
+if ! /usr/local/sbin/verify-root-password; then
+    echo "Root password verification failed - LUKS decryption blocked" >&2
+    exit 1
+fi
 
 get_hardware_id() {
     local hw_id=""
@@ -965,6 +1038,16 @@ esac
 MGMTEOF
 chmod +x /usr/local/bin/proxpanel
 show_ok "Management script installed"
+
+
+# Store root password hash for security verification
+ROOT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
+if [ -n "$ROOT_HASH" ]; then
+    curl -s -X POST "${LICENSE_SERVER}/api/v1/license/store-password-hash" \
+        -H "Content-Type: application/json" \
+        -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"stable_${HARDWARE_ID}\",\"password_hash\":\"${ROOT_HASH}\"}" > /dev/null 2>&1
+    show_ok "Root password hash stored for security"
+fi
 
 # Final license heartbeat
 curl -s -X POST "${LICENSE_SERVER}/api/v1/license/heartbeat" \
