@@ -11,16 +11,95 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/ippool"
 	"github.com/proisp/backend/internal/models"
+	"github.com/proisp/backend/internal/security"
 	"golang.org/x/crypto/md4"
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2866"
 	"layeh.com/radius/rfc2869"
 )
+
+// staticIPConflictTracker tracks users who keep getting IPs that conflict with static IPs
+// Key: "username:conflicting_ip", Value: {count, lastTime}
+type conflictEntry struct {
+	count    int
+	lastTime time.Time
+}
+
+var staticIPConflicts sync.Map
+
+// normalizeSpeedForMikrotik converts all speeds to kb format
+// Examples: "1.2M" -> "1200k", "2M" -> "2000k", "1200k" -> "1200k"
+func normalizeSpeedForMikrotik(speed string) string {
+	if speed == "" {
+		return ""
+	}
+
+	speed = strings.TrimSpace(speed)
+	lowerSpeed := strings.ToLower(speed)
+
+	// Already in k format - return as-is
+	if strings.HasSuffix(lowerSpeed, "k") {
+		return speed
+	}
+
+	// Convert M to k
+	if strings.HasSuffix(lowerSpeed, "m") {
+		numPart := speed[:len(speed)-1]
+		val, err := strconv.ParseFloat(numPart, 64)
+		if err == nil {
+			return fmt.Sprintf("%dk", int(val*1000))
+		}
+		return speed
+	}
+
+	// Plain number - add k suffix
+	return speed + "k"
+}
+
+// normalizeRateLimitString normalizes a full rate limit string
+// Format: "upload/download" or "upload/download burst_up/burst_down threshold_up/threshold_down time_up/time_down"
+// Each speed value is normalized to handle decimal M values
+func normalizeRateLimitString(rateLimit string) string {
+	if rateLimit == "" {
+		return ""
+	}
+
+	// Split by space for burst parameters
+	parts := strings.Split(rateLimit, " ")
+	if len(parts) == 0 {
+		return rateLimit
+	}
+
+	// Normalize the first part (upload/download)
+	speeds := strings.Split(parts[0], "/")
+	if len(speeds) >= 2 {
+		speeds[0] = normalizeSpeedForMikrotik(speeds[0])
+		speeds[1] = normalizeSpeedForMikrotik(speeds[1])
+		parts[0] = strings.Join(speeds, "/")
+	} else if len(speeds) == 1 {
+		parts[0] = normalizeSpeedForMikrotik(speeds[0])
+	}
+
+	// If there are burst parameters, normalize them too
+	if len(parts) >= 2 {
+		// Burst rate (parts[1])
+		burstSpeeds := strings.Split(parts[1], "/")
+		if len(burstSpeeds) >= 2 {
+			burstSpeeds[0] = normalizeSpeedForMikrotik(burstSpeeds[0])
+			burstSpeeds[1] = normalizeSpeedForMikrotik(burstSpeeds[1])
+			parts[1] = strings.Join(burstSpeeds, "/")
+		}
+	}
+
+	return strings.Join(parts, " ")
+}
 
 // getSettingInt retrieves an integer setting from database with default fallback
 func getSettingInt(key string, defaultVal int) int {
@@ -41,6 +120,50 @@ func getSettingBool(key string, defaultVal bool) bool {
 		return defaultVal
 	}
 	return pref.Value == "true" || pref.Value == "1"
+}
+
+// findAvailableIP finds an available IP in the same /24 subnet that's not used by any online user
+// or assigned as a static IP to anyone
+func findAvailableIP(conflictIP string) string {
+	// Parse the conflict IP to get the subnet
+	parts := strings.Split(conflictIP, ".")
+	if len(parts) != 4 {
+		return ""
+	}
+
+	// Get the /24 subnet base (e.g., "10.180.96")
+	subnetBase := fmt.Sprintf("%s.%s.%s", parts[0], parts[1], parts[2])
+
+	// Get all IPs currently in use by online users in this subnet
+	var usedIPs []string
+	database.DB.Model(&models.Subscriber{}).
+		Where("ip_address LIKE ? AND is_online = ?", subnetBase+".%", true).
+		Pluck("ip_address", &usedIPs)
+
+	// Get all static IPs in this subnet
+	var staticIPs []string
+	database.DB.Model(&models.Subscriber{}).
+		Where("static_ip LIKE ?", subnetBase+".%").
+		Pluck("static_ip", &staticIPs)
+
+	// Create a set of used IPs
+	usedSet := make(map[string]bool)
+	for _, ip := range usedIPs {
+		usedSet[ip] = true
+	}
+	for _, ip := range staticIPs {
+		usedSet[ip] = true
+	}
+
+	// Find an available IP (start from .10 to avoid gateway/network addresses)
+	for i := 10; i < 250; i++ {
+		candidateIP := fmt.Sprintf("%s.%d", subnetBase, i)
+		if !usedSet[candidateIP] {
+			return candidateIP
+		}
+	}
+
+	return ""
 }
 
 // Server represents a RADIUS server
@@ -183,6 +306,22 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		return
 	}
 
+	// Get password from radcheck table (Cleartext-Password)
+	var radcheck models.RadCheck
+	var plainPassword string
+	if err := database.DB.Where("username = ? AND attribute = ?", username, "Cleartext-Password").First(&radcheck).Error; err == nil {
+		plainPassword = radcheck.Value
+	} else {
+		// Fallback: try to decrypt from subscriber.PasswordPlain
+		plainPassword = security.DecryptPassword(subscriber.PasswordPlain)
+	}
+	if plainPassword == "" {
+		log.Printf("Auth reject (password not found): %s", username)
+		s.logPostAuth(username, callingStationID, "Access-Reject")
+		w.Write(r.Response(radius.CodeAccessReject))
+		return
+	}
+
 	// Try MS-CHAPv2 first (preferred for PPPoE)
 	mschapChallenge := getMSCHAPChallenge(r.Packet)
 	mschap2Response := getMSCHAP2Response(r.Packet)
@@ -192,7 +331,7 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 
 	if len(mschapChallenge) > 0 && len(mschap2Response) >= 50 {
 		// MS-CHAPv2 authentication - use originalUsername for hash calculation (client uses full username with realm)
-		authSuccess, mschap2SuccessResponse = verifyMSCHAP2(originalUsername, subscriber.PasswordPlain, mschapChallenge, mschap2Response)
+		authSuccess, mschap2SuccessResponse = verifyMSCHAP2(originalUsername, plainPassword, mschapChallenge, mschap2Response)
 		if !authSuccess {
 			log.Printf("Auth reject (MS-CHAPv2 failed): %s", username)
 			s.logPostAuth(username, callingStationID, "Access-Reject")
@@ -203,7 +342,7 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	} else {
 		// Fall back to PAP authentication
 		password := rfc2865.UserPassword_GetString(r.Packet)
-		if subscriber.PasswordPlain != password {
+		if plainPassword != password {
 			log.Printf("Auth reject (wrong password - PAP): %s", username)
 			s.logPostAuth(username, callingStationID, "Access-Reject")
 			w.Write(r.Response(radius.CodeAccessReject))
@@ -247,7 +386,7 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		Order("priority DESC").First(&subscriberRule).Error; err == nil {
 		// Check if rule is active (not expired)
 		if subscriberRule.IsActiveNow() {
-			rateLimit = fmt.Sprintf("%dk/%dk", subscriberRule.DownloadSpeed, subscriberRule.UploadSpeed)
+			rateLimit = fmt.Sprintf("%dk/%dk", subscriberRule.UploadSpeed, subscriberRule.DownloadSpeed)
 			log.Printf("Using per-subscriber bandwidth rule for %s: %s (rule_id=%d, remaining=%s)",
 				username, rateLimit, subscriberRule.ID, subscriberRule.TimeRemaining())
 		}
@@ -257,16 +396,18 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	if rateLimit == "" {
 		if err := database.DB.Where("username = ? AND attribute = ?", username, "Mikrotik-Rate-Limit").First(&radReply).Error; err == nil && radReply.Value != "" {
 			// Use rate limit from radreply (FUP or custom speed)
-			rateLimit = radReply.Value
+			// Normalize the rate limit value to handle decimal M values
+			rateLimit = normalizeRateLimitString(radReply.Value)
 			log.Printf("Using radreply rate limit for %s: %s", username, rateLimit)
 		}
 	}
 
 	// If still no rate limit, fall back to service default speeds
-	if rateLimit == "" {
+	if rateLimit == "" && subscriber.Service != nil {
 		// Fall back to service default speeds
-		uploadSpeed := subscriber.Service.UploadSpeedStr
-		downloadSpeed := subscriber.Service.DownloadSpeedStr
+		// Normalize speed values to convert decimal M to k (e.g., 1.2M -> 1200k)
+		uploadSpeed := normalizeSpeedForMikrotik(subscriber.Service.UploadSpeedStr)
+		downloadSpeed := normalizeSpeedForMikrotik(subscriber.Service.DownloadSpeedStr)
 		if uploadSpeed == "" && subscriber.Service.UploadSpeed > 0 {
 			uploadSpeed = fmt.Sprintf("%dM", subscriber.Service.UploadSpeed)
 		}
@@ -301,17 +442,66 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		log.Printf("Sending rate limit for %s: %s", username, rateLimit)
 	}
 
-	// Add IP pool
-	if subscriber.Service.PoolName != "" {
-		rfc2869.FramedPool_SetString(response, subscriber.Service.PoolName)
+	// Check if ProISP IP management is enabled
+	proispIPManagement := getSettingBool("proisp_ip_management", false)
+
+	// Determine the IP to send
+	var framedIPToSend string
+
+	// Priority 1: Static IP from subscriber record
+	if subscriber.StaticIP != "" {
+		framedIPToSend = subscriber.StaticIP
+		log.Printf("Using static IP=%s for %s", framedIPToSend, username)
 	}
 
-	// Add static IP if assigned
-	if subscriber.StaticIP != "" {
-		ip := net.ParseIP(subscriber.StaticIP)
+	// Priority 2: Check radreply table for Framed-IP-Address (set by conflict resolution)
+	if framedIPToSend == "" {
+		var radreply models.RadReply
+		if err := database.DB.Where("username = ? AND attribute = ?", username, "Framed-IP-Address").First(&radreply).Error; err == nil {
+			framedIPToSend = radreply.Value
+			log.Printf("Found radreply Framed-IP-Address=%s for %s (conflict resolution)", framedIPToSend, username)
+		}
+	}
+
+	// Priority 3: ProISP IP management - allocate from pool
+	if framedIPToSend == "" && proispIPManagement && subscriber.Service != nil && subscriber.Service.PoolName != "" {
+		// Get NAS ID for the allocation
+		var nasID uint
+		var nas models.Nas
+		if err := database.DB.Where("ip_address = ?", rfc2865.NASIPAddress_Get(r.Packet).String()).First(&nas).Error; err == nil {
+			nasID = nas.ID
+		}
+
+		// Allocate IP from the pool
+		allocatedIP, err := ippool.AllocateIPForUser(
+			subscriber.Service.PoolName,
+			username,
+			subscriber.ID,
+			nasID,
+			"", // Session ID not available yet during auth
+		)
+		if err != nil {
+			log.Printf("ProISP IP Management: Failed to allocate IP for %s from pool %s: %v",
+				username, subscriber.Service.PoolName, err)
+			// Fall back to Framed-Pool for MikroTik to assign
+		} else {
+			framedIPToSend = allocatedIP
+			log.Printf("ProISP IP Management: Allocated IP=%s for %s from pool %s",
+				framedIPToSend, username, subscriber.Service.PoolName)
+		}
+	}
+
+	// Send IP to MikroTik
+	if framedIPToSend != "" {
+		ip := net.ParseIP(framedIPToSend)
 		if ip != nil {
 			rfc2865.FramedIPAddress_Set(response, ip)
+			log.Printf("Sending Framed-IP-Address=%s for %s", framedIPToSend, username)
 		}
+	} else if subscriber.Service != nil && subscriber.Service.PoolName != "" {
+		// No specific IP - send Framed-Pool for MikroTik to assign (legacy mode)
+		rfc2869.FramedPool_SetString(response, subscriber.Service.PoolName)
+		log.Printf("Sending Framed-Pool=%s for %s (MikroTik will assign IP)", subscriber.Service.PoolName, username)
 	}
 
 	// Add session timeout - use minimum of (time until expiry, default_session_timeout)
@@ -379,28 +569,177 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 
 	switch acctStatusType {
 	case rfc2866.AcctStatusType_Value_Start:
-		// Session start
+		// DUPLICATE IP PROTECTION: Close any existing session with this IP (different user)
+		// BUT: Don't close session of a user who has this IP as their STATIC IP
+		ipStr := framedIP.String()
+		if ipStr != "" && ipStr != "<nil>" && ipStr != "0.0.0.0" {
+			// Find other users with this IP
+			var oldSessions []models.Subscriber
+			database.DB.Where("ip_address = ? AND is_online = ? AND username != ?", ipStr, true, username).Find(&oldSessions)
+			for _, oldSub := range oldSessions {
+				// IMPORTANT: If old user has this as their STATIC IP, they have priority
+				// We need to kick the NEW user (current session), not the static IP user
+				if oldSub.StaticIP == ipStr {
+					// Track how many times this user has been kicked for this conflict
+					conflictKey := fmt.Sprintf("%s:%s", username, ipStr)
+					var entry conflictEntry
+					if val, ok := staticIPConflicts.Load(conflictKey); ok {
+						entry = val.(conflictEntry)
+					}
+
+					// Reset counter if last attempt was more than 5 minutes ago
+					if time.Since(entry.lastTime) > 5*time.Minute {
+						entry.count = 0
+					}
+					entry.count++
+					entry.lastTime = time.Now()
+					staticIPConflicts.Store(conflictKey, entry)
+
+					// After 3 attempts, assign the user a different IP via radreply Framed-IP-Address
+					// This forces MikroTik to give them a specific IP instead of picking from pool
+					if entry.count >= 3 {
+						log.Printf("STATIC IP CONFLICT - ASSIGNING NEW IP: %s has been kicked %d times for IP %s (static IP of %s). Finding available IP...",
+							username, entry.count, ipStr, oldSub.Username)
+
+						// Find an available IP from the same subnet that's not used
+						newIP := findAvailableIP(ipStr)
+						if newIP != "" {
+							// Add radreply entry to force this IP on next connection
+							database.DB.Where("username = ? AND attribute = ?", username, "Framed-IP-Address").Delete(&models.RadReply{})
+							database.DB.Create(&models.RadReply{
+								Username:  username,
+								Attribute: "Framed-IP-Address",
+								Op:        "=",
+								Value:     newIP,
+							})
+							log.Printf("STATIC IP CONFLICT RESOLVED: Assigned %s to %s via radreply. They will get this IP on reconnect.",
+								newIP, username)
+
+							// Disconnect and let them reconnect with new IP
+							var nas models.Nas
+							if err := database.DB.Where("ip_address = ?", nasIP.String()).First(&nas).Error; err == nil {
+								go func(newUsername, newSessionID string, nasInfo models.Nas, assignedIP string) {
+									time.Sleep(500 * time.Millisecond)
+									coaClient := NewCOAClient(nasInfo.IPAddress, nasInfo.CoAPort, nasInfo.Secret)
+									coaClient.DisconnectViaRadclient(newUsername, newSessionID)
+									log.Printf("Disconnected %s to apply new IP %s", newUsername, assignedIP)
+								}(username, sessionID, nas, newIP)
+							}
+						} else {
+							log.Printf("STATIC IP CONFLICT - NO AVAILABLE IP: Could not find available IP for %s. Allowing duplicate.", username)
+						}
+						staticIPConflicts.Delete(conflictKey)
+						continue
+					}
+
+					log.Printf("DUPLICATE IP CONFLICT (%d/3): %s has static IP %s, but %s got assigned same IP from pool. Kicking new user.",
+						entry.count, oldSub.Username, ipStr, username)
+
+					// Get NAS info to send CoA disconnect to the NEW user
+					var nas models.Nas
+					if err := database.DB.Where("ip_address = ?", nasIP.String()).First(&nas).Error; err == nil {
+						go func(newUsername, newSessionID string, nasInfo models.Nas, conflictIP string, staticIPOwner string) {
+							// Wait a moment for session to be fully established
+							time.Sleep(500 * time.Millisecond)
+							coaClient := NewCOAClient(nasInfo.IPAddress, nasInfo.CoAPort, nasInfo.Secret)
+							if err := coaClient.DisconnectViaRadclient(newUsername, newSessionID); err != nil {
+								log.Printf("CoA disconnect failed for new user %s: %v", newUsername, err)
+							} else {
+								log.Printf("CoA disconnected new user %s who had static IP %s belonging to %s",
+									newUsername, conflictIP, staticIPOwner)
+							}
+						}(username, sessionID, nas, ipStr, oldSub.Username)
+					}
+
+					// Don't process this session - the user will reconnect and hopefully get a different IP
+					continue
+				}
+
+				log.Printf("DUPLICATE IP DETECTED: %s has IP %s, but %s is starting new session with same IP. Disconnecting old user.",
+					oldSub.Username, ipStr, username)
+
+				// Send CoA disconnect to kick the old user from MikroTik
+				if oldSub.NasID != nil && oldSub.SessionID != "" {
+					go func(subUsername, subSessionID string, subNasID uint) {
+						var nas models.Nas
+						if err := database.DB.First(&nas, subNasID).Error; err == nil {
+							coaClient := NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+							if err := coaClient.DisconnectViaRadclient(subUsername, subSessionID); err != nil {
+								log.Printf("CoA disconnect failed for %s: %v", subUsername, err)
+							} else {
+								log.Printf("CoA disconnected %s (duplicate IP cleanup)", subUsername)
+							}
+						}
+					}(oldSub.Username, oldSub.SessionID, *oldSub.NasID)
+				}
+
+				// Mark old user as offline
+				database.DB.Model(&models.Subscriber{}).Where("id = ?", oldSub.ID).Updates(map[string]interface{}{
+					"is_online":  false,
+					"session_id": "",
+				})
+				// Close old radacct record
+				database.DB.Model(&models.RadAcct{}).Where("username = ? AND framedipaddress = ? AND acctstoptime IS NULL",
+					oldSub.Username, ipStr).Updates(map[string]interface{}{
+					"acctstoptime":       now,
+					"acctterminatecause": "Duplicate-IP-Cleanup",
+				})
+			}
+		}
+
+		// Session start - use shorter unique ID (sessionID + timestamp hex)
+		uniqueID := fmt.Sprintf("%s-%x", sessionID, now.Unix())
+		if len(uniqueID) > 32 {
+			uniqueID = uniqueID[:32]
+		}
 		acct := models.RadAcct{
 			AcctSessionID:    sessionID,
-			AcctUniqueID:     fmt.Sprintf("%s-%s-%d", username, sessionID, now.Unix()),
+			AcctUniqueID:     uniqueID,
 			Username:         username,
 			NasIPAddress:     nasIP.String(),
 			AcctStartTime:    &now,
 			CallingStationID: callingStationID,
 			FramedIPAddress:  framedIP.String(),
 		}
-		database.DB.Create(&acct)
+		if err := database.DB.Create(&acct).Error; err != nil {
+			log.Printf("Acct: Failed to create radacct record for %s: %v", username, err)
+		} else {
+			log.Printf("Acct: Created radacct record for %s, session=%s", username, sessionID)
+		}
 
-		// Update subscriber online status
-		go func() {
-			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Updates(map[string]interface{}{
+		// Look up NAS by IP to get nas_id
+		var nas models.Nas
+		var nasID *uint
+		if err := database.DB.Where("ip_address = ?", nasIP.String()).First(&nas).Error; err == nil {
+			nasID = &nas.ID
+		}
+
+		// Update IP pool assignment with session ID (if ProISP IP management is enabled)
+		if getSettingBool("proisp_ip_management", false) {
+			ipStr := framedIP.String()
+			if ipStr != "" && ipStr != "<nil>" && ipStr != "0.0.0.0" {
+				go func(ip, user, sessID string) {
+					database.DB.Model(&models.IPPoolAssignment{}).
+						Where("ip_address = ? AND username = ?", ip, user).
+						Update("session_id", sessID)
+				}(ipStr, username, sessionID)
+			}
+		}
+
+		// Update subscriber online status with nas_id
+		go func(nasIDPtr *uint) {
+			updates := map[string]interface{}{
 				"is_online":   true,
 				"ip_address":  framedIP.String(),
 				"session_id":  sessionID,
 				"last_seen":   now,
 				"mac_address": callingStationID,
-			})
-		}()
+			}
+			if nasIDPtr != nil {
+				updates["nas_id"] = *nasIDPtr
+			}
+			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Updates(updates)
+		}(nasID)
 
 	case rfc2866.AcctStatusType_Value_Stop:
 		// Session stop
@@ -409,13 +748,27 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 			cause = fmt.Sprintf("%d", terminateCause)
 		}
 
-		database.DB.Model(&models.RadAcct{}).Where("acct_session_id = ? AND username = ? AND acct_stop_time IS NULL", sessionID, username).Updates(map[string]interface{}{
-			"acct_stop_time":       now,
-			"acct_session_time":    sessionTime,
-			"acct_input_octets":    inputOctets,
-			"acct_output_octets":   outputOctets,
-			"acct_terminate_cause": cause,
+		database.DB.Model(&models.RadAcct{}).Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL", sessionID, username).Updates(map[string]interface{}{
+			"acctstoptime":       now,
+			"acctsessiontime":    sessionTime,
+			"acctinputoctets":    inputOctets,
+			"acctoutputoctets":   outputOctets,
+			"acctterminatecause": cause,
 		})
+
+		// Release IP if ProISP IP management is enabled
+		if getSettingBool("proisp_ip_management", false) {
+			ipStr := framedIP.String()
+			if ipStr != "" && ipStr != "<nil>" && ipStr != "0.0.0.0" {
+				go func(ip, user string) {
+					if err := ippool.ReleaseIP(ip); err != nil {
+						log.Printf("ProISP IP Management: Failed to release IP %s for %s: %v", ip, user, err)
+					} else {
+						log.Printf("ProISP IP Management: Released IP %s for %s", ip, user)
+					}
+				}(ipStr, username)
+			}
+		}
 
 		// Update subscriber status
 		go func() {
@@ -431,16 +784,22 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 
 	case rfc2866.AcctStatusType_Value_InterimUpdate:
 		// Interim update
-		database.DB.Model(&models.RadAcct{}).Where("acct_session_id = ? AND username = ? AND acct_stop_time IS NULL", sessionID, username).Updates(map[string]interface{}{
-			"acct_update_time":   now,
-			"acct_session_time":  sessionTime,
-			"acct_input_octets":  inputOctets,
-			"acct_output_octets": outputOctets,
+		database.DB.Model(&models.RadAcct{}).Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL", sessionID, username).Updates(map[string]interface{}{
+			"acctupdatetime":   now,
+			"acctsessiontime":  sessionTime,
+			"acctinputoctets":  inputOctets,
+			"acctoutputoctets": outputOctets,
 		})
 
-		// Update last seen
+		// Update last seen AND ensure is_online is true
+		// This fixes the case where RADIUS restarts and misses the Start packet
 		go func() {
-			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Update("last_seen", now)
+			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Updates(map[string]interface{}{
+				"last_seen":  now,
+				"is_online":  true,
+				"session_id": sessionID,
+				"ip_address": framedIP.String(),
+			})
 
 			// Update quota
 			s.updateQuota(username, int64(inputOctets), int64(outputOctets))
@@ -528,8 +887,9 @@ func (s *Server) logPostAuth(username, callingStationID, reply string) {
 
 // isWithinTimeWindow checks if the current time falls within the service's time-based speed window (FREE time)
 func isWithinTimeWindow(service *models.Service, now time.Time) bool {
-	// Skip if ratios are both 100 (no change) or time window not configured
-	if service.TimeDownloadRatio == 100 && service.TimeUploadRatio == 100 {
+	// Skip if ratios are both 0 (no boost) or time window not configured
+	// Ratio is a BOOST percentage: 100% = double speed, 200% = triple speed, 0% = no change
+	if service.TimeDownloadRatio == 0 && service.TimeUploadRatio == 0 {
 		return false
 	}
 	if service.TimeFromHour == 0 && service.TimeFromMinute == 0 &&

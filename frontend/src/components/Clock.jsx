@@ -52,16 +52,16 @@ export default function Clock() {
 
   return (
     <div className="flex items-center gap-3 text-sm">
-      <div className="flex items-center gap-1.5 text-gray-500">
+      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
         <ClockIcon className="w-4 h-4" />
-        <span className="font-mono font-medium text-gray-700">{time || '--:--:--'}</span>
+        <span className="font-mono font-medium text-gray-700 dark:text-gray-200">{time || '--:--:--'}</span>
       </div>
-      <div className="hidden sm:block text-gray-400">|</div>
-      <div className="hidden sm:block text-gray-500">{date || '---'}</div>
+      <div className="hidden sm:block text-gray-400 dark:text-gray-500">|</div>
+      <div className="hidden sm:block text-gray-500 dark:text-gray-400">{date || '---'}</div>
       {timezone && (
         <>
-          <div className="hidden md:block text-gray-400">|</div>
-          <div className="hidden md:block text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+          <div className="hidden md:block text-gray-400 dark:text-gray-500">|</div>
+          <div className="hidden md:block text-xs text-gray-400 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
             {timezone}
           </div>
         </>

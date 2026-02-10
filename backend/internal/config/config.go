@@ -38,7 +38,7 @@ func Load() *Config {
 		DBPort:     getEnvInt("DB_PORT", 5432),
 		DBUser:     getEnv("DB_USER", "proisp"),
 		DBPassword: getEnv("DB_PASSWORD", "ProISP@2024Secure!"),
-		DBName:     getEnv("DB_NAME", "proisp"),
+		DBName:     getEnv("DB_NAME", "proxpanel"),
 
 		// Redis
 		RedisHost:     getEnv("REDIS_HOST", "localhost"),

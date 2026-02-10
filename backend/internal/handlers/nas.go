@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/proisp/backend/internal/mikrotik"
 	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/radius"
+	"github.com/proisp/backend/internal/services"
 )
 
 type NasHandler struct{}
@@ -52,6 +54,12 @@ func (h *NasHandler) List(c *fiber.Ctx) error {
 		})
 	}
 
+	// Set computed fields for security indicators
+	for i := range nasList {
+		nasList[i].HasSecret = nasList[i].Secret != ""
+		nasList[i].HasAPIPassword = nasList[i].APIPassword != ""
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    nasList,
@@ -81,6 +89,10 @@ func (h *NasHandler) Get(c *fiber.Ctx) error {
 	database.DB.Model(&models.RadAcct{}).
 		Where("nasipaddress = ? AND acctstoptime IS NULL", nas.IPAddress).
 		Count(&sessionCount)
+
+	// Set computed fields for security indicators
+	nas.HasSecret = nas.Secret != ""
+	nas.HasAPIPassword = nas.APIPassword != ""
 
 	return c.JSON(fiber.Map{
 		"success":        true,
@@ -163,7 +175,7 @@ func (h *NasHandler) Create(c *fiber.Ctx) error {
 		nas.AcctPort = 1813
 	}
 	if nas.CoAPort == 0 {
-		nas.CoAPort = 3799
+		nas.CoAPort = 1700
 	}
 	if nas.APIPort == 0 {
 		nas.APIPort = 8728
@@ -197,10 +209,34 @@ func (h *NasHandler) Create(c *fiber.Ctx) error {
 	}
 	database.DB.Create(&auditLog)
 
+	// Auto-import IP pools if API credentials are configured
+	var ipPoolsImported int
+	if nas.APIUsername != "" && nas.APIPassword != "" {
+		log.Printf("NAS Create: Auto-importing IP pools from NAS %s (%s)", nas.Name, nas.IPAddress)
+		go func(n models.Nas) {
+			count, err := services.IPPool.ImportPoolsFromMikrotik(&n)
+			if err != nil {
+				log.Printf("NAS Create: Auto-import failed for %s: %v", n.Name, err)
+			} else {
+				log.Printf("NAS Create: Auto-imported %d IPs from %s", count, n.Name)
+				// Also sync active sessions
+				syncCount, err := services.IPPool.SyncActiveSessionsFromMikrotik(&n)
+				if err != nil {
+					log.Printf("NAS Create: Session sync failed for %s: %v", n.Name, err)
+				} else {
+					log.Printf("NAS Create: Synced %d active sessions from %s", syncCount, n.Name)
+				}
+			}
+		}(nas)
+		ipPoolsImported = -1 // -1 indicates async import started
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"message": "NAS created successfully",
-		"data":    nas,
+		"success":          true,
+		"message":          "NAS created successfully",
+		"data":             nas,
+		"ip_pools_import":  ipPoolsImported != 0,
+		"ip_pools_message": getIPPoolImportMessage(ipPoolsImported, nas.APIUsername != "" && nas.APIPassword != ""),
 	})
 }
 
@@ -287,10 +323,44 @@ func (h *NasHandler) Update(c *fiber.Ctx) error {
 
 	database.DB.First(&nas, id)
 
+	// Auto-import IP pools if API credentials were just added
+	var ipPoolsImported int
+	apiUsernameUpdated := false
+	apiPasswordUpdated := false
+	if _, ok := updates["api_username"]; ok {
+		apiUsernameUpdated = true
+	}
+	if _, ok := updates["api_password"]; ok {
+		apiPasswordUpdated = true
+	}
+
+	// If API credentials were updated and both are now set, auto-import pools
+	if (apiUsernameUpdated || apiPasswordUpdated) && nas.APIUsername != "" && nas.APIPassword != "" {
+		log.Printf("NAS Update: Auto-importing IP pools from NAS %s (%s) after API credentials update", nas.Name, nas.IPAddress)
+		go func(n models.Nas) {
+			count, err := services.IPPool.ImportPoolsFromMikrotik(&n)
+			if err != nil {
+				log.Printf("NAS Update: Auto-import failed for %s: %v", n.Name, err)
+			} else {
+				log.Printf("NAS Update: Auto-imported %d IPs from %s", count, n.Name)
+				// Also sync active sessions
+				syncCount, err := services.IPPool.SyncActiveSessionsFromMikrotik(&n)
+				if err != nil {
+					log.Printf("NAS Update: Session sync failed for %s: %v", n.Name, err)
+				} else {
+					log.Printf("NAS Update: Synced %d active sessions from %s", syncCount, n.Name)
+				}
+			}
+		}(nas)
+		ipPoolsImported = -1 // -1 indicates async import started
+	}
+
 	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "NAS updated successfully",
-		"data":    nas,
+		"success":          true,
+		"message":          "NAS updated successfully",
+		"data":             nas,
+		"ip_pools_import":  ipPoolsImported != 0,
+		"ip_pools_message": getIPPoolImportMessage(ipPoolsImported, (apiUsernameUpdated || apiPasswordUpdated) && nas.APIUsername != "" && nas.APIPassword != ""),
 	})
 }
 
@@ -536,4 +606,18 @@ func (h *NasHandler) UpdateSubscriberPools(c *fiber.Ctx) error {
 		"data":    nas,
 		"message": "Subscriber pools updated",
 	})
+}
+
+// getIPPoolImportMessage returns a message about IP pool import status
+func getIPPoolImportMessage(count int, hasCredentials bool) string {
+	if !hasCredentials {
+		return "No API credentials configured - IP pools not imported"
+	}
+	if count == -1 {
+		return "IP pool import started in background"
+	}
+	if count == 0 {
+		return "No IP pools found to import"
+	}
+	return fmt.Sprintf("Imported %d IPs from MikroTik pools", count)
 }

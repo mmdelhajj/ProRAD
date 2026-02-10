@@ -1,0 +1,224 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: proxpanel-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-proxpanel}
+      POSTGRES_USER: ${DB_USER:-proxpanel}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-proxpanel123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "0.0.0.0:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-proxpanel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Resource limits for scalability
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: proxpanel-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-ProxPanel@Redis2024!} --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "0.0.0.0:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ProxPanel@Redis2024!}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Resource limits for scalability
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # Go API Server
+  api:
+    image: debian:bookworm-slim
+    container_name: proxpanel-api
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      bash -c "
+        if ! command -v psql &> /dev/null; then
+          apt-get update && apt-get install -y --no-install-recommends ca-certificates freeradius-utils iputils-ping curl gnupg tzdata > /dev/null 2>&1;
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /tmp/pgdg.asc && gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg /tmp/pgdg.asc 2>/dev/null && rm /tmp/pgdg.asc;
+          echo 'deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' > /etc/apt/sources.list.d/pgdg.list;
+          apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 > /dev/null 2>&1;
+          rm -rf /var/lib/apt/lists/*;
+        fi;
+        /app/proisp-api
+      "
+    environment:
+      - TZ=${TZ:-UTC}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-proxpanel}
+      - DB_PASSWORD=${DB_PASSWORD:-proxpanel123}
+      - DB_NAME=${DB_NAME:-proxpanel}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ProxPanel@Redis2024!}
+      - JWT_SECRET=${JWT_SECRET:-ProxPanel-JWT-Secret-Key-2024-Very-Secure!}
+      - API_PORT=8080
+      - GIN_MODE=release
+      - PROISP_PASSWORD_KEY=${PROISP_PASSWORD_KEY:-679e3d2269c858cf06bb7ddb3c7a1e5014f55a3eadc9dba9932bb9718d60f4f4}
+      - LICENSE_SERVER=${LICENSE_SERVER:-https://license.proxpanel.com}
+      - LICENSE_KEY=${LICENSE_KEY}
+      - SERVER_IP=${SERVER_IP}
+      - SERVER_MAC=${SERVER_MAC}
+      - HOST_HOSTNAME=${HOST_HOSTNAME}
+    volumes:
+      - ./backend/proisp-api/proisp-api:/app/proisp-api:ro
+      - /opt:/opt
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /sys/class/dmi/id/product_uuid:/sys/class/dmi/id/product_uuid:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - /var/lib/proxpanel:/var/lib/proxpanel
+      - /proc:/host/proc:ro
+    ports:
+      - "0.0.0.0:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Health check for API
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Resource limits for scalability (30,000+ users)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
+
+  # RADIUS Server
+  radius:
+    image: debian:bookworm-slim
+    container_name: proxpanel-radius
+    restart: unless-stopped
+    network_mode: host
+    working_dir: /app
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* &&
+        /app/proisp-radius
+      "
+    environment:
+      - TZ=${TZ:-UTC}
+      - DB_HOST=127.0.0.1
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-proxpanel}
+      - DB_PASSWORD=${DB_PASSWORD:-proxpanel123}
+      - DB_NAME=${DB_NAME:-proxpanel}
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ProxPanel@Redis2024!}
+      - PROISP_PASSWORD_KEY=${PROISP_PASSWORD_KEY:-679e3d2269c858cf06bb7ddb3c7a1e5014f55a3eadc9dba9932bb9718d60f4f4}
+      - SERVER_MAC=${SERVER_MAC}
+      - HOST_HOSTNAME=${HOST_HOSTNAME}
+      - LICENSE_SERVER=${LICENSE_SERVER:-https://license.proxpanel.com}
+      - LICENSE_KEY=${LICENSE_KEY}
+    volumes:
+      - ./backend/proisp-radius/proisp-radius:/app/proisp-radius:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Resource limits for RADIUS (handles 30,000+ auth requests)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Frontend with Nginx
+  frontend:
+    image: nginx:alpine
+    container_name: proxpanel-frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    # Health check for frontend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Resource limits for frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+  redis_data:

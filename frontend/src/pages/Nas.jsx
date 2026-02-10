@@ -49,7 +49,7 @@ export default function Nas() {
     api_port: 8728,
     api_username: '',
     api_password: '',
-    coa_port: 3799,
+    coa_port: 1700,
     is_active: true,
     subscriber_pools: '',
     allowed_realms: '',
@@ -149,7 +149,7 @@ export default function Nas() {
         api_port: 8728,
         api_username: '',
         api_password: '',
-        coa_port: 3799,
+        coa_port: 1700,
         is_active: true,
         subscriber_pools: '',
         allowed_realms: '',
@@ -229,12 +229,12 @@ export default function Nas() {
         header: 'Name',
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <ServerIcon className="w-5 h-5 text-gray-600" />
+            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <ServerIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </div>
             <div>
-              <div className="font-medium">{row.original.name || row.original.short_name}</div>
-              <div className="text-sm text-gray-500">{row.original.description}</div>
+              <div className="font-medium text-gray-900 dark:text-white">{row.original.name || row.original.short_name}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{row.original.description}</div>
             </div>
           </div>
         ),
@@ -243,7 +243,7 @@ export default function Nas() {
         accessorKey: 'ip_address',
         header: 'IP Address',
         cell: ({ row }) => (
-          <code className="px-2 py-1 bg-gray-100 rounded text-sm">
+          <code className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm text-gray-900 dark:text-gray-200">
             {row.original.ip_address}
           </code>
         ),
@@ -281,7 +281,7 @@ export default function Nas() {
               ) : (
                 <>
                   <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                  <span className="text-xs text-gray-500">Inactive</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Inactive</span>
                 </>
               )}
             </div>
@@ -299,7 +299,7 @@ export default function Nas() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {row.original.secret ? (
+              {row.original.has_secret ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-green-500"></span>
                   <span className="text-xs text-green-600">Secret ✓</span>
@@ -313,7 +313,7 @@ export default function Nas() {
             </div>
             {row.original.type === 'mikrotik' && (
               <div className="flex items-center gap-2">
-                {row.original.api_password ? (
+                {row.original.has_api_password ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-green-500"></span>
                     <span className="text-xs text-green-600">API ✓</span>
@@ -336,7 +336,7 @@ export default function Nas() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => testMutation.mutate(row.original.id)}
-              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
+              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
               title="Test Connection"
             >
               <WifiIcon className="w-4 h-4" />
@@ -344,7 +344,7 @@ export default function Nas() {
             {row.original.type === 'mikrotik' && (
               <button
                 onClick={() => syncMutation.mutate(row.original.id)}
-                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
                 title="Sync with router"
               >
                 <ArrowPathIcon className="w-4 h-4" />
@@ -352,7 +352,7 @@ export default function Nas() {
             )}
             <button
               onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
               title="Edit"
             >
               <PencilIcon className="w-4 h-4" />
@@ -363,7 +363,7 @@ export default function Nas() {
                   deleteMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
               title="Delete"
             >
               <TrashIcon className="w-4 h-4" />
@@ -383,12 +383,12 @@ export default function Nas() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">NAS / Routers</h1>
-          <p className="text-gray-500">Manage RADIUS clients and routers</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">NAS / Routers</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Manage RADIUS clients and routers</p>
         </div>
-        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
+        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center">
           <PlusIcon className="w-4 h-4" />
           Add NAS
         </button>
@@ -408,7 +408,7 @@ export default function Nas() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -419,13 +419,13 @@ export default function Nas() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400">
                     No NAS devices found
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -444,12 +444,12 @@ export default function Nas() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h2 className="text-xl font-semibold">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   {editingNas ? 'Edit NAS' : 'Add NAS'}
                 </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -524,7 +524,7 @@ export default function Nas() {
                     <button
                       type="button"
                       onClick={() => setShowSecret(!showSecret)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     >
                       {showSecret ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                     </button>
@@ -560,7 +560,7 @@ export default function Nas() {
                 </div>
 
                 {/* Allowed Realms for RADIUS */}
-                <div className="border-t pt-4">
+                <div className="border-t dark:border-gray-700 pt-4">
                   <label className="label">Allowed Realms (for RADIUS)</label>
                   <input
                     type="text"
@@ -570,14 +570,14 @@ export default function Nas() {
                     className="input"
                     placeholder="e.g., test.mes.net.lb, other.domain.com"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Comma-separated list of realms. Users logging in as user@realm will have the realm stripped if it's in this list.
                   </p>
                 </div>
 
                 {formData.type === 'mikrotik' && (
-                  <div className="border-t pt-4 space-y-4">
-                    <h3 className="font-medium">Mikrotik API Settings</h3>
+                  <div className="border-t dark:border-gray-700 pt-4 space-y-4">
+                    <h3 className="font-medium text-gray-900 dark:text-white">Mikrotik API Settings</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="label">API Port</label>
@@ -624,7 +624,7 @@ export default function Nas() {
                         <button
                           type="button"
                           onClick={() => setShowApiPassword(!showApiPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                         >
                           {showApiPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                         </button>
@@ -640,7 +640,7 @@ export default function Nas() {
                   </div>
                 )}
 
-                <div className="border-t pt-4">
+                <div className="border-t dark:border-gray-700 pt-4">
                   <label className="flex items-center gap-3">
                     <input
                       type="checkbox"
@@ -649,11 +649,11 @@ export default function Nas() {
                       onChange={handleChange}
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
-                    <span>Active NAS</span>
+                    <span className="text-gray-900 dark:text-white">Active NAS</span>
                   </label>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
                   <button type="button" onClick={closeModal} className="btn-secondary">
                     Cancel
                   </button>

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { serviceApi, cdnApi, nasApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,6 +20,7 @@ import clsx from 'clsx'
 
 export default function Services() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const [showModal, setShowModal] = useState(false)
   const [editingService, setEditingService] = useState(null)
   const [formData, setFormData] = useState({
@@ -57,14 +59,15 @@ export default function Services() {
     monthly_fup3_upload_speed: '',
     is_active: true,
     // Time-based speed control (12-hour format)
+    time_based_speed_enabled: false,
     time_from_hour: '12',
     time_from_minute: '0',
     time_from_ampm: 'AM',
     time_to_hour: '12',
     time_to_minute: '0',
     time_to_ampm: 'AM',
-    time_download_ratio: '100',
-    time_upload_ratio: '100',
+    time_download_ratio: '0',
+    time_upload_ratio: '0',
     // MikroTik/RADIUS settings
     pool_name: '',
     address_list_in: '',
@@ -74,6 +77,11 @@ export default function Services() {
 
   const [serviceCDNs, setServiceCDNs] = useState([])
   const [cdnsLoaded, setCdnsLoaded] = useState(false)
+
+  // IP Pool state for RADIUS settings
+  const [selectedNasId, setSelectedNasId] = useState(null)
+  const [ipPools, setIpPools] = useState([])
+  const [ipPoolsLoading, setIpPoolsLoading] = useState(false)
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['services'],
@@ -106,6 +114,26 @@ export default function Services() {
     }
   }
 
+  // Fetch IP pools for RADIUS settings when NAS is selected
+  const fetchIPPoolsForService = async (nasId) => {
+    if (!nasId) {
+      setIpPools([])
+      return
+    }
+    setIpPoolsLoading(true)
+    try {
+      const response = await nasApi.getPools(nasId)
+      const pools = response.data.data || []
+      setIpPools(pools)
+    } catch (err) {
+      console.error('Failed to fetch IP pools:', err)
+      setIpPools([])
+      toast.error('Failed to fetch IP pools from NAS')
+    } finally {
+      setIpPoolsLoading(false)
+    }
+  }
+
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       let result
@@ -129,11 +157,12 @@ export default function Services() {
           pcq_nas_id: sc.pcq_nas_id || null,
           pcq_target_pools: sc.pcq_target_pools || '',
           is_active: sc.is_active,
+          time_based_speed_enabled: sc.time_based_speed_enabled || false,
           time_from_hour: fromHour24,
           time_from_minute: parseInt(sc.time_from_minute) || 0,
           time_to_hour: toHour24,
           time_to_minute: parseInt(sc.time_to_minute) || 0,
-          time_speed_ratio: parseInt(sc.time_speed_ratio) || 100,
+          time_speed_ratio: parseInt(sc.time_speed_ratio) || 0,
         }
       })
 
@@ -208,6 +237,7 @@ export default function Services() {
         monthly_fup3_upload_speed: service.monthly_fup3_upload_speed || '',
         is_active: service.is_active ?? true,
         // Time-based speed control (convert 24h to 12h format)
+        time_based_speed_enabled: service.time_based_speed_enabled ?? false,
         time_from_hour: (() => {
           const h = service.time_from_hour || 0
           if (h === 0) return '12'
@@ -224,8 +254,8 @@ export default function Services() {
         })(),
         time_to_minute: service.time_to_minute?.toString() || '0',
         time_to_ampm: (service.time_to_hour || 0) >= 12 ? 'PM' : 'AM',
-        time_download_ratio: service.time_download_ratio?.toString() || '100',
-        time_upload_ratio: service.time_upload_ratio?.toString() || '100',
+        time_download_ratio: service.time_download_ratio?.toString() || '0',
+        time_upload_ratio: service.time_upload_ratio?.toString() || '0',
         pool_name: service.pool_name || '',
         address_list_in: service.address_list_in || '',
         address_list_out: service.address_list_out || '',
@@ -269,20 +299,26 @@ export default function Services() {
         monthly_fup3_upload_speed: '',
         is_active: true,
         // Time-based speed control (12-hour format)
+        time_based_speed_enabled: false,
         time_from_hour: '12',
         time_from_minute: '0',
         time_from_ampm: 'AM',
         time_to_hour: '12',
         time_to_minute: '0',
         time_to_ampm: 'AM',
-        time_download_ratio: '100',
-        time_upload_ratio: '100',
+        time_download_ratio: '0',
+        time_upload_ratio: '0',
         pool_name: '',
         address_list_in: '',
         address_list_out: '',
         queue_type: 'simple',
       })
     }
+    // Reset IP pools state
+    setSelectedNasId(null)
+    setIpPools([])
+    setIpPoolsLoading(false)
+
     // Load service CDNs if editing
     setCdnsLoaded(false)
     if (service) {
@@ -302,13 +338,14 @@ export default function Services() {
             pcq_nas_id: sc.pcq_nas_id || null,
             pcq_target_pools: sc.pcq_target_pools || '',
             is_active: sc.is_active ?? true,
+            time_based_speed_enabled: sc.time_based_speed_enabled || false,
             time_from_hour: fromHour24 === 0 ? 12 : (fromHour24 > 12 ? fromHour24 - 12 : fromHour24),
             time_from_minute: sc.time_from_minute || 0,
             time_from_ampm: fromHour24 >= 12 ? 'PM' : 'AM',
             time_to_hour: toHour24 === 0 ? 12 : (toHour24 > 12 ? toHour24 - 12 : toHour24),
             time_to_minute: sc.time_to_minute || 0,
             time_to_ampm: toHour24 >= 12 ? 'PM' : 'AM',
-            time_speed_ratio: sc.time_speed_ratio || 100,
+            time_speed_ratio: sc.time_speed_ratio || 0,
           }
         }))
         setCdnsLoaded(true)
@@ -331,10 +368,16 @@ export default function Services() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    // Generate speed strings from kbps values (e.g., 1400 -> "1400k")
+    const downloadSpeedKbps = parseInt(formData.download_speed) || 0
+    const uploadSpeedKbps = parseInt(formData.upload_speed) || 0
+
     const data = {
       ...formData,
-      download_speed: parseInt(formData.download_speed) || 0,
-      upload_speed: parseInt(formData.upload_speed) || 0,
+      download_speed: downloadSpeedKbps,
+      upload_speed: uploadSpeedKbps,
+      download_speed_str: downloadSpeedKbps > 0 ? `${downloadSpeedKbps}k` : '',
+      upload_speed_str: uploadSpeedKbps > 0 ? `${uploadSpeedKbps}k` : '',
       price: parseFloat(formData.price) || 0,
       validity_days: parseInt(formData.validity_days) || 30,
       daily_quota: formData.daily_quota ? parseInt(formData.daily_quota) * 1024 * 1024 * 1024 : 0,
@@ -365,6 +408,7 @@ export default function Services() {
       monthly_fup3_download_speed: parseInt(formData.monthly_fup3_download_speed) || 0,
       monthly_fup3_upload_speed: parseInt(formData.monthly_fup3_upload_speed) || 0,
       // Time-based speed control (convert 12h to 24h format)
+      time_based_speed_enabled: formData.time_based_speed_enabled,
       time_from_hour: (() => {
         let h = parseInt(formData.time_from_hour) || 12
         if (formData.time_from_ampm === 'PM' && h !== 12) h += 12
@@ -379,8 +423,8 @@ export default function Services() {
         return h
       })(),
       time_to_minute: parseInt(formData.time_to_minute) || 0,
-      time_download_ratio: parseInt(formData.time_download_ratio) || 100,
-      time_upload_ratio: parseInt(formData.time_upload_ratio) || 100,
+      time_download_ratio: parseInt(formData.time_download_ratio) || 0,
+      time_upload_ratio: parseInt(formData.time_upload_ratio) || 0,
     }
     saveMutation.mutate(data)
   }
@@ -406,6 +450,7 @@ export default function Services() {
       pcq_nas_id: null,
       pcq_target_pools: '',
       is_active: true,
+      time_based_speed_enabled: false,
       time_from_hour: 12,
       time_from_minute: 0,
       time_from_ampm: 'AM',
@@ -445,7 +490,7 @@ export default function Services() {
         cell: ({ row }) => (
           <div>
             <div className="font-medium">{row.original.name}</div>
-            <div className="text-sm text-gray-500">{row.original.description}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.description}</div>
           </div>
         ),
       },
@@ -454,8 +499,8 @@ export default function Services() {
         header: 'Speed',
         cell: ({ row }) => (
           <div className="text-sm">
-            <div>↓ {row.original.download_speed} Mbps</div>
-            <div>↑ {row.original.upload_speed} Mbps</div>
+            <div>↓ {row.original.download_speed} kb</div>
+            <div>↑ {row.original.upload_speed} kb</div>
           </div>
         ),
       },
@@ -480,7 +525,7 @@ export default function Services() {
                 <div>Monthly: {row.original.monthly_quota ? (row.original.monthly_quota / (1024 * 1024 * 1024)).toFixed(0) : '∞'} GB</div>
               </>
             ) : (
-              <span className="text-gray-400">Unlimited</span>
+              <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Unlimited</span>
             )}
           </div>
         ),
@@ -521,7 +566,7 @@ export default function Services() {
                   )}
                 </>
               ) : (
-                <span className="text-gray-400">None</span>
+                <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">None</span>
               )}
             </div>
           )
@@ -541,29 +586,33 @@ export default function Services() {
         header: 'Actions',
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
-              title="Edit"
-            >
-              <PencilIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                if (confirm('Are you sure you want to delete this service?')) {
-                  deleteMutation.mutate(row.original.id)
-                }
-              }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-              title="Delete"
-            >
-              <TrashIcon className="w-4 h-4" />
-            </button>
+            {hasPermission('services.edit') && (
+              <button
+                onClick={() => openModal(row.original)}
+                className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
+                title="Edit"
+              >
+                <PencilIcon className="w-4 h-4" />
+              </button>
+            )}
+            {hasPermission('services.delete') && (
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to delete this service?')) {
+                    deleteMutation.mutate(row.original.id)
+                  }
+                }}
+                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                title="Delete"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ),
       },
     ],
-    [deleteMutation]
+    [deleteMutation, hasPermission]
   )
 
   const table = useReactTable({
@@ -574,15 +623,17 @@ export default function Services() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Services</h1>
-          <p className="text-gray-500">Manage internet service plans</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Services</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Manage internet service plans</p>
         </div>
-        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
-          <PlusIcon className="w-4 h-4" />
-          Add Service
-        </button>
+        {hasPermission('services.create') && (
+          <button onClick={() => openModal()} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center">
+            <PlusIcon className="w-4 h-4" />
+            Add Service
+          </button>
+        )}
       </div>
 
       <div className="card">
@@ -599,7 +650,7 @@ export default function Services() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -610,13 +661,13 @@ export default function Services() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     No services found
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -635,12 +686,12 @@ export default function Services() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-semibold">
                   {editingService ? 'Edit Service' : 'Add Service'}
                 </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -674,24 +725,26 @@ export default function Services() {
                   <h3 className="font-medium mb-3">Speed Settings</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="label">Download Speed (Mbps)</label>
+                      <label className="label">Download Speed (kb)</label>
                       <input
                         type="number"
                         name="download_speed"
                         value={formData.download_speed}
                         onChange={handleChange}
                         className="input"
+                        placeholder="e.g., 4000 for 4Mbps"
                         required
                       />
                     </div>
                     <div>
-                      <label className="label">Upload Speed (Mbps)</label>
+                      <label className="label">Upload Speed (kb)</label>
                       <input
                         type="number"
                         name="upload_speed"
                         value={formData.upload_speed}
                         onChange={handleChange}
                         className="input"
+                        placeholder="e.g., 1400 for 1.4Mbps"
                         required
                       />
                     </div>
@@ -757,17 +810,18 @@ export default function Services() {
                   <h3 className="font-medium mb-3">Burst Settings (Mikrotik)</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="label">Burst Download (Mbps)</label>
+                      <label className="label">Burst Download (kb)</label>
                       <input
                         type="number"
                         name="burst_download"
                         value={formData.burst_download}
                         onChange={handleChange}
                         className="input"
+                        placeholder="e.g., 8000"
                       />
                     </div>
                     <div>
-                      <label className="label">Burst Upload (Mbps)</label>
+                      <label className="label">Burst Upload (kb)</label>
                       <input
                         type="number"
                         name="burst_upload"
@@ -801,17 +855,77 @@ export default function Services() {
 
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-3">RADIUS Settings</h3>
-                  <div>
-                    <label className="label">IP Pool Name</label>
-                    <input
-                      type="text"
-                      name="pool_name"
-                      value={formData.pool_name}
-                      onChange={handleChange}
-                      className="input"
-                      placeholder="e.g., pool-10mbps"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">MikroTik IP pool name (must match pool configured on router)</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Select NAS/Router</label>
+                      <select
+                        value={selectedNasId || ''}
+                        onChange={(e) => {
+                          const nasId = e.target.value ? parseInt(e.target.value) : null
+                          setSelectedNasId(nasId)
+                          if (nasId) {
+                            fetchIPPoolsForService(nasId)
+                          } else {
+                            setIpPools([])
+                          }
+                        }}
+                        className="input"
+                      >
+                        <option value="">-- Select NAS to fetch pools --</option>
+                        {nasList?.filter(n => n.is_active).map(nas => (
+                          <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select router to load available IP pools</p>
+                    </div>
+                    <div>
+                      <label className="label">IP Pool Name</label>
+                      {ipPoolsLoading ? (
+                        <div className="input flex items-center text-gray-500 dark:text-gray-400">
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Loading pools...
+                        </div>
+                      ) : ipPools.length > 0 || formData.pool_name ? (
+                        <select
+                          name="pool_name"
+                          value={formData.pool_name}
+                          onChange={handleChange}
+                          className="input"
+                        >
+                          <option value="">-- Select Pool --</option>
+                          {/* Show current pool_name as option if not in ipPools list */}
+                          {formData.pool_name && !ipPools.find(p => p.name === formData.pool_name) && (
+                            <option key={formData.pool_name} value={formData.pool_name}>
+                              {formData.pool_name} (current)
+                            </option>
+                          )}
+                          {ipPools.map(pool => (
+                            <option key={pool.name} value={pool.name}>
+                              {pool.name} ({pool.ranges})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          name="pool_name"
+                          value={formData.pool_name}
+                          onChange={handleChange}
+                          className="input"
+                          placeholder={selectedNasId ? "No pools found - enter manually" : "Select NAS first or enter manually"}
+                        />
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {formData.pool_name ? (
+                          <span className="text-green-600 dark:text-green-400">Selected: {formData.pool_name}</span>
+                        ) : (
+                          "Pool for Framed-Pool RADIUS attribute"
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -941,7 +1055,7 @@ export default function Services() {
                     Resets when the user renews their subscription.
                   </p>
 
-                  <div className="grid grid-cols-3 gap-4 p-3 bg-cyan-50 rounded-lg">
+                  <div className="grid grid-cols-3 gap-4 p-3 bg-cyan-50 dark:bg-cyan-900/30 rounded-lg">
                     <div>
                       <label className="label text-cyan-700">Threshold (GB)</label>
                       <input
@@ -979,12 +1093,26 @@ export default function Services() {
                 </div>
 
                 <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Time-Based Speed Control (Automatic)</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium">Time-Based Speed Control (Automatic)</h3>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="time_based_speed_enabled"
+                        checked={formData.time_based_speed_enabled}
+                        onChange={handleChange}
+                        className="toggle toggle-primary"
+                      />
+                      <span className={`text-sm font-medium ${formData.time_based_speed_enabled ? 'text-green-600' : 'text-gray-500'}`}>
+                        {formData.time_based_speed_enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
                   <p className="text-sm text-gray-500 mb-4">
-                    Automatically apply different speed during specified hours. Set ratio to 100 for no change, 200 for double speed, 50 for half speed.
+                    Automatically BOOST speed during specified hours. Set ratio to 0% for no boost, 100% for double speed, 200% for triple speed.
                   </p>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className={`grid grid-cols-2 gap-4 mb-4 ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="p-3 bg-indigo-50 rounded-lg">
                       <label className="label text-indigo-700 mb-2">From Time</label>
                       <div className="flex gap-2 items-center">
@@ -1057,9 +1185,9 @@ export default function Services() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 p-3 bg-indigo-50 rounded-lg">
+                  <div className={`grid grid-cols-2 gap-4 p-3 bg-indigo-50 rounded-lg ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
-                      <label className="label text-indigo-700">Download Ratio (%)</label>
+                      <label className="label text-indigo-700">Download Boost (%)</label>
                       <input
                         type="number"
                         name="time_download_ratio"
@@ -1071,7 +1199,7 @@ export default function Services() {
                       />
                     </div>
                     <div>
-                      <label className="label text-indigo-700">Upload Ratio (%)</label>
+                      <label className="label text-indigo-700">Upload Boost (%)</label>
                       <input
                         type="number"
                         name="time_upload_ratio"
@@ -1087,7 +1215,7 @@ export default function Services() {
 
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-3 flex items-center gap-2">
-                    <GlobeAltIcon className="w-5 h-5 text-gray-500" />
+                    <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                     CDN Configuration
                   </h3>
                   <p className="text-sm text-gray-500 mb-4">
@@ -1155,8 +1283,8 @@ export default function Services() {
                                 <span className="text-sm text-green-700 font-medium">Bypass Quota</span>
                               </label>
                             </div>
-                            <div className="flex items-end">
-                              <label className="flex items-center gap-2 pb-2">
+                            <div className="flex flex-col">
+                              <label className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={sc.is_active}
@@ -1165,22 +1293,23 @@ export default function Services() {
                                 />
                                 <span className="text-sm">Active</span>
                               </label>
+                              <span className="text-xs text-gray-400 mt-1">Show in Live Graph</span>
                             </div>
                           </div>
 
                           {/* PCQ Mode Option */}
-                          <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                             <div className="flex items-center gap-4">
                               <label className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={sc.pcq_enabled}
                                   onChange={(e) => updateCDNConfig(sc.cdn_id, 'pcq_enabled', e.target.checked)}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                                 />
                                 <span className="text-sm text-blue-700 font-medium">PCQ Mode</span>
                               </label>
-                              <span className="text-xs text-gray-500">(Shared queue for all subscribers)</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">(Shared queue for all subscribers)</span>
                             </div>
                             {sc.pcq_enabled && (
                               <div className="mt-2 p-3 bg-blue-50 rounded space-y-3">
@@ -1210,7 +1339,7 @@ export default function Services() {
                                   <div>
                                     <label className="label text-xs text-blue-700">Select Pools (Target)</label>
                                     {pcqPools[sc.cdn_id]?.loading ? (
-                                      <div className="text-xs text-gray-500">Loading pools...</div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Loading pools...</div>
                                     ) : pcqPools[sc.cdn_id]?.pools?.length > 0 ? (
                                       <div className="grid grid-cols-2 gap-2 mt-1">
                                         {pcqPools[sc.cdn_id].pools.map(pool => {
@@ -1234,14 +1363,14 @@ export default function Services() {
                                               />
                                               <div>
                                                 <div className="text-sm font-medium">{pool.name}</div>
-                                                <div className="text-xs text-gray-500">{pool.ranges}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{pool.ranges}</div>
                                               </div>
                                             </label>
                                           )
                                         })}
                                       </div>
                                     ) : (
-                                      <div className="text-xs text-gray-500">
+                                      <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                         <button
                                           type="button"
                                           onClick={() => fetchPoolsForCDN(sc.cdn_id, sc.pcq_nas_id)}
@@ -1288,100 +1417,6 @@ export default function Services() {
                             )}
                           </div>
 
-                          {/* Time-Based Speed Control for CDN */}
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="flex items-center gap-2 mb-2">
-                              <ClockIcon className="w-4 h-4 text-purple-500" />
-                              <span className="text-xs font-medium text-purple-700">Time-Based Speed (Night Boost)</span>
-                            </div>
-                            <div className="grid grid-cols-12 gap-2">
-                              {/* From Time */}
-                              <div className="col-span-4">
-                                <label className="label text-xs">From</label>
-                                <div className="flex gap-1">
-                                  <input
-                                    type="number"
-                                    value={sc.time_from_hour}
-                                    onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_from_hour', Math.min(12, Math.max(1, parseInt(e.target.value) || 12)))}
-                                    className="input text-sm w-10 text-center px-1"
-                                    min="1"
-                                    max="12"
-                                  />
-                                  <span className="self-center">:</span>
-                                  <input
-                                    type="number"
-                                    value={sc.time_from_minute.toString().padStart(2, '0')}
-                                    onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_from_minute', Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                                    className="input text-sm w-10 text-center px-1"
-                                    min="0"
-                                    max="59"
-                                  />
-                                  <select
-                                    value={sc.time_from_ampm}
-                                    onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_from_ampm', e.target.value)}
-                                    className="input text-sm w-14 px-1"
-                                  >
-                                    <option value="AM">AM</option>
-                                    <option value="PM">PM</option>
-                                  </select>
-                                </div>
-                              </div>
-                              {/* To Time */}
-                              <div className="col-span-4">
-                                <label className="label text-xs">To</label>
-                                <div className="flex gap-1">
-                                  <input
-                                    type="number"
-                                    value={sc.time_to_hour}
-                                    onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_to_hour', Math.min(12, Math.max(1, parseInt(e.target.value) || 12)))}
-                                    className="input text-sm w-10 text-center px-1"
-                                    min="1"
-                                    max="12"
-                                  />
-                                  <span className="self-center">:</span>
-                                  <input
-                                    type="number"
-                                    value={sc.time_to_minute.toString().padStart(2, '0')}
-                                    onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_to_minute', Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                                    className="input text-sm w-10 text-center px-1"
-                                    min="0"
-                                    max="59"
-                                  />
-                                  <select
-                                    value={sc.time_to_ampm}
-                                    onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_to_ampm', e.target.value)}
-                                    className="input text-sm w-14 px-1"
-                                  >
-                                    <option value="AM">AM</option>
-                                    <option value="PM">PM</option>
-                                  </select>
-                                </div>
-                              </div>
-                              {/* Speed Ratio */}
-                              <div className="col-span-2">
-                                <label className="label text-xs">Speed %</label>
-                                <input
-                                  type="number"
-                                  value={sc.time_speed_ratio}
-                                  onChange={(e) => updateCDNConfig(sc.cdn_id, 'time_speed_ratio', parseInt(e.target.value) || 100)}
-                                  className="input text-sm"
-                                  min="1"
-                                  max="1000"
-                                  placeholder="100"
-                                />
-                              </div>
-                              {/* Result */}
-                              <div className="col-span-2 flex items-end">
-                                <p className="text-xs text-gray-500 pb-2">
-                                  {sc.time_speed_ratio !== 100 && (sc.time_from_hour !== sc.time_to_hour || sc.time_from_ampm !== sc.time_to_ampm) ? (
-                                    <span className="font-medium text-purple-600">{Math.round(sc.speed_limit * sc.time_speed_ratio / 100)}M</span>
-                                  ) : (
-                                    <span className="text-gray-400">-</span>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       ))}
                     </div>

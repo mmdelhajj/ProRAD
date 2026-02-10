@@ -51,9 +51,15 @@ func Connect(cfg *config.Config) error {
 		return fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	// Connection pool optimized for 30,000+ users
+	// MaxOpenConns: 1500 for high concurrency (requires PostgreSQL max_connections = 2000)
+	// MaxIdleConns: Keep 100 connections ready for burst traffic
+	// ConnMaxLifetime: Recycle connections every 30 minutes to prevent stale connections
+	// ConnMaxIdleTime: Close idle connections after 5 minutes to free resources
+	sqlDB.SetMaxIdleConns(100)
+	sqlDB.SetMaxOpenConns(1500)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
 	log.Println("Database connected successfully")
 
@@ -83,4 +89,72 @@ func Close() {
 	if Redis != nil {
 		Redis.Close()
 	}
+}
+
+// EnsureIndexes creates performance indexes on frequently queried columns
+// This should be called after AutoMigrate
+func EnsureIndexes() {
+	indexes := []string{
+		// Subscribers - most frequently queried table
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_reseller_id ON subscribers(reseller_id)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_service_id ON subscribers(service_id)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_nas_id ON subscribers(nas_id)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_username ON subscribers(username)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_status ON subscribers(status)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_is_online ON subscribers(is_online)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_expires_at ON subscribers(expires_at)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_created_at ON subscribers(created_at)",
+
+		// Composite index for common query patterns
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_reseller_status ON subscribers(reseller_id, status)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_online_nas ON subscribers(is_online, nas_id) WHERE is_online = true",
+
+		// Transactions
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_reseller_id ON transactions(reseller_id)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_subscriber_id ON transactions(subscriber_id)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_type ON transactions(type)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_created_at ON transactions(created_at)",
+
+		// RADIUS accounting
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_username ON rad_acct(username)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_nasipaddress ON rad_acct(nasipaddress)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_acctstarttime ON rad_acct(acctstarttime)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_acctstoptime ON rad_acct(acctstoptime)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_acctsessionid ON rad_acct(acctsessionid)",
+
+		// Active sessions index for QuotaSync
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_active ON rad_acct(username, acctstarttime) WHERE acctstoptime IS NULL",
+
+		// Services
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_services_name ON services(name)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_services_is_active ON services(is_active)",
+
+		// NAS devices
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_nas_devices_ip_address ON nas_devices(ip_address)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_nas_devices_is_active ON nas_devices(is_active)",
+
+		// Audit logs
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_entity_type ON audit_logs(entity_type)",
+
+		// Resellers
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_resellers_user_id ON resellers(user_id)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_resellers_parent_id ON resellers(parent_id)",
+
+		// Prepaid cards
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_prepaid_cards_code ON prepaid_cards(code)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_prepaid_cards_is_used ON prepaid_cards(is_used)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_prepaid_cards_reseller_id ON prepaid_cards(reseller_id)",
+	}
+
+	for _, indexSQL := range indexes {
+		// Execute each index creation - errors are ignored as index may already exist
+		if err := DB.Exec(indexSQL).Error; err != nil {
+			// Log but don't fail - CONCURRENTLY indexes may fail in transaction
+			log.Printf("Index creation skipped (may already exist): %v", err)
+		}
+	}
+
+	log.Println("Database indexes ensured")
 }

@@ -114,7 +114,7 @@ export default function CommunicationRules() {
       email: 'bg-blue-100 text-blue-800',
       whatsapp: 'bg-emerald-100 text-emerald-800',
     }
-    return colors[channel] || 'bg-gray-100 text-gray-800'
+    return colors[channel] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
   }
 
   const getTriggerLabel = (trigger) => {
@@ -134,8 +134,8 @@ export default function CommunicationRules() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Communication Rules</h1>
-          <p className="text-sm text-gray-500 mt-1">Configure automated SMS, Email, and WhatsApp notifications</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Communication Rules</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Configure automated SMS, Email, and WhatsApp notifications</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -147,61 +147,61 @@ export default function CommunicationRules() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-gray-900">{(data || []).length}</div>
-          <div className="text-sm text-gray-500">Total Rules</div>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{(data || []).length}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Rules</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
           <div className="text-2xl font-bold text-green-600">
             {(data || []).filter(r => r.enabled).length}
           </div>
-          <div className="text-sm text-gray-500">Active Rules</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active Rules</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
           <div className="text-2xl font-bold text-blue-600">
             {(data || []).filter(r => r.channel === 'sms').length}
           </div>
-          <div className="text-sm text-gray-500">SMS Rules</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">SMS Rules</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
           <div className="text-2xl font-bold text-purple-600">
             {(data || []).filter(r => r.channel === 'email').length}
           </div>
-          <div className="text-sm text-gray-500">Email Rules</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Email Rules</div>
         </div>
       </div>
 
       {/* Rules Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trigger</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Channel</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Before</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Trigger</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Channel</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Days Before</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {(data || []).map(rule => (
-              <tr key={rule.id} className="hover:bg-gray-50">
+              <tr key={rule.id} className="hover:bg-gray-50 dark:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{rule.name}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{rule.name}</div>
                   {rule.send_to_reseller && (
-                    <div className="text-xs text-gray-500">+ Send to Reseller</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">+ Send to Reseller</div>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{getTriggerLabel(rule.trigger_event)}</div>
+                  <div className="text-sm text-gray-900 dark:text-white">{getTriggerLabel(rule.trigger_event)}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs rounded-full capitalize ${getChannelBadge(rule.channel)}`}>
                     {rule.channel}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   {rule.days_before > 0 ? `${rule.days_before} days` : '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -212,7 +212,7 @@ export default function CommunicationRules() {
                     }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow transition duration-200 ${
                         rule.enabled ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
@@ -242,7 +242,7 @@ export default function CommunicationRules() {
         </table>
 
         {(data || []).length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             No communication rules configured. Click "Add Rule" to create one.
           </div>
         )}
@@ -253,28 +253,28 @@ export default function CommunicationRules() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={closeModal}></div>
-            <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                 {editingRule ? 'Edit Rule' : 'Add Communication Rule'}
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Rule Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Rule Name</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Trigger Event</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Trigger Event</label>
                   <select
                     value={formData.trigger_event}
                     onChange={(e) => setFormData({ ...formData, trigger_event: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                   >
                     {triggerEvents.map(event => (
                       <option key={event.value} value={event.value}>
@@ -285,11 +285,11 @@ export default function CommunicationRules() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Channel</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Channel</label>
                   <select
                     value={formData.channel}
                     onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                   >
                     {channels.map(ch => (
                       <option key={ch.value} value={ch.value}>{ch.label}</option>
@@ -299,28 +299,28 @@ export default function CommunicationRules() {
 
                 {['expiry_warning', 'quota_warning'].includes(formData.trigger_event) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Days Before</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Days Before</label>
                     <input
                       type="number"
                       min="1"
                       max="30"
                       value={formData.days_before}
                       onChange={(e) => setFormData({ ...formData, days_before: parseInt(e.target.value) })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Message Template</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Message Template</label>
                   <textarea
                     value={formData.template}
                     onChange={(e) => setFormData({ ...formData, template: e.target.value })}
                     rows={4}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     placeholder="Use variables: {username}, {full_name}, {expiry_date}, {service_name}, {balance}"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     Available variables: {'{username}'}, {'{full_name}'}, {'{expiry_date}'}, {'{service_name}'}, {'{balance}'}, {'{quota_used}'}, {'{quota_total}'}
                   </p>
                 </div>
@@ -331,18 +331,18 @@ export default function CommunicationRules() {
                       type="checkbox"
                       checked={formData.enabled}
                       onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Enabled</span>
                   </label>
                   <label className="flex items-center">
                     <input
                       type="checkbox"
                       checked={formData.send_to_reseller}
                       onChange={(e) => setFormData({ ...formData, send_to_reseller: e.target.checked })}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Also notify Reseller</span>
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Also notify Reseller</span>
                   </label>
                 </div>
 
@@ -350,7 +350,7 @@ export default function CommunicationRules() {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:bg-gray-600"
                   >
                     Cancel
                   </button>

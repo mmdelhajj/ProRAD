@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { subscriberApi, serviceApi, nasApi, resellerApi, cdnApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import { formatDateTime } from '../utils/timezone'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -29,6 +30,7 @@ export default function SubscriberEdit() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const isNew = !id || id === 'new'
   const [showPassword, setShowPassword] = useState(false)
 
@@ -72,6 +74,10 @@ export default function SubscriberEdit() {
     email: '',
     phone: '',
     address: '',
+    region: '',
+    building: '',
+    nationality: '',
+    country: '',
     service_id: '',
     nas_id: '',
     reseller_id: '',
@@ -93,6 +99,7 @@ export default function SubscriberEdit() {
 
   // Extract subscriber data, quota info, and sessions
   const subscriber = subscriberResponse?.data
+  const subscriberPassword = subscriberResponse?.password || ''
   const dailyQuota = subscriberResponse?.daily_quota
   const monthlyQuota = subscriberResponse?.monthly_quota
   const sessions = subscriberResponse?.sessions || []
@@ -244,11 +251,15 @@ export default function SubscriberEdit() {
     if (subscriber) {
       setFormData({
         username: subscriber.username || '',
-        password: subscriber.password_plain || '',
+        password: subscriberPassword || '',
         full_name: subscriber.full_name || '',
         email: subscriber.email || '',
         phone: subscriber.phone || '',
         address: subscriber.address || '',
+        region: subscriber.region || '',
+        building: subscriber.building || '',
+        nationality: subscriber.nationality || '',
+        country: subscriber.country || '',
         service_id: subscriber.service_id || '',
         nas_id: subscriber.nas_id || '',
         reseller_id: subscriber.reseller_id || '',
@@ -261,8 +272,9 @@ export default function SubscriberEdit() {
         expiry_date: subscriber.expiry_date ? subscriber.expiry_date.split('T')[0] : '',
         note: subscriber.note || '',
       })
+
     }
-  }, [subscriber])
+  }, [subscriber, subscriberPassword, id, isNew])
 
   // Start/stop polling when graph tab is active
   useEffect(() => {
@@ -584,10 +596,10 @@ export default function SubscriberEdit() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {isNew ? 'Add Subscriber' : `Edit: ${subscriber?.username}`}
           </h1>
-          <p className="text-gray-500">
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             {isNew ? 'Create a new PPPoE subscriber' : 'Manage subscriber details'}
           </p>
         </div>
@@ -608,7 +620,7 @@ export default function SubscriberEdit() {
 
       {/* Tabs */}
       {!isNew && (
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex space-x-8">
             {tabs.map((tab) => (
               <button
@@ -618,7 +630,7 @@ export default function SubscriberEdit() {
                   'flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm',
                   activeTab === tab.id
                     ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
                 )}
               >
                 <tab.icon className="w-5 h-5" />
@@ -635,7 +647,7 @@ export default function SubscriberEdit() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Account Info */}
             <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Account Information</h3>
               <div className="space-y-4">
                 <div>
                   <label className="label">Username (PPPoE) {!isNew && <span className="text-xs text-gray-400 ml-1">(locked)</span>}</label>
@@ -652,47 +664,77 @@ export default function SubscriberEdit() {
                 </div>
                 <div>
                   <label className="label">Password</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="input pr-10"
-                      placeholder={isNew ? '' : 'Leave blank to keep current'}
-                      required={isNew}
-                      autoComplete="new-password"
-                    />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="input pr-10"
+                        placeholder={isNew ? '' : 'Leave blank to keep current'}
+                        required={isNew}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400"
+                      >
+                        {showPassword ? (
+                          <EyeSlashIcon className="h-5 w-5" />
+                        ) : (
+                          <EyeIcon className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+                        const length = 8 + Math.floor(Math.random() * 3)
+                        let password = ''
+                        for (let i = 0; i < length; i++) {
+                          password += chars.charAt(Math.floor(Math.random() * chars.length))
+                        }
+                        setFormData(prev => ({ ...prev, password }))
+                        setShowPassword(true)
+                      }}
+                      className="btn btn-secondary whitespace-nowrap"
                     >
-                      {showPassword ? (
-                        <EyeSlashIcon className="h-5 w-5" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5" />
-                      )}
+                      Generate
                     </button>
                   </div>
                 </div>
-                <div>
-                  <label className="label">Service Plan</label>
-                  <select
-                    name="service_id"
-                    value={formData.service_id}
-                    onChange={handleChange}
-                    className="input"
-                    required
-                  >
-                    <option value="">Select Service</option>
-                    {services?.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} - ${s.price}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {(isNew || hasPermission('subscribers.change_service')) ? (
+                  <div>
+                    <label className="label">Service Plan</label>
+                    <select
+                      name="service_id"
+                      value={formData.service_id}
+                      onChange={handleChange}
+                      className="input"
+                      required
+                    >
+                      <option value="">Select Service</option>
+                      {services?.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} - ${s.price}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="label">Service Plan</label>
+                    <input
+                      type="text"
+                      value={services?.find(s => s.id === parseInt(formData.service_id))?.name || 'N/A'}
+                      className="input bg-gray-100 dark:bg-gray-700"
+                      disabled
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="label">NAS</label>
                   <select
@@ -730,7 +772,7 @@ export default function SubscriberEdit() {
 
             {/* Personal Info */}
             <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h3>
               <div className="space-y-4">
                 <div>
                   <label className="label">Full Name</label>
@@ -772,12 +814,196 @@ export default function SubscriberEdit() {
                     rows={3}
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Region</label>
+                    <input
+                      type="text"
+                      name="region"
+                      value={formData.region}
+                      onChange={handleChange}
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Building</label>
+                    <input
+                      type="text"
+                      name="building"
+                      value={formData.building}
+                      onChange={handleChange}
+                      className="input"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Nationality</label>
+                    <select
+                      name="nationality"
+                      value={formData.nationality}
+                      onChange={handleChange}
+                      className="input"
+                    >
+                      <option value="">Select Nationality</option>
+                      <option value="Afghan">Afghan</option>
+                      <option value="Albanian">Albanian</option>
+                      <option value="Algerian">Algerian</option>
+                      <option value="Argentine">Argentine</option>
+                      <option value="Australian">Australian</option>
+                      <option value="Austrian">Austrian</option>
+                      <option value="Bahraini">Bahraini</option>
+                      <option value="Bangladeshi">Bangladeshi</option>
+                      <option value="Belgian">Belgian</option>
+                      <option value="Brazilian">Brazilian</option>
+                      <option value="Canadian">Canadian</option>
+                      <option value="Chinese">Chinese</option>
+                      <option value="Colombian">Colombian</option>
+                      <option value="Czech">Czech</option>
+                      <option value="Danish">Danish</option>
+                      <option value="Egyptian">Egyptian</option>
+                      <option value="Finnish">Finnish</option>
+                      <option value="French">French</option>
+                      <option value="German">German</option>
+                      <option value="Greek">Greek</option>
+                      <option value="Hong Konger">Hong Konger</option>
+                      <option value="Hungarian">Hungarian</option>
+                      <option value="Indian">Indian</option>
+                      <option value="Indonesian">Indonesian</option>
+                      <option value="Iranian">Iranian</option>
+                      <option value="Iraqi">Iraqi</option>
+                      <option value="Irish">Irish</option>
+                      <option value="Israeli">Israeli</option>
+                      <option value="Italian">Italian</option>
+                      <option value="Japanese">Japanese</option>
+                      <option value="Jordanian">Jordanian</option>
+                      <option value="Kuwaiti">Kuwaiti</option>
+                      <option value="Lebanese">Lebanese</option>
+                      <option value="Libyan">Libyan</option>
+                      <option value="Malaysian">Malaysian</option>
+                      <option value="Mexican">Mexican</option>
+                      <option value="Moroccan">Moroccan</option>
+                      <option value="Dutch">Dutch</option>
+                      <option value="New Zealander">New Zealander</option>
+                      <option value="Nigerian">Nigerian</option>
+                      <option value="Norwegian">Norwegian</option>
+                      <option value="Omani">Omani</option>
+                      <option value="Pakistani">Pakistani</option>
+                      <option value="Palestinian">Palestinian</option>
+                      <option value="Filipino">Filipino</option>
+                      <option value="Polish">Polish</option>
+                      <option value="Portuguese">Portuguese</option>
+                      <option value="Qatari">Qatari</option>
+                      <option value="Romanian">Romanian</option>
+                      <option value="Russian">Russian</option>
+                      <option value="Saudi">Saudi</option>
+                      <option value="Singaporean">Singaporean</option>
+                      <option value="South African">South African</option>
+                      <option value="South Korean">South Korean</option>
+                      <option value="Spanish">Spanish</option>
+                      <option value="Sudanese">Sudanese</option>
+                      <option value="Swedish">Swedish</option>
+                      <option value="Swiss">Swiss</option>
+                      <option value="Syrian">Syrian</option>
+                      <option value="Taiwanese">Taiwanese</option>
+                      <option value="Thai">Thai</option>
+                      <option value="Tunisian">Tunisian</option>
+                      <option value="Turkish">Turkish</option>
+                      <option value="Ukrainian">Ukrainian</option>
+                      <option value="Emirati">Emirati</option>
+                      <option value="British">British</option>
+                      <option value="American">American</option>
+                      <option value="Vietnamese">Vietnamese</option>
+                      <option value="Yemeni">Yemeni</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Country</label>
+                    <select
+                      name="country"
+                      value={formData.country}
+                      onChange={handleChange}
+                      className="input"
+                    >
+                      <option value="">Select Country</option>
+                      <option value="Afghanistan">Afghanistan</option>
+                      <option value="Albania">Albania</option>
+                      <option value="Algeria">Algeria</option>
+                      <option value="Argentina">Argentina</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Austria">Austria</option>
+                      <option value="Bahrain">Bahrain</option>
+                      <option value="Bangladesh">Bangladesh</option>
+                      <option value="Belgium">Belgium</option>
+                      <option value="Brazil">Brazil</option>
+                      <option value="Canada">Canada</option>
+                      <option value="China">China</option>
+                      <option value="Colombia">Colombia</option>
+                      <option value="Czech Republic">Czech Republic</option>
+                      <option value="Denmark">Denmark</option>
+                      <option value="Egypt">Egypt</option>
+                      <option value="Finland">Finland</option>
+                      <option value="France">France</option>
+                      <option value="Germany">Germany</option>
+                      <option value="Greece">Greece</option>
+                      <option value="Hong Kong">Hong Kong</option>
+                      <option value="Hungary">Hungary</option>
+                      <option value="India">India</option>
+                      <option value="Indonesia">Indonesia</option>
+                      <option value="Iran">Iran</option>
+                      <option value="Iraq">Iraq</option>
+                      <option value="Ireland">Ireland</option>
+                      <option value="Israel">Israel</option>
+                      <option value="Italy">Italy</option>
+                      <option value="Japan">Japan</option>
+                      <option value="Jordan">Jordan</option>
+                      <option value="Kuwait">Kuwait</option>
+                      <option value="Lebanon">Lebanon</option>
+                      <option value="Libya">Libya</option>
+                      <option value="Malaysia">Malaysia</option>
+                      <option value="Mexico">Mexico</option>
+                      <option value="Morocco">Morocco</option>
+                      <option value="Netherlands">Netherlands</option>
+                      <option value="New Zealand">New Zealand</option>
+                      <option value="Nigeria">Nigeria</option>
+                      <option value="Norway">Norway</option>
+                      <option value="Oman">Oman</option>
+                      <option value="Pakistan">Pakistan</option>
+                      <option value="Palestine">Palestine</option>
+                      <option value="Philippines">Philippines</option>
+                      <option value="Poland">Poland</option>
+                      <option value="Portugal">Portugal</option>
+                      <option value="Qatar">Qatar</option>
+                      <option value="Romania">Romania</option>
+                      <option value="Russia">Russia</option>
+                      <option value="Saudi Arabia">Saudi Arabia</option>
+                      <option value="Singapore">Singapore</option>
+                      <option value="South Africa">South Africa</option>
+                      <option value="South Korea">South Korea</option>
+                      <option value="Spain">Spain</option>
+                      <option value="Sudan">Sudan</option>
+                      <option value="Sweden">Sweden</option>
+                      <option value="Switzerland">Switzerland</option>
+                      <option value="Syria">Syria</option>
+                      <option value="Taiwan">Taiwan</option>
+                      <option value="Thailand">Thailand</option>
+                      <option value="Tunisia">Tunisia</option>
+                      <option value="Turkey">Turkey</option>
+                      <option value="Ukraine">Ukraine</option>
+                      <option value="United Arab Emirates">United Arab Emirates</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="United States">United States</option>
+                      <option value="Vietnam">Vietnam</option>
+                      <option value="Yemen">Yemen</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Connection Settings */}
             <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Connection Settings</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Connection Settings</h3>
               <div className="space-y-4">
                 <div>
                   <label className="label">MAC Address {!isNew && <span className="text-xs text-gray-400 ml-1">(locked)</span>}</label>
@@ -785,11 +1011,17 @@ export default function SubscriberEdit() {
                     type="text"
                     name="mac_address"
                     value={formData.mac_address}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase()
+                      if (val === '' || /^[0-9A-F:-]*$/.test(val)) {
+                        setFormData(prev => ({ ...prev, mac_address: val }))
+                      }
+                    }}
                     className={`input ${!isNew ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    placeholder="AA:BB:CC:DD:EE:FF"
+                    placeholder="Leave empty - auto-saves on first connect"
                     disabled={!isNew}
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Leave empty to auto-capture MAC on first connection</p>
                 </div>
                 <label className="flex items-center gap-3">
                   <input
@@ -801,7 +1033,7 @@ export default function SubscriberEdit() {
                   />
                   <div>
                     <span className="font-medium">Save MAC</span>
-                    <p className="text-sm text-gray-500">Lock to current MAC address (reject other devices)</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Lock to current MAC address (reject other devices)</p>
                   </div>
                 </label>
                 <div>
@@ -840,11 +1072,11 @@ export default function SubscriberEdit() {
               </div>
             </div>
 
-            {/* Bandwidth Rules - Only show for existing subscribers */}
-            {!isNew && (
+            {/* Bandwidth Rules - Only show for existing subscribers with permission */}
+            {!isNew && hasPermission('subscribers.bandwidth_rules') && (
               <div className="card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Bandwidth Rules</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bandwidth Rules</h3>
                   <button
                     type="button"
                     onClick={() => openBandwidthRuleModal()}
@@ -878,7 +1110,7 @@ export default function SubscriberEdit() {
                                 'px-2 py-1 text-xs font-medium rounded',
                                 rule.rule_type === 'internet'
                                   ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-purple-100 text-purple-800'
+                                  : 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300'
                               )}>
                                 {rule.rule_type === 'internet' ? 'Internet' : (rule.cdn_name || 'CDN')}
                               </span>
@@ -921,7 +1153,7 @@ export default function SubscriberEdit() {
 
             {/* Status & Options */}
             <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status & Options</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Status & Options</h3>
               <div className="space-y-4">
                 <div>
                   <label className="label">Status</label>
@@ -965,13 +1197,15 @@ export default function SubscriberEdit() {
             <Link to="/subscribers" className="btn-secondary">
               Cancel
             </Link>
-            <button
-              type="submit"
-              disabled={saveMutation.isLoading}
-              className="btn-primary"
-            >
-              {saveMutation.isLoading ? 'Saving...' : isNew ? 'Create Subscriber' : 'Save Changes'}
-            </button>
+            {hasPermission(isNew ? 'subscribers.create' : 'subscribers.edit') && (
+              <button
+                type="submit"
+                disabled={saveMutation.isLoading}
+                className="btn-primary"
+              >
+                {saveMutation.isLoading ? 'Saving...' : isNew ? 'Create Subscriber' : 'Save Changes'}
+              </button>
+            )}
           </div>
         </form>
       )}
@@ -981,7 +1215,7 @@ export default function SubscriberEdit() {
         <div className="space-y-6">
           {/* Monthly Summary */}
           <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Monthly</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Monthly</h3>
             <div className="flex items-end gap-8 h-48">
               {/* Download Bar */}
               <div className="flex flex-col items-center flex-1">
@@ -1010,10 +1244,10 @@ export default function SubscriberEdit() {
                   <div className="text-2xl font-bold text-teal-500">
                     {((monthlyQuota?.download_used || 0) / 1073741824).toFixed(2)} GB
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     {monthlyQuota?.download_limit > 0 ? `/ ${(monthlyQuota.download_limit / 1073741824).toFixed(0)} GB` : 'Unlimited'}
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">Download</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Download</div>
                 </div>
               </div>
 
@@ -1044,10 +1278,10 @@ export default function SubscriberEdit() {
                   <div className="text-2xl font-bold text-orange-500">
                     {((monthlyQuota?.upload_used || 0) / 1073741824).toFixed(2)} GB
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     {monthlyQuota?.upload_limit > 0 ? `/ ${(monthlyQuota.upload_limit / 1073741824).toFixed(0)} GB` : 'Unlimited'}
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">Upload</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Upload</div>
                 </div>
               </div>
             </div>
@@ -1055,7 +1289,7 @@ export default function SubscriberEdit() {
 
           {/* Daily Usage Chart */}
           <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Daily</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily</h3>
             <ReactECharts
               option={{
                 tooltip: {
@@ -1119,13 +1353,13 @@ export default function SubscriberEdit() {
 
           {/* Daily Quota Summary */}
           <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Today's Usage</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Today's Usage</h3>
             <div className="grid grid-cols-2 gap-6">
               <div className="text-center p-4 bg-teal-50 rounded-lg">
                 <div className="text-3xl font-bold text-teal-600">
                   {((dailyQuota?.download_used || 0) / 1073741824).toFixed(2)} GB
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                   Download {dailyQuota?.download_limit > 0 && `/ ${(dailyQuota.download_limit / 1073741824).toFixed(0)} GB`}
                 </div>
               </div>
@@ -1133,7 +1367,7 @@ export default function SubscriberEdit() {
                 <div className="text-3xl font-bold text-orange-600">
                   {((dailyQuota?.upload_used || 0) / 1073741824).toFixed(2)} GB
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                   Upload {dailyQuota?.upload_limit > 0 && `/ ${(dailyQuota.upload_limit / 1073741824).toFixed(0)} GB`}
                 </div>
               </div>
@@ -1151,19 +1385,19 @@ export default function SubscriberEdit() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="card p-4 text-center">
                   <div className="text-3xl font-bold text-green-500">{currentBandwidth.download}</div>
-                  <div className="text-sm text-gray-500">Download (Mbps)</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download (Mbps)</div>
                 </div>
                 <div className="card p-4 text-center">
                   <div className="text-3xl font-bold text-blue-500">{currentBandwidth.upload}</div>
-                  <div className="text-sm text-gray-500">Upload (Mbps)</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload (Mbps)</div>
                 </div>
                 <div className="card p-4 text-center">
-                  <div className="text-xl font-semibold text-gray-700">{currentBandwidth.ipAddress || '-'}</div>
-                  <div className="text-sm text-gray-500">IP Address</div>
+                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{currentBandwidth.ipAddress || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">IP Address</div>
                 </div>
                 <div className="card p-4 text-center">
-                  <div className="text-xl font-semibold text-gray-700">{currentBandwidth.uptime || '-'}</div>
-                  <div className="text-sm text-gray-500">Uptime</div>
+                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{currentBandwidth.uptime || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Uptime</div>
                 </div>
               </div>
 
@@ -1177,7 +1411,7 @@ export default function SubscriberEdit() {
                     return (
                       <div key={cdn.id} className="card p-3 text-center" style={{ borderTop: `3px solid ${cdn.color}` }}>
                         <div className="text-xl font-bold" style={{ color: cdn.color }}>{currentRate.toFixed(2)} Mbps</div>
-                        <div className="text-xs text-gray-500">{cdn.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{cdn.name}</div>
                       </div>
                     )
                   })}
@@ -1189,7 +1423,7 @@ export default function SubscriberEdit() {
           {/* Chart */}
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Live Bandwidth Graph</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Live Bandwidth Graph</h3>
               {subscriber?.is_online && (
                 <div className="flex items-center gap-2 text-sm text-green-600">
                   <span className="relative flex h-3 w-3">
@@ -1209,7 +1443,7 @@ export default function SubscriberEdit() {
                 style={{ height: '400px' }}
               />
             ) : (
-              <div className="flex items-center justify-center h-64 text-gray-500">
+              <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                 Subscriber is offline. Live graph is only available when connected.
               </div>
             )}
@@ -1220,7 +1454,7 @@ export default function SubscriberEdit() {
       {/* Invoices Tab */}
       {!isNew && activeTab === 'invoices' && (
         <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoices & Payments</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Invoices & Payments</h3>
           <div className="table-container">
             <table className="table">
               <thead>
@@ -1232,7 +1466,7 @@ export default function SubscriberEdit() {
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 <tr>
                   <td colSpan={5} className="text-center text-gray-500 py-8">
                     No invoices found
@@ -1247,7 +1481,7 @@ export default function SubscriberEdit() {
       {/* Logs Tab */}
       {!isNew && activeTab === 'logs' && (
         <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Session & Activity Logs</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Session & Activity Logs</h3>
           <div className="table-container">
             <table className="table">
               <thead>
@@ -1262,7 +1496,7 @@ export default function SubscriberEdit() {
                   <th>Upload</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {sessions.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center text-gray-500 py-8">
@@ -1315,7 +1549,7 @@ export default function SubscriberEdit() {
                         </td>
                         <td className="text-sm">{duration}</td>
                         <td className="font-mono text-sm">{session.framedipaddress || '-'}</td>
-                        <td className="font-mono text-sm text-gray-500">{session.callingstationid || '-'}</td>
+                        <td className="font-mono text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{session.callingstationid || '-'}</td>
                         <td className="text-sm text-green-600">{formatBytes(session.acctoutputoctets)}</td>
                         <td className="text-sm text-blue-600">{formatBytes(session.acctinputoctets)}</td>
                       </tr>
@@ -1331,7 +1565,7 @@ export default function SubscriberEdit() {
       {/* Bandwidth Rule Modal */}
       {showBandwidthRuleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">
               {editingBandwidthRule ? 'Edit Bandwidth Rule' : 'Add Bandwidth Rule'}
             </h3>
@@ -1392,7 +1626,7 @@ export default function SubscriberEdit() {
                     </div>
                   )}
                   {currentCDNs.length > 0 && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       Current service CDNs: {currentCDNs.map(c => `${c.cdn_name} ${c.speed_limit}M`).join(', ')}
                     </p>
                   )}
@@ -1440,7 +1674,7 @@ export default function SubscriberEdit() {
                   <option value="14d">14 Days</option>
                   <option value="30d">30 Days</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                   {bandwidthRuleForm.duration === 'permanent'
                     ? 'Rule will apply until manually disabled or deleted'
                     : 'After duration expires, subscriber returns to normal service speed'}

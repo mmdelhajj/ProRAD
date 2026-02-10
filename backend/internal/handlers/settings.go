@@ -1,8 +1,16 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -117,8 +125,23 @@ func NewSettingsHandler() *SettingsHandler {
 	return &SettingsHandler{}
 }
 
-// List returns all system preferences
+// List returns all system preferences (with Redis caching)
 func (h *SettingsHandler) List(c *fiber.Ctx) error {
+	// Try cache first
+	type cachedSettings struct {
+		Settings map[string]interface{}  `json:"settings"`
+		Items    []models.SystemPreference `json:"items"`
+	}
+	var cached cachedSettings
+	if err := database.CacheGet(database.CacheKeySettings, &cached); err == nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    cached.Settings,
+			"items":   cached.Items,
+		})
+	}
+
+	// Fetch from database
 	var preferences []models.SystemPreference
 	database.DB.Order("key").Find(&preferences)
 
@@ -127,6 +150,9 @@ func (h *SettingsHandler) List(c *fiber.Ctx) error {
 	for _, p := range preferences {
 		settings[p.Key] = p.Value
 	}
+
+	// Cache the result
+	database.CacheSet(database.CacheKeySettings, cachedSettings{Settings: settings, Items: preferences}, database.CacheTTLSettings)
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -192,6 +218,9 @@ func (h *SettingsHandler) Update(c *fiber.Ctx) error {
 		})
 	}
 
+	// Invalidate settings cache
+	database.InvalidateSettingsCache()
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    pref,
@@ -217,9 +246,18 @@ func (h *SettingsHandler) BulkUpdate(c *fiber.Ctx) error {
 		})
 	}
 
+	remoteSupportChanged := false
+	remoteSupportEnabled := false
+
 	for _, item := range req.Settings {
 		if item.Key == "" {
 			continue
+		}
+
+		// Track remote support changes
+		if item.Key == "remote_support_enabled" {
+			remoteSupportChanged = true
+			remoteSupportEnabled = item.Value == "true" || item.Value == "1"
 		}
 
 		var pref models.SystemPreference
@@ -230,6 +268,23 @@ func (h *SettingsHandler) BulkUpdate(c *fiber.Ctx) error {
 			database.DB.Create(&pref)
 		} else {
 			database.DB.Model(&pref).Update("value", item.Value)
+		}
+	}
+
+	// Invalidate settings cache
+	database.InvalidateSettingsCache()
+
+	// Handle remote support toggle - write to control file and notify license server
+	if remoteSupportChanged {
+		controlFile := "/opt/proxpanel/remote-support-enabled"
+		if remoteSupportEnabled {
+			os.WriteFile(controlFile, []byte("true"), 0644)
+			// Send SSH credentials to license server
+			go sendSSHCredentialsToLicenseServer()
+		} else {
+			os.Remove(controlFile)
+			// Clear SSH credentials from license server
+			go clearSSHCredentialsFromLicenseServer()
 		}
 	}
 
@@ -250,6 +305,9 @@ func (h *SettingsHandler) Delete(c *fiber.Ctx) error {
 			"message": "Setting not found",
 		})
 	}
+
+	// Invalidate settings cache
+	database.InvalidateSettingsCache()
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -308,18 +366,35 @@ func GetConfiguredTimezoneString() string {
 // GetBranding returns public branding info (no auth required)
 func (h *SettingsHandler) GetBranding(c *fiber.Ctx) error {
 	branding := map[string]string{
-		"company_name": "ProISP",
-		"company_logo": "",
-		"primary_color": "#2563eb",
+		"company_name":          "", // Empty by default - customer sets their own
+		"company_logo":          "",
+		"primary_color":         "#2563eb",
+		"login_background":      "",
+		"favicon":               "",
+		"footer_text":           "",
+		"login_tagline":         "High Performance ISP Management Solution",
+		"show_login_features":   "true",
+		"login_feature_1_title": "PPPoE Management",
+		"login_feature_1_desc":  "Complete subscriber and session management with real-time monitoring",
+		"login_feature_2_title": "Bandwidth Control",
+		"login_feature_2_desc":  "FUP quotas, time-based speed control, and usage monitoring",
+		"login_feature_3_title": "MikroTik Integration",
+		"login_feature_3_desc":  "Seamless RADIUS and API integration with MikroTik routers",
 	}
 
 	var preferences []models.SystemPreference
-	database.DB.Where("key IN ?", []string{"company_name", "company_logo", "primary_color"}).Find(&preferences)
+	database.DB.Where("key IN ?", []string{
+		"company_name", "company_logo", "primary_color",
+		"login_background", "favicon", "footer_text",
+		"login_tagline", "show_login_features",
+		"login_feature_1_title", "login_feature_1_desc",
+		"login_feature_2_title", "login_feature_2_desc",
+		"login_feature_3_title", "login_feature_3_desc",
+	}).Find(&preferences)
 
 	for _, p := range preferences {
-		if p.Value != "" {
-			branding[p.Key] = p.Value
-		}
+		// Always use database value (even if empty - customer may have cleared it)
+		branding[p.Key] = p.Value
 	}
 
 	return c.JSON(fiber.Map{
@@ -430,4 +505,492 @@ func (h *SettingsHandler) DeleteLogo(c *fiber.Ctx) error {
 		"success": true,
 		"message": "Logo deleted",
 	})
+}
+
+// UploadLoginBackground handles login background image upload
+func (h *SettingsHandler) UploadLoginBackground(c *fiber.Ctx) error {
+	file, err := c.FormFile("background")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "No file uploaded",
+		})
+	}
+
+	// Validate file type
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".webp": true}
+	if !allowedExts[ext] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid file type. Allowed: PNG, JPG, JPEG, WEBP",
+		})
+	}
+
+	// Validate file size (max 5MB for background)
+	if file.Size > 5*1024*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "File too large. Maximum size is 5MB",
+		})
+	}
+
+	// Create uploads directory if not exists
+	uploadDir := "/app/uploads"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create upload directory",
+		})
+	}
+
+	// Delete old background if exists
+	var oldPref models.SystemPreference
+	if err := database.DB.Where("key = ?", "login_background").First(&oldPref).Error; err == nil {
+		if oldPref.Value != "" {
+			oldPath := filepath.Join(uploadDir, filepath.Base(oldPref.Value))
+			os.Remove(oldPath)
+		}
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("login_bg_%s%s", uuid.New().String()[:8], ext)
+	savePath := filepath.Join(uploadDir, filename)
+
+	// Save file
+	if err := c.SaveFile(file, savePath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to save file",
+		})
+	}
+
+	// Update setting
+	bgURL := "/uploads/" + filename
+	var pref models.SystemPreference
+	result := database.DB.Where("key = ?", "login_background").First(&pref)
+	if result.Error != nil {
+		pref = models.SystemPreference{Key: "login_background", Value: bgURL, ValueType: "string"}
+		database.DB.Create(&pref)
+	} else {
+		database.DB.Model(&pref).Update("value", bgURL)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"url": bgURL,
+		},
+		"message": "Login background uploaded successfully",
+	})
+}
+
+// DeleteLoginBackground removes the login background image
+func (h *SettingsHandler) DeleteLoginBackground(c *fiber.Ctx) error {
+	var pref models.SystemPreference
+	if err := database.DB.Where("key = ?", "login_background").First(&pref).Error; err != nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "No background to delete",
+		})
+	}
+
+	// Delete file
+	if pref.Value != "" {
+		uploadDir := "/app/uploads"
+		filePath := filepath.Join(uploadDir, filepath.Base(pref.Value))
+		os.Remove(filePath)
+	}
+
+	// Clear setting
+	database.DB.Model(&pref).Update("value", "")
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Login background deleted",
+	})
+}
+
+// UploadFavicon handles favicon upload
+func (h *SettingsHandler) UploadFavicon(c *fiber.Ctx) error {
+	file, err := c.FormFile("favicon")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "No file uploaded",
+		})
+	}
+
+	// Validate file type
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{".png": true, ".ico": true, ".svg": true}
+	if !allowedExts[ext] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid file type. Allowed: PNG, ICO, SVG",
+		})
+	}
+
+	// Validate file size (max 500KB for favicon)
+	if file.Size > 500*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "File too large. Maximum size is 500KB",
+		})
+	}
+
+	// Create uploads directory if not exists
+	uploadDir := "/app/uploads"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create upload directory",
+		})
+	}
+
+	// Delete old favicon if exists
+	var oldPref models.SystemPreference
+	if err := database.DB.Where("key = ?", "favicon").First(&oldPref).Error; err == nil {
+		if oldPref.Value != "" {
+			oldPath := filepath.Join(uploadDir, filepath.Base(oldPref.Value))
+			os.Remove(oldPath)
+		}
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("favicon_%s%s", uuid.New().String()[:8], ext)
+	savePath := filepath.Join(uploadDir, filename)
+
+	// Save file
+	if err := c.SaveFile(file, savePath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to save file",
+		})
+	}
+
+	// Update setting
+	faviconURL := "/uploads/" + filename
+	var pref models.SystemPreference
+	result := database.DB.Where("key = ?", "favicon").First(&pref)
+	if result.Error != nil {
+		pref = models.SystemPreference{Key: "favicon", Value: faviconURL, ValueType: "string"}
+		database.DB.Create(&pref)
+	} else {
+		database.DB.Model(&pref).Update("value", faviconURL)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"url": faviconURL,
+		},
+		"message": "Favicon uploaded successfully",
+	})
+}
+
+// DeleteFavicon removes the favicon
+func (h *SettingsHandler) DeleteFavicon(c *fiber.Ctx) error {
+	var pref models.SystemPreference
+	if err := database.DB.Where("key = ?", "favicon").First(&pref).Error; err != nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "No favicon to delete",
+		})
+	}
+
+	// Delete file
+	if pref.Value != "" {
+		uploadDir := "/app/uploads"
+		filePath := filepath.Join(uploadDir, filepath.Base(pref.Value))
+		os.Remove(filePath)
+	}
+
+	// Clear setting
+	database.DB.Model(&pref).Update("value", "")
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Favicon deleted",
+	})
+}
+
+// sendSSHCredentialsToLicenseServer sends SSH credentials to enable remote support
+func sendSSHCredentialsToLicenseServer() {
+	licenseServer := os.Getenv("LICENSE_SERVER")
+	licenseKey := os.Getenv("LICENSE_KEY")
+	serverIP := os.Getenv("SERVER_IP")
+
+	if licenseServer == "" || licenseKey == "" || serverIP == "" {
+		return
+	}
+
+	// Get SSH password from settings or .env
+	sshPassword := os.Getenv("SSH_ROOT_PASSWORD")
+	if sshPassword == "" {
+		// Try to read from .env file
+		envFile, err := os.ReadFile("/opt/proxpanel/.env")
+		if err == nil {
+			for _, line := range strings.Split(string(envFile), "\n") {
+				if strings.HasPrefix(line, "SSH_ROOT_PASSWORD=") {
+					sshPassword = strings.TrimPrefix(line, "SSH_ROOT_PASSWORD=")
+					break
+				}
+			}
+		}
+	}
+
+	// If no password set, use a generated one or system password
+	if sshPassword == "" {
+		return // Can't send without password
+	}
+
+	payload := map[string]interface{}{
+		"license_key":  licenseKey,
+		"server_ip":    serverIP,
+		"ssh_port":     22,
+		"ssh_user":     "root",
+		"ssh_password": sshPassword,
+		"public_ip":    serverIP,
+	}
+
+	jsonData, _ := json.Marshal(payload)
+	resp, err := http.Post(
+		licenseServer+"/api/v1/license/ssh-credentials",
+		"application/json",
+		bytes.NewBuffer(jsonData),
+	)
+	if err == nil {
+		resp.Body.Close()
+	}
+}
+
+// clearSSHCredentialsFromLicenseServer clears SSH credentials when remote support is disabled
+func clearSSHCredentialsFromLicenseServer() {
+	licenseServer := os.Getenv("LICENSE_SERVER")
+	licenseKey := os.Getenv("LICENSE_KEY")
+	serverIP := os.Getenv("SERVER_IP")
+
+	if licenseServer == "" || licenseKey == "" || serverIP == "" {
+		return
+	}
+
+	payload := map[string]interface{}{
+		"license_key": licenseKey,
+		"server_ip":   serverIP,
+	}
+
+	jsonData, _ := json.Marshal(payload)
+	req, err := http.NewRequest(http.MethodDelete,
+		licenseServer+"/api/v1/license/ssh-credentials",
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err == nil {
+		resp.Body.Close()
+	}
+}
+
+// GetRemoteSupportStatus returns the current remote support status
+func (h *SettingsHandler) GetRemoteSupportStatus(c *fiber.Ctx) error {
+	var pref models.SystemPreference
+	enabled := false
+
+	if err := database.DB.Where("key = ?", "remote_support_enabled").First(&pref).Error; err == nil {
+		enabled = pref.Value == "true" || pref.Value == "1"
+	}
+
+	// Also check control file as secondary source
+	controlFile := "/opt/proxpanel/remote-support-enabled"
+	if _, err := os.Stat(controlFile); err == nil {
+		enabled = true
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"enabled": enabled,
+		},
+	})
+}
+
+// ToggleRemoteSupport toggles remote support on/off
+func (h *SettingsHandler) ToggleRemoteSupport(c *fiber.Ctx) error {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Update database preference
+	var pref models.SystemPreference
+	result := database.DB.Where("key = ?", "remote_support_enabled").First(&pref)
+
+	value := "false"
+	if req.Enabled {
+		value = "true"
+	}
+
+	if result.Error != nil {
+		pref = models.SystemPreference{Key: "remote_support_enabled", Value: value, ValueType: "boolean"}
+		database.DB.Create(&pref)
+	} else {
+		database.DB.Model(&pref).Update("value", value)
+	}
+
+	// Handle control file and license server notification
+	controlFile := "/opt/proxpanel/remote-support-enabled"
+	if req.Enabled {
+		os.WriteFile(controlFile, []byte("true"), 0644)
+		go sendSSHCredentialsToLicenseServer()
+	} else {
+		os.Remove(controlFile)
+		go clearSSHCredentialsFromLicenseServer()
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": fmt.Sprintf("Remote support %s", map[bool]string{true: "enabled", false: "disabled"}[req.Enabled]),
+		"data": fiber.Map{
+			"enabled": req.Enabled,
+		},
+	})
+}
+
+// RestartServices restarts the specified service containers
+func (h *SettingsHandler) RestartServices(c *fiber.Ctx) error {
+	var req struct {
+		Services []string `json:"services"` // api, radius, frontend, all
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Default to restarting API if no services specified
+	if len(req.Services) == 0 {
+		req.Services = []string{"api"}
+	}
+
+	// Map service names to container names
+	containerMap := map[string]string{
+		"api":      "proxpanel-api",
+		"radius":   "proxpanel-radius",
+		"frontend": "proxpanel-frontend",
+	}
+
+	// Handle "all" option
+	if len(req.Services) == 1 && req.Services[0] == "all" {
+		req.Services = []string{"frontend", "radius", "api"} // API last since it handles this request
+	}
+
+	results := make(map[string]string)
+	var lastErr error
+
+	for _, svc := range req.Services {
+		containerName, ok := containerMap[svc]
+		if !ok {
+			results[svc] = "unknown service"
+			continue
+		}
+
+		// Skip API restart if it's not the last item (we need to respond first)
+		if svc == "api" && len(req.Services) > 1 && req.Services[len(req.Services)-1] != "api" {
+			continue
+		}
+
+		err := restartContainerViaSocket(containerName)
+		if err != nil {
+			// Fallback to docker CLI
+			if execErr := exec.Command("docker", "restart", containerName).Run(); execErr != nil {
+				results[svc] = fmt.Sprintf("failed: %v", err)
+				lastErr = err
+			} else {
+				results[svc] = "restarted (CLI)"
+			}
+		} else {
+			results[svc] = "restarted"
+		}
+	}
+
+	// If API restart was requested, do it in background after response
+	for _, svc := range req.Services {
+		if svc == "api" {
+			go func() {
+				time.Sleep(500 * time.Millisecond) // Give time for response to be sent
+				restartContainerViaSocket("proxpanel-api")
+			}()
+			results["api"] = "restarting..."
+			break
+		}
+	}
+
+	if lastErr != nil {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"message": "Some services failed to restart",
+			"data":    results,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Services restarted successfully",
+		"data":    results,
+	})
+}
+
+// restartContainerViaSocket restarts a container using Docker Engine API via Unix socket
+func restartContainerViaSocket(containerName string) error {
+	socketPath := "/var/run/docker.sock"
+
+	// Check if socket exists
+	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
+		return fmt.Errorf("docker socket not found at %s", socketPath)
+	}
+
+	// Create HTTP client that connects via Unix socket
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	// POST /containers/{name}/restart
+	url := fmt.Sprintf("http://docker/containers/%s/restart?t=10", containerName)
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("docker API returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Successfully restarted container %s", containerName)
+	return nil
 }

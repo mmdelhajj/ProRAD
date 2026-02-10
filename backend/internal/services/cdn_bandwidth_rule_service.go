@@ -244,18 +244,18 @@ func (s *CDNBandwidthRuleService) applyRuleToNasSubscribers(rule *CDNBandwidthRu
 
 		// Apply rule to each CDN queue
 		for _, scdm := range serviceCDNs {
-			if scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
+			if scdm.CDN == nil || scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
 				continue
 			}
 
-			// Calculate original speed from service CDN config (Mbps to Kbps)
-			originalSpeedK := scdm.SpeedLimit * 1000
+			// SpeedLimit is already stored in Kbps
+			originalSpeedK := scdm.SpeedLimit
 			if originalSpeedK <= 0 {
 				// No specific limit, skip
 				continue
 			}
 
-			// Apply multiplier
+			// Apply multiplier percentage (100% = same speed, 200% = double speed)
 			newSpeedK := originalSpeedK * int64(rule.SpeedMultiplier) / 100
 
 			// Create queue key for tracking
@@ -447,15 +447,17 @@ func (s *CDNBandwidthRuleService) applyRuleToNasSubscribersCount(rule *CDNBandwi
 		}
 
 		for _, scdm := range serviceCDNs {
-			if scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
+			if scdm.CDN == nil || scdm.CDN.ID == 0 || !scdm.CDN.IsActive {
 				continue
 			}
 
-			originalSpeedK := scdm.SpeedLimit * 1000
+			// SpeedLimit is already stored in Kbps
+			originalSpeedK := scdm.SpeedLimit
 			if originalSpeedK <= 0 {
 				continue
 			}
 
+			// Apply multiplier percentage (100% = same speed, 200% = double speed)
 			newSpeedK := originalSpeedK * int64(rule.SpeedMultiplier) / 100
 			queueName := fmt.Sprintf("cdn-%s-%s", sub.Username, scdm.CDN.Name)
 

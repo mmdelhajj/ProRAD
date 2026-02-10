@@ -71,14 +71,11 @@ func findRemovedNASIDs(oldIDs, newIDs []uint) []uint {
 
 // getCDNCompanyName retrieves company name from settings for CDN branding
 func getCDNCompanyName() string {
-	var pref models.SystemPreference
-	if err := database.DB.Where("key = ?", "company_name").First(&pref).Error; err != nil {
-		return "ProISP"
+	name := database.GetCompanyName()
+	if name == "" {
+		return "ISP"
 	}
-	if pref.Value == "" {
-		return "ProISP"
-	}
-	return pref.Value
+	return name
 }
 
 // syncCDNToAllNAS syncs a CDN configuration to selected NAS devices (or all if none specified)
@@ -712,6 +709,11 @@ func (h *CDNHandler) UpdateServiceCDNs(c *fiber.Ctx) error {
 		})
 	}
 
+	// Debug: Log received CDN configs
+	for i, cdn := range input.CDNs {
+		log.Printf("UpdateServiceCDNs: Received CDN[%d] cdn_id=%d is_active=%v", i, cdn.CDNID, cdn.IsActive)
+	}
+
 	// Fetch old configs with PCQ enabled BEFORE deleting (for cleanup)
 	var oldConfigs []models.ServiceCDN
 	database.DB.Preload("CDN").Where("service_id = ? AND pcq_enabled = ?", serviceID, true).Find(&oldConfigs)
@@ -765,6 +767,12 @@ func (h *CDNHandler) UpdateServiceCDNs(c *fiber.Ctx) error {
 			TimeSpeedRatio: timeSpeedRatio,
 		}
 		database.DB.Create(&serviceCDN)
+		// Explicitly update boolean fields (GORM ignores false due to default:true in model)
+		database.DB.Model(&serviceCDN).Updates(map[string]interface{}{
+			"is_active":    cdnConfig.IsActive,
+			"bypass_quota": cdnConfig.BypassQuota,
+			"pcq_enabled":  cdnConfig.PCQEnabled,
+		})
 
 		// If PCQ enabled, sync PCQ setup to the specific NAS
 		if cdnConfig.PCQEnabled && cdnConfig.IsActive && cdnConfig.SpeedLimit > 0 && cdnConfig.PCQNASID != nil && cdnConfig.PCQTargetPools != "" {
@@ -784,7 +792,7 @@ func (h *CDNHandler) UpdateServiceCDNs(c *fiber.Ctx) error {
 
 	// Clean up PCQ configs that were removed or disabled
 	for key, oldConfig := range oldPCQConfigs {
-		if !newPCQKeys[key] {
+		if !newPCQKeys[key] && oldConfig.CDN != nil {
 			// This PCQ config was removed or disabled, clean up on MikroTik
 			go cleanupPCQFromNAS(oldConfig.CDN.Name, oldConfig.SpeedLimit, *oldConfig.PCQNASID)
 		}
@@ -978,7 +986,7 @@ func (h *CDNHandler) SyncAllPCQToNAS(c *fiber.Ctx) error {
 	syncCount := 0
 
 	for _, sc := range serviceCDNs {
-		if syncedCDNs[sc.CDNID] || sc.SpeedLimit == 0 {
+		if syncedCDNs[sc.CDNID] || sc.SpeedLimit == 0 || sc.CDN == nil {
 			continue
 		}
 		syncedCDNs[sc.CDNID] = true

@@ -7,7 +7,7 @@ const STATUS_COLORS = {
   pending: 'bg-yellow-100 text-yellow-800',
   completed: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
-  refunded: 'bg-gray-100 text-gray-800'
+  refunded: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
 }
 
 export default function Invoices() {
@@ -120,7 +120,7 @@ export default function Invoices() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Invoices</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Invoices</h1>
         <button
           onClick={() => setShowModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -129,11 +129,11 @@ export default function Invoices() {
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
         <select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-          className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
         >
           <option value="">All Status</option>
           <option value="pending">Pending</option>
@@ -142,32 +142,32 @@ export default function Invoices() {
         </select>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subscriber</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice #</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subscriber</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Paid</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Due Date</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {invoices.map(invoice => (
               <tr key={invoice.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                   {invoice.invoice_number}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   {invoice.subscriber?.username || 'N/A'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                   ${invoice.total?.toFixed(2)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   ${invoice.amount_paid?.toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -175,7 +175,7 @@ export default function Invoices() {
                     {invoice.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   {formatDate(invoice.due_date)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -203,21 +203,21 @@ export default function Invoices() {
 
         {meta.totalPages > 1 && (
           <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               Page {page} of {meta.totalPages} ({meta.total} total)
             </span>
             <div className="space-x-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                className="px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded disabled:opacity-50"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage(p => p + 1)}
                 disabled={page >= meta.totalPages}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                className="px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded disabled:opacity-50"
               >
                 Next
               </button>
@@ -229,33 +229,33 @@ export default function Invoices() {
       {/* Create Invoice Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold mb-4">Create Invoice</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Subscriber ID</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Subscriber ID</label>
                   <input
                     type="number"
                     value={formData.subscriber_id}
                     onChange={(e) => setFormData({ ...formData, subscriber_id: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Due Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Due Date</label>
                   <input
                     type="date"
                     value={formData.due_date}
                     onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Items</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Items</label>
                 {formData.items.map((item, index) => (
                   <div key={index} className="flex gap-2 mb-2">
                     <input
@@ -263,14 +263,14 @@ export default function Invoices() {
                       placeholder="Description"
                       value={item.description}
                       onChange={(e) => updateItem(index, 'description', e.target.value)}
-                      className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                     <input
                       type="number"
                       placeholder="Qty"
                       value={item.quantity}
                       onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                      className="w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                     <input
                       type="number"
@@ -278,7 +278,7 @@ export default function Invoices() {
                       placeholder="Price"
                       value={item.unit_price}
                       onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
-                      className="w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                     {formData.items.length > 1 && (
                       <button
@@ -305,11 +305,11 @@ export default function Invoices() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Notes</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                   rows={3}
                 />
               </div>
@@ -318,7 +318,7 @@ export default function Invoices() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:bg-gray-600"
                 >
                   Cancel
                 </button>
@@ -338,7 +338,7 @@ export default function Invoices() {
       {/* Payment Modal */}
       {showPaymentModal && selectedInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">Add Payment</h2>
             <p className="text-sm text-gray-600 mb-4">
               Invoice: {selectedInvoice.invoice_number} |
@@ -346,22 +346,22 @@ export default function Invoices() {
             </p>
             <form onSubmit={submitPayment} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Amount</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Amount</label>
                 <input
                   type="number"
                   step="0.01"
                   value={paymentData.amount}
                   onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Method</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Method</label>
                 <select
                   value={paymentData.method}
                   onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                 >
                   <option value="cash">Cash</option>
                   <option value="card">Card</option>
@@ -370,19 +370,19 @@ export default function Invoices() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Reference</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Reference</label>
                 <input
                   type="text"
                   value={paymentData.reference}
                   onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                 />
               </div>
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:bg-gray-600"
                 >
                   Cancel
                 </button>

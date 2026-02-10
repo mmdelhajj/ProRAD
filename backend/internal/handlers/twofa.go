@@ -29,9 +29,13 @@ func (h *TwoFAHandler) Setup(c *fiber.Ctx) error {
 		})
 	}
 
-	// Generate new TOTP key
+	// Generate new TOTP key with company name as issuer
+	issuer := database.GetCompanyName()
+	if issuer == "" {
+		issuer = "ISP Management"
+	}
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "ProISP",
+		Issuer:      issuer,
 		AccountName: user.Username,
 	})
 	if err != nil {

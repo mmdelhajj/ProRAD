@@ -1,13 +1,43 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
 	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/models"
 )
+
+// convertSpeedForMikrotik converts speed to kb format
+// All speeds stored as kb: 2000k, 1200k, 4000k
+func convertSpeedForMikrotik(speedStr string) string {
+	if speedStr == "" {
+		return ""
+	}
+
+	speedStr = strings.TrimSpace(speedStr)
+
+	// Already in k format - keep as-is
+	if strings.HasSuffix(strings.ToLower(speedStr), "k") {
+		return speedStr
+	}
+
+	// If ends with M, convert to k
+	if strings.HasSuffix(strings.ToLower(speedStr), "m") {
+		numStr := speedStr[:len(speedStr)-1]
+		val, err := strconv.ParseFloat(numStr, 64)
+		if err != nil {
+			return speedStr
+		}
+		return fmt.Sprintf("%dk", int64(val*1000))
+	}
+
+	// Plain number - treat as kb value, add k suffix
+	return speedStr + "k"
+}
 
 type ServiceHandler struct{}
 
@@ -163,12 +193,13 @@ type CreateServiceRequest struct {
 	QueueType        string  `json:"queue_type"`
 	SortOrder        int     `json:"sort_order"`
 	// Time-based speed control
-	TimeFromHour      int `json:"time_from_hour"`
-	TimeFromMinute    int `json:"time_from_minute"`
-	TimeToHour        int `json:"time_to_hour"`
-	TimeToMinute      int `json:"time_to_minute"`
-	TimeDownloadRatio int `json:"time_download_ratio"`
-	TimeUploadRatio   int `json:"time_upload_ratio"`
+	TimeBasedSpeedEnabled bool `json:"time_based_speed_enabled"`
+	TimeFromHour          int  `json:"time_from_hour"`
+	TimeFromMinute        int  `json:"time_from_minute"`
+	TimeToHour            int  `json:"time_to_hour"`
+	TimeToMinute          int  `json:"time_to_minute"`
+	TimeDownloadRatio     int  `json:"time_download_ratio"`
+	TimeUploadRatio       int  `json:"time_upload_ratio"`
 }
 
 // Create creates a new service
@@ -198,14 +229,19 @@ func (h *ServiceHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 
+	// Convert speed strings from Mbps to kbps format for MikroTik compatibility
+	// e.g., "1.4M" or "1.4" -> "1400k"
+	downloadSpeedStr := convertSpeedForMikrotik(req.DownloadSpeedStr)
+	uploadSpeedStr := convertSpeedForMikrotik(req.UploadSpeedStr)
+
 	service := models.Service{
 		Name:             req.Name,
 		CommercialName:   req.CommercialName,
 		Description:      req.Description,
 		DownloadSpeed:    req.DownloadSpeed,
 		UploadSpeed:      req.UploadSpeed,
-		DownloadSpeedStr: req.DownloadSpeedStr,
-		UploadSpeedStr:   req.UploadSpeedStr,
+		DownloadSpeedStr: downloadSpeedStr,
+		UploadSpeedStr:   uploadSpeedStr,
 		BurstDownload:    req.BurstDownload,
 		BurstUpload:      req.BurstUpload,
 		BurstThreshold:   req.BurstThreshold,
@@ -246,13 +282,14 @@ func (h *ServiceHandler) Create(c *fiber.Ctx) error {
 		QueueType:        req.QueueType,
 		SortOrder:        req.SortOrder,
 		// Time-based speed control
-		TimeFromHour:      req.TimeFromHour,
-		TimeFromMinute:    req.TimeFromMinute,
-		TimeToHour:        req.TimeToHour,
-		TimeToMinute:      req.TimeToMinute,
-		TimeDownloadRatio: req.TimeDownloadRatio,
-		TimeUploadRatio:   req.TimeUploadRatio,
-		IsActive:         true,
+		TimeBasedSpeedEnabled: req.TimeBasedSpeedEnabled,
+		TimeFromHour:          req.TimeFromHour,
+		TimeFromMinute:        req.TimeFromMinute,
+		TimeToHour:            req.TimeToHour,
+		TimeToMinute:          req.TimeToMinute,
+		TimeDownloadRatio:     req.TimeDownloadRatio,
+		TimeUploadRatio:       req.TimeUploadRatio,
+		IsActive:              true,
 	}
 
 	if service.ExpiryValue == 0 {
@@ -341,6 +378,7 @@ func (h *ServiceHandler) Update(c *fiber.Ctx) error {
 		"price", "day_price", "reset_price",
 		"expiry_value", "expiry_unit", "entire_month", "monthly_account",
 		"pool_name", "address_list_in", "address_list_out", "queue_type",
+		"time_based_speed_enabled",
 		"time_from_hour", "time_from_minute", "time_to_hour", "time_to_minute",
 		"time_download_ratio", "time_upload_ratio",
 		"sort_order", "is_active",
@@ -349,6 +387,13 @@ func (h *ServiceHandler) Update(c *fiber.Ctx) error {
 	updates := make(map[string]interface{})
 	for _, field := range allowedFields {
 		if val, ok := req[field]; ok {
+			// Convert speed strings from Mbps to kbps format
+			if field == "download_speed_str" || field == "upload_speed_str" {
+				if strVal, ok := val.(string); ok {
+					updates[field] = convertSpeedForMikrotik(strVal)
+					continue
+				}
+			}
 			updates[field] = val
 		}
 	}

@@ -127,13 +127,33 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid - only logout if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        localStorage.removeItem('proisp-auth')
-        window.location.href = '/login'
+    // NOTE: We do NOT auto-logout on 401 here anymore
+    // The PrivateRoute component handles auth redirects after Zustand hydration
+    // Auto-logout was causing issues because requests could fire before hydration completed
+
+    // Handle license-related errors
+    if (error.response?.status === 403) {
+      const code = error.response.data?.code
+      if (code === 'LICENSE_READONLY') {
+        // System is in read-only mode - enhance error message
+        error.licenseReadOnly = true
+        error.response.data.message = 'System is in read-only mode due to expired license. Please renew your license to make changes.'
+      } else if (code === 'LICENSE_GRACE_PERIOD') {
+        // Grace period - can't create new records
+        error.licenseGracePeriod = true
+        error.response.data.message = 'License expired. Creating new records is disabled during grace period. Please renew your license.'
+      } else if (code === 'LICENSE_INVALID') {
+        // License is blocked
+        error.licenseBlocked = true
       }
     }
+
+    // Handle 402 Payment Required (license blocked)
+    if (error.response?.status === 402) {
+      error.licenseBlocked = true
+      error.response.data.message = 'License expired or invalid. Please contact support.'
+    }
+
     return Promise.reject(error)
   }
 )
@@ -163,10 +183,13 @@ export const subscriberApi = {
   deactivate: (id) => api.post(`/subscribers/${id}/deactivate`),
   refill: (id, data) => api.post(`/subscribers/${id}/refill`, data),
   ping: (id) => api.post(`/subscribers/${id}/ping`),
+  getPassword: (id) => api.get(`/subscribers/${id}/password`),
   getBandwidth: (id) => api.get(`/subscribers/${id}/bandwidth`),
+  getTorch: (id, duration = 3) => api.get(`/subscribers/${id}/torch?duration=${duration}`),
   bulkImport: (formData) => api.post('/subscribers/bulk-import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
+  importExcel: (data) => api.post('/subscribers/import-excel', data),
   bulkUpdate: (data) => api.post('/subscribers/bulk-update', data),
   bulkAction: (data) => api.post('/subscribers/bulk-action', data),
   // Bandwidth rules
@@ -203,9 +226,11 @@ export const resellerApi = {
   create: (data) => api.post('/resellers', data),
   update: (id, data) => api.put(`/resellers/${id}`, data),
   delete: (id) => api.delete(`/resellers/${id}`),
+  permanentDelete: (id) => api.delete(`/resellers/${id}/permanent`),
   transfer: (id, data) => api.post(`/resellers/${id}/transfer`, data),
   withdraw: (id, data) => api.post(`/resellers/${id}/withdraw`, data),
   impersonate: (id) => api.post(`/resellers/${id}/impersonate`),
+  getImpersonateToken: (id) => api.post(`/resellers/${id}/impersonate-token`), // Get temp token for new tab
   // NAS and Service assignments
   getAssignedNAS: (id) => api.get(`/resellers/${id}/assigned-nas`),
   updateAssignedNAS: (id, nasIds) => api.put(`/resellers/${id}/assigned-nas`, { nas_ids: nasIds }),
@@ -219,6 +244,9 @@ export const dashboardApi = {
   transactions: (params) => api.get('/dashboard/transactions', { params }),
   resellers: (params) => api.get('/dashboard/resellers', { params }),
   sessions: (params) => api.get('/dashboard/sessions', { params }),
+  systemMetrics: () => api.get('/dashboard/system-metrics'),
+  systemCapacity: () => api.get('/dashboard/system-capacity'),
+  systemInfo: () => api.get('/dashboard/system-info'),
 }
 
 export const sessionApi = {
@@ -234,6 +262,12 @@ export const sharingApi = {
   getNasRuleStatus: () => api.get('/sharing/nas-rules'),
   generateTTLRules: (nasId) => api.post(`/sharing/nas/${nasId}/rules`),
   removeTTLRules: (nasId) => api.delete(`/sharing/nas/${nasId}/rules`),
+  getHistory: (params) => api.get('/sharing/history', { params }),
+  getTrends: (params) => api.get('/sharing/trends', { params }),
+  getRepeatOffenders: (params) => api.get('/sharing/repeat-offenders', { params }),
+  getSettings: () => api.get('/sharing/settings'),
+  updateSettings: (data) => api.put('/sharing/settings', data),
+  runManualScan: () => api.post('/sharing/scan'),
 }
 
 export const ticketApi = {
@@ -253,8 +287,19 @@ export const backupApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   download: (filename) => api.get(`/backups/${filename}/download`, { responseType: 'blob' }),
+  getDownloadToken: (filename) => api.get(`/backups/${filename}/token`),
   restore: (filename) => api.post(`/backups/${filename}/restore`),
   delete: (filename) => api.delete(`/backups/${filename}`),
+  // Schedules
+  listSchedules: () => api.get('/backups/schedules'),
+  getSchedule: (id) => api.get(`/backups/schedules/${id}`),
+  createSchedule: (data) => api.post('/backups/schedules', data),
+  updateSchedule: (id, data) => api.put(`/backups/schedules/${id}`, data),
+  deleteSchedule: (id) => api.delete(`/backups/schedules/${id}`),
+  toggleSchedule: (id) => api.post(`/backups/schedules/${id}/toggle`),
+  runScheduleNow: (id) => api.post(`/backups/schedules/${id}/run`),
+  testFTP: (data) => api.post('/backups/test-ftp', data),
+  listLogs: (params) => api.get('/backups/logs', { params }),
 }
 
 export const permissionApi = {
@@ -277,6 +322,31 @@ export const settingsApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   deleteLogo: () => api.delete('/settings/logo'),
+  uploadLoginBackground: (formData) => api.post('/settings/login-background', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  deleteLoginBackground: () => api.delete('/settings/login-background'),
+  uploadFavicon: (formData) => api.post('/settings/favicon', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  deleteFavicon: () => api.delete('/settings/favicon'),
+  restartServices: (services) => api.post('/system/restart-services', { services }),
+}
+
+export const clusterApi = {
+  getConfig: () => api.get('/cluster/config'),
+  getStatus: () => api.get('/cluster/status'),
+  setupMain: (data) => api.post('/cluster/setup-main', data),
+  setupSecondary: (data) => api.post('/cluster/setup-secondary', data),
+  joinCluster: (data) => api.post('/cluster/join', data),
+  leaveCluster: () => api.post('/cluster/leave'),
+  removeNode: (id) => api.delete(`/cluster/nodes/${id}`),
+  manualFailover: (targetNodeId) => api.post('/cluster/failover', { target_node_id: targetNodeId }),
+  testConnection: (data) => api.post('/cluster/test-connection', data),
+  checkMainStatus: () => api.get('/cluster/check-main-status'),
+  promoteToMain: () => api.post('/cluster/promote-to-main'),
+  testSourceConnection: (data) => api.post('/cluster/test-source-connection', data),
+  recoverFromServer: (data) => api.post('/cluster/recover-from-server', data),
 }
 
 export const cdnApi = {
@@ -295,23 +365,29 @@ export const cdnApi = {
   deleteServiceCDN: (serviceId, cdnId) => api.delete(`/services/${serviceId}/cdns/${cdnId}`),
 }
 
+export const notificationApi = {
+  // Update notifications
+  getPending: () => api.get('/notifications/updates/pending'),
+  markRead: (id) => api.post(`/notifications/updates/${id}/read`),
+  getSettings: () => api.get('/notifications/updates/settings'),
+  updateSettings: (settings) => api.put('/notifications/updates/settings', settings),
+  // Test notifications (admin only)
+  testSMTP: (data) => api.post('/notifications/test-smtp', data),
+  testSMS: (data) => api.post('/notifications/test-sms', data),
+  testWhatsApp: (data) => api.post('/notifications/test-whatsapp', data),
+  getWhatsAppStatus: () => api.get('/notifications/whatsapp-status'),
+}
+
 // Public API - no auth required
 export const publicApi = {
   getBranding: () => axios.get('/api/branding'),
+  exchangeImpersonateToken: (token) => axios.post('/api/auth/impersonate-exchange', { token }),
 }
 
-
-// License API
-export const licenseApi = {
-  getInfo: () => api.get("/license"),
-  getStatus: () => api.get("/license/status"),
-  revalidate: () => api.post("/license/revalidate"),
-}
-
-// System Update API
-export const systemApi = {
-  checkUpdate: () => api.get("/system/update/check"),
-  applyUpdate: (version) => api.post("/system/update/apply", { version }),
-  getRemoteSupportStatus: () => api.get("/system/remote-support/status"),
-  toggleRemoteSupport: (enabled) => api.post("/system/remote-support/toggle", { enabled }),
+// Network Configuration API
+export const networkApi = {
+  getCurrentConfig: () => api.get('/system/network/current'),
+  detectDNSMethod: () => api.get('/system/network/detect-dns'),
+  testConfig: (data) => api.post('/system/network/test', data),
+  applyConfig: (data) => api.post('/system/network/apply', data),
 }

@@ -2,57 +2,82 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function LicenseBanner() {
   const [dismissed, setDismissed] = useState(false)
 
   const { data: licenseData } = useQuery({
     queryKey: ['license-status'],
-    queryFn: () => api.get('/license').then(res => res.data.data),
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    queryFn: () => api.get('/license/status').then(res => res.data),
+    staleTime: 60 * 1000, // Cache for 1 minute
+    refetchInterval: 60 * 1000, // Refetch every minute
     retry: false,
   })
+
+  // Reset dismissed state when status changes to something critical
+  useEffect(() => {
+    if (licenseData?.license_status === 'blocked' || licenseData?.license_status === 'readonly') {
+      setDismissed(false)
+    }
+  }, [licenseData?.license_status])
 
   // Don't show banner if dismissed or no data
   if (dismissed || !licenseData) return null
 
-  // Determine what type of warning to show
+  const status = licenseData.license_status
+  const daysLeft = licenseData.days_until_expiry
+  const warningMessage = licenseData.warning_message
+  const readOnly = licenseData.read_only
+
+  // Determine what type of warning to show based on WHMCS-style status
   let bannerType = null
   let message = ''
   let submessage = ''
   let canDismiss = true
 
-  if (!licenseData.valid) {
-    // License is invalid - suspended, expired, or revoked
-    bannerType = 'error'
-    canDismiss = false
+  switch (status) {
+    case 'blocked':
+      // License is fully blocked
+      bannerType = 'error'
+      canDismiss = false
+      message = 'License Blocked'
+      submessage = 'Your license has expired and the grace period has ended. Please contact support or renew your license immediately.'
+      break
 
-    if (licenseData.message?.toLowerCase().includes('suspended')) {
-      message = 'Your license has been suspended'
-      submessage = 'Please contact support to reactivate your license. Some features may be restricted.'
-    } else if (licenseData.message?.toLowerCase().includes('expired')) {
-      message = 'Your license has expired'
-      submessage = 'Please renew your license to continue using all features.'
-    } else if (licenseData.message?.toLowerCase().includes('revoked')) {
-      message = 'Your license has been revoked'
-      submessage = 'Please contact support for assistance.'
-    } else {
-      message = 'License validation failed'
-      submessage = licenseData.message || 'Please contact support.'
-    }
-  } else if (licenseData.grace_period) {
-    // License is in grace period
-    bannerType = 'warning'
-    canDismiss = false
-    message = 'Your license is in grace period'
-    submessage = `Please renew immediately to avoid service interruption. ${licenseData.days_remaining || 0} days remaining.`
-  } else if (licenseData.days_remaining !== undefined && licenseData.days_remaining <= 7 && !licenseData.is_lifetime) {
-    // License expiring soon (7 days or less)
-    bannerType = 'warning'
-    message = `Your license expires in ${licenseData.days_remaining} day${licenseData.days_remaining !== 1 ? 's' : ''}`
-    submessage = 'Please renew soon to avoid service interruption.'
+    case 'readonly':
+      // System is in read-only mode
+      bannerType = 'error'
+      canDismiss = false
+      message = 'Read-Only Mode'
+      submessage = `License expired. You can view data but cannot make changes. ${Math.abs(daysLeft)} days overdue. Please renew immediately.`
+      break
+
+    case 'grace':
+      // License expired but in grace period
+      bannerType = 'warning'
+      canDismiss = false
+      message = 'License Grace Period'
+      submessage = `Your license has expired. ${Math.abs(daysLeft)} days overdue. System will enter read-only mode soon. Renew now!`
+      break
+
+    case 'warning':
+      // License expiring soon
+      bannerType = 'warning'
+      canDismiss = true
+      if (daysLeft <= 7) {
+        message = `License expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}!`
+        submessage = warningMessage || 'Please renew immediately to avoid service interruption.'
+      } else {
+        message = `License expires in ${daysLeft} days`
+        submessage = warningMessage || 'Please renew soon to ensure uninterrupted service.'
+      }
+      break
+
+    case 'active':
+    default:
+      // No warning needed
+      return null
   }
 
   // No warning needed
@@ -84,15 +109,16 @@ export default function LicenseBanner() {
                 {submessage}
               </span>
             )}
+            {readOnly && status !== 'blocked' && (
+              <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-black/20 rounded">
+                READ-ONLY
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Link
-            to="/settings"
-            onClick={() => {
-              // Switch to license tab when navigating
-              sessionStorage.setItem('settings-tab', 'license')
-            }}
+            to="/settings?tab=license"
             className={`text-sm font-medium underline hover:no-underline ${textColor}`}
           >
             View License

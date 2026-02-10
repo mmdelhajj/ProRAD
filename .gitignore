@@ -1,45 +1,5 @@
-# Environment files with secrets
-.env
-
-# Node modules
 node_modules/
-
-# Build artifacts
-frontend/dist/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
 *.log
-
-# Binaries
-backend/cmd/api/api
-backend/cmd/radius/radius
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Reference/old code
+.env
 reference/
-
-# Temp files
-tmp/
-temp/
-*.tmp
-
-# SSL certs
 ssl/
-
-# Uploads
-uploads/
-backend/api
-backend/bin/

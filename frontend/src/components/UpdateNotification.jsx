@@ -56,12 +56,12 @@ export default function UpdateNotification() {
           />
 
           {/* Popup content */}
-          <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border z-50">
+          <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border z-50">
             <div className="p-3">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <ArrowDownTrayIcon className={`w-5 h-5 ${isCritical ? 'text-orange-500' : 'text-blue-500'}`} />
-                  <span className="font-medium text-sm text-gray-900">
+                  <span className="font-medium text-sm text-gray-900 dark:text-white">
                     {isCritical ? 'Critical Update' : 'Update Available'}
                   </span>
                 </div>

@@ -94,13 +94,14 @@ func (h *UserHandler) Get(c *fiber.Ctx) error {
 // Create creates a new admin user
 func (h *UserHandler) Create(c *fiber.Ctx) error {
 	type CreateRequest struct {
-		Username string           `json:"username"`
-		Password string           `json:"password"`
-		Email    string           `json:"email"`
-		Phone    string           `json:"phone"`
-		FullName string           `json:"full_name"`
-		UserType models.UserType  `json:"user_type"`
-		IsActive bool             `json:"is_active"`
+		Username        string           `json:"username"`
+		Password        string           `json:"password"`
+		Email           string           `json:"email"`
+		Phone           string           `json:"phone"`
+		FullName        string           `json:"full_name"`
+		UserType        models.UserType  `json:"user_type"`
+		IsActive        bool             `json:"is_active"`
+		PermissionGroup *uint            `json:"permission_group"`
 	}
 
 	var req CreateRequest
@@ -125,9 +126,9 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if username exists
+	// Check if username exists (including soft-deleted to prevent conflicts)
 	var exists int64
-	database.DB.Model(&models.User{}).Where("username = ?", req.Username).Count(&exists)
+	database.DB.Unscoped().Model(&models.User{}).Where("username = ?", req.Username).Count(&exists)
 	if exists > 0 {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"success": false,
@@ -139,13 +140,14 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 
 	user := models.User{
-		Username: req.Username,
-		Password: string(hashedPassword),
-		Email:    req.Email,
-		Phone:    req.Phone,
-		FullName: req.FullName,
-		UserType: req.UserType,
-		IsActive: req.IsActive,
+		Username:        req.Username,
+		Password:        string(hashedPassword),
+		Email:           req.Email,
+		Phone:           req.Phone,
+		FullName:        req.FullName,
+		UserType:        req.UserType,
+		IsActive:        req.IsActive,
+		PermissionGroup: req.PermissionGroup,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -174,12 +176,13 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 	}
 
 	type UpdateRequest struct {
-		Password string           `json:"password"`
-		Email    string           `json:"email"`
-		Phone    string           `json:"phone"`
-		FullName string           `json:"full_name"`
-		UserType models.UserType  `json:"user_type"`
-		IsActive bool             `json:"is_active"`
+		Password        string           `json:"password"`
+		Email           string           `json:"email"`
+		Phone           string           `json:"phone"`
+		FullName        string           `json:"full_name"`
+		UserType        models.UserType  `json:"user_type"`
+		IsActive        bool             `json:"is_active"`
+		PermissionGroup *uint            `json:"permission_group"`
 	}
 
 	var req UpdateRequest
@@ -191,11 +194,12 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 	}
 
 	updates := map[string]interface{}{
-		"email":     req.Email,
-		"phone":     req.Phone,
-		"full_name": req.FullName,
-		"user_type": req.UserType,
-		"is_active": req.IsActive,
+		"email":            req.Email,
+		"phone":            req.Phone,
+		"full_name":        req.FullName,
+		"user_type":        req.UserType,
+		"is_active":        req.IsActive,
+		"permission_group": req.PermissionGroup,
 	}
 
 	if req.Password != "" {

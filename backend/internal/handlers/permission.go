@@ -14,14 +14,53 @@ func NewPermissionHandler() *PermissionHandler {
 
 // Permission Groups
 
-// ListGroups returns all permission groups
+// GroupWithResellers extends PermissionGroup with assigned resellers
+type GroupWithResellers struct {
+	models.PermissionGroup
+	Resellers []ResellerInfo `json:"resellers"`
+}
+
+// ResellerInfo contains basic reseller info for display
+type ResellerInfo struct {
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	FullName string `json:"full_name"`
+}
+
+// ListGroups returns all permission groups with assigned resellers
 func (h *PermissionHandler) ListGroups(c *fiber.Ctx) error {
 	var groups []models.PermissionGroup
-	database.DB.Preload("Permissions").Order("name").Find(&groups)
+	database.DB.Order("name").Find(&groups)
+
+	// Build response with resellers info
+	result := make([]GroupWithResellers, len(groups))
+
+	for i := range groups {
+		// Load permissions
+		var permissions []models.Permission
+		database.DB.Table("permissions").
+			Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+			Where("pgp.permission_group_id = ?", groups[i].ID).
+			Find(&permissions)
+		groups[i].Permissions = permissions
+
+		// Load resellers assigned to this group (join with users table to get username)
+		var resellers []ResellerInfo
+		database.DB.Table("resellers").
+			Select("resellers.id, users.username, resellers.name as full_name").
+			Joins("JOIN users ON users.id = resellers.user_id").
+			Where("resellers.permission_group = ?", groups[i].ID).
+			Find(&resellers)
+
+		result[i] = GroupWithResellers{
+			PermissionGroup: groups[i],
+			Resellers:       resellers,
+		}
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    groups,
+		"data":    result,
 	})
 }
 
@@ -30,12 +69,20 @@ func (h *PermissionHandler) GetGroup(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	var group models.PermissionGroup
-	if err := database.DB.Preload("Permissions").First(&group, id).Error; err != nil {
+	if err := database.DB.First(&group, id).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
 			"message": "Permission group not found",
 		})
 	}
+
+	// Manually load permissions (Preload doesn't work with gorm:"-")
+	var permissions []models.Permission
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", group.ID).
+		Find(&permissions)
+	group.Permissions = permissions
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -81,14 +128,20 @@ func (h *PermissionHandler) CreateGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	// Add permissions
+	// Add permissions using junction table (Association doesn't work with gorm:"-")
 	if len(req.PermissionIDs) > 0 {
-		var permissions []models.Permission
-		database.DB.Where("id IN ?", req.PermissionIDs).Find(&permissions)
-		database.DB.Model(&group).Association("Permissions").Replace(permissions)
+		for _, permID := range req.PermissionIDs {
+			database.DB.Exec("INSERT INTO permission_group_permissions (permission_group_id, permission_id) VALUES (?, ?)", group.ID, permID)
+		}
 	}
 
-	database.DB.Preload("Permissions").First(&group, group.ID)
+	// Load permissions manually for response (Preload doesn't work with gorm:"-")
+	var permissions []models.Permission
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", group.ID).
+		Find(&permissions)
+	group.Permissions = permissions
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"success": true,
@@ -144,14 +197,24 @@ func (h *PermissionHandler) UpdateGroup(c *fiber.Ctx) error {
 
 	database.DB.Model(&group).Updates(updates)
 
-	// Update permissions (including clearing all if empty array)
-	var permissions []models.Permission
-	if len(req.PermissionIDs) > 0 {
-		database.DB.Where("id IN ?", req.PermissionIDs).Find(&permissions)
-	}
-	database.DB.Model(&group).Association("Permissions").Replace(permissions)
+	// Update permissions using junction table (Association doesn't work with gorm:"-")
+	// First delete all existing permissions for this group
+	database.DB.Exec("DELETE FROM permission_group_permissions WHERE permission_group_id = ?", group.ID)
 
-	database.DB.Preload("Permissions").First(&group, group.ID)
+	// Then insert new permissions
+	if len(req.PermissionIDs) > 0 {
+		for _, permID := range req.PermissionIDs {
+			database.DB.Exec("INSERT INTO permission_group_permissions (permission_group_id, permission_id) VALUES (?, ?)", group.ID, permID)
+		}
+	}
+
+	// Load permissions manually for response
+	var permissions []models.Permission
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", group.ID).
+		Find(&permissions)
+	group.Permissions = permissions
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -181,8 +244,8 @@ func (h *PermissionHandler) DeleteGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	// Clear permissions association
-	database.DB.Model(&group).Association("Permissions").Clear()
+	// Clear permissions from junction table (Association doesn't work with gorm:"-")
+	database.DB.Exec("DELETE FROM permission_group_permissions WHERE permission_group_id = ?", group.ID)
 	database.DB.Delete(&group)
 
 	return c.JSON(fiber.Map{
@@ -458,7 +521,7 @@ func (h *PermissionHandler) SeedDefaultPermissions(c *fiber.Ctx) error {
 		{Name: "settings.radius", Description: "RADIUS configuration"},
 		{Name: "settings.billing", Description: "Billing configuration"},
 		{Name: "settings.notifications", Description: "Notification settings"},
-		{Name: "settings.change_language", Description: "Change ProISP language"},
+		{Name: "settings.change_language", Description: "Change system language"},
 
 		// ============ AUDIT ============
 		{Name: "audit.view", Description: "View audit logs"},

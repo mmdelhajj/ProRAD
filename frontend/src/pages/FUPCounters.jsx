@@ -31,7 +31,7 @@ function formatBytes(bytes) {
 function QuotaBar({ used, total, label }) {
   if (total === 0) {
     return (
-      <div className="text-xs text-gray-400">Unlimited</div>
+      <div className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">Unlimited</div>
     )
   }
 
@@ -42,7 +42,7 @@ function QuotaBar({ used, total, label }) {
     <div className="w-full">
       <div className="flex justify-between text-xs mb-1">
         <span>{formatBytes(used)}</span>
-        <span className="text-gray-400">{formatBytes(total)}</span>
+        <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">{formatBytes(total)}</span>
       </div>
       <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
         <div
@@ -120,7 +120,7 @@ export default function FUPCounters() {
           type="checkbox"
           checked={table.getIsAllRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
-          className="rounded border-gray-300"
+          className="rounded border-gray-300 dark:border-gray-600"
         />
       ),
       cell: ({ row }) => (
@@ -128,7 +128,7 @@ export default function FUPCounters() {
           type="checkbox"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
-          className="rounded border-gray-300"
+          className="rounded border-gray-300 dark:border-gray-600"
         />
       ),
     }),
@@ -137,7 +137,7 @@ export default function FUPCounters() {
       cell: info => (
         <div>
           <div className="font-medium">{info.getValue()}</div>
-          <div className="text-xs text-gray-500">{info.row.original.full_name}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{info.row.original.full_name}</div>
         </div>
       ),
     }),
@@ -186,7 +186,7 @@ export default function FUPCounters() {
       cell: info => (
         <span className={clsx(
           'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-          info.getValue() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+          info.getValue() ? 'bg-green-100 text-green-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
         )}>
           <SignalIcon className={clsx('w-3 h-3 mr-1', info.getValue() ? 'text-green-500' : 'text-gray-400')} />
           {info.getValue() ? 'Online' : 'Offline'}
@@ -236,8 +236,8 @@ export default function FUPCounters() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">FUP & Counters</h1>
-          <p className="text-gray-500">Manage Fair Usage Policy and quota counters</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">FUP & Counters</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Manage Fair Usage Policy and quota counters</p>
         </div>
         <button
           onClick={() => resetAllMutation.mutate()}
@@ -251,61 +251,61 @@ export default function FUPCounters() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl shadow-sm p-4 border">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
               <ChartBarIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Total Subscribers</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Subscribers</p>
               <p className="text-xl font-bold">{stats.total_subscribers || 0}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-4 border">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
           <div className="flex items-center">
             <div className="p-2 bg-red-100 rounded-lg">
               <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Active FUP</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active FUP</p>
               <p className="text-xl font-bold text-red-600">{stats.active_fup || 0}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-4 border">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
           <div className="flex items-center">
             <div className="p-2 bg-yellow-100 rounded-lg">
               <ExclamationTriangleIcon className="w-6 h-6 text-yellow-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Daily Exceeded</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Daily Exceeded</p>
               <p className="text-xl font-bold text-yellow-600">{stats.daily_quota_exceeded || 0}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-4 border">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
           <div className="flex items-center">
-            <div className="p-2 bg-orange-100 rounded-lg">
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
               <ExclamationTriangleIcon className="w-6 h-6 text-orange-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Monthly Exceeded</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Monthly Exceeded</p>
               <p className="text-xl font-bold text-orange-600">{stats.monthly_quota_exceeded || 0}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-4 border">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircleIcon className="w-6 h-6 text-green-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Unlimited</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Unlimited</p>
               <p className="text-xl font-bold text-green-600">{stats.unlimited_quota || 0}</p>
             </div>
           </div>
@@ -314,13 +314,13 @@ export default function FUPCounters() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Table */}
-        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border">
+        <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border">
           {/* Filters */}
           <div className="p-4 border-b">
             <div className="flex flex-wrap gap-4">
               <div className="flex-1 min-w-[200px]">
                 <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search username..."
@@ -404,7 +404,7 @@ export default function FUPCounters() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map(header => (
@@ -418,22 +418,22 @@ export default function FUPCounters() {
                   </tr>
                 ))}
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       Loading...
                     </td>
                   </tr>
                 ) : table.getRowModel().rows.length === 0 ? (
                   <tr>
-                    <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       No subscribers found
                     </td>
                   </tr>
                 ) : (
                   table.getRowModel().rows.map(row => (
-                    <tr key={row.id} className="hover:bg-gray-50">
+                    <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                       {row.getVisibleCells().map(cell => (
                         <td key={cell.id} className="px-4 py-3">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -449,7 +449,7 @@ export default function FUPCounters() {
           {/* Pagination */}
           {quotasData?.meta && (
             <div className="px-4 py-3 border-t flex items-center justify-between">
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                 Showing {((page - 1) * 25) + 1} to {Math.min(page * 25, quotasData.meta.total)} of {quotasData.meta.total}
               </div>
               <div className="flex gap-2">
@@ -473,8 +473,8 @@ export default function FUPCounters() {
         </div>
 
         {/* Top Users Sidebar */}
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <h3 className="font-semibold text-gray-900 mb-4">Top Quota Users</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Top Quota Users</h3>
           <div className="space-y-4">
             {topUsersData?.map((user, index) => (
               <div key={user.id} className="flex items-center">
@@ -488,7 +488,7 @@ export default function FUPCounters() {
                 </div>
                 <div className="ml-3 flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{user.username}</p>
-                  <p className="text-xs text-gray-500">{user.service_name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{user.service_name}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium">{formatBytes(user.quota_used)}</p>

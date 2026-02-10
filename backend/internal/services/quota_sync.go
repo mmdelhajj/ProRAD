@@ -59,16 +59,31 @@ func getDailyQuotaResetTime() (int, int) {
 	return hour, minute
 }
 
-// getCompanyName retrieves company name from settings, defaults to "ProISP"
-func getCompanyName() string {
+// getQuotaSyncCompanyName retrieves company name from settings for quota sync branding
+func getQuotaSyncCompanyName() string {
+	name := database.GetCompanyName()
+	if name == "" {
+		return "ISP"
+	}
+	return name
+}
+
+// isBlockOnDailyQuotaExceeded checks if internet should be blocked when daily quota is exceeded
+func isBlockOnDailyQuotaExceeded() bool {
 	var pref models.SystemPreference
-	if err := database.DB.Where("key = ?", "company_name").First(&pref).Error; err != nil {
-		return "ProISP"
+	if err := database.DB.Where("key = ?", "block_on_daily_quota_exceeded").First(&pref).Error; err != nil {
+		return false // Default to FUP behavior (don't block)
 	}
-	if pref.Value == "" {
-		return "ProISP"
+	return pref.Value == "true" || pref.Value == "1"
+}
+
+// isBlockOnMonthlyQuotaExceeded checks if internet should be blocked when monthly quota is exceeded
+func isBlockOnMonthlyQuotaExceeded() bool {
+	var pref models.SystemPreference
+	if err := database.DB.Where("key = ?", "block_on_monthly_quota_exceeded").First(&pref).Error; err != nil {
+		return false // Default to FUP behavior (don't block)
 	}
-	return pref.Value
+	return pref.Value == "true" || pref.Value == "1"
 }
 
 // shouldResetDailyQuota checks if daily quota should be reset based on configured time
@@ -89,6 +104,87 @@ func shouldResetDailyQuota(lastReset *time.Time, now time.Time) bool {
 	}
 
 	return false
+}
+
+// DailyQuotaResetService handles scheduled daily quota reset for ALL users
+type DailyQuotaResetService struct {
+	stopChan    chan struct{}
+	wg          sync.WaitGroup
+	lastResetAt time.Time
+}
+
+// NewDailyQuotaResetService creates a new daily quota reset service
+func NewDailyQuotaResetService() *DailyQuotaResetService {
+	return &DailyQuotaResetService{
+		stopChan: make(chan struct{}),
+	}
+}
+
+// Start begins the daily quota reset scheduler
+func (s *DailyQuotaResetService) Start() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		log.Println("DailyQuotaResetService started")
+
+		// Check every minute
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				s.checkAndReset()
+			case <-s.stopChan:
+				log.Println("DailyQuotaResetService stopped")
+				return
+			}
+		}
+	}()
+}
+
+// Stop stops the daily quota reset service
+func (s *DailyQuotaResetService) Stop() {
+	close(s.stopChan)
+	s.wg.Wait()
+}
+
+// checkAndReset checks if it's time to reset and performs the reset
+func (s *DailyQuotaResetService) checkAndReset() {
+	now := getNow()
+	resetHour, resetMinute := getDailyQuotaResetTime()
+
+	// Check if current time matches reset time (within the current minute)
+	if now.Hour() != resetHour || now.Minute() != resetMinute {
+		return
+	}
+
+	// Check if we already reset today
+	todayReset := time.Date(now.Year(), now.Month(), now.Day(), resetHour, resetMinute, 0, 0, now.Location())
+	if !s.lastResetAt.IsZero() && s.lastResetAt.After(todayReset.Add(-1*time.Minute)) {
+		return // Already reset in this time window
+	}
+
+	log.Printf("DailyQuotaResetService: Running scheduled reset at %02d:%02d", resetHour, resetMinute)
+
+	// Reset daily quotas for ALL subscribers (online and offline)
+	result := database.DB.Model(&models.Subscriber{}).
+		Where("deleted_at IS NULL").
+		Updates(map[string]interface{}{
+			"daily_quota_used":     0,
+			"daily_download_used":  0,
+			"daily_upload_used":    0,
+			"fup_level":            0,
+			"last_daily_reset":     now,
+		})
+
+	if result.Error != nil {
+		log.Printf("DailyQuotaResetService: Failed to reset quotas: %v", result.Error)
+		return
+	}
+
+	s.lastResetAt = now
+	log.Printf("DailyQuotaResetService: Reset daily quotas for %d subscribers", result.RowsAffected)
 }
 
 // TimeSpeedState tracks time-based speed state for a user session
@@ -148,6 +244,10 @@ func (s *QuotaSyncService) Stop() {
 
 // syncAllQuotas syncs quota for all online subscribers
 func (s *QuotaSyncService) syncAllQuotas() {
+	// Detect and resolve static IP conflicts first
+	// This kicks dynamic users who got a static IP from the pool
+	s.detectAndResolveStaticIPConflicts()
+
 	// Get all online subscribers with their NAS and Service
 	var subscribers []models.Subscriber
 	if err := database.DB.Preload("Nas").Preload("Service").
@@ -194,11 +294,12 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 	for _, sub := range subscribers {
 		session, err := client.GetActiveSession(sub.Username)
 		if err != nil {
-			// Session ended - mark user as offline
+			// Session ended - mark user as offline and clear IP
 			log.Printf("QuotaSync: GetActiveSession failed for %s: %v - marking offline", sub.Username, err)
 			result := database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).Updates(map[string]interface{}{
-				"is_online":            false,
-				"last_quota_sync":      getNow(),
+				"is_online":             false,
+				"ip_address":            nil, // Clear IP so it doesn't show as duplicate
+				"last_quota_sync":       getNow(),
 				"last_bypass_cdn_bytes": 0, // Reset bypass tracking for next session
 			})
 			if result.Error != nil {
@@ -207,13 +308,13 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 				log.Printf("QuotaSync: Marked %s as offline (rows affected: %d)", sub.Username, result.RowsAffected)
 			}
 			// Remove CDN queues when user disconnects
-			if err := client.RemoveSubscriberCDNQueues(sub.Username, getCompanyName()); err != nil {
+			if err := client.RemoveSubscriberCDNQueues(sub.Username, getQuotaSyncCompanyName()); err != nil {
 				log.Printf("QuotaSync: Failed to remove CDN queues for %s: %v", sub.Username, err)
 			} else {
 				log.Printf("QuotaSync: Removed CDN queues for %s", sub.Username)
 			}
 			// Also remove CDN override queue if exists
-			if err := client.RemoveSubscriberCDNOverrideQueue(sub.Username, getCompanyName()); err != nil {
+			if err := client.RemoveSubscriberCDNOverrideQueue(sub.Username, getQuotaSyncCompanyName()); err != nil {
 				log.Printf("QuotaSync: Failed to remove CDN override queue for %s: %v", sub.Username, err)
 			}
 			continue
@@ -272,7 +373,7 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 				// Build CDN config list for bypass CDNs only
 				var bypassCDNConfigs []mikrotik.CDNSubnetConfig
 				for _, sc := range bypassServiceCDNs {
-					if sc.CDN.ID > 0 && sc.CDN.Subnets != "" {
+					if sc.CDN != nil && sc.CDN.ID > 0 && sc.CDN.Subnets != "" {
 						bypassCDNConfigs = append(bypassCDNConfigs, mikrotik.CDNSubnetConfig{
 							ID:      sc.CDNID,
 							Name:    sc.CDN.Name,
@@ -326,8 +427,8 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 		// Check if we're in "free time" window (time-based speed control)
 		// If within the time window and ratios are not 100%, data is FREE (not counted)
 		isFreeTime := false
-		if sub.Service.ID > 0 {
-			isFreeTime = isWithinTimeWindow(&sub.Service, now)
+		if sub.Service != nil && sub.Service.ID > 0 {
+			isFreeTime = isWithinTimeWindow(sub.Service, now)
 			if isFreeTime {
 				log.Printf("QuotaSync: %s is in FREE TIME window (%02d:%02d-%02d:%02d) - usage not counted",
 					sub.Username,
@@ -455,7 +556,7 @@ func (s *QuotaSyncService) syncSubscriberCDNOverride(client *mikrotik.Client, su
 		return
 	}
 
-	companyName := getCompanyName()
+	companyName := getQuotaSyncCompanyName()
 
 	// Get active CDN bandwidth rule for this subscriber
 	cdnRule := getActiveSubscriberBandwidthRule(sub.ID, models.BandwidthRuleTypeCDN)
@@ -524,13 +625,7 @@ func (s *QuotaSyncService) syncSubscriberCDNQueues(client *mikrotik.Client, sub 
 	}
 
 	// Get company name from system preferences
-	var companyPref models.SystemPreference
-	companyName := "ProISP" // default
-	if err := database.DB.Where("key = ?", "company_name").First(&companyPref).Error; err == nil {
-		if companyPref.Value != "" {
-			companyName = companyPref.Value
-		}
-	}
+	companyName := getQuotaSyncCompanyName()
 
 	now := getNow()
 
@@ -540,6 +635,10 @@ func (s *QuotaSyncService) syncSubscriberCDNQueues(client *mikrotik.Client, sub 
 	// Build CDN config list - skip PCQ-enabled CDNs (they use shared queues)
 	var cdnConfigs []mikrotik.SubscriberCDNConfig
 	for _, sc := range serviceCDNs {
+		// Skip if CDN not loaded
+		if sc.CDN == nil {
+			continue
+		}
 		// Skip PCQ-enabled CDNs - they use shared PCQ queues, not per-subscriber queues
 		if sc.PCQEnabled {
 			log.Printf("CDN: Skipping individual queue for %s/%s - PCQ mode enabled", sub.Username, sc.CDN.Name)
@@ -591,6 +690,10 @@ func (s *QuotaSyncService) syncSubscriberCDNQueues(client *mikrotik.Client, sub 
 
 // isCDNWithinTimeWindow checks if current time is within the CDN's time-based speed window
 func isCDNWithinTimeWindow(sc *models.ServiceCDN, now time.Time) bool {
+	// Skip if time-based speed is disabled
+	if !sc.TimeBasedSpeedEnabled {
+		return false
+	}
 	// Skip if time window not configured (all zeros means no time window)
 	if sc.TimeFromHour == 0 && sc.TimeFromMinute == 0 &&
 		sc.TimeToHour == 0 && sc.TimeToMinute == 0 {
@@ -629,8 +732,84 @@ func getActiveSubscriberBandwidthRule(subscriberID uint, ruleType models.Subscri
 	return nil
 }
 
+// getActiveBandwidthRuleForService returns the active time-based bandwidth rule multiplier for a service
+// Returns downloadMultiplier, uploadMultiplier (100 = no change, 200 = double speed)
+func getActiveBandwidthRuleForService(serviceID uint) (int, int) {
+	now := getNow()
+	currentTime := now.Format("15:04")
+	currentWeekday := int(now.Weekday())
+
+	// Get all enabled bandwidth rules with auto_apply enabled
+	var rules []models.BandwidthRule
+	if err := database.DB.Where("enabled = ? AND auto_apply = ?", true, true).Order("priority ASC").Find(&rules).Error; err != nil {
+		return 100, 100
+	}
+
+	for _, rule := range rules {
+		// Check if rule applies to this service
+		var serviceIDs []uint
+		if len(rule.ServiceIDs) > 0 {
+			if err := json.Unmarshal(rule.ServiceIDs, &serviceIDs); err != nil {
+				continue
+			}
+		}
+		if len(serviceIDs) == 0 {
+			continue
+		}
+
+		serviceMatches := false
+		for _, svcID := range serviceIDs {
+			if svcID == serviceID {
+				serviceMatches = true
+				break
+			}
+		}
+		if !serviceMatches {
+			continue
+		}
+
+		// Check days of week
+		if len(rule.DaysOfWeek) > 0 {
+			var days []int
+			if err := json.Unmarshal(rule.DaysOfWeek, &days); err == nil && len(days) > 0 {
+				dayMatch := false
+				for _, day := range days {
+					if day == currentWeekday {
+						dayMatch = true
+						break
+					}
+				}
+				if !dayMatch {
+					continue
+				}
+			}
+		}
+
+		// Check time range
+		if rule.StartTime == "" || rule.EndTime == "" {
+			continue
+		}
+
+		isActive := false
+		if rule.StartTime <= rule.EndTime {
+			isActive = currentTime >= rule.StartTime && currentTime < rule.EndTime
+		} else {
+			isActive = currentTime >= rule.StartTime || currentTime < rule.EndTime
+		}
+
+		if isActive {
+			log.Printf("BandwidthRuleMultiplier: Found active rule '%s' for service %d (dl=%d%%, ul=%d%%)",
+				rule.Name, serviceID, rule.DownloadMultiplier, rule.UploadMultiplier)
+			return rule.DownloadMultiplier, rule.UploadMultiplier
+		}
+	}
+
+	return 100, 100 // No active rule
+}
+
 // applySubscriberBandwidthRule applies a per-subscriber bandwidth rule if active
 // Returns true if a rule was applied, false otherwise
+// Now also applies time-based bandwidth rule multiplier on top of subscriber rule
 func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) bool {
 	rule := getActiveSubscriberBandwidthRule(sub.ID, models.BandwidthRuleTypeInternet)
 	if rule == nil {
@@ -639,11 +818,29 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 		return false
 	}
 
-	// Apply the subscriber's custom bandwidth rule
-	rateLimit := fmt.Sprintf("%dk/%dk", rule.DownloadSpeed, rule.UploadSpeed)
+	// Start with subscriber's custom bandwidth rule speeds as BASE
+	baseDownloadK := int64(rule.DownloadSpeed)
+	baseUploadK := int64(rule.UploadSpeed)
 
-	log.Printf("SubscriberRule: Applying custom bandwidth for %s: %s (rule_id=%d, duration=%s, remaining=%s)",
-		sub.Username, rateLimit, rule.ID, rule.Duration, rule.TimeRemaining())
+	// Check for active time-based bandwidth rules for this subscriber's service
+	// If active, multiply the subscriber rule speeds by the bandwidth rule multiplier
+	downloadMultiplier, uploadMultiplier := getActiveBandwidthRuleForService(sub.ServiceID)
+
+	// Apply multiplier: FINAL = BASE × (Multiplier / 100)
+	// 100% = same speed, 200% = double speed, 150% = 1.5x speed
+	finalDownloadK := baseDownloadK * int64(downloadMultiplier) / 100
+	finalUploadK := baseUploadK * int64(uploadMultiplier) / 100
+
+	// Format rate limit for MikroTik (upload/download)
+	rateLimit := fmt.Sprintf("%dk/%dk", finalUploadK, finalDownloadK)
+
+	if downloadMultiplier != 100 || uploadMultiplier != 100 {
+		log.Printf("SubscriberRule: Applying custom bandwidth for %s: base=%dk/%dk × %d%%/%d%% = %s (rule_id=%d)",
+			sub.Username, baseUploadK, baseDownloadK, uploadMultiplier, downloadMultiplier, rateLimit, rule.ID)
+	} else {
+		log.Printf("SubscriberRule: Applying custom bandwidth for %s: %s (rule_id=%d, duration=%s, remaining=%s)",
+			sub.Username, rateLimit, rule.ID, rule.Duration, rule.TimeRemaining())
+	}
 
 	// Update radreply to ensure RADIUS has correct speed for future reconnects
 	result := database.DB.Exec("UPDATE radreply SET value = ? WHERE username = ? AND attribute = ?",
@@ -657,7 +854,7 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 	// Apply speed change - try MikroTik API first, then CoA
 	coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
 
-	if err := client.UpdateUserRateLimitWithIP(sub.Username, sessionIP, rule.DownloadSpeed, rule.UploadSpeed); err != nil {
+	if err := client.UpdateUserRateLimitWithIP(sub.Username, sessionIP, int(finalDownloadK), int(finalUploadK)); err != nil {
 		log.Printf("SubscriberRule: MikroTik API failed for %s: %v, trying CoA", sub.Username, err)
 		if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sessionID, rateLimit); err != nil {
 			log.Printf("SubscriberRule: CoA also failed for %s: %v", sub.Username, err)
@@ -668,18 +865,32 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 }
 
 // restoreOriginalSpeedIfNeeded checks if speed needs to be restored to original service speed
+// Now also considers active time-based bandwidth rules to avoid restoring during NIGHT hours etc.
 func (s *QuotaSyncService) restoreOriginalSpeedIfNeeded(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) {
 	// Calculate expected original service speed
-	service := &sub.Service
-	downloadSpeed := service.DownloadSpeed * 1000 // Convert Mbps to kbps
-	uploadSpeed := service.UploadSpeed * 1000
+	if sub.Service == nil {
+		return
+	}
+	service := sub.Service
+	// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
+	downloadSpeed := service.DownloadSpeed
+	uploadSpeed := service.UploadSpeed
+
+	// Check if there's an active time-based bandwidth rule
+	// If yes, apply the multiplier to get the expected speed
+	downloadMultiplier, uploadMultiplier := getActiveBandwidthRuleForService(sub.ServiceID)
+	if downloadMultiplier != 100 || uploadMultiplier != 100 {
+		// Apply multiplier to service speeds
+		downloadSpeed = downloadSpeed * int64(downloadMultiplier) / 100
+		uploadSpeed = uploadSpeed * int64(uploadMultiplier) / 100
+	}
 
 	// Use string speeds if available, otherwise use numeric speeds
 	var expectedRateLimit string
-	if service.DownloadSpeedStr != "" || service.UploadSpeedStr != "" {
+	if downloadMultiplier == 100 && uploadMultiplier == 100 && (service.DownloadSpeedStr != "" || service.UploadSpeedStr != "") {
 		expectedRateLimit = fmt.Sprintf("%s/%s", service.UploadSpeedStr, service.DownloadSpeedStr)
 	} else if downloadSpeed > 0 || uploadSpeed > 0 {
-		expectedRateLimit = fmt.Sprintf("%dk/%dk", downloadSpeed, uploadSpeed)
+		expectedRateLimit = fmt.Sprintf("%dk/%dk", uploadSpeed, downloadSpeed)
 	} else {
 		return // No speed configured
 	}
@@ -749,7 +960,10 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 		return
 	}
 
-	service := &sub.Service
+	if sub.Service == nil {
+		return
+	}
+	service := sub.Service
 
 	// Calculate Daily FUP level based on daily usage
 	var dailyFUPLevel int
@@ -814,6 +1028,21 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 		}
 	}
 
+	// Check if block mode is enabled for the FUP source
+	// If enabled, set speed to 1k/1k to effectively block internet
+	shouldBlock := false
+	if fupSource == "daily" && isBlockOnDailyQuotaExceeded() {
+		shouldBlock = true
+	} else if fupSource == "monthly" && isBlockOnMonthlyQuotaExceeded() {
+		shouldBlock = true
+	}
+
+	if shouldBlock && targetFUPLevel > 0 {
+		log.Printf("FUP: Block mode enabled for %s - blocking internet for %s", fupSource, sub.Username)
+		fupDownload = 1 // 1 kbps - effectively no internet
+		fupUpload = 1   // 1 kbps - effectively no internet
+	}
+
 	// Get OLD effective level before any updates (max of stored daily and monthly)
 	oldEffectiveLevel := sub.FUPLevel
 	if sub.MonthlyFUPLevel > oldEffectiveLevel {
@@ -846,8 +1075,8 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 				)
 			}
 
-			// Apply FUP rate limit (speeds are in Kbps, format as "700k/700k")
-			fupRateLimit := fmt.Sprintf("%dk/%dk", fupDownload, fupUpload)
+			// Apply FUP rate limit (speeds are in Kbps, format as "upload/download" for MikroTik rx/tx)
+			fupRateLimit := fmt.Sprintf("%dk/%dk", fupUpload, fupDownload)
 
 			// Update RADIUS radreply table
 			database.DB.Model(&models.RadReply{}).
@@ -862,19 +1091,13 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 			if err := client.UpdateUserRateLimitWithIP(sub.Username, sessionIP, int(fupDownload), int(fupUpload)); err != nil {
 				log.Printf("FUP: MikroTik API queue update failed for %s: %v", sub.Username, err)
 
-				// Method 2: CoA + queue recreation for RADIUS users with dynamic queues
-				// Step 1: Send CoA to update session's rate-limit attribute
-				log.Printf("FUP: Trying CoA + queue recreation for %s", sub.Username)
+				// Method 2: Send CoA to update session's rate-limit attribute
+				// Don't remove queue or disconnect - user keeps current speed until reconnect
+				log.Printf("FUP: Trying CoA for %s", sub.Username)
 				if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sessionID, fupRateLimit); err != nil {
-					log.Printf("FUP: CoA failed for %s: %v", sub.Username, err)
+					log.Printf("FUP: CoA failed for %s: %v - speed will apply on reconnect", sub.Username, err)
 				} else {
-					log.Printf("FUP: CoA sent successfully for %s", sub.Username)
-					// Step 2: Remove dynamic queue so MikroTik recreates with new rate
-					if err := client.RemoveDynamicQueueForRecreation(sub.Username); err != nil {
-						log.Printf("FUP: Queue removal failed for %s: %v (speed may take effect on reconnect)", sub.Username, err)
-					} else {
-						log.Printf("FUP: Dynamic queue removed, MikroTik will recreate with new rate")
-					}
+					log.Printf("FUP: CoA sent successfully for %s - speed will apply on reconnect", sub.Username)
 					speedChanged = true
 				}
 			} else {
@@ -882,44 +1105,24 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 				speedChanged = true
 			}
 
-			// Method 2: Fall back to disconnect only if CoA also failed
+			// Don't disconnect users - they keep current speed until reconnect
+			// radreply is already updated, so next login will get FUP speed
 			if !speedChanged {
-				log.Printf("FUP: All rate-limit methods failed for %s, disconnecting user", sub.Username)
-
-				// Try disconnect via radclient first
-				if err := coaClient.DisconnectViaRadclient(sub.Username, sessionID); err != nil {
-					log.Printf("FUP: Radclient disconnect failed for %s: %v, trying MikroTik API", sub.Username, err)
-
-					// Try MikroTik API disconnect
-					if err := client.DisconnectUser(sub.Username); err != nil {
-						log.Printf("FUP: MikroTik API disconnect failed for %s: %v, trying native CoA", sub.Username, err)
-
-						// Try native CoA disconnect
-						if err := coaClient.DisconnectUser(sub.Username, sessionID); err != nil {
-							log.Printf("FUP: All disconnect methods failed for %s: %v", sub.Username, err)
-						} else {
-							log.Printf("FUP: Disconnected %s via native CoA", sub.Username)
-						}
-					} else {
-						log.Printf("FUP: Disconnected %s via MikroTik API", sub.Username)
-					}
-				} else {
-					log.Printf("FUP: Disconnected %s via radclient", sub.Username)
-				}
+				log.Printf("FUP: Speed update pending for %s - will apply on reconnect", sub.Username)
 			}
 			log.Printf("FUP: Applied %s to %s (%s FUP%d)", fupRateLimit, sub.Username, fupSource, targetFUPLevel)
 		} else if targetFUPLevel == 0 && oldEffectiveLevel > 0 {
 			// Restore original speed (both daily and monthly FUP cleared)
 			log.Printf("FUP: %s all FUP cleared, restoring original speed", sub.Username)
 
-			// Restore original speed in RADIUS radreply table (M format for RADIUS auth)
-			originalRateLimitM := fmt.Sprintf("%dM/%dM", service.DownloadSpeed, service.UploadSpeed)
+			// Restore original speed in RADIUS radreply table (kb format, format: upload/download)
+			// Speeds are already in kb (e.g., 2000 = 2000k), no conversion needed
+			originalRateLimitK := fmt.Sprintf("%dk/%dk", service.UploadSpeed, service.DownloadSpeed)
 			database.DB.Model(&models.RadReply{}).
 				Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").
-				Update("value", originalRateLimitM)
+				Update("value", originalRateLimitK)
 
-			// CoA rate limit in kbps format (MikroTik CoA requires k format)
-			originalRateLimitK := fmt.Sprintf("%dk/%dk", service.DownloadSpeed*1000, service.UploadSpeed*1000)
+			// CoA rate limit in kbps format (format: upload/download)
 
 			// Try multiple methods to restore speed without disconnect
 			coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
@@ -929,18 +1132,13 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 			if err := client.RestoreUserSpeedWithIP(sub.Username, sessionIP, service.DownloadSpeed, service.UploadSpeed); err != nil {
 				log.Printf("FUP: MikroTik API queue restore failed for %s: %v", sub.Username, err)
 
-				// Method 2: CoA + queue recreation for RADIUS users
-				log.Printf("FUP: Trying CoA + queue recreation for %s", sub.Username)
+				// Method 2: Send CoA to update session's rate-limit attribute
+				// Don't remove queue or disconnect - user keeps current speed until reconnect
+				log.Printf("FUP: Trying CoA for %s", sub.Username)
 				if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sessionID, originalRateLimitK); err != nil {
-					log.Printf("FUP: CoA restore failed for %s: %v", sub.Username, err)
+					log.Printf("FUP: CoA restore failed for %s: %v - speed will apply on reconnect", sub.Username, err)
 				} else {
-					log.Printf("FUP: CoA sent successfully for %s", sub.Username)
-					// Remove dynamic queue so MikroTik recreates with new rate
-					if err := client.RemoveDynamicQueueForRecreation(sub.Username); err != nil {
-						log.Printf("FUP: Queue removal failed for %s: %v (speed may take effect on reconnect)", sub.Username, err)
-					} else {
-						log.Printf("FUP: Dynamic queue removed, MikroTik will recreate with original rate")
-					}
+					log.Printf("FUP: CoA sent successfully for %s - speed will apply on reconnect", sub.Username)
 					speedRestored = true
 				}
 			} else {
@@ -948,29 +1146,12 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 				speedRestored = true
 			}
 
-			// Method 2: Fall back to disconnect only if CoA also failed
+			// Don't disconnect users - they keep current speed until reconnect
+			// radreply is already updated, so next login will get original speed
 			if !speedRestored {
-				log.Printf("FUP: All restore methods failed for %s, disconnecting user", sub.Username)
-
-				if err := coaClient.DisconnectViaRadclient(sub.Username, sessionID); err != nil {
-					log.Printf("FUP: Radclient disconnect failed for %s: %v", sub.Username, err)
-
-					if err := client.DisconnectUser(sub.Username); err != nil {
-						log.Printf("FUP: MikroTik API disconnect failed for %s: %v", sub.Username, err)
-
-						if err := coaClient.DisconnectUser(sub.Username, sessionID); err != nil {
-							log.Printf("FUP: All disconnect methods failed for %s: %v", sub.Username, err)
-						} else {
-							log.Printf("FUP: Disconnected %s via native CoA", sub.Username)
-						}
-					} else {
-						log.Printf("FUP: Disconnected %s via MikroTik API", sub.Username)
-					}
-				} else {
-					log.Printf("FUP: Disconnected %s via radclient", sub.Username)
-				}
+				log.Printf("FUP: Speed restore pending for %s - will apply on reconnect", sub.Username)
 			}
-			log.Printf("FUP: Restored speed for %s to %s", sub.Username, originalRateLimitM)
+			log.Printf("FUP: Restored speed for %s to %s", sub.Username, originalRateLimitK)
 		}
 	}
 }
@@ -1045,8 +1226,13 @@ func SyncSubscriberQuota(subscriber *models.Subscriber) error {
 
 // isWithinTimeWindow checks if the current time falls within the service's time-based speed window
 func isWithinTimeWindow(service *models.Service, now time.Time) bool {
-	// Skip if ratios are both 100 (no change) or time window not configured
-	if service.TimeDownloadRatio == 100 && service.TimeUploadRatio == 100 {
+	// Skip if time-based speed is disabled
+	if !service.TimeBasedSpeedEnabled {
+		return false
+	}
+	// Skip if ratios are both 0 (no boost) or time window not configured
+	// Ratio is a BOOST percentage: 100% = double speed, 200% = triple speed, 0% = no change
+	if service.TimeDownloadRatio == 0 && service.TimeUploadRatio == 0 {
 		return false
 	}
 	if service.TimeFromHour == 0 && service.TimeFromMinute == 0 &&
@@ -1073,11 +1259,17 @@ func isWithinTimeWindow(service *models.Service, now time.Time) bool {
 
 // checkAndApplyTimeBasedSpeed applies or removes time-based speed adjustments
 func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) {
-	if sub.ServiceID == 0 {
+	if sub.ServiceID == 0 || sub.Service == nil {
 		return
 	}
 
-	service := &sub.Service
+	// Check if subscriber has a subscriber bandwidth rule
+	// If yes, the speed is already set correctly (with global bandwidth rule multiplier applied)
+	// Service TimeSpeed should use the subscriber rule speed as base, not service speed
+	subscriberRule := getActiveSubscriberBandwidthRule(sub.ID, models.BandwidthRuleTypeInternet)
+	hasSubscriberRule := subscriberRule != nil
+
+	service := sub.Service
 	now := getNow()
 	inTimeWindow := isWithinTimeWindow(service, now)
 
@@ -1105,9 +1297,31 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 		effectiveFUPLevel = sub.MonthlyFUPLevel
 	}
 
-	// Calculate base speed (considering FUP)
+	// Calculate base speed
+	// Priority: 1. Subscriber Bandwidth Rule, 2. FUP speed, 3. Service normal speed
 	var baseDownloadK, baseUploadK int64
-	if effectiveFUPLevel > 0 {
+	if hasSubscriberRule {
+		// Use subscriber's custom rule as base
+		// Check if there's an active global bandwidth rule
+		downloadMultiplier, uploadMultiplier := getActiveBandwidthRuleForService(sub.ServiceID)
+		if downloadMultiplier != 100 || uploadMultiplier != 100 {
+			// Global bandwidth rule is active - skip Service TimeSpeed for this subscriber
+			// because applySubscriberBandwidthRule() already applied the multiplier
+			// This prevents double-boosting
+			log.Printf("TimeSpeed: Skipping for %s - global bandwidth rule already applied (dl=%d%%, ul=%d%%)",
+				sub.Username, downloadMultiplier, uploadMultiplier)
+			s.mu.Lock()
+			s.timeBasedSpeedState[sub.Username] = &TimeSpeedState{
+				Applied:   true, // Mark as applied to prevent repeated processing
+				SessionID: sessionID,
+			}
+			s.mu.Unlock()
+			return
+		}
+		// No global bandwidth rule - use subscriber rule as base for Service TimeSpeed
+		baseDownloadK = int64(subscriberRule.DownloadSpeed)
+		baseUploadK = int64(subscriberRule.UploadSpeed)
+	} else if effectiveFUPLevel > 0 {
 		// Use FUP speed as base
 		switch effectiveFUPLevel {
 		case 1:
@@ -1120,22 +1334,25 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 			baseDownloadK = service.FUP3DownloadSpeed
 			baseUploadK = service.FUP3UploadSpeed
 		default:
-			baseDownloadK = int64(service.DownloadSpeed) * 1000
-			baseUploadK = int64(service.UploadSpeed) * 1000
+			// Speeds are already in kb, no conversion needed
+			baseDownloadK = int64(service.DownloadSpeed)
+			baseUploadK = int64(service.UploadSpeed)
 		}
 	} else {
-		// Normal speed (Mbps to Kbps)
-		baseDownloadK = int64(service.DownloadSpeed) * 1000
-		baseUploadK = int64(service.UploadSpeed) * 1000
+		// Normal speed (already in kb)
+		baseDownloadK = int64(service.DownloadSpeed)
+		baseUploadK = int64(service.UploadSpeed)
 	}
 
 	if inTimeWindow && !wasApplied {
-		// Apply time-based speed ratio to base speed
-		downloadK := baseDownloadK * int64(service.TimeDownloadRatio) / 100
-		uploadK := baseUploadK * int64(service.TimeUploadRatio) / 100
-		rateLimit := fmt.Sprintf("%dk/%dk", downloadK, uploadK)
+		// Apply time-based speed BOOST to base speed
+		// Ratio is a BOOST percentage: 100% = double speed, 200% = triple, 0% = no change
+		// Formula: base_speed * (100 + boost_percent) / 100
+		downloadK := baseDownloadK * (100 + int64(service.TimeDownloadRatio)) / 100
+		uploadK := baseUploadK * (100 + int64(service.TimeUploadRatio)) / 100
+		rateLimit := fmt.Sprintf("%dk/%dk", uploadK, downloadK)
 
-		log.Printf("TimeSpeed: Applying time-based speed for %s (%02d:%02d-%02d:%02d, ratio: dl=%d%% ul=%d%%, FUP=%d) -> %s",
+		log.Printf("TimeSpeed: Applying time-based speed BOOST for %s (%02d:%02d-%02d:%02d, boost: dl=+%d%% ul=+%d%%, FUP=%d) -> %s",
 			sub.Username,
 			service.TimeFromHour, service.TimeFromMinute,
 			service.TimeToHour, service.TimeToMinute,
@@ -1198,8 +1415,8 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 		}
 		s.mu.Unlock()
 	} else if !inTimeWindow && (wasApplied || sessionChanged) {
-		// Restore base speed (FUP or normal)
-		rateLimit := fmt.Sprintf("%dk/%dk", baseDownloadK, baseUploadK)
+		// Restore base speed (FUP or normal) - format: upload/download for MikroTik rx/tx
+		rateLimit := fmt.Sprintf("%dk/%dk", baseUploadK, baseDownloadK)
 
 		log.Printf("TimeSpeed: Restoring speed for %s (time window ended, FUP=%d) -> %s",
 			sub.Username, effectiveFUPLevel, rateLimit,
@@ -1347,4 +1564,104 @@ func getCDNBandwidthMultiplier(activeRules []CDNBandwidthRule, cdnID uint) int {
 	}
 
 	return 100 // No active rule, return normal speed
+}
+
+// detectAndResolveStaticIPConflicts checks for users who have an IP that belongs to someone else's static_ip
+// and disconnects them so they can reconnect and get a different IP from the pool
+func (s *QuotaSyncService) detectAndResolveStaticIPConflicts() {
+	// Get all static IPs
+	var staticIPUsers []models.Subscriber
+	if err := database.DB.Where("static_ip IS NOT NULL AND static_ip != '' AND deleted_at IS NULL").
+		Find(&staticIPUsers).Error; err != nil {
+		log.Printf("StaticIPConflict: Failed to get static IP users: %v", err)
+		return
+	}
+
+	if len(staticIPUsers) == 0 {
+		return
+	}
+
+	// Build a map of static_ip -> owner username
+	staticIPOwners := make(map[string]string)
+	for _, user := range staticIPUsers {
+		if user.StaticIP != "" {
+			staticIPOwners[user.StaticIP] = user.Username
+		}
+	}
+
+	log.Printf("StaticIPConflict: Checking %d static IPs for conflicts", len(staticIPOwners))
+
+	// Get all online users with their current IP (don't use Select with Preload)
+	var onlineUsers []models.Subscriber
+	if err := database.DB.Preload("Nas").
+		Where("is_online = ? AND ip_address IS NOT NULL AND ip_address != '' AND deleted_at IS NULL", true).
+		Find(&onlineUsers).Error; err != nil {
+		log.Printf("StaticIPConflict: Failed to get online users: %v", err)
+		return
+	}
+
+	log.Printf("StaticIPConflict: Checking %d online users", len(onlineUsers))
+
+	// Check each online user
+	for _, user := range onlineUsers {
+		// Skip if user has no IP
+		if user.IPAddress == "" {
+			continue
+		}
+
+		// Check if this IP is someone else's static IP
+		owner, isStaticIP := staticIPOwners[user.IPAddress]
+		if !isStaticIP {
+			continue // This IP is not a static IP, no conflict
+		}
+
+		// If the owner is this user, no conflict
+		if owner == user.Username {
+			continue
+		}
+
+		// CONFLICT DETECTED: This user has an IP that belongs to someone else
+		log.Printf("StaticIPConflict: User %s has IP %s which is static IP of %s - disconnecting",
+			user.Username, user.IPAddress, owner)
+
+		// Get NAS info for disconnect
+		if user.Nas == nil || user.NasID == nil {
+			// Try to load NAS
+			var nas models.Nas
+			if user.NasID != nil {
+				if err := database.DB.First(&nas, *user.NasID).Error; err != nil {
+					log.Printf("StaticIPConflict: Failed to get NAS for user %s: %v", user.Username, err)
+					continue
+				}
+				user.Nas = &nas
+			} else {
+				log.Printf("StaticIPConflict: User %s has no NAS assigned", user.Username)
+				continue
+			}
+		}
+
+		// Disconnect the user via CoA
+		coaClient := radius.NewCOAClient(user.Nas.IPAddress, user.Nas.CoAPort, user.Nas.Secret)
+		if err := coaClient.DisconnectViaRadclient(user.Username, ""); err != nil {
+			log.Printf("StaticIPConflict: CoA disconnect failed for %s: %v, trying MikroTik API", user.Username, err)
+
+			// Fallback to MikroTik API
+			client := mikrotik.NewClient(
+				fmt.Sprintf("%s:%d", user.Nas.IPAddress, user.Nas.APIPort),
+				user.Nas.APIUsername,
+				user.Nas.APIPassword,
+			)
+			if err := client.DisconnectUser(user.Username); err != nil {
+				log.Printf("StaticIPConflict: MikroTik disconnect also failed for %s: %v", user.Username, err)
+			} else {
+				log.Printf("StaticIPConflict: Disconnected %s via MikroTik API", user.Username)
+			}
+			client.Close()
+		} else {
+			log.Printf("StaticIPConflict: Disconnected %s via CoA", user.Username)
+		}
+
+		// Clear the IP address in database so it doesn't show as duplicate
+		database.DB.Model(&models.Subscriber{}).Where("id = ?", user.ID).Update("ip_address", nil)
+	}
 }

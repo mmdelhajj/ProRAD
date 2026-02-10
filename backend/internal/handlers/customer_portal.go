@@ -9,6 +9,7 @@ import (
 	"github.com/proisp/backend/internal/config"
 	"github.com/proisp/backend/internal/database"
 	"github.com/proisp/backend/internal/models"
+	"github.com/proisp/backend/internal/security"
 )
 
 type CustomerPortalHandler struct {
@@ -126,8 +127,9 @@ func (h *CustomerPortalHandler) Login(c *fiber.Ctx) error {
 	// Verify password against radcheck table (Cleartext-Password)
 	var radcheck models.RadCheck
 	if err := database.DB.Where("username = ? AND attribute = ?", req.Username, "Cleartext-Password").First(&radcheck).Error; err != nil {
-		// Try checking against subscriber's plain password
-		if subscriber.PasswordPlain != req.Password {
+		// Try checking against subscriber's encrypted password
+		plainPassword := security.DecryptPassword(subscriber.PasswordPlain)
+		if plainPassword != req.Password {
 			return c.Status(fiber.StatusUnauthorized).JSON(CustomerLoginResponse{
 				Success: false,
 				Message: "Invalid username or password",

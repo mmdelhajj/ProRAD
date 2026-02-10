@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -16,12 +17,34 @@ import (
 	"github.com/proisp/backend/internal/handlers"
 	"github.com/proisp/backend/internal/license"
 	"github.com/proisp/backend/internal/middleware"
+	"github.com/proisp/backend/internal/mikrotik"
 	"github.com/proisp/backend/internal/models"
+	"github.com/proisp/backend/internal/security"
 	"github.com/proisp/backend/internal/services"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Build date - set at compile time: -ldflags "-X main.buildDate=2026-01-25"
+var buildDate string
+
+// Maximum days binary can run without update
+const maxBinaryAgeDays = 30
+
 func main() {
+	// Check binary expiry first
+	if err := checkBinaryExpiry(); err != nil {
+		log.Fatalf("Binary expired: %v - Please update to latest version", err)
+	}
+
+	// Ensure required system packages are installed (for CoA and ping features)
+	ensureRequiredPackages()
+
+	// Verify update was successful (if update was just applied)
+	handlers.VerifyUpdateOnStartup()
+
+	// Initialize security protections (anti-tamper, anti-debug, etc.)
+	security.Initialize()
+
 	// Load configuration
 	cfg := config.Load()
 
@@ -36,23 +59,48 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	// Create performance indexes
+	database.EnsureIndexes()
+
+	// Ensure JWT secret is persisted (prevents session loss on restart)
+	cfg.JWTSecret = database.EnsureJWTSecret(cfg)
+
 	// Seed admin user if not exists
 	seedAdminUser()
+
+	// Auto-enable ProISP IP Pool Management for fresh installs
+	enableProISPIPManagement()
 
 	// Initialize license client
 	licenseServer := os.Getenv("LICENSE_SERVER")
 	licenseKey := os.Getenv("LICENSE_KEY")
-	if licenseServer != "" && licenseKey != "" {
-		if err := license.Initialize(licenseServer, licenseKey); err != nil {
-			log.Printf("Warning: License initialization failed: %v", err)
+	// Always call Initialize - it handles dev mode internally via build flags
+	if err := license.Initialize(licenseServer, licenseKey); err != nil {
+		log.Printf("Warning: License initialization failed: %v", err)
+	}
+
+	// Initialize database encryption with license key
+	encryptionKey := license.GetEncryptionKey()
+	if encryptionKey != "" {
+		if err := security.InitializeEncryption(encryptionKey); err != nil {
+			log.Printf("Warning: Encryption initialization failed: %v", err)
+		} else {
+			log.Println("Database encryption initialized successfully")
 		}
 	} else {
-		log.Println("Warning: LICENSE_SERVER or LICENSE_KEY not set, license client not initialized")
+		log.Println("Warning: No encryption key from license server - sensitive data will not be encrypted")
 	}
+
+	// Initialize MikroTik connection pool (for 30K+ users performance)
+	mikrotik.InitializePool()
 
 	// Start quota sync service (syncs MikroTik bytes to database every 30 seconds)
 	quotaSyncService := services.NewQuotaSyncService(30 * time.Second)
 	quotaSyncService.Start()
+
+	// Start daily quota reset service (resets ALL users at configured time)
+	dailyQuotaResetService := services.NewDailyQuotaResetService()
+	dailyQuotaResetService.Start()
 
 	// Start bandwidth rule service (checks time-based bandwidth rules every minute)
 	bandwidthRuleService := services.NewBandwidthRuleService(1 * time.Minute)
@@ -68,11 +116,40 @@ func main() {
 	// Start PCQ auto-repair service (checks every 5 minutes)
 	go services.StartPCQAutoRepairService()
 
+	// Start backup scheduler service
+	backupSchedulerService := services.NewBackupSchedulerService(cfg)
+	go backupSchedulerService.Start()
+
+	// Start sharing detection service (nightly automatic scans)
+	sharingDetectionService := services.NewSharingDetectionService()
+	sharingDetectionService.Start()
+
+	// Start HA Cluster service (heartbeat, replication monitoring)
+	clusterService := services.NewClusterService()
+	clusterService.Start()
+
+	// Start HA Cluster failover service (monitors main server from secondary, triggers failover)
+	clusterFailoverService := services.NewClusterFailover()
+	clusterFailoverService.Start()
+
+	// Start rad_acct archival service (keeps main table small for performance)
+	radAcctArchivalService := services.NewRadAcctArchivalService(90) // Keep 90 days
+	radAcctArchivalService.Start()
+
+	// Warmup subscriber cache for online users (improves RADIUS performance)
+	go database.WarmupSubscriberCache()
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
-		AppName:      "ProISP API v1.0",
-		ServerHeader: "ProISP",
-		BodyLimit:    50 * 1024 * 1024, // 50MB
+		AppName:                 "ProISP API v1.0",
+		ServerHeader:            "ProISP",
+		ProxyHeader:             "X-Real-IP", // Trust nginx X-Real-IP header for real client IP
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          []string{"172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"}, // Docker networks
+		BodyLimit:               50 * 1024 * 1024, // 50MB
+		ReadTimeout:             30 * time.Second, // Request read timeout - prevents slow client attacks
+		WriteTimeout:            30 * time.Second, // Response write timeout - prevents resource exhaustion
+		IdleTimeout:             60 * time.Second, // Keep-alive connection timeout
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
@@ -90,6 +167,7 @@ func main() {
 	app.Use(compress.New())
 	app.Use(middleware.Logger())
 	app.Use(middleware.CORS())
+	app.Use(license.LicenseStatusMiddleware()) // Add license status headers to all responses
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -121,10 +199,13 @@ func main() {
 	backupHandler := handlers.NewBackupHandler(cfg)
 	twoFAHandler := handlers.NewTwoFAHandler()
 	sharingHandler := handlers.NewSharingDetectionHandler()
+	notificationHandler := handlers.NewNotificationHandler()
+	customerNotificationHandler := handlers.NewCustomerNotificationHandler()
 	cdnHandler := handlers.NewCDNHandler()
 	cdnBandwidthHandler := handlers.NewCDNBandwidthHandler(cdnBandwidthRuleService)
 	licenseHandler := handlers.NewLicenseHandler()
 	systemUpdateHandler := handlers.NewSystemUpdateHandler()
+	networkConfigHandler := handlers.NewNetworkConfigHandler()
 
 	// API routes
 	api := app.Group("/api")
@@ -134,7 +215,19 @@ func main() {
 
 	// Public routes
 	api.Post("/auth/login", authHandler.Login)
+	api.Post("/auth/impersonate-exchange", authHandler.ExchangeImpersonateToken) // Exchange temp token for session (no auth - uses one-time token)
 	api.Get("/branding", settingsHandler.GetBranding)
+	api.Get("/server-time", settingsHandler.GetServerTime) // Public - needed for timezone before auth
+	api.Get("/backups/public-download/:token", backupHandler.PublicDownload)
+
+	// HA Cluster public routes (use cluster secret for auth, not JWT)
+	// Must be registered before protected group
+	clusterHandler := handlers.NewClusterHandler()
+	api.Post("/cluster/join", clusterHandler.JoinCluster)
+	api.Post("/cluster/heartbeat", clusterHandler.Heartbeat)
+	api.Post("/cluster/promote", clusterHandler.HandlePromote)
+	api.Post("/cluster/notify", clusterHandler.HandleNotify)
+	api.Post("/cluster/uploads", clusterHandler.GetUploads)
 
 	// Serve uploaded files (logos, etc.)
 	app.Static("/uploads", "/app/uploads")
@@ -154,8 +247,13 @@ func main() {
 	customerProtected.Post("/tickets", customerHandler.CreateTicket)
 	customerProtected.Post("/tickets/:id/reply", customerHandler.ReplyTicket)
 
-	// Protected routes
-	protected := api.Group("", middleware.AuthRequired(cfg), middleware.AuditLogger())
+	// Critical system routes - auth only, NO license check (for fixing license/restart issues)
+	criticalSystem := api.Group("", middleware.AuthRequired(cfg))
+	criticalSystem.Post("/system/restart-services", middleware.AdminOnly(), settingsHandler.RestartServices)
+	criticalSystem.Post("/license/revalidate", middleware.AdminOnly(), licenseHandler.RevalidateLicense)
+
+	// Protected routes - with license write access check for non-GET requests
+	protected := api.Group("", middleware.AuthRequired(cfg), license.RequireWriteAccess(), middleware.AuditLogger())
 
 	// Auth routes
 	protected.Post("/auth/logout", authHandler.Logout)
@@ -176,62 +274,80 @@ func main() {
 	protected.Get("/dashboard/transactions", dashboardHandler.RecentTransactions)
 	protected.Get("/dashboard/resellers", dashboardHandler.TopResellers)
 	protected.Get("/dashboard/sessions", dashboardHandler.Sessions)
+	protected.Get("/dashboard/system-metrics", dashboardHandler.SystemMetrics)
+	protected.Get("/dashboard/system-capacity", dashboardHandler.SystemCapacity)
+	protected.Get("/dashboard/system-info", dashboardHandler.SystemInfo)
 
 	// Subscriber routes
 	subscribers := protected.Group("/subscribers")
-	subscribers.Get("/", subscriberHandler.List)
-	subscribers.Get("/archived", subscriberHandler.ListArchived)
-	subscribers.Get("/:id", subscriberHandler.Get)
-	subscribers.Post("/", middleware.ResellerOrAdmin(), subscriberHandler.Create)
-	subscribers.Post("/bulk-import", middleware.ResellerOrAdmin(), subscriberHandler.BulkImport)
-	subscribers.Post("/bulk-update", middleware.ResellerOrAdmin(), subscriberHandler.BulkUpdate)
-	subscribers.Post("/bulk-action", middleware.ResellerOrAdmin(), subscriberHandler.BulkAction)
-	subscribers.Post("/change-bulk", middleware.AdminOnly(), subscriberHandler.ChangeBulk)
-	subscribers.Put("/:id", middleware.ResellerOrAdmin(), subscriberHandler.Update)
-	subscribers.Delete("/:id", middleware.ResellerOrAdmin(), subscriberHandler.Delete)
-	subscribers.Post("/:id/renew", middleware.ResellerOrAdmin(), subscriberHandler.Renew)
-	subscribers.Post("/:id/disconnect", middleware.ResellerOrAdmin(), subscriberHandler.Disconnect)
-	subscribers.Post("/:id/reset-fup", middleware.ResellerOrAdmin(), subscriberHandler.ResetFUP)
-	subscribers.Post("/:id/reset-mac", middleware.ResellerOrAdmin(), subscriberHandler.ResetMAC)
-	subscribers.Post("/:id/reset-quota", middleware.ResellerOrAdmin(), subscriberHandler.ResetQuota)
-	subscribers.Post("/:id/restore", middleware.ResellerOrAdmin(), subscriberHandler.Restore)
+	subscribers.Get("/", middleware.RequirePermission("subscribers.view"), subscriberHandler.List)
+	subscribers.Get("/archived", middleware.RequirePermission("subscribers.view"), subscriberHandler.ListArchived)
+	subscribers.Get("/:id", middleware.RequirePermission("subscribers.view"), subscriberHandler.Get)
+	subscribers.Post("/", middleware.RequirePermission("subscribers.create"), subscriberHandler.Create)
+	subscribers.Post("/bulk-import", middleware.RequirePermission("subscribers.create"), subscriberHandler.BulkImport)
+	subscribers.Post("/import-excel", middleware.AdminOnly(), subscriberHandler.BulkImportExcel)
+	subscribers.Post("/bulk-update", middleware.RequirePermission("subscribers.edit"), subscriberHandler.BulkUpdate)
+	subscribers.Post("/bulk-action", middleware.ResellerOrAdmin(), subscriberHandler.BulkAction) // BulkAction checks permissions internally per action
+	subscribers.Post("/change-bulk", middleware.RequirePermission("subscribers.change_bulk"), subscriberHandler.ChangeBulk)
+	subscribers.Put("/:id", middleware.RequirePermission("subscribers.edit"), subscriberHandler.Update)
+	subscribers.Delete("/:id", middleware.RequirePermission("subscribers.delete"), subscriberHandler.Delete)
+	subscribers.Post("/:id/renew", middleware.RequirePermission("subscribers.renew"), subscriberHandler.Renew)
+	subscribers.Post("/:id/disconnect", middleware.RequirePermission("subscribers.disconnect"), subscriberHandler.Disconnect)
+	subscribers.Post("/:id/reset-fup", middleware.RequirePermission("subscribers.reset_fup"), subscriberHandler.ResetFUP)
+	subscribers.Post("/:id/reset-mac", middleware.RequirePermission("subscribers.reset_mac"), subscriberHandler.ResetMAC)
+	subscribers.Post("/:id/reset-quota", middleware.RequirePermission("subscribers.refill_quota"), subscriberHandler.ResetQuota)
+	subscribers.Post("/:id/restore", middleware.RequirePermission("subscribers.delete"), subscriberHandler.Restore)
 	subscribers.Delete("/:id/permanent", middleware.AdminOnly(), subscriberHandler.PermanentDelete)
 	// New action routes
-	subscribers.Post("/:id/rename", middleware.ResellerOrAdmin(), subscriberHandler.Rename)
-	subscribers.Post("/:id/add-days", middleware.ResellerOrAdmin(), subscriberHandler.AddDays)
-	subscribers.Get("/:id/calculate-change-service-price", middleware.ResellerOrAdmin(), subscriberHandler.CalculateChangeServicePrice)
-	subscribers.Post("/:id/change-service", middleware.ResellerOrAdmin(), subscriberHandler.ChangeService)
-	subscribers.Post("/:id/activate", middleware.ResellerOrAdmin(), subscriberHandler.Activate)
-	subscribers.Post("/:id/deactivate", middleware.ResellerOrAdmin(), subscriberHandler.Deactivate)
-	subscribers.Post("/:id/refill", middleware.ResellerOrAdmin(), subscriberHandler.Refill)
-	subscribers.Post("/:id/ping", subscriberHandler.Ping)
-	subscribers.Get("/:id/bandwidth", subscriberHandler.GetBandwidth)
+	subscribers.Post("/:id/rename", middleware.RequirePermission("subscribers.rename"), subscriberHandler.Rename)
+	subscribers.Post("/:id/add-days", middleware.RequirePermission("subscribers.add_days"), subscriberHandler.AddDays)
+	subscribers.Get("/:id/calculate-change-service-price", middleware.RequirePermission("subscribers.change_service"), subscriberHandler.CalculateChangeServicePrice)
+	subscribers.Post("/:id/change-service", middleware.RequirePermission("subscribers.change_service"), subscriberHandler.ChangeService)
+	subscribers.Post("/:id/activate", middleware.RequirePermission("subscribers.inactivate"), subscriberHandler.Activate)
+	subscribers.Post("/:id/deactivate", middleware.RequirePermission("subscribers.inactivate"), subscriberHandler.Deactivate)
+	subscribers.Post("/:id/refill", middleware.RequirePermission("subscribers.refill_quota"), subscriberHandler.Refill)
+	subscribers.Post("/:id/ping", middleware.RequirePermission("subscribers.ping"), subscriberHandler.Ping)
+	subscribers.Get("/:id/password", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetPassword)
+	subscribers.Get("/:id/bandwidth", middleware.RequirePermission("subscribers.view_graph"), subscriberHandler.GetBandwidth)
+	subscribers.Get("/:id/torch", middleware.RequirePermission("subscribers.view_graph"), subscriberHandler.GetTorch)
 	// Subscriber bandwidth rules
-	subscribers.Get("/:id/bandwidth-rules", subscriberHandler.GetBandwidthRules)
-	subscribers.Post("/:id/bandwidth-rules", middleware.ResellerOrAdmin(), subscriberHandler.CreateBandwidthRule)
-	subscribers.Put("/:id/bandwidth-rules/:ruleId", middleware.ResellerOrAdmin(), subscriberHandler.UpdateBandwidthRule)
-	subscribers.Delete("/:id/bandwidth-rules/:ruleId", middleware.ResellerOrAdmin(), subscriberHandler.DeleteBandwidthRule)
-	subscribers.Get("/:id/cdn-upgrades", subscriberHandler.GetCDNUpgrades)
+	subscribers.Get("/:id/bandwidth-rules", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetBandwidthRules)
+	subscribers.Post("/:id/bandwidth-rules", middleware.RequirePermission("subscribers.edit"), subscriberHandler.CreateBandwidthRule)
+	subscribers.Put("/:id/bandwidth-rules/:ruleId", middleware.RequirePermission("subscribers.edit"), subscriberHandler.UpdateBandwidthRule)
+	subscribers.Delete("/:id/bandwidth-rules/:ruleId", middleware.RequirePermission("subscribers.edit"), subscriberHandler.DeleteBandwidthRule)
+	subscribers.Get("/:id/cdn-upgrades", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetCDNUpgrades)
 
 	// Service routes
 	services := protected.Group("/services")
-	services.Get("/", serviceHandler.List)
-	services.Get("/:id", serviceHandler.Get)
-	services.Post("/", middleware.AdminOnly(), serviceHandler.Create)
-	services.Put("/:id", middleware.AdminOnly(), serviceHandler.Update)
-	services.Delete("/:id", middleware.AdminOnly(), serviceHandler.Delete)
+	services.Get("/", middleware.RequirePermission("services.view"), serviceHandler.List)
+	services.Get("/:id", middleware.RequirePermission("services.view"), serviceHandler.Get)
+	services.Post("/", middleware.RequirePermission("services.create"), serviceHandler.Create)
+	services.Put("/:id", middleware.RequirePermission("services.edit"), serviceHandler.Update)
+	services.Delete("/:id", middleware.RequirePermission("services.delete"), serviceHandler.Delete)
 
 	// NAS routes
 	nas := protected.Group("/nas")
-	nas.Get("/", nasHandler.List)
-	nas.Get("/:id", nasHandler.Get)
-	nas.Post("/", middleware.AdminOnly(), nasHandler.Create)
-	nas.Put("/:id", middleware.AdminOnly(), nasHandler.Update)
-	nas.Delete("/:id", middleware.AdminOnly(), nasHandler.Delete)
-	nas.Post("/:id/sync", middleware.AdminOnly(), nasHandler.Sync)
-	nas.Post("/:id/test", middleware.AdminOnly(), nasHandler.TestConnection)
-	nas.Get("/:id/pools", middleware.AdminOnly(), nasHandler.GetIPPools)
-	nas.Put("/:id/pools", middleware.AdminOnly(), nasHandler.UpdateSubscriberPools)
+	nas.Get("/", middleware.RequirePermission("nas.view"), nasHandler.List)
+	nas.Get("/:id", middleware.RequirePermission("nas.view"), nasHandler.Get)
+	nas.Post("/", middleware.RequirePermission("nas.create"), nasHandler.Create)
+	nas.Put("/:id", middleware.RequirePermission("nas.edit"), nasHandler.Update)
+	nas.Delete("/:id", middleware.RequirePermission("nas.delete"), nasHandler.Delete)
+	nas.Post("/:id/sync", middleware.RequirePermission("nas.edit"), nasHandler.Sync)
+	nas.Post("/:id/test", middleware.RequirePermission("nas.view"), nasHandler.TestConnection)
+	nas.Get("/:id/pools", middleware.RequirePermission("nas.view"), nasHandler.GetIPPools)
+	nas.Put("/:id/pools", middleware.RequirePermission("nas.edit"), nasHandler.UpdateSubscriberPools)
+
+	// IP Pool Management routes (Admin only)
+	ipPools := protected.Group("/ip-pools", middleware.AdminOnly())
+	ipPools.Get("/stats", handlers.GetIPPoolStats)
+	ipPools.Get("/status", handlers.GetIPManagementStatus)
+	ipPools.Get("/assignments", handlers.GetIPPoolAssignments)
+	ipPools.Post("/import", handlers.ImportIPPools)
+	ipPools.Post("/import/:id", handlers.ImportIPPoolsFromNAS)
+	ipPools.Post("/sync-sessions", handlers.SyncActiveSessions)
+	ipPools.Post("/sync-sessions/:id", handlers.SyncActiveSessionsFromNAS)
+	ipPools.Post("/enable", handlers.EnableProISPIPManagement)
+	ipPools.Post("/disable", handlers.DisableProISPIPManagement)
 
 	// Reseller routes
 	resellers := protected.Group("/resellers")
@@ -240,9 +356,11 @@ func main() {
 	resellers.Post("/", middleware.ResellerOrAdmin(), resellerHandler.Create)
 	resellers.Put("/:id", middleware.ResellerOrAdmin(), resellerHandler.Update)
 	resellers.Delete("/:id", middleware.AdminOnly(), resellerHandler.Delete)
+	resellers.Delete("/:id/permanent", middleware.AdminOnly(), resellerHandler.PermanentDelete)
 	resellers.Post("/:id/transfer", middleware.ResellerOrAdmin(), resellerHandler.Transfer)
 	resellers.Post("/:id/withdraw", middleware.ResellerOrAdmin(), resellerHandler.Withdraw)
 	resellers.Post("/:id/impersonate", middleware.AdminOnly(), resellerHandler.Impersonate)
+	resellers.Post("/:id/impersonate-token", middleware.AdminOnly(), authHandler.GetImpersonateToken) // Get temp token for new tab login
 	// Reseller assignments (admin only)
 	resellers.Get("/:id/assigned-nas", middleware.AdminOnly(), resellerHandler.GetAssignedNAS)
 	resellers.Put("/:id/assigned-nas", middleware.AdminOnly(), resellerHandler.UpdateAssignedNAS)
@@ -251,28 +369,44 @@ func main() {
 
 	// Session routes
 	sessions := protected.Group("/sessions")
-	sessions.Get("/", sessionHandler.List)
-	sessions.Get("/:id", sessionHandler.Get)
-	sessions.Post("/:id/disconnect", middleware.ResellerOrAdmin(), sessionHandler.Disconnect)
+	sessions.Get("/", middleware.RequirePermission("sessions.view"), sessionHandler.List)
+	sessions.Get("/:id", middleware.RequirePermission("sessions.view"), sessionHandler.Get)
+	sessions.Post("/:id/disconnect", middleware.RequirePermission("subscribers.disconnect"), sessionHandler.Disconnect)
 
-	// Settings routes (Admin only)
-	settings := protected.Group("/settings", middleware.AdminOnly())
+	// Settings routes
+	settings := protected.Group("/settings", middleware.RequirePermission("settings.view"))
 	settings.Get("/", settingsHandler.List)
 	settings.Put("/bulk", settingsHandler.BulkUpdate)
 	settings.Get("/timezones", settingsHandler.GetTimezones)
 	settings.Post("/logo", settingsHandler.UploadLogo)
 	settings.Delete("/logo", settingsHandler.DeleteLogo)
+	settings.Post("/login-background", settingsHandler.UploadLoginBackground)
+	settings.Delete("/login-background", settingsHandler.DeleteLoginBackground)
+	settings.Post("/favicon", settingsHandler.UploadFavicon)
+	settings.Delete("/favicon", settingsHandler.DeleteFavicon)
 	settings.Get("/:key", settingsHandler.Get)
 	settings.Put("/:key", settingsHandler.Update)
 	settings.Delete("/:key", settingsHandler.Delete)
 
-	// Server time (accessible to all authenticated users for clock display)
-	protected.Get("/server-time", settingsHandler.GetServerTime)
+	// Notification test routes
+	notifications := protected.Group("/notifications", middleware.RequirePermission("settings.edit"))
+	notifications.Post("/test-smtp", notificationHandler.TestSMTP)
+	notifications.Post("/test-sms", notificationHandler.TestSMS)
+	notifications.Post("/test-whatsapp", notificationHandler.TestWhatsApp)
+	notifications.Get("/whatsapp-status", notificationHandler.GetWhatsAppStatus)
 
-	// License info (Admin only)
+	// Customer update notification routes (accessible to all authenticated users)
+	notificationRoutes := protected.Group("/notifications/updates")
+	notificationRoutes.Get("/pending", customerNotificationHandler.GetPendingNotifications)
+	notificationRoutes.Post("/:id/read", customerNotificationHandler.MarkNotificationRead)
+	notificationRoutes.Get("/settings", customerNotificationHandler.GetNotificationSettings)
+	notificationRoutes.Put("/settings", customerNotificationHandler.UpdateNotificationSettings)
+
+	// Server time (accessible to all authenticated users for clock display)
+
+	// License info (Admin only) - revalidate moved to criticalSystem group to bypass license check
 	protected.Get("/license", middleware.AdminOnly(), licenseHandler.GetLicenseInfo)
 	protected.Get("/license/status", licenseHandler.GetLicenseStatus)
-	protected.Post("/license/revalidate", middleware.AdminOnly(), licenseHandler.Revalidate)
 
 	// System Update routes (Admin only)
 	systemUpdate := protected.Group("/system/update", middleware.AdminOnly())
@@ -281,64 +415,86 @@ func main() {
 	systemUpdate.Post("/start", systemUpdateHandler.StartUpdate)
 
 	// Remote Support routes (Admin only)
-	remoteSupportHandler := handlers.NewRemoteSupportHandler()
 	remoteSupport := protected.Group("/system/remote-support", middleware.AdminOnly())
-	remoteSupport.Get("/status", remoteSupportHandler.GetStatus)
-	remoteSupport.Post("/toggle", remoteSupportHandler.Toggle)
+	remoteSupport.Get("/status", settingsHandler.GetRemoteSupportStatus)
+	remoteSupport.Post("/toggle", settingsHandler.ToggleRemoteSupport)
 
-	// User management routes (Admin only)
-	users := protected.Group("/users", middleware.AdminOnly())
-	users.Get("/", userHandler.List)
-	users.Get("/:id", userHandler.Get)
-	users.Post("/", userHandler.Create)
-	users.Put("/:id", userHandler.Update)
-	users.Delete("/:id", userHandler.Delete)
+	// Network Configuration routes (Admin only)
+	networkConfig := protected.Group("/system/network", middleware.AdminOnly())
+	networkConfig.Get("/current", networkConfigHandler.GetCurrentNetworkConfig)
+	networkConfig.Get("/detect-dns", networkConfigHandler.DetectDNSMethod)
+	networkConfig.Post("/test", networkConfigHandler.TestNetworkConfig)
+	networkConfig.Post("/apply", networkConfigHandler.ApplyNetworkConfig)
+
+	// HA Cluster routes (Admin only) - clusterHandler already created in public routes section
+	cluster := protected.Group("/cluster", middleware.AdminOnly())
+	cluster.Get("/config", clusterHandler.GetConfig)
+	cluster.Get("/status", clusterHandler.GetStatus)
+	cluster.Get("/replication-status", clusterHandler.GetReplicationStatus)
+	cluster.Post("/setup-main", clusterHandler.SetupMain)
+	cluster.Post("/setup-secondary", clusterHandler.SetupSecondary)
+	cluster.Post("/leave", clusterHandler.LeaveCluster)
+	cluster.Delete("/nodes/:id", clusterHandler.RemoveNode)
+	cluster.Post("/failover", clusterHandler.ManualFailover)
+	cluster.Post("/test-connection", clusterHandler.TestConnection)
+	cluster.Get("/check-main-status", clusterHandler.CheckMainStatus)
+	cluster.Post("/promote-to-main", clusterHandler.PromoteToMain)
+	cluster.Post("/test-source-connection", clusterHandler.TestSourceConnection)
+	cluster.Post("/recover-from-server", clusterHandler.RecoverFromServer)
+
+	// User management routes
+	users := protected.Group("/users")
+	users.Get("/", middleware.RequirePermission("users.view"), userHandler.List)
+	users.Get("/:id", middleware.RequirePermission("users.view"), userHandler.Get)
+	users.Post("/", middleware.RequirePermission("users.create"), userHandler.Create)
+	users.Put("/:id", middleware.RequirePermission("users.edit"), userHandler.Update)
+	users.Delete("/:id", middleware.RequirePermission("users.delete"), userHandler.Delete)
 
 	// Communication routes
 	communication := protected.Group("/communication")
 	// Templates
-	communication.Get("/templates", communicationHandler.ListTemplates)
-	communication.Get("/templates/:id", communicationHandler.GetTemplate)
-	communication.Post("/templates", middleware.AdminOnly(), communicationHandler.CreateTemplate)
-	communication.Put("/templates/:id", middleware.AdminOnly(), communicationHandler.UpdateTemplate)
-	communication.Delete("/templates/:id", middleware.AdminOnly(), communicationHandler.DeleteTemplate)
+	communication.Get("/templates", middleware.RequirePermission("communication.view"), communicationHandler.ListTemplates)
+	communication.Get("/templates/:id", middleware.RequirePermission("communication.view"), communicationHandler.GetTemplate)
+	communication.Post("/templates", middleware.RequirePermission("communication.create"), communicationHandler.CreateTemplate)
+	communication.Put("/templates/:id", middleware.RequirePermission("communication.edit"), communicationHandler.UpdateTemplate)
+	communication.Delete("/templates/:id", middleware.RequirePermission("communication.delete"), communicationHandler.DeleteTemplate)
 	// Rules
-	communication.Get("/rules", communicationHandler.ListRules)
-	communication.Get("/rules/:id", communicationHandler.GetRule)
-	communication.Post("/rules", middleware.AdminOnly(), communicationHandler.CreateRule)
-	communication.Put("/rules/:id", middleware.AdminOnly(), communicationHandler.UpdateRule)
-	communication.Delete("/rules/:id", middleware.AdminOnly(), communicationHandler.DeleteRule)
+	communication.Get("/rules", middleware.RequirePermission("communication.view"), communicationHandler.ListRules)
+	communication.Get("/rules/:id", middleware.RequirePermission("communication.view"), communicationHandler.GetRule)
+	communication.Post("/rules", middleware.RequirePermission("communication.create"), communicationHandler.CreateRule)
+	communication.Put("/rules/:id", middleware.RequirePermission("communication.edit"), communicationHandler.UpdateRule)
+	communication.Delete("/rules/:id", middleware.RequirePermission("communication.delete"), communicationHandler.DeleteRule)
 	// Logs
-	communication.Get("/logs", communicationHandler.ListLogs)
+	communication.Get("/logs", middleware.RequirePermission("communication.view"), communicationHandler.ListLogs)
 
 	// Bandwidth rules routes
 	bandwidth := protected.Group("/bandwidth")
-	bandwidth.Get("/rules", bandwidthHandler.ListRules)
-	bandwidth.Get("/rules/:id", bandwidthHandler.GetRule)
-	bandwidth.Post("/rules", middleware.AdminOnly(), bandwidthHandler.CreateRule)
-	bandwidth.Put("/rules/:id", middleware.AdminOnly(), bandwidthHandler.UpdateRule)
-	bandwidth.Delete("/rules/:id", middleware.AdminOnly(), bandwidthHandler.DeleteRule)
-	bandwidth.Post("/rules/:id/apply", middleware.AdminOnly(), bandwidthHandler.ApplyNow)
+	bandwidth.Get("/rules", middleware.RequirePermission("bandwidth.view"), bandwidthHandler.ListRules)
+	bandwidth.Get("/rules/:id", middleware.RequirePermission("bandwidth.view"), bandwidthHandler.GetRule)
+	bandwidth.Post("/rules", middleware.RequirePermission("bandwidth.create"), bandwidthHandler.CreateRule)
+	bandwidth.Put("/rules/:id", middleware.RequirePermission("bandwidth.edit"), bandwidthHandler.UpdateRule)
+	bandwidth.Delete("/rules/:id", middleware.RequirePermission("bandwidth.delete"), bandwidthHandler.DeleteRule)
+	bandwidth.Post("/rules/:id/apply", middleware.RequirePermission("bandwidth.edit"), bandwidthHandler.ApplyNow)
 
 	// FUP/Counter routes
 	fup := protected.Group("/fup")
-	fup.Get("/stats", fupHandler.GetStats)
-	fup.Get("/quotas", fupHandler.ListQuotas)
-	fup.Get("/quotas/:id/history", fupHandler.GetQuotaHistory)
-	fup.Get("/top-users", fupHandler.GetTopUsers)
-	fup.Post("/reset/:id", middleware.ResellerOrAdmin(), fupHandler.ResetFUP)
-	fup.Post("/bulk-reset", middleware.AdminOnly(), fupHandler.BulkReset)
-	fup.Post("/reset-all", middleware.AdminOnly(), fupHandler.ResetAllFUP)
+	fup.Get("/stats", middleware.RequirePermission("fup.view"), fupHandler.GetStats)
+	fup.Get("/quotas", middleware.RequirePermission("fup.view"), fupHandler.ListQuotas)
+	fup.Get("/quotas/:id/history", middleware.RequirePermission("fup.view"), fupHandler.GetQuotaHistory)
+	fup.Get("/top-users", middleware.RequirePermission("fup.view"), fupHandler.GetTopUsers)
+	fup.Post("/reset/:id", middleware.RequirePermission("fup.reset"), fupHandler.ResetFUP)
+	fup.Post("/bulk-reset", middleware.RequirePermission("fup.reset"), fupHandler.BulkReset)
+	fup.Post("/reset-all", middleware.RequirePermission("fup.reset"), fupHandler.ResetAllFUP)
 
 	// Prepaid card routes
 	prepaid := protected.Group("/prepaid")
-	prepaid.Get("/", prepaidHandler.List)
-	prepaid.Get("/batches", prepaidHandler.GetBatches)
-	prepaid.Get("/:id", prepaidHandler.Get)
-	prepaid.Post("/generate", middleware.AdminOnly(), prepaidHandler.Generate)
-	prepaid.Post("/use", prepaidHandler.Use)
-	prepaid.Delete("/:id", middleware.AdminOnly(), prepaidHandler.Delete)
-	prepaid.Delete("/batch/:batch", middleware.AdminOnly(), prepaidHandler.DeleteBatch)
+	prepaid.Get("/", middleware.RequirePermission("prepaid.view"), prepaidHandler.List)
+	prepaid.Get("/batches", middleware.RequirePermission("prepaid.view"), prepaidHandler.GetBatches)
+	prepaid.Get("/:id", middleware.RequirePermission("prepaid.view"), prepaidHandler.Get)
+	prepaid.Post("/generate", middleware.RequirePermission("prepaid.create"), prepaidHandler.Generate)
+	prepaid.Post("/use", middleware.RequirePermission("prepaid.edit"), prepaidHandler.Use)
+	prepaid.Delete("/:id", middleware.RequirePermission("prepaid.delete"), prepaidHandler.Delete)
+	prepaid.Delete("/batch/:batch", middleware.RequirePermission("prepaid.delete"), prepaidHandler.DeleteBatch)
 
 	// Invoice routes
 	invoices := protected.Group("/invoices")
@@ -350,8 +506,8 @@ func main() {
 	invoices.Post("/:id/payment", middleware.ResellerOrAdmin(), invoiceHandler.AddPayment)
 	invoices.Get("/:id/payments", invoiceHandler.GetPayments)
 
-	// Audit log routes (Admin only)
-	audit := protected.Group("/audit", middleware.AdminOnly())
+	// Audit log routes
+	audit := protected.Group("/audit", middleware.RequirePermission("audit.view"))
 	audit.Get("/", auditHandler.List)
 	audit.Get("/actions", auditHandler.GetActions)
 	audit.Get("/entity-types", auditHandler.GetEntityTypes)
@@ -367,18 +523,18 @@ func main() {
 	tickets.Delete("/:id", middleware.AdminOnly(), ticketHandler.Delete)
 	tickets.Post("/:id/reply", ticketHandler.AddReply)
 
-	// Permission routes (Admin only)
-	permissions := protected.Group("/permissions", middleware.AdminOnly())
-	permissions.Get("/", permissionHandler.ListPermissions)
-	permissions.Post("/", permissionHandler.CreatePermission)
-	permissions.Delete("/:id", permissionHandler.DeletePermission)
-	permissions.Post("/seed", permissionHandler.SeedDefaultPermissions)
+	// Permission routes
+	permissions := protected.Group("/permissions")
+	permissions.Get("/", middleware.RequirePermission("permissions.view"), permissionHandler.ListPermissions)
+	permissions.Post("/", middleware.RequirePermission("permissions.create"), permissionHandler.CreatePermission)
+	permissions.Delete("/:id", middleware.RequirePermission("permissions.delete"), permissionHandler.DeletePermission)
+	permissions.Post("/seed", middleware.RequirePermission("permissions.create"), permissionHandler.SeedDefaultPermissions)
 	// Permission groups
-	permissions.Get("/groups", permissionHandler.ListGroups)
-	permissions.Get("/groups/:id", permissionHandler.GetGroup)
-	permissions.Post("/groups", permissionHandler.CreateGroup)
-	permissions.Put("/groups/:id", permissionHandler.UpdateGroup)
-	permissions.Delete("/groups/:id", permissionHandler.DeleteGroup)
+	permissions.Get("/groups", middleware.RequirePermission("permissions.view"), permissionHandler.ListGroups)
+	permissions.Get("/groups/:id", middleware.RequirePermission("permissions.view"), permissionHandler.GetGroup)
+	permissions.Post("/groups", middleware.RequirePermission("permissions.create"), permissionHandler.CreateGroup)
+	permissions.Put("/groups/:id", middleware.RequirePermission("permissions.edit"), permissionHandler.UpdateGroup)
+	permissions.Delete("/groups/:id", middleware.RequirePermission("permissions.delete"), permissionHandler.DeleteGroup)
 
 	// Report routes
 	reports := protected.Group("/reports")
@@ -392,51 +548,69 @@ func main() {
 	reports.Get("/nas", reportHandler.GetNASStats)
 	reports.Get("/export/:type", reportHandler.ExportReport)
 
-	// Backup routes (Admin only)
-	backups := protected.Group("/backups", middleware.AdminOnly())
-	backups.Get("/", backupHandler.List)
-	backups.Post("/", backupHandler.Create)
-	backups.Post("/upload", backupHandler.Upload)
-	backups.Get("/:filename/download", backupHandler.Download)
-	backups.Post("/:filename/restore", backupHandler.Restore)
-	backups.Delete("/:filename", backupHandler.Delete)
+	// Backup routes
+	backups := protected.Group("/backups")
+	backups.Get("/", middleware.RequirePermission("backups.view"), backupHandler.List)
+	backups.Post("/", middleware.RequirePermission("backups.create"), backupHandler.Create)
+	backups.Post("/upload", middleware.RequirePermission("backups.create"), backupHandler.Upload)
+	backups.Get("/:filename/download", middleware.RequirePermission("backups.view"), backupHandler.Download)
+	backups.Get("/:filename/token", middleware.RequirePermission("backups.view"), backupHandler.GetDownloadToken)
+	backups.Get("/:filename/validate", middleware.RequirePermission("backups.view"), backupHandler.ValidateBackup)
+	backups.Post("/:filename/restore", middleware.RequirePermission("backups.restore"), backupHandler.Restore)
+	backups.Delete("/:filename", middleware.RequirePermission("backups.delete"), backupHandler.Delete)
+	// Backup schedules
+	backups.Get("/schedules", middleware.RequirePermission("backups.view"), backupHandler.ListSchedules)
+	backups.Get("/schedules/:id", middleware.RequirePermission("backups.view"), backupHandler.GetSchedule)
+	backups.Post("/schedules", middleware.RequirePermission("backups.create"), backupHandler.CreateSchedule)
+	backups.Put("/schedules/:id", middleware.RequirePermission("backups.edit"), backupHandler.UpdateSchedule)
+	backups.Delete("/schedules/:id", middleware.RequirePermission("backups.delete"), backupHandler.DeleteSchedule)
+	backups.Post("/schedules/:id/toggle", middleware.RequirePermission("backups.edit"), backupHandler.ToggleSchedule)
+	backups.Post("/schedules/:id/run", middleware.RequirePermission("backups.create"), backupHandler.RunScheduleNow)
+	backups.Post("/test-ftp", middleware.RequirePermission("backups.view"), backupHandler.TestFTP)
+	backups.Get("/logs", middleware.RequirePermission("backups.view"), backupHandler.ListBackupLogs)
 
-	// Sharing Detection routes (Admin only)
-	sharing := protected.Group("/sharing", middleware.AdminOnly())
-	sharing.Get("/", sharingHandler.List)
-	sharing.Get("/stats", sharingHandler.GetStats)
-	sharing.Get("/subscriber/:id", sharingHandler.GetSubscriberDetails)
-	sharing.Get("/nas-rules", sharingHandler.ListNASRuleStatus)
-	sharing.Post("/nas/:nas_id/rules", sharingHandler.GenerateTTLRules)
-	sharing.Delete("/nas/:nas_id/rules", sharingHandler.RemoveTTLRules)
+	// Sharing Detection routes
+	sharing := protected.Group("/sharing")
+	sharing.Get("/", middleware.RequirePermission("sharing.view"), sharingHandler.List)
+	sharing.Get("/stats", middleware.RequirePermission("sharing.view"), sharingHandler.GetStats)
+	sharing.Get("/history", middleware.RequirePermission("sharing.view"), sharingHandler.GetHistory)
+	sharing.Get("/trends", middleware.RequirePermission("sharing.view"), sharingHandler.GetTrends)
+	sharing.Get("/repeat-offenders", middleware.RequirePermission("sharing.view"), sharingHandler.GetRepeatOffenders)
+	sharing.Get("/settings", middleware.RequirePermission("sharing.view"), sharingHandler.GetSettings)
+	sharing.Put("/settings", middleware.RequirePermission("sharing.settings"), sharingHandler.UpdateSettings)
+	sharing.Post("/scan", middleware.RequirePermission("sharing.scan"), sharingHandler.RunManualScan)
+	sharing.Get("/subscriber/:id", middleware.RequirePermission("sharing.view"), sharingHandler.GetSubscriberDetails)
+	sharing.Get("/nas-rules", middleware.RequirePermission("sharing.view"), sharingHandler.ListNASRuleStatus)
+	sharing.Post("/nas/:nas_id/rules", middleware.RequirePermission("sharing.settings"), sharingHandler.GenerateTTLRules)
+	sharing.Delete("/nas/:nas_id/rules", middleware.RequirePermission("sharing.settings"), sharingHandler.RemoveTTLRules)
 
-	// CDN routes (Admin only)
-	cdns := protected.Group("/cdns", middleware.AdminOnly())
-	cdns.Get("/", cdnHandler.List)
-	cdns.Get("/speeds", cdnHandler.GetCDNSpeeds) // Get all CDN speeds from services
-	cdns.Get("/:id", cdnHandler.Get)
-	cdns.Post("/", cdnHandler.Create)
-	cdns.Put("/:id", cdnHandler.Update)
-	cdns.Delete("/:id", cdnHandler.Delete)
-	cdns.Post("/:id/sync", cdnHandler.SyncToNAS)
-	cdns.Post("/sync-all", cdnHandler.SyncAllToNAS)
-	cdns.Post("/:id/sync-pcq", cdnHandler.SyncPCQToNAS)
-	cdns.Post("/sync-all-pcq", cdnHandler.SyncAllPCQToNAS)
+	// CDN routes
+	cdns := protected.Group("/cdns")
+	cdns.Get("/", middleware.RequirePermission("cdn.view"), cdnHandler.List)
+	cdns.Get("/speeds", middleware.RequirePermission("cdn.view"), cdnHandler.GetCDNSpeeds) // Get all CDN speeds from services
+	cdns.Get("/:id", middleware.RequirePermission("cdn.view"), cdnHandler.Get)
+	cdns.Post("/", middleware.RequirePermission("cdn.create"), cdnHandler.Create)
+	cdns.Put("/:id", middleware.RequirePermission("cdn.edit"), cdnHandler.Update)
+	cdns.Delete("/:id", middleware.RequirePermission("cdn.delete"), cdnHandler.Delete)
+	cdns.Post("/:id/sync", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncToNAS)
+	cdns.Post("/sync-all", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncAllToNAS)
+	cdns.Post("/:id/sync-pcq", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncPCQToNAS)
+	cdns.Post("/sync-all-pcq", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncAllPCQToNAS)
 
-	// CDN Bandwidth Rules routes (Admin only)
-	cdnBandwidth := protected.Group("/cdn-bandwidth-rules", middleware.AdminOnly())
-	cdnBandwidth.Get("/", cdnBandwidthHandler.ListRules)
-	cdnBandwidth.Get("/:id", cdnBandwidthHandler.GetRule)
-	cdnBandwidth.Post("/", cdnBandwidthHandler.CreateRule)
-	cdnBandwidth.Put("/:id", cdnBandwidthHandler.UpdateRule)
-	cdnBandwidth.Delete("/:id", cdnBandwidthHandler.DeleteRule)
-	cdnBandwidth.Post("/:id/apply", cdnBandwidthHandler.ApplyNow)
+	// CDN Bandwidth Rules routes
+	cdnBandwidth := protected.Group("/cdn-bandwidth-rules")
+	cdnBandwidth.Get("/", middleware.RequirePermission("cdn.view"), cdnBandwidthHandler.ListRules)
+	cdnBandwidth.Get("/:id", middleware.RequirePermission("cdn.view"), cdnBandwidthHandler.GetRule)
+	cdnBandwidth.Post("/", middleware.RequirePermission("cdn.create"), cdnBandwidthHandler.CreateRule)
+	cdnBandwidth.Put("/:id", middleware.RequirePermission("cdn.edit"), cdnBandwidthHandler.UpdateRule)
+	cdnBandwidth.Delete("/:id", middleware.RequirePermission("cdn.delete"), cdnBandwidthHandler.DeleteRule)
+	cdnBandwidth.Post("/:id/apply", middleware.RequirePermission("cdn.edit"), cdnBandwidthHandler.ApplyNow)
 
 	// Service CDN configuration routes
-	services.Get("/:id/cdns", cdnHandler.ListServiceCDNs)
-	services.Put("/:id/cdns", middleware.AdminOnly(), cdnHandler.UpdateServiceCDNs)
-	services.Post("/:id/cdns", middleware.AdminOnly(), cdnHandler.AddServiceCDN)
-	services.Delete("/:id/cdns/:cdnId", middleware.AdminOnly(), cdnHandler.DeleteServiceCDN)
+	services.Get("/:id/cdns", middleware.RequirePermission("services.view"), cdnHandler.ListServiceCDNs)
+	services.Put("/:id/cdns", middleware.RequirePermission("services.edit"), cdnHandler.UpdateServiceCDNs)
+	services.Post("/:id/cdns", middleware.RequirePermission("services.edit"), cdnHandler.AddServiceCDN)
+	services.Delete("/:id/cdns/:cdnId", middleware.RequirePermission("services.edit"), cdnHandler.DeleteServiceCDN)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -448,6 +622,11 @@ func main() {
 		quotaSyncService.Stop()
 		bandwidthRuleService.Stop()
 		cdnBandwidthRuleService.Stop()
+		backupSchedulerService.Stop()
+		radAcctArchivalService.Stop()
+		clusterFailoverService.Stop()
+		clusterService.Stop()
+		mikrotik.ShutdownPool()
 		license.Stop()
 		app.Shutdown()
 	}()
@@ -467,33 +646,40 @@ func seedAdminUser() {
 	if count == 0 {
 		log.Println("Creating default admin user...")
 
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+		// Get password from environment variable, default to admin123 if not set
+		adminPassword := os.Getenv("ADMIN_PASSWORD")
+		if adminPassword == "" {
+			adminPassword = "admin123"
+			log.Println("Warning: ADMIN_PASSWORD not set, using default password")
+		}
+
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 
 		admin := models.User{
-			Username: "admin",
-			Password: string(hashedPassword),
-			Email:    "admin@proisp.local",
-			FullName: "System Administrator",
-			UserType: models.UserTypeAdmin,
+			Username:            "admin",
+			Password:            string(hashedPassword),
+			Email:               "admin@proisp.local",
+			FullName:            "System Administrator",
+			UserType:            models.UserTypeAdmin,
+			IsActive:            true,
 			ForcePasswordChange: true,
-			IsActive: true,
 		}
 
 		if err := database.DB.Create(&admin).Error; err != nil {
 			log.Printf("Failed to create admin user: %v", err)
 		} else {
-			log.Println("Admin user created successfully (username: admin, password: admin123)")
+			log.Printf("Admin user created successfully (username: admin)")
 		}
 
-		// Create default reseller
+		// Create default reseller with same password
 		resellerUser := models.User{
-			Username: "reseller",
-			Password: string(hashedPassword),
-			Email:    "reseller@proisp.local",
-			FullName: "Default Reseller",
-			UserType: models.UserTypeReseller,
+			Username:            "reseller",
+			Password:            string(hashedPassword),
+			Email:               "reseller@proisp.local",
+			FullName:            "Default Reseller",
+			UserType:            models.UserTypeReseller,
+			IsActive:            true,
 			ForcePasswordChange: true,
-			IsActive: true,
 		}
 		database.DB.Create(&resellerUser)
 
@@ -507,7 +693,99 @@ func seedAdminUser() {
 		database.DB.Create(&reseller)
 		database.DB.Model(&resellerUser).Update("reseller_id", reseller.ID)
 
-		log.Println("Default reseller created (username: reseller, password: admin123)")
+		log.Println("Default reseller created (username: reseller)")
 	}
 }
-// Build $(date +%s)
+
+// ensureRequiredPackages installs required system packages if not present
+// This runs on startup to ensure CoA (radclient) and ping features work
+func ensureRequiredPackages() {
+	packages := []struct {
+		checkCmd string
+		pkg      string
+		name     string
+	}{
+		{"radclient", "freeradius-utils", "radclient (for CoA)"},
+		{"ping", "iputils-ping", "ping"},
+		{"pg_dump", "postgresql-client", "pg_dump (for backups)"},
+	}
+
+	needInstall := []string{}
+	for _, p := range packages {
+		if _, err := exec.LookPath(p.checkCmd); err != nil {
+			log.Printf("Package %s not found, will install %s", p.name, p.pkg)
+			needInstall = append(needInstall, p.pkg)
+		}
+	}
+
+	if len(needInstall) == 0 {
+		return
+	}
+
+	// Update apt cache
+	log.Println("Installing required packages...")
+	exec.Command("apt-get", "update", "-qq").Run()
+
+	// Install missing packages
+	args := append([]string{"install", "-y", "-qq"}, needInstall...)
+	if err := exec.Command("apt-get", args...).Run(); err != nil {
+		log.Printf("Warning: Failed to install packages: %v", err)
+	} else {
+		log.Printf("Successfully installed: %v", needInstall)
+	}
+}
+
+// checkBinaryExpiry checks if the binary has exceeded its maximum age
+func checkBinaryExpiry() error {
+	if buildDate == "" {
+		// No build date set - allow in dev mode
+		return nil
+	}
+
+	built, err := time.Parse("2006-01-02", buildDate)
+	if err != nil {
+		return nil // Invalid date format - allow
+	}
+
+	daysSinceBuild := int(time.Since(built).Hours() / 24)
+	if daysSinceBuild > maxBinaryAgeDays {
+		return fmt.Errorf("binary built on %s has expired (%d days old, max %d days) - please update to latest version",
+			buildDate, daysSinceBuild, maxBinaryAgeDays)
+	}
+
+	daysRemaining := maxBinaryAgeDays - daysSinceBuild
+	if daysRemaining <= 7 {
+		log.Printf("WARNING: Binary will expire in %d days. Please update soon.", daysRemaining)
+	}
+
+	return nil
+}
+
+// enableProISPIPManagement auto-enables ProISP IP Pool Management on fresh installs
+// This prevents duplicate IP issues by having ProISP manage all IP assignments
+func enableProISPIPManagement() {
+	// Check if the setting already exists
+	var pref models.SystemPreference
+	err := database.DB.Where("key = ?", "proisp_ip_management").First(&pref).Error
+
+	if err != nil {
+		// Setting doesn't exist - this is a fresh install, enable it
+		log.Println("Fresh install detected: Enabling ProISP IP Pool Management...")
+		if err := database.DB.Exec(`
+			INSERT INTO system_preferences (key, value, value_type, created_at, updated_at)
+			VALUES ('proisp_ip_management', 'true', 'bool', NOW(), NOW())
+			ON CONFLICT (key) DO NOTHING
+		`).Error; err != nil {
+			log.Printf("Warning: Failed to enable ProISP IP Management: %v", err)
+		} else {
+			log.Println("ProISP IP Pool Management enabled automatically")
+		}
+	} else {
+		// Setting exists - this is an existing installation
+		if pref.Value == "true" {
+			log.Println("ProISP IP Pool Management is enabled")
+		} else {
+			log.Println("ProISP IP Pool Management is disabled (MikroTik managing IPs)")
+		}
+	}
+}

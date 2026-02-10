@@ -156,22 +156,23 @@ type LoginRequest struct {
 
 // LoginResponse represents login response
 type LoginResponse struct {
-	Success     bool        `json:"success"`
-	Message     string      `json:"message,omitempty"`
-	Token       string      `json:"token,omitempty"`
-	User        *UserInfo   `json:"user,omitempty"`
-	Requires2FA bool        `json:"requires_2fa,omitempty"`
+	Success             bool      `json:"success"`
+	Message             string    `json:"message,omitempty"`
+	Token               string    `json:"token,omitempty"`
+	User                *UserInfo `json:"user,omitempty"`
+	Requires2FA         bool      `json:"requires_2fa,omitempty"`
+	ForcePasswordChange bool      `json:"force_password_change,omitempty"`
 }
 
 // UserInfo represents user info in response
 type UserInfo struct {
-	ID          uint            `json:"id"`
-	Username    string          `json:"username"`
-	Email       string          `json:"email"`
-	FullName    string          `json:"full_name"`
-	UserType    models.UserType `json:"user_type"`
-	ResellerID  *uint           `json:"reseller_id,omitempty"`
-	Permissions []string        `json:"permissions,omitempty"`
+	ID                  uint            `json:"id"`
+	Username            string          `json:"username"`
+	Email               string          `json:"email"`
+	FullName            string          `json:"full_name"`
+	UserType            models.UserType `json:"user_type"`
+	ResellerID          *uint           `json:"reseller_id,omitempty"`
+	Permissions         []string        `json:"permissions,omitempty"`
 	ForcePasswordChange bool            `json:"force_password_change"`
 }
 
@@ -186,15 +187,28 @@ func getResellerPermissions(resellerID uint) []string {
 		return nil
 	}
 
-	var permGroup models.PermissionGroup
-	if err := database.DB.Preload("Permissions").First(&permGroup, *reseller.PermissionGroup).Error; err != nil {
+	// Load permissions from junction table (Preload doesn't work with gorm:"-")
+	var permissions []string
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", *reseller.PermissionGroup).
+		Pluck("name", &permissions)
+
+	return permissions
+}
+
+// getUserPermissions returns the list of permission names for a user based on their permission_group
+func getUserPermissions(permissionGroupID *uint) []string {
+	if permissionGroupID == nil {
 		return nil
 	}
 
-	permissions := make([]string, len(permGroup.Permissions))
-	for i, p := range permGroup.Permissions {
-		permissions[i] = p.Name
-	}
+	var permissions []string
+	database.DB.Table("permissions").
+		Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+		Where("pgp.permission_group_id = ?", *permissionGroupID).
+		Pluck("name", &permissions)
+
 	return permissions
 }
 
@@ -329,17 +343,23 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		permissions = getResellerPermissions(*user.ResellerID)
 	}
 
+	// Get permissions for non-reseller users (support, collector, readonly) based on their permission_group
+	if user.UserType != models.UserTypeReseller && user.UserType != models.UserTypeAdmin {
+		permissions = getUserPermissions(user.PermissionGroup)
+	}
+
 	return c.JSON(LoginResponse{
-		Success: true,
-		Token:   token,
+		Success:             true,
+		Token:               token,
+		ForcePasswordChange: user.ForcePasswordChange,
 		User: &UserInfo{
-			ID:          user.ID,
-			Username:    user.Username,
-			Email:       user.Email,
-			FullName:    user.FullName,
-			UserType:    user.UserType,
-			ResellerID:  user.ResellerID,
-			Permissions: permissions,
+			ID:                  user.ID,
+			Username:            user.Username,
+			Email:               user.Email,
+			FullName:            user.FullName,
+			UserType:            user.UserType,
+			ResellerID:          user.ResellerID,
+			Permissions:         permissions,
 			ForcePasswordChange: user.ForcePasswordChange,
 		},
 	})
@@ -365,7 +385,21 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 		database.DB.Create(&auditLog)
 	}
 
-	// TODO: Add token to blacklist in Redis
+	// Add token to blacklist in Redis
+	// This prevents the token from being used after logout
+	authHeader := c.Get("Authorization")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			token := parts[1]
+			// Blacklist token for the remaining JWT expiry duration (default 168 hours = 7 days)
+			expiryDuration := time.Duration(h.cfg.JWTExpireHours) * time.Hour
+			if err := database.BlacklistToken(token, expiryDuration); err != nil {
+				// Log error but don't fail logout
+				// Token will still expire naturally
+			}
+		}
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -395,21 +429,27 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 		}
 	}
 
+	// Get permissions for non-reseller users (support, collector, readonly) based on their permission_group
+	if user.UserType != models.UserTypeReseller && user.UserType != models.UserTypeAdmin {
+		permissions = getUserPermissions(user.PermissionGroup)
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"user": fiber.Map{
-			"id":          user.ID,
-			"username":    user.Username,
-			"email":       user.Email,
-			"full_name":   user.FullName,
-			"phone":       user.Phone,
-			"user_type":   user.UserType,
-			"reseller_id": user.ResellerID,
-			"reseller":    reseller,
-			"is_active":   user.IsActive,
-			"last_login":  user.LastLogin,
-			"created_at":  user.CreatedAt,
-			"permissions": permissions,
+			"id":               user.ID,
+			"username":         user.Username,
+			"email":            user.Email,
+			"full_name":        user.FullName,
+			"phone":            user.Phone,
+			"user_type":        user.UserType,
+			"reseller_id":      user.ResellerID,
+			"reseller":         reseller,
+			"is_active":        user.IsActive,
+			"last_login":       user.LastLogin,
+			"created_at":       user.CreatedAt,
+			"permissions":      permissions,
+			"permission_group": user.PermissionGroup,
 		},
 	})
 }
@@ -435,12 +475,14 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify current password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Current password is incorrect",
-		})
+	// Verify current password (skip if force_password_change is true - first login)
+	if !user.ForcePasswordChange {
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"message": "Current password is incorrect",
+			})
+		}
 	}
 
 	// Validate new password
@@ -460,8 +502,11 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 		})
 	}
 
-	// Update password
-	if err := database.DB.Model(user).Updates(map[string]interface{}{"password": string(hashedPassword), "force_password_change": false}).Error; err != nil {
+	// Update password and clear force_password_change flag
+	if err := database.DB.Model(user).Updates(map[string]interface{}{
+		"password":              string(hashedPassword),
+		"force_password_change": false,
+	}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to update password",
@@ -502,4 +547,183 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(bytes), err
+}
+
+// Impersonation token storage (in-memory with expiry)
+var (
+	impersonateTokens      = make(map[string]uint) // token -> reseller_id
+	impersonateTokenExpiry = make(map[string]time.Time)
+	impersonateTokenMutex  sync.RWMutex
+)
+
+// generateRandomToken creates a random token for impersonation
+func generateRandomToken() string {
+	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	token := make([]byte, 64)
+	for i := range token {
+		token[i] = chars[time.Now().UnixNano()%int64(len(chars))]
+		time.Sleep(1 * time.Nanosecond) // Ensure different values
+	}
+	return string(token)
+}
+
+// GetImpersonateToken generates a temporary token for impersonating a reseller
+// This token can be used in a new browser tab to login as the reseller
+func (h *AuthHandler) GetImpersonateToken(c *fiber.Ctx) error {
+	currentUser := middleware.GetCurrentUser(c)
+	if currentUser == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Unauthorized",
+		})
+	}
+
+	// Only admins can impersonate
+	if currentUser.UserType != models.UserTypeAdmin {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"message": "Only admins can impersonate resellers",
+		})
+	}
+
+	resellerID, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid reseller ID",
+		})
+	}
+
+	// Verify reseller exists
+	var reseller models.Reseller
+	if err := database.DB.First(&reseller, resellerID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	// Generate temporary token
+	token := generateRandomToken()
+	expiry := time.Now().Add(30 * time.Second)
+
+	impersonateTokenMutex.Lock()
+	impersonateTokens[token] = uint(resellerID)
+	impersonateTokenExpiry[token] = expiry
+	impersonateTokenMutex.Unlock()
+
+	// Clean up expired tokens
+	go func() {
+		time.Sleep(35 * time.Second)
+		impersonateTokenMutex.Lock()
+		delete(impersonateTokens, token)
+		delete(impersonateTokenExpiry, token)
+		impersonateTokenMutex.Unlock()
+	}()
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"token":   token,
+	})
+}
+
+// ExchangeImpersonateToken exchanges a temporary impersonate token for a real session
+func (h *AuthHandler) ExchangeImpersonateToken(c *fiber.Ctx) error {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request",
+		})
+	}
+
+	if req.Token == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Token is required",
+		})
+	}
+
+	// Look up and validate token
+	impersonateTokenMutex.RLock()
+	resellerID, exists := impersonateTokens[req.Token]
+	expiry, _ := impersonateTokenExpiry[req.Token]
+	impersonateTokenMutex.RUnlock()
+
+	if !exists {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid or expired token",
+		})
+	}
+
+	if time.Now().After(expiry) {
+		// Clean up expired token
+		impersonateTokenMutex.Lock()
+		delete(impersonateTokens, req.Token)
+		delete(impersonateTokenExpiry, req.Token)
+		impersonateTokenMutex.Unlock()
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Token has expired",
+		})
+	}
+
+	// Token is valid - delete it (one-time use)
+	impersonateTokenMutex.Lock()
+	delete(impersonateTokens, req.Token)
+	delete(impersonateTokenExpiry, req.Token)
+	impersonateTokenMutex.Unlock()
+
+	// Get reseller and user
+	var reseller models.Reseller
+	if err := database.DB.Preload("User").First(&reseller, resellerID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Reseller not found",
+		})
+	}
+
+	// Generate JWT token for the reseller
+	jwtToken, err := middleware.GenerateToken(reseller.User, h.cfg)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to generate token",
+		})
+	}
+
+	// Get permissions for reseller
+	var permissions []string
+	if reseller.PermissionGroup != nil {
+		database.DB.Table("permissions").
+			Joins("JOIN permission_group_permissions pgp ON pgp.permission_id = permissions.id").
+			Where("pgp.permission_group_id = ?", *reseller.PermissionGroup).
+			Pluck("name", &permissions)
+	}
+
+	// Build user response
+	userResponse := fiber.Map{
+		"id":                    reseller.User.ID,
+		"username":              reseller.User.Username,
+		"email":                 reseller.User.Email,
+		"phone":                 reseller.User.Phone,
+		"full_name":             reseller.User.FullName,
+		"user_type":             "reseller",
+		"is_active":             reseller.User.IsActive,
+		"reseller_id":           reseller.ID,
+		"permissions":           permissions,
+		"force_password_change": reseller.User.ForcePasswordChange,
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"token": jwtToken,
+			"user":  userResponse,
+		},
+	})
 }

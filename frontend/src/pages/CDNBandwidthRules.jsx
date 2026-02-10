@@ -13,7 +13,7 @@ export default function CDNBandwidthRules() {
     start_time: '16:00',
     end_time: '23:00',
     days_of_week: [0, 1, 2, 3, 4, 5, 6],
-    speed_multiplier: 50,
+    speed_multiplier: 100,
     cdn_ids: [],
     priority: 10,
     enabled: true,
@@ -95,7 +95,7 @@ export default function CDNBandwidthRules() {
       start_time: '16:00',
       end_time: '23:00',
       days_of_week: [0, 1, 2, 3, 4, 5, 6],
-      speed_multiplier: 50,
+      speed_multiplier: 100,
       cdn_ids: [],
       priority: 10,
       enabled: true,
@@ -165,8 +165,8 @@ export default function CDNBandwidthRules() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">CDN Bandwidth Rules</h1>
-          <p className="text-sm text-gray-500 mt-1">Configure time-based CDN speed adjustments (e.g., reduce CDN speed during peak hours)</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">CDN Bandwidth Rules</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Configure time-based CDN speed adjustments (e.g., reduce CDN speed during peak hours)</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -177,7 +177,7 @@ export default function CDNBandwidthRules() {
       </div>
 
       {/* Info Card */}
-      <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg">
+      <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 p-4 rounded-lg">
         <h3 className="font-medium text-orange-900">Time-Based CDN Bandwidth Rules</h3>
         <p className="text-sm text-orange-700 mt-1">
           Create rules to adjust CDN speeds during peak hours. For example, reduce CDN traffic to 50% during evening hours (16:00-23:00) to prioritize regular user traffic.
@@ -186,28 +186,28 @@ export default function CDNBandwidthRules() {
       </div>
 
       {/* Rules Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CDNs</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Schedule</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Speed</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">CDNs</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Schedule</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Speed</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {(rules || []).map(rule => (
-              <tr key={rule.id} className="hover:bg-gray-50">
+              <tr key={rule.id} className="hover:bg-gray-50 dark:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{rule.name}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{rule.name}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   {getCDNNames(rule.cdn_ids)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   <div>
                     <div>{rule.start_time} - {rule.end_time}</div>
                     <div className="text-xs">{getDaysLabel(rule.days_of_week)}</div>
@@ -232,7 +232,7 @@ export default function CDNBandwidthRules() {
                       }`}
                     >
                       <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow transition duration-200 ${
                           rule.enabled ? 'translate-x-5' : 'translate-x-0'
                         }`}
                       />
@@ -275,7 +275,7 @@ export default function CDNBandwidthRules() {
         </table>
 
         {(rules || []).length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             No CDN bandwidth rules configured. Click "Add Rule" to create one.
           </div>
         )}
@@ -286,18 +286,18 @@ export default function CDNBandwidthRules() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={closeModal}></div>
-            <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                 {editingRule ? 'Edit CDN Bandwidth Rule' : 'Add CDN Bandwidth Rule'}
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Rule Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Rule Name</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     placeholder="e.g., Peak Hours CDN Limit, Evening CDN Reduction"
                     required
                   />
@@ -305,27 +305,27 @@ export default function CDNBandwidthRules() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Start Time</label>
                     <input
                       type="time"
                       value={formData.start_time}
                       onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">End Time</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">End Time</label>
                     <input
                       type="time"
                       value={formData.end_time}
                       onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Days of Week</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Days of Week</label>
                   <div className="flex flex-wrap gap-2">
                     {daysOfWeek.map(day => (
                       <button
@@ -344,8 +344,11 @@ export default function CDNBandwidthRules() {
                   </div>
                 </div>
 
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 bg-blue-50 dark:bg-blue-900/30 p-2 rounded">
+                  Speed multiplier: 100% = same speed, 200% = double speed, 50% = half speed
+                </p>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
                     CDN Speed: <span className={`font-bold ${formData.speed_multiplier > 100 ? 'text-green-600' : formData.speed_multiplier < 100 ? 'text-orange-600' : 'text-gray-600'}`}>{formData.speed_multiplier}%</span>
                     {formData.speed_multiplier < 100 && (
                       <span className="font-normal text-gray-500 ml-1">({100 - formData.speed_multiplier}% reduction)</span>
@@ -360,20 +363,17 @@ export default function CDNBandwidthRules() {
                     onChange={(e) => setFormData({ ...formData, speed_multiplier: parseInt(e.target.value) })}
                     className="mt-2 w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                   />
-                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
                     <span>10%</span>
                     <span>50%</span>
                     <span>100%</span>
                     <span>200%</span>
                     <span>300%</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    100% = no change, 50% = half speed, 300% = triple speed
-                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Apply to CDNs <span className="text-red-500">*</span>
                   </label>
                   <div className={`max-h-32 overflow-y-auto border rounded-md p-2 ${formData.cdn_ids.length === 0 ? 'border-red-300 bg-red-50' : ''}`}>
@@ -411,9 +411,9 @@ export default function CDNBandwidthRules() {
                       type="checkbox"
                       checked={formData.enabled}
                       onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Enabled</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -422,7 +422,7 @@ export default function CDNBandwidthRules() {
                       onChange={(e) => setFormData({ ...formData, auto_apply: e.target.checked })}
                       className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Auto Apply (apply automatically on schedule)</span>
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Auto Apply (apply automatically on schedule)</span>
                   </label>
                 </div>
 
@@ -430,7 +430,7 @@ export default function CDNBandwidthRules() {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:bg-gray-600"
                   >
                     Cancel
                   </button>

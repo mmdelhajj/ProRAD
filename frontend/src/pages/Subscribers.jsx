@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { subscriberApi, serviceApi, nasApi } from '../services/api'
+import { subscriberApi, serviceApi, nasApi, resellerApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import { formatDate } from '../utils/timezone'
 import {
   useReactTable,
@@ -30,6 +31,7 @@ import {
   CalendarDaysIcon,
   ArrowDownTrayIcon,
   EyeIcon,
+  EyeSlashIcon,
   WifiIcon,
   PlayIcon,
   PauseIcon,
@@ -37,6 +39,7 @@ import {
   IdentificationIcon,
   Squares2X2Icon,
   CheckIcon,
+  SignalIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -85,6 +88,7 @@ const formatBytes = (bytes) => {
 export default function Subscribers() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const fileInputRef = useRef(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(25)
@@ -92,6 +96,8 @@ export default function Subscribers() {
   const [status, setStatus] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [nasId, setNasId] = useState('')
+  const [resellerId, setResellerId] = useState('')
+  const [fupLevel, setFupLevel] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [sorting, setSorting] = useState([])
   const [viewMode, setViewMode] = useState('active')
@@ -99,23 +105,46 @@ export default function Subscribers() {
   // Selected rows - stores subscriber IDs
   const [selectedIds, setSelectedIds] = useState(new Set())
 
-  // Column visibility
-  const [visibleColumns, setVisibleColumns] = useState({
-    username: true,
-    full_name: true,
-    phone: true,
-    mac_address: true,
-    ip_address: true,
-    service: true,
-    status: true,
-    expiry_date: true,
-    daily_quota: true,
-    monthly_quota: true,
-    balance: false,
-    address: false,
-    region: false,
+  // Column visibility - load from localStorage
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const defaultColumns = {
+      username: true,
+      full_name: true,
+      phone: true,
+      mac_address: true,
+      ip_address: true,
+      service: true,
+      reseller: true,
+      status: true,
+      expiry_date: true,
+      last_seen: true,
+      daily_quota: true,
+      monthly_quota: true,
+      balance: false,
+      address: false,
+      region: false,
+      notes: false,
+    }
+    try {
+      const saved = localStorage.getItem('subscriberColumns')
+      if (saved) {
+        return { ...defaultColumns, ...JSON.parse(saved) }
+      }
+    } catch (e) {
+      console.error('Failed to load column settings:', e)
+    }
+    return defaultColumns
   })
   const [showColumnSettings, setShowColumnSettings] = useState(false)
+
+  // Save column visibility to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('subscriberColumns', JSON.stringify(visibleColumns))
+    } catch (e) {
+      console.error('Failed to save column settings:', e)
+    }
+  }, [visibleColumns])
 
   // Modal states
   const [showBulkImport, setShowBulkImport] = useState(false)
@@ -136,15 +165,21 @@ export default function Subscribers() {
   const [priceCalculation, setPriceCalculation] = useState(null)
   const [calculatingPrice, setCalculatingPrice] = useState(false)
 
+  // Torch modal state
+  const [torchModal, setTorchModal] = useState(null)
+  const [torchData, setTorchData] = useState(null)
+  const [torchLoading, setTorchLoading] = useState(false)
+  const [torchAutoRefresh, setTorchAutoRefresh] = useState(true) // Auto-refresh ON by default
+
   // Fetch subscribers
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, viewMode],
+    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, resellerId, fupLevel, viewMode],
     queryFn: () => {
       if (viewMode === 'archived') {
         return subscriberApi.listArchived({ page, limit, search }).then((r) => r.data)
       }
       return subscriberApi
-        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId })
+        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId, reseller_id: resellerId, fup_level: fupLevel })
         .then((r) => r.data)
     },
   })
@@ -157,6 +192,11 @@ export default function Subscribers() {
   const { data: nasList } = useQuery({
     queryKey: ['nas-list'],
     queryFn: () => nasApi.list().then((r) => r.data.data),
+  })
+
+  const { data: resellers } = useQuery({
+    queryKey: ['resellers-list'],
+    queryFn: () => resellerApi.list().then((r) => r.data.data),
   })
 
   // Get selected subscribers
@@ -297,6 +337,39 @@ export default function Subscribers() {
     }
   }
 
+  // Fetch torch data for a subscriber
+  const fetchTorchData = async (subscriber) => {
+    if (!subscriber || !subscriber.is_online) return
+    setTorchLoading(true)
+    try {
+      const res = await subscriberApi.getTorch(subscriber.id, 2) // 2 seconds for faster refresh
+      if (res.data?.success) {
+        setTorchData(res.data.data)
+      } else {
+        toast.error(res.data?.message || 'Failed to get torch data')
+        setTorchData(null)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to get torch data')
+      setTorchData(null)
+    } finally {
+      setTorchLoading(false)
+    }
+  }
+
+  // Auto-refresh torch data - continuous like MikroTik Winbox
+  useEffect(() => {
+    let interval
+    if (torchModal && torchAutoRefresh && !torchLoading) {
+      interval = setInterval(() => {
+        fetchTorchData(torchModal)
+      }, 2000) // Refresh every 2 seconds for live feel
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [torchModal, torchAutoRefresh, torchLoading])
+
   const activateMutation = useMutation({
     mutationFn: (id) => subscriberApi.activate(id),
     onSuccess: () => {
@@ -331,7 +404,26 @@ export default function Subscribers() {
     mutationFn: (id) => subscriberApi.ping(id),
     onSuccess: (res) => {
       const data = res.data.data
-      toast.success(`Ping result: ${data.output}`)
+      // Show dismissible ping result - click anywhere to close
+      toast.custom((t) => (
+        <div
+          onClick={() => toast.dismiss(t.id)}
+          className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto cursor-pointer border border-gray-200 dark:border-gray-700`}
+        >
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <WifiIcon className="h-6 w-6 text-green-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Ping Result</p>
+                <pre className="mt-1 text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono">{data.output}</pre>
+                <p className="mt-2 text-xs text-gray-400">Click anywhere to close</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), { duration: 30000 }) // 30 seconds max, but user can click to dismiss
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to ping'),
   })
@@ -437,6 +529,7 @@ export default function Subscribers() {
           break
         case 'change_service':
           setActionModal({ type: 'changeService', subscriber: sub })
+          setActionValue(sub?.service_id?.toString() || '')
           break
         case 'rename':
           setActionModal({ type: 'rename', subscriber: sub })
@@ -529,6 +622,20 @@ export default function Subscribers() {
               >
                 {row.original.username}
               </Link>
+              {row.original.is_online && hasPermission('subscribers.torch') && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setTorchModal(row.original)
+                    setTorchData(null)
+                    fetchTorchData(row.original)
+                  }}
+                  className="text-green-500 hover:text-green-700"
+                  title="Live Traffic (Torch)"
+                >
+                  <SignalIcon className="w-4 h-4" />
+                </button>
+              )}
               {row.original.fup_level > 0 && (
                 <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold text-white rounded whitespace-nowrap ${
                   row.original.fup_level === 1 ? 'bg-yellow-500' :
@@ -602,17 +709,37 @@ export default function Subscribers() {
           return (
             <div className="min-w-[120px]">
               <div className="text-center font-medium text-sm">{serviceName}</div>
-              <div className="w-full bg-gray-200 rounded-full h-4 mt-1 relative border border-gray-300">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mt-1 relative border border-gray-300 dark:border-gray-600">
                 <div
                   className={`h-full rounded-full transition-all ${
                     percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
                   }`}
                   style={{ width: `${Math.min(100, percent)}%` }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-800">
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-800 dark:text-gray-200">
                   {usedFormatted}
                 </span>
               </div>
+            </div>
+          )
+        },
+      }] : []),
+      ...(visibleColumns.reseller ? [{
+        id: 'reseller',
+        header: 'Reseller',
+        cell: ({ row }) => {
+          const reseller = row.original.reseller
+          if (!reseller) return <span className="text-gray-400 dark:text-gray-500 text-xs">-</span>
+          return (
+            <div className="text-xs">
+              <div className="font-medium text-gray-900 dark:text-white">
+                {reseller.user?.username || reseller.name}
+              </div>
+              {reseller.parent && (
+                <div className="text-gray-500 dark:text-gray-400 text-[10px]">
+                  ↳ Sub of: {reseller.parent.user?.username || reseller.parent.name}
+                </div>
+              )}
             </div>
           )
         },
@@ -639,12 +766,43 @@ export default function Subscribers() {
           const daysLeft = Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24))
           return (
             <div>
-              <div className={clsx(isExpired ? 'text-red-600' : 'text-gray-900', 'text-sm')}>
+              <div className={clsx(isExpired ? 'text-red-600' : 'text-gray-900 dark:text-white', 'text-sm')}>
                 {formatDate(row.original.expiry_date)}
               </div>
-              <div className={clsx('text-xs', isExpired ? 'text-red-500' : 'text-gray-500')}>
+              <div className={clsx('text-xs', isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400')}>
                 {isExpired ? `${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
               </div>
+            </div>
+          )
+        },
+      }] : []),
+      ...(visibleColumns.last_seen ? [{
+        accessorKey: 'last_seen',
+        header: 'Last Seen',
+        cell: ({ row }) => {
+          if (row.original.is_online) {
+            return <span className="text-green-600 dark:text-green-400 text-xs font-medium">Online Now</span>
+          }
+          if (!row.original.last_seen) {
+            return <span className="text-gray-400 dark:text-gray-500 text-xs">Never</span>
+          }
+          const lastSeen = new Date(row.original.last_seen)
+          const now = new Date()
+          const diffMs = now - lastSeen
+          const diffMins = Math.floor(diffMs / (1000 * 60))
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+          let timeAgo
+          if (diffMins < 1) timeAgo = 'Just now'
+          else if (diffMins < 60) timeAgo = `${diffMins}m ago`
+          else if (diffHours < 24) timeAgo = `${diffHours}h ago`
+          else if (diffDays < 30) timeAgo = `${diffDays}d ago`
+          else timeAgo = formatDate(row.original.last_seen)
+
+          return (
+            <div className="text-xs">
+              <div className="text-gray-600 dark:text-gray-300">{timeAgo}</div>
             </div>
           )
         },
@@ -656,20 +814,20 @@ export default function Subscribers() {
           const used = row.original.monthly_quota_used || 0
           const limit = row.original.service?.monthly_quota || 0
 
-          if (limit === 0) return <span className="text-gray-400 text-xs">Unlimited</span>
+          if (limit === 0) return <span className="text-gray-400 dark:text-gray-500 text-xs">Unlimited</span>
           const percent = Math.min(100, (used / limit) * 100)
           const usedFormatted = formatBytes(used)
 
           return (
             <div className="min-w-[80px]">
-              <div className="w-full bg-gray-200 rounded-full h-3 relative border border-gray-300">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 relative border border-gray-300 dark:border-gray-600">
                 <div
                   className={`h-full rounded-full ${
                     percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
                   }`}
                   style={{ width: `${Math.min(100, percent)}%` }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium">
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-gray-800 dark:text-gray-200">
                   {usedFormatted}
                 </span>
               </div>
@@ -691,6 +849,15 @@ export default function Subscribers() {
       ...(visibleColumns.region ? [{
         accessorKey: 'region',
         header: 'Region',
+      }] : []),
+      ...(visibleColumns.notes ? [{
+        accessorKey: 'note',
+        header: 'Notes',
+        cell: ({ row }) => (
+          <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[150px] block" title={row.original.note}>
+            {row.original.note || '-'}
+          </span>
+        ),
       }] : []),
       ...(viewMode === 'archived' ? [{
         accessorKey: 'deleted_at',
@@ -721,80 +888,120 @@ export default function Subscribers() {
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Subscribers</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Subscribers</h1>
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleExport}
             className="btn btn-secondary btn-sm flex items-center gap-1"
+            title="Export"
           >
             <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </button>
-          <button
-            onClick={() => setShowBulkImport(true)}
-            className="btn btn-secondary btn-sm flex items-center gap-1"
-          >
-            <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-            Import
-          </button>
+          {hasPermission('subscribers.create') && (
+            <button
+              onClick={() => setShowBulkImport(true)}
+              className="btn btn-secondary btn-sm flex items-center gap-1"
+              title="Import CSV"
+            >
+              <ArrowUpTrayIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Import CSV</span>
+            </button>
+          )}
+          {hasPermission('subscribers.create') && (
+            <Link
+              to="/subscribers/import"
+              className="btn btn-secondary btn-sm flex items-center gap-1"
+              title="Import Excel"
+            >
+              <DocumentArrowUpIcon className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Import Excel</span>
+            </Link>
+          )}
           <button
             onClick={() => refetch()}
             className="btn btn-secondary btn-sm flex items-center gap-1"
+            title="Refresh"
           >
             <ArrowPathIcon className="w-3.5 h-3.5" />
           </button>
-          <Link to="/subscribers/new" className="btn btn-primary btn-sm flex items-center gap-1">
-            <PlusIcon className="w-3.5 h-3.5" />
-            Add
-          </Link>
+          {hasPermission('subscribers.create') && (
+            <Link to="/subscribers/new" className="btn btn-primary btn-sm flex items-center gap-1">
+              <PlusIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Add</span>
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-white rounded-lg border text-sm">
+      {/* Stats Bar - Scrollable on mobile */}
+      <div className="flex items-center gap-4 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border text-sm overflow-x-auto">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-green-500"></span>
           <span className="font-semibold text-green-600">{stats.online || 0}</span>
-          <span className="text-gray-500">Online</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Online</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-red-500"></span>
           <span className="font-semibold text-red-600">{stats.offline || 0}</span>
-          <span className="text-gray-500">Offline</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Offline</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-blue-500"></span>
           <span className="font-semibold text-blue-600">{stats.active || 0}</span>
-          <span className="text-gray-500">Active</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-          <span className="font-semibold text-gray-600">{stats.inactive || 0}</span>
-          <span className="text-gray-500">Inactive</span>
+          <span className="font-semibold text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{stats.inactive || 0}</span>
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Inactive</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
           <span className="font-semibold text-yellow-600">{stats.expired || 0}</span>
-          <span className="text-gray-500">Expired</span>
+          <span className="text-gray-500 dark:text-gray-400">Expired</span>
         </div>
+        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-2"></div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('0'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP0:</span>
+          <span className="font-semibold text-emerald-600">{stats.fup0 || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('1'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP1:</span>
+          <span className="font-semibold text-amber-600">{stats.fup1 || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('2'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP2:</span>
+          <span className="font-semibold text-orange-600">{stats.fup2 || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('3'); setPage(1); }}>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP3:</span>
+          <span className="font-semibold text-red-600">{stats.fup3 || 0}</span>
+        </div>
+        {stats.fup4 > 0 && (
+          <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('4'); setPage(1); }}>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP4:</span>
+            <span className="font-semibold text-purple-600">{stats.fup4 || 0}</span>
+          </div>
+        )}
         <div className="flex items-center gap-1.5 ml-auto">
-          <span className="font-semibold text-gray-700">{data?.meta?.total || 0}</span>
-          <span className="text-gray-500">Total</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{data?.meta?.total || 0}</span>
+          <span className="text-gray-500 dark:text-gray-400">Total</span>
         </div>
       </div>
 
       {/* Search, Filters & Tabs */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         {/* View Mode Tabs */}
-        <div className="flex rounded-lg border bg-gray-100 p-0.5">
+        <div className="flex rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 p-0.5 shrink-0">
           <button
             onClick={() => { setViewMode('active'); setPage(1); clearSelection(); }}
             className={clsx(
               'px-3 py-1 text-sm font-medium rounded-md transition-colors',
               viewMode === 'active'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
             Active
@@ -804,8 +1011,8 @@ export default function Subscribers() {
             className={clsx(
               'px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-1',
               viewMode === 'archived'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
             <ArchiveBoxIcon className="w-3.5 h-3.5" />
@@ -814,11 +1021,11 @@ export default function Subscribers() {
         </div>
 
         {/* Search */}
-        <div className="flex-1 relative">
-          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <div className="flex-1 relative min-w-0">
+          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder="Search username, name, phone, MAC, IP..."
+            placeholder="Search..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -829,14 +1036,14 @@ export default function Subscribers() {
         </div>
 
         {viewMode === 'active' && (
-          <>
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value)
                 setPage(1)
               }}
-              className="input input-sm w-32"
+              className="input input-sm w-28 sm:w-32"
             >
               {statusFilters.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -852,7 +1059,7 @@ export default function Subscribers() {
               )}
             >
               <FunnelIcon className="w-3.5 h-3.5" />
-              Filters
+              <span className="hidden sm:inline">Filters</span>
             </button>
             <button
               onClick={() => setShowColumnSettings(!showColumnSettings)}
@@ -862,9 +1069,9 @@ export default function Subscribers() {
               )}
             >
               <EyeIcon className="w-3.5 h-3.5" />
-              Columns
+              <span className="hidden sm:inline">Columns</span>
             </button>
-          </>
+          </div>
         )}
       </div>
 
@@ -873,15 +1080,15 @@ export default function Subscribers() {
         <div className="card p-3">
           {showColumnSettings && (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-2">Visible Columns</div>
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Visible Columns</div>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(visibleColumns).map(([key, visible]) => (
-                  <label key={key} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded cursor-pointer hover:bg-gray-200 text-xs">
+                  <label key={key} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 text-xs dark:text-gray-200">
                     <input
                       type="checkbox"
                       checked={visible}
                       onChange={(e) => setVisibleColumns({ ...visibleColumns, [key]: e.target.checked })}
-                      className="rounded border-gray-300 w-3 h-3"
+                      className="rounded border-gray-300 dark:border-gray-600 w-3 h-3"
                     />
                     <span className="capitalize">{key.replace('_', ' ')}</span>
                   </label>
@@ -891,14 +1098,14 @@ export default function Subscribers() {
           )}
 
           {showFilters && viewMode === 'active' && (
-            <div className={showColumnSettings ? 'mt-3 pt-3 border-t' : ''}>
-              <div className="flex items-center gap-3">
+            <div className={showColumnSettings ? 'mt-3 pt-3 border-t dark:border-gray-700' : ''}>
+              <div className="grid grid-cols-2 sm:flex sm:items-end gap-2 sm:gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">Service</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Service</label>
                   <select
                     value={serviceId}
                     onChange={(e) => { setServiceId(e.target.value); setPage(1); }}
-                    className="input input-sm w-40"
+                    className="input input-sm w-full sm:w-40"
                   >
                     <option value="">All Services</option>
                     {services?.map((s) => (
@@ -907,11 +1114,11 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">NAS</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">NAS</label>
                   <select
                     value={nasId}
                     onChange={(e) => { setNasId(e.target.value); setPage(1); }}
-                    className="input input-sm w-40"
+                    className="input input-sm w-full sm:w-40"
                   >
                     <option value="">All NAS</option>
                     {nasList?.map((n) => (
@@ -920,11 +1127,39 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Per Page</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Reseller</label>
+                  <select
+                    value={resellerId}
+                    onChange={(e) => { setResellerId(e.target.value); setPage(1); }}
+                    className="input input-sm w-full sm:w-40"
+                  >
+                    <option value="">All Resellers</option>
+                    {resellers?.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">FUP Level</label>
+                  <select
+                    value={fupLevel}
+                    onChange={(e) => { setFupLevel(e.target.value); setPage(1); }}
+                    className="input input-sm w-full sm:w-32"
+                  >
+                    <option value="">All FUP</option>
+                    <option value="0">FUP 0 (Normal)</option>
+                    <option value="1">FUP 1</option>
+                    <option value="2">FUP 2</option>
+                    <option value="3">FUP 3</option>
+                    <option value="4">FUP 4</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Per Page</label>
                   <select
                     value={limit}
                     onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
-                    className="input input-sm w-20"
+                    className="input input-sm w-full sm:w-20"
                   >
                     <option value="10">10</option>
                     <option value="25">25</option>
@@ -933,8 +1168,8 @@ export default function Subscribers() {
                   </select>
                 </div>
                 <button
-                  onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setPage(1); }}
-                  className="btn btn-secondary btn-sm mt-4"
+                  onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setResellerId(''); setFupLevel(''); setPage(1); }}
+                  className="btn btn-secondary btn-sm col-span-2 sm:col-span-1"
                 >
                   Clear
                 </button>
@@ -954,125 +1189,159 @@ export default function Subscribers() {
               'btn btn-sm flex items-center gap-1',
               allSelected ? 'btn-primary' : 'btn-secondary'
             )}
+            title={allSelected ? 'Deselect All' : 'Select All'}
           >
             <Squares2X2Icon className="w-4 h-4" />
-            {allSelected ? 'Deselect All' : 'Select All'}
+            <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
           </button>
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
 
           {/* Bulk Action Buttons - disabled when nothing selected */}
-          <button
-            onClick={() => executeBulkAction('renew')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <ClockIcon className="w-4 h-4" />
-            Renew
-          </button>
+          {hasPermission('subscribers.renew') && (
+            <button
+              onClick={() => executeBulkAction('renew')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Renew"
+            >
+              <ClockIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Renew</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('reset_fup')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-            Reset FUP
-          </button>
+          {hasPermission('subscribers.reset_fup') && (
+            <button
+              onClick={() => executeBulkAction('reset_fup')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Reset FUP"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset FUP</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('enable')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <PlayIcon className="w-4 h-4" />
-            Activate
-          </button>
+          {hasPermission('subscribers.inactivate') && (
+            <button
+              onClick={() => executeBulkAction('enable')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Activate"
+            >
+              <PlayIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Activate</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('disable')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <PauseIcon className="w-4 h-4" />
-            Deactivate
-          </button>
+          {hasPermission('subscribers.inactivate') && (
+            <button
+              onClick={() => executeBulkAction('disable')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Deactivate"
+            >
+              <PauseIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Deactivate</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeBulkAction('disconnect')}
-            disabled={selectedCount === 0}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <XCircleIcon className="w-4 h-4" />
-            Disconnect
-          </button>
+          {hasPermission('subscribers.disconnect') && (
+            <button
+              onClick={() => executeBulkAction('disconnect')}
+              disabled={selectedCount === 0}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Disconnect"
+            >
+              <XCircleIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Disconnect</span>
+            </button>
+          )}
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
 
           {/* Single-select only buttons */}
-          <button
-            onClick={() => executeAction('rename')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <IdentificationIcon className="w-4 h-4" />
-            Rename
-          </button>
+          {hasPermission('subscribers.rename') && (
+            <button
+              onClick={() => executeAction('rename')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Rename"
+            >
+              <IdentificationIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Rename</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('add_days')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <CalendarDaysIcon className="w-4 h-4" />
-            Add Days
-          </button>
+          {hasPermission('subscribers.add_days') && (
+            <button
+              onClick={() => executeAction('add_days')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Add Days"
+            >
+              <CalendarDaysIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Days</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('change_service')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <ArrowsRightLeftIcon className="w-4 h-4" />
-            Change Service
-          </button>
+          {hasPermission('subscribers.change_service') && (
+            <button
+              onClick={() => executeAction('change_service')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Change Service"
+            >
+              <ArrowsRightLeftIcon className="w-4 h-4" />
+              <span className="hidden md:inline">Change Service</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('refill')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <BanknotesIcon className="w-4 h-4" />
-            Refill
-          </button>
+          {hasPermission('subscribers.refill_quota') && (
+            <button
+              onClick={() => executeAction('refill')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Refill"
+            >
+              <BanknotesIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Refill</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => executeAction('ping')}
-            disabled={selectedCount !== 1}
-            className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-          >
-            <WifiIcon className="w-4 h-4" />
-            Ping
-          </button>
+          {hasPermission('subscribers.ping') && (
+            <button
+              onClick={() => executeAction('ping')}
+              disabled={selectedCount !== 1}
+              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
+              title="Ping"
+            >
+              <WifiIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Ping</span>
+            </button>
+          )}
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
 
-          <button
-            onClick={() => executeBulkAction('delete')}
-            disabled={selectedCount === 0}
-            className="btn btn-sm flex items-center gap-1 bg-red-50 text-red-600 hover:bg-red-100 border-red-200 disabled:opacity-40"
-          >
-            <TrashIcon className="w-4 h-4" />
-            Delete
-          </button>
+          {hasPermission('subscribers.delete') && (
+            <button
+              onClick={() => executeBulkAction('delete')}
+              disabled={selectedCount === 0}
+              className="btn btn-sm flex items-center gap-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 border-red-200 dark:border-red-800 disabled:opacity-40"
+              title="Delete"
+            >
+              <TrashIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          )}
 
           {/* Selection counter */}
           {selectedCount > 0 && (
             <div className="ml-auto flex items-center gap-2 text-sm">
-              <span className="font-semibold text-primary-600">{selectedCount} selected</span>
+              <span className="font-semibold text-primary-600">{selectedCount}</span>
               <button
                 onClick={clearSelection}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
@@ -1104,7 +1373,7 @@ export default function Subscribers() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -1115,7 +1384,7 @@ export default function Subscribers() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     {viewMode === 'archived' ? 'No archived subscribers' : 'No subscribers found'}
                   </td>
                 </tr>
@@ -1128,7 +1397,7 @@ export default function Subscribers() {
                       className={clsx(
                         'cursor-pointer transition-colors',
                         isSelected
-                          ? 'bg-red-50 border-b-2 border-red-400 text-red-700'
+                          ? 'bg-red-50 dark:bg-red-900/30 border-b-2 border-red-400 text-red-700'
                           : 'hover:bg-gray-50'
                       )}
                       onClick={() => toggleRowSelection(row.original.id)}
@@ -1148,24 +1417,24 @@ export default function Subscribers() {
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-2 border-t text-xs">
-          <span className="text-gray-500">
+          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
             {((page - 1) * limit) + 1}-{Math.min(page * limit, data?.meta?.total || 0)} of {data?.meta?.total || 0}
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               <ChevronLeftIcon className="w-4 h-4" />
             </button>
-            <span className="px-2 text-gray-600">
+            <span className="px-2 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
               {page}/{totalPages || 1}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               <ChevronRightIcon className="w-4 h-4" />
             </button>
@@ -1185,8 +1454,8 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500">Current MAC: <code className="bg-gray-100 px-2 py-1 rounded">{actionModal.subscriber.mac_address || 'None'}</code></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current MAC: <code className="bg-gray-100 px-2 py-1 rounded">{actionModal.subscriber.mac_address || 'None'}</code></div>
               </div>
               <div>
                 <label className="label">New MAC Address (leave empty to clear)</label>
@@ -1247,7 +1516,7 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">Current Username: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Current Username: <strong>{actionModal.subscriber.username}</strong></div>
               </div>
               <div>
                 <label className="label">New Username *</label>
@@ -1302,8 +1571,8 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500">Current Expiry: <strong>{actionModal.subscriber.expiry_date ? formatDate(actionModal.subscriber.expiry_date) : 'N/A'}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current Expiry: <strong>{actionModal.subscriber.expiry_date ? formatDate(actionModal.subscriber.expiry_date) : 'N/A'}</strong></div>
               </div>
               <div>
                 <label className="label">Days *</label>
@@ -1314,7 +1583,7 @@ export default function Subscribers() {
                   className="input"
                   placeholder="Enter days (negative to subtract)"
                 />
-                <p className="text-xs text-gray-500 mt-1">Use negative number to subtract days</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Use negative number to subtract days</p>
               </div>
               <div>
                 <label className="label">Reason</label>
@@ -1364,9 +1633,9 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500">Current Service: <strong>{actionModal.subscriber.service?.name || 'N/A'}</strong> - ${actionModal.subscriber.service?.price?.toFixed(2) || '0.00'}</div>
-                <div className="text-sm text-gray-500">Expiry: <strong>{actionModal.subscriber.expiry_date ? new Date(actionModal.subscriber.expiry_date).toLocaleDateString() : 'N/A'}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current Service: <strong>{actionModal.subscriber.service?.name || 'N/A'}</strong> - ${actionModal.subscriber.service?.price?.toFixed(2) || '0.00'}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Expiry: <strong>{actionModal.subscriber.expiry_date ? new Date(actionModal.subscriber.expiry_date).toLocaleDateString() : 'N/A'}</strong></div>
               </div>
               <div>
                 <label className="label">New Service *</label>
@@ -1391,16 +1660,16 @@ export default function Subscribers() {
 
               {/* Price Calculation Display */}
               {calculatingPrice && (
-                <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+                <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Calculating price...
                 </div>
               )}
               {priceCalculation && !calculatingPrice && (
-                <div className={`p-3 rounded-lg text-sm ${priceCalculation.is_upgrade ? 'bg-blue-50 border border-blue-200' : priceCalculation.is_downgrade ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'}`}>
+                <div className={`p-3 rounded-lg text-sm ${priceCalculation.is_upgrade ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200' : priceCalculation.is_downgrade ? 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200' : 'bg-gray-50'}`}>
                   <div className="font-semibold mb-2">
                     {priceCalculation.is_upgrade ? '⬆️ Upgrade' : priceCalculation.is_downgrade ? '⬇️ Downgrade' : '↔️ Same Price'}
                   </div>
-                  <div className="space-y-1 text-gray-600">
+                  <div className="space-y-1 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     <div className="flex justify-between">
                       <span>Remaining days:</span>
                       <span className="font-medium">{priceCalculation.remaining_days} days</span>
@@ -1448,7 +1717,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.extend_expiry}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, extend_expiry: e.target.checked })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Extend Expiry</span>
                 </label>
@@ -1457,7 +1726,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.reset_fup}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, reset_fup: e.target.checked })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Reset FUP Quota</span>
                 </label>
@@ -1466,7 +1735,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.prorate_price}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, prorate_price: e.target.checked, charge_price: false })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Prorate Price (recommended)</span>
                 </label>
@@ -1475,7 +1744,7 @@ export default function Subscribers() {
                     type="checkbox"
                     checked={changeServiceOptions.charge_price}
                     onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, charge_price: e.target.checked, prorate_price: false })}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm">Charge Full Price</span>
                 </label>
@@ -1524,7 +1793,7 @@ export default function Subscribers() {
             </div>
             <div className="modal-body space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
               </div>
               <div>
                 <label className="label">Amount *</label>
@@ -1592,10 +1861,10 @@ export default function Subscribers() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <DocumentArrowUpIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     {importFile ? importFile.name : 'Click to select CSV file'}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Columns: username, password, full_name, email, phone, address
                   </p>
                 </div>
@@ -1653,6 +1922,210 @@ export default function Subscribers() {
                   <ArrowUpTrayIcon className="w-4 h-4" />
                 )}
                 Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Torch Modal - Live Traffic (Mobile Friendly) */}
+      {torchModal && (
+        <div className="modal-overlay">
+          <div className="modal-content w-full max-w-2xl mx-2 sm:mx-auto max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="modal-header flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <SignalIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-bold truncate">
+                  <span className="hidden sm:inline">Live Traffic - </span>{torchModal.username}
+                </h3>
+                {torchAutoRefresh && (
+                  <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                  </span>
+                )}
+              </div>
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-ghost btn-sm flex-shrink-0">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body - Scrollable */}
+            <div className="modal-body flex-1 overflow-y-auto">
+              {/* Controls - Stack on mobile */}
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  IP: <code className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 px-2 py-1 rounded text-xs font-mono">{torchModal.ip_address || 'N/A'}</code>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={torchAutoRefresh}
+                      onChange={(e) => setTorchAutoRefresh(e.target.checked)}
+                      className="rounded border-gray-300 dark:border-gray-500"
+                    />
+                    <span className="text-xs sm:text-sm">Auto</span>
+                  </label>
+                  <button
+                    onClick={() => fetchTorchData(torchModal)}
+                    disabled={torchLoading}
+                    className="btn btn-sm btn-secondary flex items-center gap-1"
+                  >
+                    <ArrowPathIcon className={clsx('w-4 h-4', torchLoading && 'animate-spin')} />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Loading */}
+              {torchLoading && !torchData && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                  <span className="ml-3 text-gray-500 dark:text-gray-400">Capturing...</span>
+                </div>
+              )}
+
+              {/* Torch Data */}
+              {torchData && (
+                <div>
+                  {/* Summary Header - Stack on mobile */}
+                  <div className="bg-gray-900 text-white rounded-t-lg p-3">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                      <div className="text-sm">
+                        <span className="text-gray-400">Interface: </span>
+                        <span className="font-mono text-green-400">{torchData.interface}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1">
+                          <ArrowDownTrayIcon className="w-4 h-4 text-green-400" />
+                          <span className="text-green-400 font-bold">
+                            {((torchData.total_tx || 0) * 8 / 1000000).toFixed(1)} Mbps
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <ArrowUpTrayIcon className="w-4 h-4 text-blue-400" />
+                          <span className="text-blue-400 font-bold">
+                            {((torchData.total_rx || 0) * 8 / 1000000).toFixed(1)} Mbps
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Traffic Entries */}
+                  {torchData.entries && torchData.entries.length > 0 ? (
+                    <div className="border border-t-0 border-gray-300 dark:border-gray-600 rounded-b-lg overflow-hidden">
+                      {/* Mobile: Card Layout */}
+                      <div className="sm:hidden max-h-64 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
+                        {torchData.entries.slice(0, 50).map((entry, idx) => (
+                          <div key={idx} className={clsx(
+                            'p-3 text-xs',
+                            entry.tx_rate > 1000000 ? 'bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-gray-800',
+                            entry.tx_rate > 5000000 && 'bg-yellow-50 dark:bg-yellow-900/30'
+                          )}>
+                            <div className="flex justify-between items-start mb-1">
+                              <span className={clsx(
+                                'font-bold uppercase',
+                                entry.protocol === 'tcp' && 'text-blue-600 dark:text-blue-400',
+                                entry.protocol === 'udp' && 'text-purple-600 dark:text-purple-400',
+                                entry.protocol === 'icmp' && 'text-orange-600 dark:text-orange-400',
+                                !entry.protocol && 'text-gray-600 dark:text-gray-400'
+                              )}>
+                                {entry.protocol || '-'}
+                              </span>
+                              <div className="text-right">
+                                <span className="text-green-600 dark:text-green-400 font-semibold">
+                                  ↓ {entry.tx_rate > 1000000 ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)}M` : entry.tx_rate > 1000 ? `${(entry.tx_rate * 8 / 1000).toFixed(0)}k` : `${(entry.tx_rate * 8).toFixed(0)}b`}
+                                </span>
+                                <span className="text-gray-400 dark:text-gray-500 mx-1">/</span>
+                                <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                                  ↑ {entry.rx_rate > 1000000 ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)}M` : entry.rx_rate > 1000 ? `${(entry.rx_rate * 8 / 1000).toFixed(0)}k` : `${(entry.rx_rate * 8).toFixed(0)}b`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-gray-600 dark:text-gray-300 truncate font-mono">
+                              {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
+                              <span className="mx-1 text-gray-400">→</span>
+                              {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop: Table Layout */}
+                      <div className="hidden sm:block max-h-80 overflow-y-auto">
+                        <table className="w-full text-xs font-mono">
+                          <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0">
+                            <tr className="text-gray-600 dark:text-gray-400">
+                              <th className="px-2 py-1.5 text-left">Proto</th>
+                              <th className="px-2 py-1.5 text-left">Src. Address</th>
+                              <th className="px-2 py-1.5 text-left">Dst. Address</th>
+                              <th className="px-2 py-1.5 text-right">Download</th>
+                              <th className="px-2 py-1.5 text-right">Upload</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white dark:bg-gray-800">
+                            {torchData.entries.slice(0, 100).map((entry, idx) => (
+                              <tr key={idx} className={clsx(
+                                'border-t border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700',
+                                entry.tx_rate > 1000000 && 'bg-green-50 dark:bg-green-900/20',
+                                entry.tx_rate > 5000000 && 'bg-yellow-50 dark:bg-yellow-900/20'
+                              )}>
+                                <td className="px-2 py-1">
+                                  <span className={clsx(
+                                    'uppercase',
+                                    entry.protocol === 'tcp' && 'text-blue-600',
+                                    entry.protocol === 'udp' && 'text-purple-600',
+                                    entry.protocol === 'icmp' && 'text-orange-600'
+                                  )}>
+                                    {entry.protocol || '-'}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1 text-gray-700 dark:text-gray-300">
+                                  {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
+                                </td>
+                                <td className="px-2 py-1 text-gray-700 dark:text-gray-300">
+                                  {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
+                                </td>
+                                <td className="px-2 py-1 text-right text-green-700 dark:text-green-400 font-medium">
+                                  {entry.tx_rate > 1000000 ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)} Mbps` : entry.tx_rate > 1000 ? `${(entry.tx_rate * 8 / 1000).toFixed(1)} kbps` : `${(entry.tx_rate * 8).toFixed(0)} bps`}
+                                </td>
+                                <td className="px-2 py-1 text-right text-blue-700 dark:text-blue-400 font-medium">
+                                  {entry.rx_rate > 1000000 ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)} Mbps` : entry.rx_rate > 1000 ? `${(entry.rx_rate * 8 / 1000).toFixed(1)} kbps` : `${(entry.rx_rate * 8).toFixed(0)} bps`}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="bg-gray-100 dark:bg-gray-700 px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 border-t dark:border-gray-600 flex justify-between">
+                        <span>{torchData.entries.length} flows</span>
+                        <span>{torchData.duration}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-t-0 border-gray-300 dark:border-gray-600 rounded-b-lg p-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
+                      No active traffic flows
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!torchLoading && !torchData && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  Click Refresh to capture traffic
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="modal-footer flex-shrink-0">
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-secondary w-full sm:w-auto">
+                Close
               </button>
             </div>
           </div>

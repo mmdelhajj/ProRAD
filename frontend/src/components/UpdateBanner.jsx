@@ -100,7 +100,7 @@ export default function UpdateBanner() {
                 <button
                   onClick={handleStartUpdate}
                   disabled={startUpdateMutation.isPending}
-                  className="text-sm font-medium bg-white text-blue-600 hover:bg-blue-50 px-3 py-1 rounded disabled:opacity-50"
+                  className="text-sm font-medium bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 px-3 py-1 rounded disabled:opacity-50"
                 >
                   {startUpdateMutation.isPending ? 'Starting...' : 'Update Now'}
                 </button>
@@ -137,9 +137,9 @@ export default function UpdateBanner() {
       {/* Update Details Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Update to v{newVersion}
                 {isCritical && (
                   <span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-800 rounded-full">
@@ -222,7 +222,7 @@ export default function UpdateBanner() {
       {/* Update Complete Modal */}
       {statusData?.step === 'complete' && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6 text-center">
             <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Update Complete!</h3>
             <p className="text-gray-600 mb-4">
@@ -241,10 +241,10 @@ export default function UpdateBanner() {
       {/* Update Error Modal */}
       {statusData?.error && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
             <div className="flex items-center gap-3 mb-4">
               <ExclamationTriangleIcon className="w-8 h-8 text-red-500" />
-              <h3 className="text-xl font-semibold text-gray-900">Update Failed</h3>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Update Failed</h3>
             </div>
             <p className="text-gray-600 mb-4">{statusData.error}</p>
             <p className="text-sm text-gray-500 mb-4">

@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resellerApi, permissionApi, nasApi, serviceApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
+import api from '../services/api'
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,6 +13,7 @@ import {
   PencilIcon,
   TrashIcon,
   XMarkIcon,
+  XCircleIcon,
   BanknotesIcon,
   ArrowUpIcon,
   ArrowDownIcon,
@@ -134,6 +137,15 @@ export default function Resellers() {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete'),
   })
 
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (id) => resellerApi.permanentDelete(id),
+    onSuccess: () => {
+      toast.success('Reseller permanently deleted. Username can be reused.')
+      queryClient.invalidateQueries(['resellers'])
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to permanently delete'),
+  })
+
   const transferMutation = useMutation({
     mutationFn: ({ id, amount }) => resellerApi.transfer(id, { amount: parseFloat(amount) }),
     onSuccess: () => {
@@ -175,17 +187,18 @@ export default function Resellers() {
   })
 
   const impersonateMutation = useMutation({
-    mutationFn: (id) => resellerApi.impersonate(id),
+    mutationFn: (id) => resellerApi.getImpersonateToken(id),
     onSuccess: (response) => {
-      const { token, user } = response.data.data
-      // Store the token and redirect
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
-      toast.success(`Logged in as ${user.username}`)
-      // Reload to apply new auth
-      window.location.href = '/'
+      const { token } = response.data
+      // Open new tab with impersonation token
+      const newWindow = window.open(`/impersonate?token=${token}`, '_blank')
+      if (newWindow) {
+        toast.success('Opening reseller session in new tab...')
+      } else {
+        toast.error('Popup blocked! Please allow popups for this site.')
+      }
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to login as reseller'),
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to get impersonation token'),
   })
 
   const togglePasswordVisibility = (id) => {
@@ -331,7 +344,7 @@ export default function Resellers() {
             </div>
             <div>
               <div className="font-medium">{row.original.user?.username || row.original.username}</div>
-              <div className="text-sm text-gray-500">{row.original.name || row.original.company}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.name || row.original.company}</div>
             </div>
           </div>
         ),
@@ -350,7 +363,7 @@ export default function Resellers() {
               {password && (
                 <button
                   onClick={() => togglePasswordVisibility(row.original.id)}
-                  className="p-1 text-gray-400 hover:text-gray-600"
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400"
                   title={isVisible ? 'Hide password' : 'Show password'}
                 >
                   {isVisible ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
@@ -366,7 +379,7 @@ export default function Resellers() {
         cell: ({ row }) => (
           <div className="text-sm">
             <div>{row.original.user?.email || row.original.email}</div>
-            <div className="text-gray-500">{row.original.user?.phone || row.original.phone}</div>
+            <div className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.user?.phone || row.original.phone}</div>
           </div>
         ),
       },
@@ -419,7 +432,7 @@ export default function Resellers() {
                 setSelectedReseller(row.original)
                 setShowTransferModal(true)
               }}
-              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
+              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
               title="Transfer Balance"
             >
               <ArrowUpIcon className="w-4 h-4" />
@@ -436,7 +449,7 @@ export default function Resellers() {
             </button>
             <button
               onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
               title="Edit"
             >
               <PencilIcon className="w-4 h-4" />
@@ -447,16 +460,27 @@ export default function Resellers() {
                   deleteMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-              title="Delete"
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+              title="Delete (can restore)"
             >
               <TrashIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('⚠️ PERMANENT DELETE ⚠️\n\nThis will permanently remove the reseller from the database.\nThe username can be reused after this.\n\nTHIS CANNOT BE UNDONE!\n\nAre you sure?')) {
+                  permanentDeleteMutation.mutate(row.original.id)
+                }
+              }}
+              className="p-1.5 text-gray-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 rounded"
+              title="Permanent Delete (cannot undo)"
+            >
+              <XCircleIcon className="w-4 h-4" />
             </button>
           </div>
         ),
       },
     ],
-    [deleteMutation, impersonateMutation, visiblePasswords]
+    [deleteMutation, permanentDeleteMutation, impersonateMutation, visiblePasswords]
   )
 
   const table = useReactTable({
@@ -467,12 +491,12 @@ export default function Resellers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Resellers</h1>
-          <p className="text-gray-500">Manage reseller accounts and balances</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Resellers</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Manage reseller accounts and balances</p>
         </div>
-        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
+        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center">
           <PlusIcon className="w-4 h-4" />
           Add Reseller
         </button>
@@ -481,23 +505,23 @@ export default function Resellers() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card p-4">
-          <div className="text-sm text-gray-500">Total Resellers</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Resellers</div>
           <div className="text-2xl font-bold">{resellers?.length || 0}</div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-gray-500">Total Balance</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Balance</div>
           <div className="text-2xl font-bold text-green-600">
             ${resellers?.reduce((sum, r) => sum + (r.balance || 0), 0).toFixed(2)}
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-gray-500">Active Resellers</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active Resellers</div>
           <div className="text-2xl font-bold">
             {resellers?.filter((r) => r.is_active).length || 0}
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-gray-500">Total Subscribers</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Subscribers</div>
           <div className="text-2xl font-bold">
             {resellers?.reduce((sum, r) => sum + (r.subscriber_count || 0), 0)}
           </div>
@@ -518,7 +542,7 @@ export default function Resellers() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -529,13 +553,13 @@ export default function Resellers() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     No resellers found
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -554,12 +578,12 @@ export default function Resellers() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-semibold">
                   {editingReseller ? 'Edit Reseller' : 'Add Reseller'}
                 </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -575,7 +599,7 @@ export default function Resellers() {
                         'flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium',
                         activeTab === 'general'
                           ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
                       )}
                     >
                       <Cog6ToothIcon className="w-4 h-4" />
@@ -588,7 +612,7 @@ export default function Resellers() {
                         'flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium',
                         activeTab === 'nas'
                           ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
                       )}
                     >
                       <ServerIcon className="w-4 h-4" />
@@ -604,7 +628,7 @@ export default function Resellers() {
                         'flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium',
                         activeTab === 'services'
                           ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
                       )}
                     >
                       <CubeIcon className="w-4 h-4" />
@@ -811,7 +835,7 @@ export default function Resellers() {
               {/* NAS Tab */}
               {activeTab === 'nas' && editingReseller && (
                 <div className="p-6 space-y-4">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     Select the NAS devices this reseller can manage. Reseller will only see subscribers on these NAS.
                   </p>
                   <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
@@ -833,13 +857,13 @@ export default function Resellers() {
                         />
                         <div>
                           <div className="font-medium">{nas.name}</div>
-                          <div className="text-sm text-gray-500">{nas.ip_address}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{nas.ip_address}</div>
                         </div>
                       </label>
                     ))}
                   </div>
                   {(!allNAS || allNAS.length === 0) && (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       No NAS devices found
                     </div>
                   )}
@@ -862,7 +886,7 @@ export default function Resellers() {
               {/* Services Tab */}
               {activeTab === 'services' && editingReseller && (
                 <div className="p-6 space-y-4">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     Select which services this reseller can sell. You can set custom prices for each service.
                   </p>
                   <div className="max-h-96 overflow-y-auto">
@@ -892,7 +916,7 @@ export default function Resellers() {
                                   <span className="font-medium">{service.name}</span>
                                 </label>
                               </td>
-                              <td className="px-3 py-2 text-gray-600">
+                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                 ${service.price?.toFixed(2)}
                               </td>
                               <td className="px-3 py-2">
@@ -924,7 +948,7 @@ export default function Resellers() {
                     </table>
                   </div>
                   {(!allServices || allServices.length === 0) && (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                       No services found
                     </div>
                   )}
@@ -953,18 +977,18 @@ export default function Resellers() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowTransferModal(false)} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-semibold">Transfer Balance</h2>
-                <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Transfer balance to <span className="font-semibold">{selectedReseller.username}</span>
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Current Balance: <span className="font-semibold text-green-600">${selectedReseller.balance?.toFixed(2)}</span>
                 </p>
                 <div>
@@ -1002,18 +1026,18 @@ export default function Resellers() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowWithdrawModal(false)} />
-            <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-semibold">Withdraw Balance</h2>
-                <button onClick={() => setShowWithdrawModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowWithdrawModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Withdraw balance from <span className="font-semibold">{selectedReseller.username}</span>
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                   Current Balance: <span className="font-semibold text-green-600">${selectedReseller.balance?.toFixed(2)}</span>
                 </p>
                 <div>

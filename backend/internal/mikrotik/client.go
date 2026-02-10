@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/proisp/backend/internal/database"
 )
 
 // Client represents a MikroTik RouterOS API client
@@ -484,32 +486,47 @@ func (c *Client) GetActiveSession(username string) (*ActiveSession, error) {
 		}
 	}
 
-	// Fallback: try interface stats
+	// Fallback: try interface stats with different name formats
 	if session.RxBytes == 0 && session.TxBytes == 0 {
-		interfaceName := "<pppoe-" + username + ">"
-		c.conn.SetDeadline(time.Now().Add(c.timeout))
-		c.sendWord("/interface/print")
-		c.sendWord("?name=" + interfaceName)
-		c.sendWord("")
+		fallbackInterfaceNames := []string{
+			"<pppoe-" + username + ">",
+			"<pppoe-" + username + "-1>",
+			"<pppoe-" + username + "-2>",
+		}
+		for _, interfaceName := range fallbackInterfaceNames {
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/interface/print")
+			c.sendWord("?name=" + interfaceName)
+			c.sendWord("")
 
-		response, err = c.readResponse()
-		if err == nil {
-			for _, word := range response {
-				if strings.HasPrefix(word, "=rx-byte=") {
-					val := strings.TrimPrefix(word, "=rx-byte=")
-					session.RxBytes, _ = strconv.ParseInt(val, 10, 64)
-				} else if strings.HasPrefix(word, "=tx-byte=") {
-					val := strings.TrimPrefix(word, "=tx-byte=")
-					session.TxBytes, _ = strconv.ParseInt(val, 10, 64)
+			response, err = c.readResponse()
+			if err == nil {
+				for _, word := range response {
+					if strings.HasPrefix(word, "=rx-byte=") {
+						val := strings.TrimPrefix(word, "=rx-byte=")
+						session.RxBytes, _ = strconv.ParseInt(val, 10, 64)
+					} else if strings.HasPrefix(word, "=tx-byte=") {
+						val := strings.TrimPrefix(word, "=tx-byte=")
+						session.TxBytes, _ = strconv.ParseInt(val, 10, 64)
+					}
+				}
+				if session.RxBytes > 0 || session.TxBytes > 0 {
+					break // Found data, stop trying
 				}
 			}
 		}
 	}
 
 	// Try different interface name formats for PPPoE
+	// MikroTik creates dynamic interfaces with -1, -2, etc. suffixes
 	interfaceNames := []string{
 		"<pppoe-" + username + ">",
+		"<pppoe-" + username + "-1>",
+		"<pppoe-" + username + "-2>",
+		"<pppoe-" + username + "-3>",
 		"pppoe-" + username,
+		"pppoe-" + username + "-1",
+		"pppoe-" + username + "-2",
 		username,
 	}
 
@@ -572,6 +589,58 @@ func (c *Client) GetActiveSession(username string) (*ActiveSession, error) {
 	}
 
 	return session, nil
+}
+
+// GetAllActiveSessions gets all active PPPoE sessions
+func (c *Client) GetAllActiveSessions() ([]ActiveSession, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+
+	// Query all active PPP sessions
+	c.sendWord("/ppp/active/print")
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sessions: %v", err)
+	}
+
+	var sessions []ActiveSession
+	var current ActiveSession
+
+	for _, word := range response {
+		if word == "!re" {
+			if current.Name != "" {
+				sessions = append(sessions, current)
+			}
+			current = ActiveSession{}
+		} else if strings.HasPrefix(word, "=.id=") {
+			current.ID = strings.TrimPrefix(word, "=.id=")
+		} else if strings.HasPrefix(word, "=name=") {
+			current.Name = strings.TrimPrefix(word, "=name=")
+		} else if strings.HasPrefix(word, "=service=") {
+			current.Service = strings.TrimPrefix(word, "=service=")
+		} else if strings.HasPrefix(word, "=caller-id=") {
+			current.CallerID = strings.TrimPrefix(word, "=caller-id=")
+		} else if strings.HasPrefix(word, "=address=") {
+			current.Address = strings.TrimPrefix(word, "=address=")
+		} else if strings.HasPrefix(word, "=uptime=") {
+			current.Uptime = strings.TrimPrefix(word, "=uptime=")
+		} else if strings.HasPrefix(word, "=session-id=") {
+			current.SessionID = strings.TrimPrefix(word, "=session-id=")
+		}
+	}
+
+	// Don't forget the last session
+	if current.Name != "" {
+		sessions = append(sessions, current)
+	}
+
+	return sessions, nil
 }
 
 // DisconnectUser disconnects a PPPoE user by username
@@ -637,15 +706,12 @@ func (c *Client) UpdateUserRateLimit(username string, downloadKbps, uploadKbps i
 func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadKbps, uploadKbps int) error {
 	log.Printf("MikroTik: UpdateUserRateLimitWithIP called for %s, IP=%s, rate=%dk/%dk", username, ipAddress, downloadKbps, uploadKbps)
 
-	// Always reconnect to ensure clean connection state
-	// (previous operations may have left the connection in unknown state)
-	if c.conn != nil {
-		c.conn.Close()
-		c.conn = nil
-	}
-	if err := c.Connect(); err != nil {
-		log.Printf("MikroTik: Connect failed: %v", err)
-		return err
+	// Reuse existing connection if available, only connect if needed
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			log.Printf("MikroTik: Connect failed: %v", err)
+			return err
+		}
 	}
 	c.conn.SetDeadline(time.Now().Add(c.timeout))
 
@@ -708,15 +774,32 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 	}
 
 	// Find the main PPPoE queue (matches target but has NO dst - not a CDN queue)
+	// Also try matching with -1, -2, -3 suffixes for dynamic PPPoE queues
+	interfaceTargets := []string{
+		interfaceTarget,                              // <pppoe-username>
+		"<pppoe-" + username + "-1>",                 // <pppoe-username-1>
+		"<pppoe-" + username + "-2>",                 // <pppoe-username-2>
+		"<pppoe-" + username + "-3>",                 // <pppoe-username-3>
+	}
 	for _, q := range queues {
 		// Skip CDN queues (they have dst set)
 		if q.dst != "" {
 			continue
 		}
-		// Match by name (exact interface name) or by target
-		if q.name == interfaceTarget || q.target == interfaceTarget || (ipTarget != "" && q.target == ipTarget) {
+		// Match by name or target against all possible interface formats
+		for _, target := range interfaceTargets {
+			if q.name == target || q.target == target {
+				queueID = q.id
+				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s", q.id, q.name, q.target, username)
+				break
+			}
+		}
+		// Also match by IP target
+		if queueID == "" && ipTarget != "" && q.target == ipTarget {
 			queueID = q.id
-			log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s", q.id, q.name, q.target, username)
+			log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s via IP", q.id, q.name, q.target, username)
+		}
+		if queueID != "" {
 			break
 		}
 	}
@@ -970,6 +1053,140 @@ func (c *Client) GetConnectionCount(ipAddress string) (int, error) {
 	}
 
 	return count, nil
+}
+
+// ConnectionStats holds connection statistics for an IP
+type ConnectionStats struct {
+	TotalConnections   int
+	UniqueDestinations int
+}
+
+// GetAllConnectionStats returns connection stats for ALL source IPs in one query
+// Returns both total connections and unique destination IPs per source
+func (c *Client) GetAllConnectionStats() (map[string]*ConnectionStats, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout * 3)) // Longer timeout for bulk query
+
+	// Query all connections
+	c.sendWord("/ip/firewall/connection/print")
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connections: %v", err)
+	}
+
+	// Track connections and unique destinations per source IP
+	stats := make(map[string]*ConnectionStats)
+	destTracker := make(map[string]map[string]bool) // srcIP -> set of destIPs
+
+	var currentSrcIP, currentDstIP string
+
+	for _, word := range response {
+		if strings.HasPrefix(word, "=src-address=") {
+			// Extract source IP (format: IP:port)
+			addrPort := strings.TrimPrefix(word, "=src-address=")
+			parts := strings.Split(addrPort, ":")
+			if len(parts) > 0 {
+				currentSrcIP = parts[0]
+			}
+		} else if strings.HasPrefix(word, "=dst-address=") {
+			// Extract destination IP (format: IP:port)
+			addrPort := strings.TrimPrefix(word, "=dst-address=")
+			parts := strings.Split(addrPort, ":")
+			if len(parts) > 0 {
+				currentDstIP = parts[0]
+			}
+		} else if strings.HasPrefix(word, "=.id=") && currentSrcIP != "" {
+			// End of a connection entry - record stats
+			if stats[currentSrcIP] == nil {
+				stats[currentSrcIP] = &ConnectionStats{}
+				destTracker[currentSrcIP] = make(map[string]bool)
+			}
+			stats[currentSrcIP].TotalConnections++
+			if currentDstIP != "" {
+				destTracker[currentSrcIP][currentDstIP] = true
+			}
+			currentDstIP = ""
+		}
+	}
+
+	// Calculate unique destination counts
+	for ip, dests := range destTracker {
+		if stats[ip] != nil {
+			stats[ip].UniqueDestinations = len(dests)
+		}
+	}
+
+	return stats, nil
+}
+
+// GetAllConnectionCounts returns connection counts for ALL source IPs (backward compatible)
+func (c *Client) GetAllConnectionCounts() (map[string]int, error) {
+	stats, err := c.GetAllConnectionStats()
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int)
+	for ip, s := range stats {
+		counts[ip] = s.TotalConnections
+	}
+	return counts, nil
+}
+
+// GetAllTTLMarks returns TTL values for ALL source IPs that have TTL marks
+// Requires pre-configured mangle rules that mark connections with TTL info
+func (c *Client) GetAllTTLMarks() (map[string][]int, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout * 2))
+
+	ttlMarks := make(map[string][]int)
+	ttlMarkNames := []string{"ttl_127", "ttl_63", "ttl_128", "ttl_64", "ttl_126", "ttl_62"}
+	ttlValues := []int{127, 63, 128, 64, 126, 62}
+
+	for i, markName := range ttlMarkNames {
+		c.conn.SetDeadline(time.Now().Add(c.timeout))
+		c.sendWord("/ip/firewall/connection/print")
+		c.sendWord("?connection-mark=" + markName)
+		c.sendWord("")
+
+		response, err := c.readResponse()
+		if err != nil {
+			continue
+		}
+
+		// Extract source IPs that have this TTL mark
+		for _, word := range response {
+			if strings.HasPrefix(word, "=src-address=") {
+				addrPort := strings.TrimPrefix(word, "=src-address=")
+				parts := strings.Split(addrPort, ":")
+				if len(parts) > 0 {
+					ip := parts[0]
+					// Add TTL value if not already present
+					found := false
+					for _, v := range ttlMarks[ip] {
+						if v == ttlValues[i] {
+							found = true
+							break
+						}
+					}
+					if !found {
+						ttlMarks[ip] = append(ttlMarks[ip], ttlValues[i])
+					}
+				}
+			}
+		}
+	}
+
+	return ttlMarks, nil
 }
 
 // GetTTLValues samples TTL values from recent connections for an IP
@@ -1254,10 +1471,13 @@ func (c *Client) SyncCDNAddressList(cdn CDNConfig) error {
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	companyName := cdn.CompanyName
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	listName := fmt.Sprintf("CDN-%s", cdn.Name)
@@ -1349,10 +1569,13 @@ func (c *Client) SyncCDNMangleRule(cdn CDNConfig) error {
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	companyName := cdn.CompanyName
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	listName := fmt.Sprintf("CDN-%s", cdn.Name)
@@ -1414,9 +1637,12 @@ func (c *Client) GetCDNTrafficCounters(cdnNames []string, companyName string) ([
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	var results []CDNTrafficCounter
@@ -1560,6 +1786,7 @@ func (c *Client) GetCDNTrafficForSubscriber(subscriberIP string, cdns []CDNSubne
 	for _, cdn := range cdns {
 		var totalBytes int64
 		subnets := parseSubnetList(cdn.Subnets)
+		log.Printf("CDN Traffic Debug: CDN %s has %d subnets: %v", cdn.Name, len(subnets), subnets)
 
 		for _, conn := range connections {
 			// Determine remote IP and download bytes based on direction
@@ -1582,9 +1809,10 @@ func (c *Client) GetCDNTrafficForSubscriber(subscriberIP string, cdns []CDNSubne
 
 			// Check if remote IP matches CDN subnet
 			for _, subnet := range subnets {
-				if isIPInCIDR(remoteIP, subnet) {
+				matched := isIPInCIDR(remoteIP, subnet)
+				if matched {
 					totalBytes += downloadBytes
-					log.Printf("CDN Traffic: remote=%s matched CDN %s, download=%d bytes", remoteIP, cdn.Name, downloadBytes)
+					log.Printf("CDN Traffic: remote=%s matched CDN %s subnet %s, download=%d bytes", remoteIP, cdn.Name, subnet, downloadBytes)
 					break
 				}
 			}
@@ -1641,11 +1869,13 @@ func (c *Client) isIPInAddressList(ip, listName string) bool {
 func isIPInCIDR(ipStr, cidr string) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
+		log.Printf("CDN Match Debug: Failed to parse IP: %s", ipStr)
 		return false
 	}
 
 	_, network, err := net.ParseCIDR(cidr)
 	if err != nil {
+		log.Printf("CDN Match Debug: Failed to parse CIDR %s: %v, trying exact match", cidr, err)
 		// Try as single IP
 		if cidr == ipStr {
 			return true
@@ -1653,7 +1883,11 @@ func isIPInCIDR(ipStr, cidr string) bool {
 		return false
 	}
 
-	return network.Contains(ip)
+	result := network.Contains(ip)
+	if result {
+		log.Printf("CDN Match Debug: IP %s IS in CIDR %s", ipStr, cidr)
+	}
+	return result
 }
 
 // RemoveCDNConfig removes CDN address-list and mangle rule from MikroTik
@@ -1664,9 +1898,12 @@ func (c *Client) RemoveCDNConfig(cdnName string, companyName string) error {
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	listName := fmt.Sprintf("CDN-%s", cdnName)
@@ -1747,10 +1984,13 @@ func (c *Client) SyncSubscriberCDNQueues(subscriberIP string, username string, c
 		dstAddress := strings.Join(subnets, ",")
 
 		queueName := fmt.Sprintf("cdn-%s-%s", username, cdn.CDNName)
-		// Use company name from settings, default to "ProISP" if not set
+		// Use company name for branding in comments
 		companyName := cdn.CompanyName
 		if companyName == "" {
-			companyName = "ProISP"
+			companyName = database.GetCompanyName()
+		}
+		if companyName == "" {
+			companyName = "ISP"
 		}
 		comment := fmt.Sprintf("%s-CDN-Queue-%s", companyName, username)
 
@@ -1848,9 +2088,12 @@ func (c *Client) RemoveSubscriberCDNQueues(username string, companyName string) 
 		}
 	}
 
-	// Use company name for branding, default to "ProISP" if not set
+	// Use company name for branding in comments
 	if companyName == "" {
-		companyName = "ProISP"
+		companyName = database.GetCompanyName()
+	}
+	if companyName == "" {
+		companyName = "ISP"
 	}
 
 	comment := fmt.Sprintf("%s-CDN-Queue-%s", companyName, username)
@@ -2244,23 +2487,24 @@ func (c *Client) CreateCDNMangleRule(config PCQConfig) error {
 	}
 
 	if existingID != "" {
-		// Update existing mangle rule
-		c.sendWord("/ip/firewall/mangle/set")
+		// Delete existing rule - MikroTik doesn't allow changing chain with /set
+		c.sendWord("/ip/firewall/mangle/remove")
 		c.sendWord("=.id=" + existingID)
-		c.sendWord("=src-address-list=" + addressListName)
-		c.sendWord("=new-packet-mark=" + packetMark)
 		c.sendWord("")
-	} else {
-		// Create new mangle rule
-		c.sendWord("/ip/firewall/mangle/add")
-		c.sendWord("=chain=postrouting")
-		c.sendWord("=action=mark-packet")
-		c.sendWord("=new-packet-mark=" + packetMark)
-		c.sendWord("=passthrough=no")
-		c.sendWord("=src-address-list=" + addressListName)
-		c.sendWord("=comment=" + comment)
-		c.sendWord("")
+		c.readResponse()
+		log.Printf("MikroTik: Removed old mangle rule for CDN %s to recreate in forward chain", config.CDNName)
 	}
+
+	// Create new mangle rule - MUST be in forward chain (before simple queues)
+	// postrouting is too late - packets are already queued
+	c.sendWord("/ip/firewall/mangle/add")
+	c.sendWord("=chain=forward")
+	c.sendWord("=action=mark-packet")
+	c.sendWord("=new-packet-mark=" + packetMark)
+	c.sendWord("=passthrough=no")
+	c.sendWord("=src-address-list=" + addressListName)
+	c.sendWord("=comment=" + comment)
+	c.sendWord("")
 
 	response, err = c.readResponse()
 	if err != nil {
@@ -2854,12 +3098,18 @@ func (c *Client) ensureStaticIPProtectionScript() {
 	// This script removes static IPs from the pool's used list every 30 seconds
 	script := `:foreach entry in=[/ip firewall address-list find list=STATIC-IPS] do={:local addr [/ip firewall address-list get $entry address]; :foreach used in=[/ip pool used find address=$addr] do={/ip pool used remove $used}}`
 
+	// Get company name for branding in comment
+	companyName := database.GetCompanyName()
+	if companyName == "" {
+		companyName = "ISP"
+	}
+
 	c.conn.SetDeadline(time.Now().Add(c.timeout))
 	c.sendWord("/system/scheduler/add")
 	c.sendWord("=name=" + schedulerName)
 	c.sendWord("=interval=30s")
 	c.sendWord("=on-event=" + script)
-	c.sendWord("=comment=ProISP: Protects static IPs from pool assignment")
+	c.sendWord("=comment=" + companyName + ": Protects static IPs from pool assignment")
 	c.sendWord("")
 
 	_, err = c.readResponse()
@@ -2869,6 +3119,105 @@ func (c *Client) ensureStaticIPProtectionScript() {
 	}
 
 	log.Printf("MikroTik: Created static IP protection scheduler")
+}
+
+// ReserveStaticIPInPPP creates a disabled PPP secret to reserve an IP from the pool
+// This prevents MikroTik from assigning this IP to dynamic users
+func (c *Client) ReserveStaticIPInPPP(ip string, subscriberUsername string) error {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return err
+		}
+	}
+
+	// Use a unique name for the reservation
+	secretName := fmt.Sprintf("static-%s", strings.ReplaceAll(ip, ".", "-"))
+	comment := fmt.Sprintf("Reserved for %s (RADIUS static IP)", subscriberUsername)
+
+	// Check if reservation already exists
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/ppp/secret/print")
+	c.sendWord("?remote-address=" + ip)
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return fmt.Errorf("failed to query PPP secrets: %v", err)
+	}
+
+	// If exists, update it
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			id := strings.TrimPrefix(word, "=.id=")
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/ppp/secret/set")
+			c.sendWord("=.id=" + id)
+			c.sendWord("=comment=" + comment)
+			c.sendWord("=disabled=yes")
+			c.sendWord("")
+			c.readResponse()
+			log.Printf("MikroTik: Updated PPP reservation for static IP %s (%s)", ip, subscriberUsername)
+			return nil
+		}
+	}
+
+	// Create new disabled PPP secret to reserve the IP
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/ppp/secret/add")
+	c.sendWord("=name=" + secretName)
+	c.sendWord("=password=reserved")
+	c.sendWord("=service=pppoe")
+	c.sendWord("=remote-address=" + ip)
+	c.sendWord("=disabled=yes")
+	c.sendWord("=comment=" + comment)
+	c.sendWord("")
+
+	_, err = c.readResponse()
+	if err != nil {
+		// Might fail if name exists, try with different name
+		log.Printf("MikroTik: Note - PPP reservation may already exist: %v", err)
+	} else {
+		log.Printf("MikroTik: Reserved static IP %s in PPP for %s", ip, subscriberUsername)
+	}
+
+	return nil
+}
+
+// RemoveStaticIPReservation removes a PPP secret reservation for a static IP
+func (c *Client) RemoveStaticIPReservation(ip string) error {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return err
+		}
+	}
+
+	// Find and remove PPP secret with this remote-address
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/ppp/secret/print")
+	c.sendWord("?remote-address=" + ip)
+	c.sendWord("?disabled=yes")
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return fmt.Errorf("failed to query PPP secrets: %v", err)
+	}
+
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			id := strings.TrimPrefix(word, "=.id=")
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/ppp/secret/remove")
+			c.sendWord("=.id=" + id)
+			c.sendWord("")
+			c.readResponse()
+			log.Printf("MikroTik: Removed PPP reservation for static IP %s", ip)
+			return nil
+		}
+	}
+
+	log.Printf("MikroTik: No PPP reservation found for static IP %s", ip)
+	return nil
 }
 
 // RemoveStaticIPFromAddressList removes a static IP from the STATIC-IPS address list on MikroTik
@@ -2910,4 +3259,391 @@ func (c *Client) RemoveStaticIPFromAddressList(ip string) error {
 	// Not found, that's okay
 	log.Printf("MikroTik: Static IP %s not found in address-list STATIC-IPS (already removed)", ip)
 	return nil
+}
+
+// TorchEntry represents a single torch traffic entry (like MikroTik Winbox torch)
+type TorchEntry struct {
+	SrcAddress string `json:"src_address"`
+	DstAddress string `json:"dst_address"`
+	SrcPort    int    `json:"src_port"`
+	DstPort    int    `json:"dst_port"`
+	Protocol   string `json:"protocol"`     // tcp, udp, icmp, etc.
+	ProtoNum   int    `json:"proto_num"`    // 6=tcp, 17=udp, 1=icmp
+	MacProto   string `json:"mac_protocol"` // 800=IPv4, 806=ARP, 86dd=IPv6
+	VlanID     int    `json:"vlan_id"`
+	DSCP       int    `json:"dscp"`
+	TxRate     int64  `json:"tx_rate"`      // bytes per second
+	RxRate     int64  `json:"rx_rate"`      // bytes per second
+	TxPackets  int64  `json:"tx_packets"`
+	RxPackets  int64  `json:"rx_packets"`
+}
+
+// TorchResult contains the result of a torch operation
+type TorchResult struct {
+	Entries   []TorchEntry `json:"entries"`
+	TotalTx   int64        `json:"total_tx"`
+	TotalRx   int64        `json:"total_rx"`
+	Duration  string       `json:"duration"`
+	Interface string       `json:"interface"`
+	FilterIP  string       `json:"filter_ip"`
+}
+
+// GetLiveTorch runs torch on a PPPoE interface for a specific subscriber IP
+// Returns real-time traffic breakdown by connection (like MikroTik Winbox torch)
+func (c *Client) GetLiveTorch(subscriberIP string, durationSec int) (*TorchResult, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
+	if durationSec <= 0 {
+		durationSec = 3
+	}
+	if durationSec > 10 {
+		durationSec = 10 // Max 10 seconds to avoid timeout
+	}
+
+	// Set longer timeout for torch operation
+	c.conn.SetDeadline(time.Now().Add(time.Duration(durationSec+10) * time.Second))
+
+	// Find the PPPoE interface for this subscriber
+	c.sendWord("/ppp/active/print")
+	c.sendWord("?address=" + subscriberIP)
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PPPoE session: %v", err)
+	}
+
+	// Find the interface name from PPP active session
+	var ifaceName string
+	var username string
+	for _, word := range response {
+		if strings.HasPrefix(word, "=name=") {
+			username = strings.TrimPrefix(word, "=name=")
+			// MikroTik PPPoE dynamic interfaces are named <pppoe-username>
+			ifaceName = "<pppoe-" + username + ">"
+			break
+		}
+	}
+
+	if ifaceName == "" {
+		return nil, fmt.Errorf("subscriber not connected or interface not found")
+	}
+
+	log.Printf("Torch: Found PPPoE session for IP %s, username=%s, interface=%s", subscriberIP, username, ifaceName)
+
+	result := &TorchResult{
+		Entries:   make([]TorchEntry, 0),
+		Interface: ifaceName,
+		FilterIP:  subscriberIP,
+		Duration:  fmt.Sprintf("%ds", durationSec),
+	}
+
+	// Run torch command with full details
+	// Based on MikroTik API docs: need interface, src-address, dst-address, port filters
+	c.conn.SetDeadline(time.Now().Add(time.Duration(durationSec+10) * time.Second))
+	c.sendWord("/tool/torch")
+	c.sendWord("=interface=" + ifaceName)
+	c.sendWord("=src-address=0.0.0.0/0")
+	c.sendWord("=dst-address=0.0.0.0/0")
+	c.sendWord("=port=any")
+	c.sendWord("=ip-protocol=any")
+	c.sendWord("=duration=" + strconv.Itoa(durationSec))
+	c.sendWord("")
+
+	// Read torch results
+	entries := make(map[string]*TorchEntry)
+	log.Printf("Torch: Starting to read responses for interface %s", ifaceName)
+	responseCount := 0
+
+	for {
+		word, err := c.readWord()
+		if err != nil {
+			log.Printf("Torch: Read error: %v", err)
+			break
+		}
+
+		if word == "!done" {
+			log.Printf("Torch: Received !done after %d responses", responseCount)
+			break
+		}
+
+		if word == "!re" {
+			responseCount++
+			entry := &TorchEntry{}
+			key := ""
+
+			// Read all attributes
+			for {
+				attr, err := c.readWord()
+				if err != nil {
+					break
+				}
+				if attr == "" {
+					break
+				}
+
+				if strings.HasPrefix(attr, "=src-address=") {
+					entry.SrcAddress = strings.TrimPrefix(attr, "=src-address=")
+				} else if strings.HasPrefix(attr, "=dst-address=") {
+					entry.DstAddress = strings.TrimPrefix(attr, "=dst-address=")
+				} else if strings.HasPrefix(attr, "=ip-protocol=") {
+					entry.ProtoNum, _ = strconv.Atoi(strings.TrimPrefix(attr, "=ip-protocol="))
+					switch entry.ProtoNum {
+					case 0:
+						entry.Protocol = "" // HOPOPT or unspecified
+					case 1:
+						entry.Protocol = "icmp"
+					case 6:
+						entry.Protocol = "tcp"
+					case 17:
+						entry.Protocol = "udp"
+					case 47:
+						entry.Protocol = "gre"
+					case 50:
+						entry.Protocol = "esp"
+					case 51:
+						entry.Protocol = "ah"
+					case 58:
+						entry.Protocol = "icmpv6"
+					default:
+						entry.Protocol = strconv.Itoa(entry.ProtoNum)
+					}
+				} else if strings.HasPrefix(attr, "=src-port=") {
+					entry.SrcPort, _ = strconv.Atoi(strings.TrimPrefix(attr, "=src-port="))
+				} else if strings.HasPrefix(attr, "=dst-port=") {
+					entry.DstPort, _ = strconv.Atoi(strings.TrimPrefix(attr, "=dst-port="))
+				} else if strings.HasPrefix(attr, "=mac-protocol=") {
+					entry.MacProto = strings.TrimPrefix(attr, "=mac-protocol=")
+				} else if strings.HasPrefix(attr, "=vlan-id=") {
+					entry.VlanID, _ = strconv.Atoi(strings.TrimPrefix(attr, "=vlan-id="))
+				} else if strings.HasPrefix(attr, "=dscp=") {
+					entry.DSCP, _ = strconv.Atoi(strings.TrimPrefix(attr, "=dscp="))
+				} else if strings.HasPrefix(attr, "=tx=") {
+					// MikroTik returns bits per second, convert to bytes for frontend
+					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=tx="), 10, 64)
+					entry.TxRate = bits / 8
+				} else if strings.HasPrefix(attr, "=rx=") {
+					// MikroTik returns bits per second, convert to bytes for frontend
+					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=rx="), 10, 64)
+					entry.RxRate = bits / 8
+				} else if strings.HasPrefix(attr, "=tx-packets=") {
+					entry.TxPackets, _ = strconv.ParseInt(strings.TrimPrefix(attr, "=tx-packets="), 10, 64)
+				} else if strings.HasPrefix(attr, "=rx-packets=") {
+					entry.RxPackets, _ = strconv.ParseInt(strings.TrimPrefix(attr, "=rx-packets="), 10, 64)
+				}
+			}
+
+			// Skip aggregate/summary rows (those without valid addresses)
+			// MikroTik torch returns summary rows with empty addresses
+			if entry.SrcAddress == "" || entry.DstAddress == "" {
+				continue
+			}
+
+			// If protocol wasn't detected but we have ports, infer the protocol
+			// Most port-based traffic is TCP
+			if entry.Protocol == "" && (entry.SrcPort > 0 || entry.DstPort > 0) {
+				entry.Protocol = "tcp"
+				entry.ProtoNum = 6
+			}
+
+			// Create unique key for this flow
+			key = fmt.Sprintf("%s:%d-%s:%d-%s", entry.SrcAddress, entry.SrcPort, entry.DstAddress, entry.DstPort, entry.Protocol)
+
+			// Aggregate or add new entry
+			if existing, ok := entries[key]; ok {
+				existing.TxRate = entry.TxRate
+				existing.RxRate = entry.RxRate
+				existing.TxPackets = entry.TxPackets
+				existing.RxPackets = entry.RxPackets
+			} else {
+				entries[key] = entry
+			}
+		}
+
+		if word == "!trap" {
+			errMsg := ""
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				if strings.HasPrefix(attr, "=message=") {
+					errMsg = strings.TrimPrefix(attr, "=message=")
+				}
+			}
+			log.Printf("Torch: Error from router: %s", errMsg)
+			return nil, fmt.Errorf("torch error: %s", errMsg)
+		}
+	}
+
+	// Convert map to slice and calculate totals
+	for _, entry := range entries {
+		result.Entries = append(result.Entries, *entry)
+		result.TotalTx += entry.TxRate
+		result.TotalRx += entry.RxRate
+	}
+
+	log.Printf("Torch: Completed with %d unique flows, TotalTx=%d, TotalRx=%d", len(result.Entries), result.TotalTx, result.TotalRx)
+
+	// Sort by TX rate descending (highest bandwidth first)
+	for i := 0; i < len(result.Entries); i++ {
+		for j := i + 1; j < len(result.Entries); j++ {
+			if result.Entries[j].TxRate > result.Entries[i].TxRate {
+				result.Entries[i], result.Entries[j] = result.Entries[j], result.Entries[i]
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// PingResult contains the result of a ping operation
+type PingResult struct {
+	Host       string  `json:"host"`
+	Sent       int     `json:"sent"`
+	Received   int     `json:"received"`
+	PacketLoss int     `json:"packet_loss"`
+	MinRTT     float64 `json:"min_rtt"`
+	AvgRTT     float64 `json:"avg_rtt"`
+	MaxRTT     float64 `json:"max_rtt"`
+	Status     string  `json:"status"`
+}
+
+// Ping executes ping command on MikroTik to reach subscriber IP
+func (c *Client) Ping(ip string, count int) (*PingResult, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
+	if count <= 0 {
+		count = 4
+	}
+	if count > 10 {
+		count = 10
+	}
+
+	result := &PingResult{
+		Host:   ip,
+		Sent:   count,
+		Status: "unknown",
+	}
+
+	// Set timeout for ping operation
+	c.conn.SetDeadline(time.Now().Add(time.Duration(count*2+5) * time.Second))
+
+	// Run ping command via MikroTik API with fast interval
+	c.sendWord("/ping")
+	c.sendWord("=address=" + ip)
+	c.sendWord("=count=" + strconv.Itoa(count))
+	c.sendWord("=interval=200ms")
+	c.sendWord("")
+
+	// Read ping responses
+	received := 0
+	var rtts []float64
+
+	for {
+		word, err := c.readWord()
+		if err != nil {
+			break
+		}
+
+		if word == "!done" {
+			break
+		}
+
+		if word == "!re" {
+			// Read ping reply attributes
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+
+				if strings.HasPrefix(attr, "=time=") {
+					// Got a reply - parse RTT
+					// MikroTik formats: "301us", "94ms514us", "1s200ms", "5ms"
+					timeStr := strings.TrimPrefix(attr, "=time=")
+					var rtt float64
+
+					// Check for combined format like "94ms514us"
+					if strings.Contains(timeStr, "ms") && strings.Contains(timeStr, "us") {
+						// Format: NNmsNNNus
+						parts := strings.Split(timeStr, "ms")
+						if len(parts) == 2 {
+							ms, _ := strconv.ParseFloat(parts[0], 64)
+							usStr := strings.TrimSuffix(parts[1], "us")
+							us, _ := strconv.ParseFloat(usStr, 64)
+							rtt = ms + us/1000.0
+						}
+					} else if strings.HasSuffix(timeStr, "us") {
+						// Microseconds only - convert to milliseconds
+						timeStr = strings.TrimSuffix(timeStr, "us")
+						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
+							rtt = val / 1000.0
+						}
+					} else if strings.HasSuffix(timeStr, "ms") {
+						// Milliseconds only
+						timeStr = strings.TrimSuffix(timeStr, "ms")
+						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
+							rtt = val
+						}
+					} else if strings.HasSuffix(timeStr, "s") {
+						// Seconds - convert to milliseconds
+						timeStr = strings.TrimSuffix(timeStr, "s")
+						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
+							rtt = val * 1000.0
+						}
+					}
+					if rtt > 0 {
+						rtts = append(rtts, rtt)
+						received++
+					}
+				}
+			}
+		}
+
+		if word == "!trap" {
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+			}
+			result.Status = "error"
+			return result, fmt.Errorf("ping failed")
+		}
+	}
+
+	result.Received = received
+	if count > 0 {
+		result.PacketLoss = ((count - received) * 100) / count
+	}
+
+	if len(rtts) > 0 {
+		var sum float64
+		result.MinRTT = rtts[0]
+		result.MaxRTT = rtts[0]
+		for _, rtt := range rtts {
+			sum += rtt
+			if rtt < result.MinRTT {
+				result.MinRTT = rtt
+			}
+			if rtt > result.MaxRTT {
+				result.MaxRTT = rtt
+			}
+		}
+		result.AvgRTT = sum / float64(len(rtts))
+		result.Status = "success"
+	} else {
+		result.Status = "timeout"
+	}
+
+	return result, nil
 }

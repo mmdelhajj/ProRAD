@@ -48,35 +48,40 @@ func (h *LicenseHandler) GetLicenseInfo(c *fiber.Ctx) error {
 	})
 }
 
-// GetLicenseStatus returns a simple license status check
+// GetLicenseStatus returns WHMCS-style license status for frontend
 func (h *LicenseHandler) GetLicenseStatus(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"success":      true,
-		"valid":        license.IsValid(),
-		"grace_period": license.InGracePeriod(),
+		"success":           true,
+		"valid":             license.IsValid(),
+		"grace_period":      license.InGracePeriod(),
+		"license_status":    license.GetLicenseStatus(),
+		"read_only":         license.IsReadOnly(),
+		"days_until_expiry": license.GetDaysUntilExpiry(),
+		"warning_message":   license.GetWarningMessage(),
 	})
 }
 
-// Revalidate forces a license revalidation with the license server
-func (h *LicenseHandler) Revalidate(c *fiber.Ctx) error {
-	err := license.ForceValidation()
+// RevalidateLicense forces a re-validation with the license server
+func (h *LicenseHandler) RevalidateLicense(c *fiber.Ctx) error {
+	err := license.Revalidate()
 	if err != nil {
 		return c.JSON(fiber.Map{
-			"success": false,
-			"message": err.Error(),
+			"success":         false,
+			"message":         err.Error(),
+			"valid":           license.IsValid(),
+			"license_status":  license.GetLicenseStatus(),
+			"read_only":       license.IsReadOnly(),
+			"warning_message": license.GetWarningMessage(),
 		})
 	}
 
-	info := license.GetLicenseInfo()
 	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "License revalidated successfully",
-		"data": fiber.Map{
-			"valid":           info.Valid,
-			"tier":            info.Tier,
-			"max_subscribers": info.MaxSubscribers,
-			"expires_at":      info.ExpiresAt,
-			"days_remaining":  info.DaysRemaining,
-		},
+		"success":           true,
+		"message":           "License validated successfully",
+		"valid":             license.IsValid(),
+		"license_status":    license.GetLicenseStatus(),
+		"read_only":         license.IsReadOnly(),
+		"days_until_expiry": license.GetDaysUntilExpiry(),
+		"warning_message":   license.GetWarningMessage(),
 	})
 }

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sessionApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import { formatDateTime } from '../utils/timezone'
 import {
   useReactTable,
@@ -39,6 +40,7 @@ function formatDuration(seconds) {
 
 export default function Sessions() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
   const [search, setSearch] = useState('')
 
   const { data: sessions, isLoading, refetch } = useQuery({
@@ -112,7 +114,7 @@ export default function Sessions() {
           <div className="flex flex-col">
             <span>{row.original.nas_name || row.original.nas_ip_address || '-'}</span>
             {row.original.nas_name && row.original.nas_ip_address && (
-              <span className="text-xs text-gray-400">{row.original.nas_ip_address}</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.nas_ip_address}</span>
             )}
           </div>
         ),
@@ -131,7 +133,7 @@ export default function Sessions() {
         header: 'Duration',
         cell: ({ row }) => (
           <div className="flex items-center gap-1 text-sm">
-            <ClockIcon className="w-4 h-4 text-gray-400" />
+            <ClockIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
             {formatDuration(row.original.session_duration)}
           </div>
         ),
@@ -156,21 +158,23 @@ export default function Sessions() {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
-          <button
-            onClick={() => {
-              if (confirm('Disconnect this session?')) {
-                disconnectMutation.mutate(row.original.id)
-              }
-            }}
-            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-            title="Disconnect"
-          >
-            <XCircleIcon className="w-5 h-5" />
-          </button>
+          hasPermission('subscribers.disconnect') ? (
+            <button
+              onClick={() => {
+                if (confirm('Disconnect this session?')) {
+                  disconnectMutation.mutate(row.original.id)
+                }
+              }}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+              title="Disconnect"
+            >
+              <XCircleIcon className="w-5 h-5" />
+            </button>
+          ) : null
         ),
       },
     ],
-    [disconnectMutation]
+    [disconnectMutation, hasPermission]
   )
 
   const table = useReactTable({
@@ -184,14 +188,14 @@ export default function Sessions() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Active Sessions</h1>
-          <p className="text-gray-500">Monitor live PPPoE connections</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Active Sessions</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Monitor live PPPoE connections</p>
         </div>
         <button
           onClick={() => refetch()}
-          className="btn-secondary flex items-center gap-2"
+          className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <ArrowPathIcon className="w-4 h-4" />
           Refresh
@@ -206,7 +210,7 @@ export default function Sessions() {
               <SignalIcon className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Online Users</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Online Users</div>
               <div className="text-2xl font-bold">{sessions?.length || 0}</div>
             </div>
           </div>
@@ -217,18 +221,18 @@ export default function Sessions() {
               <ArrowDownTrayIcon className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Total Download</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Download</div>
               <div className="text-2xl font-bold">{formatBytes(totalDownload)}</div>
             </div>
           </div>
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
               <ArrowUpTrayIcon className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Total Upload</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Upload</div>
               <div className="text-2xl font-bold">{formatBytes(totalUpload)}</div>
             </div>
           </div>
@@ -239,7 +243,7 @@ export default function Sessions() {
               <ClockIcon className="w-5 h-5 text-yellow-600" />
             </div>
             <div>
-              <div className="text-sm text-gray-500">Auto-refresh</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Auto-refresh</div>
               <div className="text-lg font-bold">Every 10s</div>
             </div>
           </div>
@@ -249,7 +253,7 @@ export default function Sessions() {
       {/* Search */}
       <div className="card p-4">
         <div className="relative max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
           <input
             type="text"
             placeholder="Search by username, IP, MAC..."
@@ -275,7 +279,7 @@ export default function Sessions() {
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-8">
@@ -286,13 +290,13 @@ export default function Sessions() {
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
                     No active sessions
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
