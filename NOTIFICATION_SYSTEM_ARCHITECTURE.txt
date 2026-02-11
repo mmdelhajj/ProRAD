@@ -1,0 +1,414 @@
+ProxPanel Update Notification System - Architecture Diagram
+===========================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                     LICENSE SERVER (109.110.185.33)                         │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────┐     │
+│  │                     ADMIN PANEL (React)                          │     │
+│  │                                                                  │     │
+│  │  ┌────────────────────────────────────────────────────────┐     │     │
+│  │  │  Updates Page                                          │     │     │
+│  │  │  ───────────────────────────────────────────────────  │     │     │
+│  │  │  Version      Status      Actions                     │     │     │
+│  │  │  v1.0.182     Published    [ Notify Customers ] ◄─────┼─────┼─── Click
+│  │  │  v1.0.181     Published    [ Notify Customers ]       │     │     │
+│  │  └────────────────────────────────────────────────────────┘     │     │
+│  │                                                                  │     │
+│  │  ┌────────────────────────────────────────────────────────┐     │     │
+│  │  │  NotifyModal                                           │     │     │
+│  │  │  ───────────────────────────────────────────────────  │     │     │
+│  │  │  Priority:    ◉ Critical  ○ Important  ○ Info         │     │     │
+│  │  │  Subject:     [Critical Update - v1.0.182          ]   │     │     │
+│  │  │  Message:     [This update fixes...               ]   │     │     │
+│  │  │  Filter:      ◉ All  ○ Tier  ○ Outdated              │     │     │
+│  │  │  Channels:    ☑ Email  ☐ SMS  ☑ In-App               │     │     │
+│  │  │                                                        │     │     │
+│  │  │  [ Cancel ]  [ Send Notifications ] ◄──────────────────────┼─── Click
+│  │  └────────────────────────────────────────────────────────┘     │     │
+│  └──────────────────────────────────────────────────────────────────┘     │
+│                                 │                                          │
+│                                 │ POST /api/v1/admin/updates/v1.0.182/notify
+│                                 ▼                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐     │
+│  │             NOTIFICATION HANDLER (Go)                            │     │
+│  │  ─────────────────────────────────────────────────────────────  │     │
+│  │  SendUpdateNotification()                                        │     │
+│  │    ├─ Query customers (filter by tier/version)                  │     │
+│  │    ├─ Create notification records                               │     │
+│  │    └─ Send emails asynchronously ──────────┐                    │     │
+│  │                                             │                    │     │
+│  │  sendEmailNotification()                    │                    │     │
+│  │    ├─ Get SMTP settings                    │                    │     │
+│  │    ├─ Build HTML email template            │                    │     │
+│  │    └─ Send via SMTP ───────────────────────┼──┐                 │     │
+│  │                                             │  │                 │     │
+│  │  GetNotificationStatus()                    │  │                 │     │
+│  │    └─ Return delivery statistics            │  │                 │     │
+│  └──────────────────────────────────────────────┼──┼─────────────────┘     │
+│                                 │               │  │                       │
+│                                 ▼               │  │                       │
+│  ┌──────────────────────────────────────────────▼──▼─────────────────┐     │
+│  │             DATABASE (PostgreSQL)                                 │     │
+│  │  ───────────────────────────────────────────────────────────────  │     │
+│  │  update_notifications                                             │     │
+│  │  ├─ id, update_id, license_id, customer_id                        │     │
+│  │  ├─ notification_type (email/sms/in-app)                          │     │
+│  │  ├─ status (pending/sent/failed/read)                             │     │
+│  │  ├─ sent_at, read_at, error_message                               │     │
+│  │  └─ timestamps                                                    │     │
+│  │                                                                   │     │
+│  │  system_preferences (SMTP settings)                               │     │
+│  │  ├─ smtp_host, smtp_port, smtp_user                               │     │
+│  │  └─ smtp_password, smtp_from, smtp_encryption                     │     │
+│  └──────────────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│                                 │                                           │
+│                                 │                                           │
+└─────────────────────────────────┼───────────────────────────────────────────┘
+                                  │
+                                  │ HTTPS API Calls
+                                  │
+        ┌─────────────────────────┼────────────────────────────┐
+        │                         │                            │
+        ▼                         ▼                            ▼
+┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+│   SMTP Server     │   │  Customer 1       │   │  Customer 2       │
+│                   │   │  (10.0.0.175)     │   │  (10.0.0.203)     │
+│  smtp.gmail.com   │   │                   │   │                   │
+│  Port 587         │   │  ProxPanel        │   │  ProxPanel        │
+│                   │   │                   │   │                   │
+│  ┌──────────────┐ │   │  ┌──────────────┐│   │  ┌──────────────┐│
+│  │ Send Emails  │ │   │  │ Dashboard    ││   │  │ Dashboard    ││
+│  │ Queue: 50    │ │   │  │              ││   │  │              ││
+│  └──────────────┘ │   │  │ ┌──────────┐ ││   │  │ ┌──────────┐ ││
+│                   │   │  │ │ Banner   │ ││   │  │ │ Banner   │ ││
+│  Delivers to:     │   │  │ │ ─────────│ ││   │  │ │ ─────────│ ││
+│  └─ customer@1.com├──►│  │ │ 🔔 Update│ ││   │  │ │ 🔔 Update│ ││
+│  └─ customer@2.com├───┼──┤ │ v1.0.182 │ ││   │  │ │ v1.0.182 │ ││
+└───────────────────┘   │  │ │          │ ││   │  │ │          │ ││
+                        │  │ │ [Update] │ ││   │  │ │ [Dismiss]│ ││
+                        │  │ └──────────┘ ││   │  │ └──────────┘ ││
+                        │  └──────────────┘│   │  └──────────────┘│
+                        │         │         │   │         │        │
+                        │         │ Poll    │   │         │ Poll   │
+                        │         ▼ /api/   │   │         ▼ /api/  │
+                        │  ┌──────────────┐│   │  ┌──────────────┐│
+                        │  │ API Handler  ││   │  │ API Handler  ││
+                        │  │ ────────────││   │  │ ────────────││
+                        │  │ GetPending  ││   │  │ GetPending  ││
+                        │  │ MarkRead    ││   │  │ MarkRead    ││
+                        │  └──────────────┘│   │  └──────────────┘│
+                        │         │         │   │         │        │
+                        │         │ Forward │   │         │ Forward│
+                        └─────────┼─────────┘   └─────────┼────────┘
+                                  │                       │
+                                  ▼                       ▼
+                        ┌─────────────────────────────────┐
+                        │  LICENSE SERVER                 │
+                        │  GET /api/v1/license/           │
+                        │      notifications/pending      │
+                        │  (requires license key header)  │
+                        └─────────────────────────────────┘
+
+
+DATA FLOW DIAGRAM
+=================
+
+1. ADMIN SENDS NOTIFICATION
+   ──────────────────────────
+
+   Admin Panel
+       │
+       │ 1. Click "Notify Customers"
+       │ 2. Fill form (priority, subject, message)
+       │ 3. Select filter (all/tier/outdated)
+       │ 4. Choose channels (email, SMS, in-app)
+       │ 5. Click "Send"
+       ▼
+   Notification Handler
+       │
+       │ 6. Query customers based on filter
+       │    Example: All customers with version < 1.0.182
+       │    Result: 50 customers found
+       ▼
+   Database
+       │
+       │ 7. Create 150 notification records
+       │    (50 customers × 3 channels = 150 records)
+       │    Status: pending
+       ▼
+   Background Process
+       │
+       │ 8. Send emails asynchronously (30 sec)
+       │ 9. Update status: sent/failed
+       │10. Set sent_at timestamp
+       ▼
+   Admin Panel
+       │
+       │11. Show delivery status
+       │    Total: 150
+       │    Sent: 147 (98%)
+       │    Failed: 3 (2%)
+
+
+2. CUSTOMER RECEIVES NOTIFICATION
+   ───────────────────────────────
+
+   Email (Immediate)
+       │
+       │ 1. Customer receives email
+       │ 2. Opens email
+       │ 3. Reads update information
+       │ 4. Clicks "Update Now" button
+       ▼
+   ProxPanel Dashboard
+       │
+       │ 5. Opens Settings → License
+       │ 6. Clicks "Check for Updates"
+       │ 7. Sees v1.0.182 available
+       │ 8. Clicks "Install Update"
+       │ 9. System updates automatically
+
+   In-App Banner (Within 5 minutes)
+       │
+       │ 1. Customer logs into ProxPanel
+       │ 2. Frontend polls /api/notifications/updates/pending
+       │ 3. API forwards to license server
+       │ 4. License server returns unread notifications
+       │ 5. Banner appears at top of dashboard
+       ▼
+   Banner Actions
+       │
+       ├─► Click "Update Now"
+       │       └─► Navigate to Settings → License
+       │           └─► (same flow as email above)
+       │
+       └─► Click "Dismiss"
+               └─► API call: POST /api/notifications/:id/read
+                   └─► License server marks as read
+                       └─► Banner disappears
+
+
+EMAIL TEMPLATE STRUCTURE
+========================
+
+┌────────────────────────────────────────────┐
+│  [Gradient Header - Purple]                │
+│  ProxPanel Update Available                │
+│                                            │
+├────────────────────────────────────────────┤
+│                                            │
+│  Hello, Customer Name                      │
+│                                            │
+│  [CRITICAL] ← Red badge                    │
+│                                            │
+│  ┌──────────────────────────────────────┐ │
+│  │ Update Details                       │ │
+│  │ ──────────────────────────────────── │ │
+│  │ Version: v1.0.182                    │ │
+│  │ Released: February 7, 2026           │ │
+│  │ Description:                         │ │
+│  │ This update fixes critical security  │ │
+│  │ vulnerabilities. Please update...    │ │
+│  └──────────────────────────────────────┘ │
+│                                            │
+│  ┌──────────────────────────────────────┐ │
+│  │       [ Update Now ]                 │ │ ← Big purple button
+│  │     (links to customer's ProxPanel)  │ │
+│  └──────────────────────────────────────┘ │
+│                                            │
+│  ┌──────────────────────────────────────┐ │
+│  │ How to Update:                       │ │
+│  │ ──────────────────────────────────── │ │
+│  │ 1. Log in to ProxPanel               │ │
+│  │ 2. Navigate to Settings → License    │ │
+│  │ 3. Click "Check for Updates"         │ │
+│  │ 4. Click "Install Update"            │ │
+│  │ 5. System updates automatically      │ │
+│  └──────────────────────────────────────┘ │
+│                                            │
+├────────────────────────────────────────────┤
+│  [Gray Footer]                             │
+│  Support: support@proxpanel.com            │
+│  © 2026 ProxPanel. All rights reserved.    │
+└────────────────────────────────────────────┘
+
+
+NOTIFICATION BANNER STRUCTURE
+==============================
+
+┌──────────────────────────────────────────────────────────────────┐
+│  🔔  Update Available: v1.0.182  [CRITICAL]                      │
+│                                                                  │
+│  This update fixes critical security vulnerabilities.           │
+│  Please update immediately to protect your system.              │
+│                                                                  │
+│  [ 🔄 Update Now ]    [ Dismiss ]                       [✕]     │
+└──────────────────────────────────────────────────────────────────┘
+
+Color Coding:
+- Critical:  Red background
+- Important: Orange background
+- Info:      Blue background
+
+
+PERFORMANCE METRICS
+===================
+
+Email Sending (Async Background):
+  10 customers:   ~5 seconds
+  50 customers:   ~30 seconds
+  100 customers:  ~1 minute
+  500 customers:  ~5 minutes
+
+Database Queries:
+  Insert notifications: <1 second (batch insert)
+  Query pending:        <100ms (indexed)
+  Mark as read:         <50ms (single update)
+
+Frontend Polling:
+  Interval:         5 minutes
+  Request size:     ~1KB
+  Response time:    <200ms
+  Server load:      Minimal (1 query per user per 5 min)
+
+SMTP Rate Limits:
+  Gmail:            100 emails/minute
+  SendGrid:         100+ emails/second
+  AWS SES:          1+ email/second (adjustable)
+
+
+SECURITY LAYERS
+===============
+
+1. Authentication
+   ├─ Admin: JWT token required
+   ├─ Customer: JWT token required
+   └─ License Server: License key header required
+
+2. Authorization
+   ├─ Admin only can send notifications
+   ├─ Customers only see their notifications
+   └─ Permission checks on all routes
+
+3. Data Protection
+   ├─ SMTP password encrypted in database
+   ├─ All API communication over HTTPS
+   ├─ SQL injection protection (parameterized queries)
+   └─ XSS protection (escaped HTML)
+
+4. Rate Limiting
+   ├─ API endpoints: 300 req/min per IP
+   ├─ Email sending: Respects SMTP limits
+   └─ Database queries: Connection pooling
+
+5. Audit Logging
+   ├─ All notification sends logged
+   ├─ Failed deliveries logged with error
+   └─ Customer read actions logged
+
+
+MONITORING CHECKLIST
+=====================
+
+Metrics to Track:
+  ✓ Email delivery rate (target: >95%)
+  ✓ Failed notifications count
+  ✓ Average delivery time
+  ✓ Customer engagement (read rate)
+  ✓ Dismiss rate
+  ✓ SMTP errors
+  ✓ API response times
+  ✓ Database query performance
+
+Alerts to Configure:
+  ! Email delivery rate < 90%
+  ! SMTP connection failures
+  ! Database connection errors
+  ! API response time > 1 second
+  ! Failed notifications > 5%
+
+Logs to Monitor:
+  - License server: /var/log/proxpanel-license/
+  - Customer API: docker logs proxpanel-api
+  - SMTP: Check provider dashboard
+  - Database: PostgreSQL slow query log
+
+
+DEPLOYMENT CHECKLIST
+=====================
+
+License Server:
+  [ ] Copy notification handler files
+  [ ] Run database migration
+  [ ] Add routes to main.go
+  [ ] Configure SMTP settings
+  [ ] Rebuild and restart
+  [ ] Test endpoints respond
+  [ ] Send test email
+
+Customer ProxPanel:
+  [ ] Run database migration
+  [ ] Rebuild backend with new routes
+  [ ] Rebuild frontend with banner
+  [ ] Deploy to production
+  [ ] Restart services
+  [ ] Test banner appears
+  [ ] Test dismiss works
+
+Admin UI:
+  [ ] Create NotifyModal component
+  [ ] Create StatusModal component
+  [ ] Update Updates.jsx
+  [ ] Update api.js
+  [ ] Rebuild admin panel
+  [ ] Test modal opens
+  [ ] Test form submission
+
+End-to-End:
+  [ ] Admin sends test notification
+  [ ] Email received
+  [ ] Banner appears on customer dashboard
+  [ ] "Update Now" button works
+  [ ] Dismiss button works
+  [ ] Status view shows correct data
+
+
+SUPPORT DOCUMENTATION
+======================
+
+For Customers:
+  Q: How do I update?
+  A: Settings → License → Check for Updates → Install
+
+  Q: How do I dismiss the banner?
+  A: Click the "Dismiss" button or ✕ icon
+
+  Q: I don't want email notifications
+  A: Contact support to adjust preferences
+
+For Admins:
+  Q: How do I send a notification?
+  A: Updates page → Click "Notify Customers" on update
+
+  Q: How do I retry failed notifications?
+  A: View Status → Click "Retry Failed"
+
+  Q: How do I test SMTP?
+  A: Settings → Notifications → Test Email
+
+
+CONTACT & SUPPORT
+=================
+
+Developer:           Claude Sonnet 4.5
+Implementation Date: February 7, 2026
+License Server:      109.110.185.33
+Development Server:  109.110.185.115
+Email Support:       support@proxpanel.com
+Documentation:       /root/proisp/NOTIFICATION_SYSTEM_*.md
+

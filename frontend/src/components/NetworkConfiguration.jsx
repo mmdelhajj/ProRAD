@@ -6,6 +6,7 @@ import { ExclamationTriangleIcon, CheckCircleIcon, ClockIcon } from '@heroicons/
 export default function NetworkConfiguration() {
   const [loading, setLoading] = useState(true)
   const [currentConfig, setCurrentConfig] = useState(null)
+  const [isDHCP, setIsDHCP] = useState(false)
   const [formData, setFormData] = useState({
     interface: 'eth0',
     ip_address: '',
@@ -103,6 +104,19 @@ export default function NetworkConfiguration() {
           const lines = data.netplan_config.split('\n');
           const dnsServers = [];
           let inNameservers = false;
+
+          // Detect DHCP configuration
+          const hasDHCP = data.netplan_config.includes('dhcp4: true') ||
+                          data.netplan_config.includes('dhcp4:true') ||
+                          data.netplan_config.includes('dhcp6: true') ||
+                          data.netplan_config.includes('dhcp6:true');
+          setIsDHCP(hasDHCP);
+
+          if (hasDHCP) {
+            toast.warning('⚠️ DHCP Detected: Server is using automatic IP. Consider converting to static IP for stability.', {
+              duration: 6000,
+            });
+          }
 
           for (const line of lines) {
             if (line.includes('nameservers:')) {
@@ -271,6 +285,38 @@ export default function NetworkConfiguration() {
         </button>
       </div>
 
+      {/* DHCP Warning Banner */}
+      {isDHCP && (
+        <div className="mb-4 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-600 p-4">
+          <div className="flex gap-3">
+            <ExclamationTriangleIcon className="w-6 h-6 text-orange-600 dark:text-orange-500 flex-shrink-0" />
+            <div className="flex-1">
+              <h5 className="text-sm font-semibold text-orange-800 dark:text-orange-400 mb-1">
+                ⚠️ DHCP Detected - Automatic IP Configuration
+              </h5>
+              <p className="text-sm text-orange-700 dark:text-orange-300 mb-2">
+                Your server is currently using <strong>DHCP (automatic IP assignment)</strong>. This means your IP address may change unexpectedly,
+                causing service interruptions.
+              </p>
+              <div className="text-sm text-orange-700 dark:text-orange-300 space-y-1">
+                <p><strong>Current DHCP-assigned values:</strong></p>
+                <ul className="list-disc list-inside ml-2 space-y-1">
+                  <li>IP Address: {formData.ip_address || 'Loading...'}</li>
+                  <li>Gateway: {formData.gateway || 'Loading...'}</li>
+                  <li>DNS: {formData.dns1}, {formData.dns2}</li>
+                </ul>
+              </div>
+              <div className="mt-3 p-3 bg-orange-100 dark:bg-orange-900/40 rounded border border-orange-200 dark:border-orange-700">
+                <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
+                  💡 <strong>Recommendation:</strong> Click "Test Configuration" below to convert DHCP to a permanent static IP.
+                  This will ensure your server maintains the same IP address and prevents connectivity issues.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Warning Banner */}
       <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
         <div className="flex gap-3">
@@ -304,7 +350,7 @@ export default function NetworkConfiguration() {
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50"
             >
               <CheckCircleIcon className="w-4 h-4 mr-2" />
-              Apply Permanently
+              {isDHCP ? 'Confirm: Convert to Static IP' : 'Apply Permanently'}
             </button>
           </div>
         </div>
@@ -423,7 +469,7 @@ export default function NetworkConfiguration() {
           disabled={loading || testMode}
           className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md disabled:opacity-50"
         >
-          {loading ? 'Applying...' : 'Test (60s)'}
+          {loading ? 'Applying...' : isDHCP ? 'Convert DHCP → Static (Test 60s)' : 'Test (60s)'}
         </button>
 
         {testMode && (

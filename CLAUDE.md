@@ -141,6 +141,8 @@ docker-compose down && docker-compose up -d
 - Audit logging
 
 ## Recent Work
+- **License Clone Protection (Feb 11, 2026)**: Implemented concurrent activation detection to prevent license cloning/sharing. The license validation handler now checks if another server with different hardware_id is currently active (within 5-minute grace period) and blocks clone attempts. Currently deployed in TEST MODE for License ID 81 only. Logs all clone attempts with details. Files: `/opt/proxpanel-license/internal/handlers/license.go` lines 348-380.
+- **DHCP Detection & Warning (Feb 11, 2026)**: Added automatic DHCP detection in Network Configuration page. When server uses DHCP (dhcp4: true in netplan), displays orange warning banner explaining risks and recommending conversion to static IP. Button text changes to "Convert DHCP → Static" during test mode. Files: `frontend/src/components/NetworkConfiguration.jsx`.
 - **QuotaSync Service Fix** (Jan 2025): Fixed issue where users weren't being marked offline when PPPoE session ended. The QuotaSync service now properly updates `is_online` status in the subscribers table.
 - **Remote Support Endpoints** (Jan 2026): Added `/api/system/remote-support/status` (GET) and `/api/system/remote-support/toggle` (POST) endpoints to `internal/handlers/settings.go` for frontend remote support toggle functionality.
 - **Remote Support Security Fix** (Jan 2026): When Remote Support is disabled, SSH credentials are now properly cleared from license server using DELETE `/api/v1/license/ssh-credentials` endpoint.

@@ -1,0 +1,190 @@
+╔══════════════════════════════════════════════════════════════╗
+║  SSH Password Sync Fix - Deployment Instructions            ║
+╚══════════════════════════════════════════════════════════════╝
+
+OVERVIEW
+========
+The SSH password sync fix has been implemented. Now you need to deploy
+it to the license server at 109.110.185.33.
+
+FILES PREPARED
+==============
+✓ /root/proisp/install.sh (updated)
+✓ /root/proisp/backend/internal/license/client.go (updated)
+✓ /root/proisp/license-server-migration.sql
+✓ /root/proisp/license-server-secrets-handler-update.go
+✓ /root/proisp/deploy-to-license-server.sh
+✓ /root/proisp/SSH_PASSWORD_SYNC_FIX.md (detailed docs)
+
+DEPLOYMENT STEPS
+================
+
+Step 1: Copy Files to License Server
+-------------------------------------
+Run these commands from your current server:
+
+  scp /root/proisp/license-server-migration.sql \
+      root@109.110.185.33:/tmp/
+
+  scp /root/proisp/license-server-secrets-handler-update.go \
+      root@109.110.185.33:/tmp/
+
+  scp /root/proisp/deploy-to-license-server.sh \
+      root@109.110.185.33:/tmp/
+
+  scp /root/proisp/install.sh \
+      root@109.110.185.33:/opt/proxpanel-license/updates/
+
+
+Step 2: SSH to License Server
+------------------------------
+  ssh root@109.110.185.33
+
+
+Step 3: Apply Database Migration
+---------------------------------
+  docker exec -i proxpanel-license-db psql -U proxpanel -d proxpanel_license < /tmp/license-server-migration.sql
+
+
+Step 4: Update License Server Code
+-----------------------------------
+  cd /opt/proxpanel-license
+
+  # Edit internal/models/models.go
+  # Add this field to LicenseSecrets struct:
+  SSHPassword string `gorm:"column:ssh_password;size:64" json:"ssh_password"`
+
+  # Edit internal/handlers/secrets.go
+  # Update GetSecrets function to:
+  # 1. Generate SSH password if empty
+  # 2. Include "ssh_password": secrets.SSHPassword in response
+
+  # See /tmp/license-server-secrets-handler-update.go for complete example
+
+
+Step 5: Rebuild and Restart
+----------------------------
+  cd /opt/proxpanel-license
+  docker compose build license-server
+  docker compose up -d license-server
+
+
+Step 6: Verify Deployment
+--------------------------
+  # Check license server is running
+  docker ps | grep license-server
+
+  # View logs
+  docker logs proxpanel-license-server --tail 30
+
+  # Test secrets endpoint
+  curl -s https://license.proxpanel.com/api/v1/license/secrets \
+    -H "X-License-Key: YOUR_TEST_KEY" \
+    -H "X-Hardware-ID: stable_test" | jq
+
+  # Should return JSON with ssh_password field
+
+
+Step 7: Build New ProxPanel Package
+------------------------------------
+  # On license server admin panel:
+  1. Go to Settings → Updates → Build
+  2. Version: 1.0.173
+  3. Start Build
+  4. Publish Update
+
+
+Step 8: Test Fresh Installation
+--------------------------------
+  # On a test VM (Ubuntu 22.04):
+  bash <(curl -s https://license.proxpanel.com/install.sh)
+
+  # Verify:
+  1. Install completes successfully
+  2. Can login to admin panel
+  3. Settings → Remote Support shows SSH credentials
+  4. Can connect via Remote Support from license server admin
+
+
+AUTOMATED OPTION
+================
+Instead of manual steps 3-5, you can run:
+
+  bash /tmp/deploy-to-license-server.sh
+
+This script will:
+- Apply database migration
+- Prompt you to update code
+- Rebuild and restart license server
+- Verify everything is working
+
+
+VERIFICATION COMMANDS
+=====================
+
+On License Server:
+------------------
+  # Check ssh_password column exists
+  docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c \
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'license_secrets';"
+
+  # View secrets for a license
+  docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c \
+    "SELECT license_id, ssh_password FROM license_secrets WHERE license_id = 1;"
+
+
+On Customer Server (after fresh install):
+------------------------------------------
+  # Check if secrets were fetched
+  journalctl -u proxpanel-api | grep "Secrets fetched"
+
+  # Verify SSH password works
+  # (Try logging in with password from admin panel)
+
+
+TROUBLESHOOTING
+===============
+
+If secrets endpoint returns error:
+-----------------------------------
+  1. Check license server logs:
+     docker logs proxpanel-license-server
+
+  2. Verify database column exists:
+     docker exec proxpanel-license-db psql -U proxpanel -d proxpanel_license -c \
+       "\d license_secrets"
+
+  3. Check code changes were applied correctly
+
+
+If fresh install still generates random password:
+--------------------------------------------------
+  1. Verify updated install.sh is in /opt/proxpanel-license/updates/
+  2. Check install.sh has the fetch secrets code
+  3. Test secrets endpoint manually with curl
+
+
+ROLLBACK PLAN
+=============
+If something goes wrong:
+
+  1. Restore previous license-server container:
+     docker compose down license-server
+     docker compose up -d license-server
+
+  2. Database change is backward compatible (new column, no data loss)
+
+
+SUPPORT
+=======
+For issues or questions:
+- Review: /root/proisp/SSH_PASSWORD_SYNC_FIX.md
+- Check logs: docker logs proxpanel-license-server
+- Database: docker exec -it proxpanel-license-db psql -U proxpanel -d proxpanel_license
+
+
+═══════════════════════════════════════════════════════════════
+
+Ready to deploy? Start with Step 1 above.
+
+═══════════════════════════════════════════════════════════════
