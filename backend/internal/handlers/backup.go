@@ -6,8 +6,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -287,9 +290,14 @@ func (h *BackupHandler) encryptBackup(inputPath, outputPath string) error {
 	// Encrypt and prepend nonce
 	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
 
-	// Write encrypted file with magic header
-	header := []byte("PROXPANEL_ENCRYPTED_BACKUP_V1\n")
-	output := append(header, ciphertext...)
+	// Write encrypted file with magic header V2 (includes license key)
+	licenseKey := os.Getenv("LICENSE_KEY")
+	if licenseKey == "" {
+		licenseKey = "UNKNOWN"
+	}
+
+	header := fmt.Sprintf("PROXPANEL_ENCRYPTED_BACKUP_V2\nLICENSE_KEY=%s\n", licenseKey)
+	output := append([]byte(header), ciphertext...)
 
 	if err := os.WriteFile(outputPath, output, 0600); err != nil {
 		return fmt.Errorf("failed to write encrypted file: %v", err)
@@ -616,6 +624,12 @@ func (h *BackupHandler) Restore(c *fiber.Ctx) error {
 		})
 	}
 
+	// Parse request body for optional source license key
+	var reqBody struct {
+		SourceLicenseKey string `json:"source_license_key"`
+	}
+	c.BodyParser(&reqBody) // Ignore errors, it's optional
+
 	// Sanitize filename
 	filename = filepath.Base(filename)
 	filePath := filepath.Join(h.backupDir, filename)
@@ -632,9 +646,35 @@ func (h *BackupHandler) Restore(c *fiber.Ctx) error {
 
 	// Check if this is an encrypted backup (.proisp.bak)
 	if strings.HasSuffix(filename, ".proisp.bak") {
+		// Try to fetch DB password from license server for cross-server restores
+		// This is needed when restoring a backup from a different server
+		dbPassword := h.cfg.DBPassword // Default to current server's password
+
+		// Try to extract license key from backup file header (V2 format)
+		sourceLicenseKey := reqBody.SourceLicenseKey
+		if sourceLicenseKey == "" {
+			// Read license key from backup file
+			if extractedKey, err := h.extractLicenseKeyFromBackup(filePath); err == nil && extractedKey != "" {
+				sourceLicenseKey = extractedKey
+				log.Printf("Restore: Found license key in backup file: %s", sourceLicenseKey)
+			} else {
+				// Fallback to current server's license key for V1 backups
+				sourceLicenseKey = os.Getenv("LICENSE_KEY")
+				log.Printf("Restore: No license key in backup (V1 format), using current server's license")
+			}
+		}
+
+		// Attempt to fetch from license server
+		if fetchedPassword, err := h.fetchDBPasswordFromLicenseServerWithKey(sourceLicenseKey); err == nil && fetchedPassword != "" {
+			dbPassword = fetchedPassword
+			log.Printf("Restore: Using DB password from license server (license: %s) for decryption", sourceLicenseKey)
+		} else {
+			log.Printf("Restore: Using current server's DB password (license server fetch failed: %v)", err)
+		}
+
 		// Decrypt the backup first
 		tempDecrypted = filepath.Join(h.backupDir, fmt.Sprintf(".restore_temp_%d.dump", time.Now().UnixNano()))
-		if err := h.decryptBackup(filePath, tempDecrypted); err != nil {
+		if err := h.decryptBackupWithPassword(filePath, tempDecrypted, dbPassword); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"success": false,
 				"message": fmt.Sprintf("Failed to decrypt backup: %v. This backup cannot be restored on this server - it may be from a different installation.", err),
@@ -1177,6 +1217,177 @@ func (h *BackupHandler) TestFTP(c *fiber.Ctx) error {
 		"success": true,
 		"message": "FTP connection successful",
 	})
+}
+
+// extractLicenseKeyFromBackup reads the license key from a V2 backup file header
+func (h *BackupHandler) extractLicenseKeyFromBackup(filePath string) (string, error) {
+	// Read first 200 bytes to check header
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	headerBytes := make([]byte, 200)
+	n, err := file.Read(headerBytes)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+
+	header := string(headerBytes[:n])
+
+	// Check if V2 format
+	if !strings.HasPrefix(header, "PROXPANEL_ENCRYPTED_BACKUP_V2\n") {
+		return "", fmt.Errorf("not a V2 backup (no license key stored)")
+	}
+
+	// Extract license key
+	lines := strings.Split(header, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "LICENSE_KEY=") {
+			return strings.TrimPrefix(line, "LICENSE_KEY="), nil
+		}
+	}
+
+	return "", fmt.Errorf("LICENSE_KEY not found in V2 header")
+}
+
+// fetchDBPasswordFromLicenseServerWithKey fetches the DB password from license server using a specific license key
+// This is used for cross-server backup restores
+func (h *BackupHandler) fetchDBPasswordFromLicenseServerWithKey(licenseKey string) (string, error) {
+	if licenseKey == "" {
+		return "", fmt.Errorf("license key is empty")
+	}
+
+	licenseServer := os.Getenv("LICENSE_SERVER")
+	if licenseServer == "" {
+		licenseServer = "https://license.proxpanel.com"
+	}
+
+	url := fmt.Sprintf("%s/api/v1/license/backup-password", licenseServer)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	// CRITICAL: Add the X-License-Key header
+	req.Header.Set("X-License-Key", licenseKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch DB password: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("license server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Success    bool   `json:"success"`
+		DBPassword string `json:"db_password"`
+		Message    string `json:"message"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	if !result.Success {
+		return "", fmt.Errorf("%s", result.Message)
+	}
+
+	return result.DBPassword, nil
+}
+
+// decryptBackupWithPassword decrypts a backup file using a specific password
+func (h *BackupHandler) decryptBackupWithPassword(inputPath, outputPath, password string) error {
+	// Read encrypted file
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		return fmt.Errorf("failed to read encrypted file: %v", err)
+	}
+
+	// Detect version and extract ciphertext
+	var ciphertext []byte
+
+	// Check for V2 format (read first 100 bytes safely for header detection)
+	v2Header := "PROXPANEL_ENCRYPTED_BACKUP_V2\n"
+	v1Header := "PROXPANEL_ENCRYPTED_BACKUP_V1\n"
+
+	headerCheckLen := 100
+	if len(data) < headerCheckLen {
+		headerCheckLen = len(data)
+	}
+	headerCheck := string(data[:headerCheckLen])
+
+	if strings.HasPrefix(headerCheck, v2Header) {
+		// V2 format: PROXPANEL_ENCRYPTED_BACKUP_V2\nLICENSE_KEY=xxx\n[ciphertext]
+		// Find the second newline (after LICENSE_KEY line)
+		offset := len(v2Header)
+		secondNewline := -1
+		for i := offset; i < len(data) && i < 200; i++ {
+			if data[i] == '\n' {
+				secondNewline = i
+				break
+			}
+		}
+
+		if secondNewline == -1 {
+			return fmt.Errorf("invalid V2 backup format - LICENSE_KEY line not found")
+		}
+
+		// Ciphertext starts after the second newline
+		ciphertext = data[secondNewline+1:]
+
+	} else if strings.HasPrefix(headerCheck, v1Header) {
+		// V1 format: Simple header
+		ciphertext = data[len(v1Header):]
+	} else {
+		return fmt.Errorf("invalid encrypted backup format - this file may be corrupted or not a ProxPanel backup")
+	}
+
+	// Derive decryption key from provided password
+	salt := "ProxPanel-Backup-Encryption-2024"
+	combined := password + salt
+	hash := sha256.Sum256([]byte(combined))
+	key := hash[:]
+
+	// Create AES cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return fmt.Errorf("failed to create cipher: %v", err)
+	}
+
+	// Create GCM
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return fmt.Errorf("failed to create GCM: %v", err)
+	}
+
+	// Extract nonce
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return fmt.Errorf("ciphertext too short")
+	}
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+
+	// Decrypt
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return fmt.Errorf("decryption failed - this backup may be from a different installation")
+	}
+
+	// Write decrypted file
+	if err := os.WriteFile(outputPath, plaintext, 0600); err != nil {
+		return fmt.Errorf("failed to write decrypted file: %v", err)
+	}
+
+	return nil
 }
 
 // ListBackupLogs returns backup execution logs

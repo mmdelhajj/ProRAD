@@ -288,7 +288,8 @@ export const backupApi = {
   }),
   download: (filename) => api.get(`/backups/${filename}/download`, { responseType: 'blob' }),
   getDownloadToken: (filename) => api.get(`/backups/${filename}/token`),
-  restore: (filename) => api.post(`/backups/${filename}/restore`),
+  restore: (filename, sourceLicenseKey) =>
+    api.post(`/backups/${filename}/restore`, { source_license_key: sourceLicenseKey }),
   delete: (filename) => api.delete(`/backups/${filename}`),
   // Schedules
   listSchedules: () => api.get('/backups/schedules'),

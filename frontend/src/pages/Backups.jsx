@@ -38,6 +38,7 @@ export default function Backups() {
   const [activeTab, setActiveTab] = useState('manual')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(null)
+  const [sourceLicenseKey, setSourceLicenseKey] = useState('')
   const [backupType, setBackupType] = useState('full')
 
   // Schedule modal state
@@ -101,10 +102,11 @@ export default function Backups() {
   })
 
   const restoreMutation = useMutation({
-    mutationFn: (filename) => backupApi.restore(filename),
+    mutationFn: ({ filename, sourceLicenseKey }) => backupApi.restore(filename, sourceLicenseKey),
     onSuccess: () => {
       toast.success('Backup restored successfully')
       setShowRestoreConfirm(null)
+      setSourceLicenseKey('')
       queryClient.invalidateQueries(['backups'])
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to restore'),
@@ -788,23 +790,48 @@ export default function Backups() {
                 <h2 className="text-xl font-bold">Confirm Restore</h2>
               </div>
 
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 Are you sure you want to restore from this backup? This will overwrite existing data.
               </p>
 
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                File: <span className="font-mono text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{showRestoreConfirm}</span>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                File: <span className="font-mono text-gray-700 dark:text-gray-300">{showRestoreConfirm}</span>
               </p>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Source License Key (optional - auto-detected)
+                </label>
+                <input
+                  type="text"
+                  value={sourceLicenseKey}
+                  onChange={(e) => setSourceLicenseKey(e.target.value)}
+                  placeholder="Auto-detected from backup file (leave empty)"
+                  className="input w-full"
+                />
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  ✓ System automatically reads the license key from the backup file - no manual input needed!
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Only fill this if you want to override the auto-detected license key.
+                </p>
+              </div>
 
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => setShowRestoreConfirm(null)}
+                  onClick={() => {
+                    setShowRestoreConfirm(null)
+                    setSourceLicenseKey('')
+                  }}
                   className="btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => restoreMutation.mutate(showRestoreConfirm)}
+                  onClick={() => restoreMutation.mutate({
+                    filename: showRestoreConfirm,
+                    sourceLicenseKey: sourceLicenseKey.trim()
+                  })}
                   disabled={restoreMutation.isLoading}
                   className="btn-danger flex items-center gap-2"
                 >
