@@ -762,11 +762,19 @@ export default function SubscriberEdit() {
                     <option value="">No Reseller (Admin)</option>
                     {resellers?.map((r) => (
                       <option key={r.id} value={r.id}>
-                        {r.username} - Balance: ${r.balance}
+                        {r.name || r.username} (Balance: ${r.balance})
                       </option>
                     ))}
                   </select>
                 </div>
+                {!isNew && subscriber?.created_at && (
+                  <div>
+                    <label className="label">Created At</label>
+                    <div className="input bg-gray-50 dark:bg-gray-700 cursor-default text-gray-700 dark:text-gray-200 font-medium">
+                      {formatDateTime(subscriber.created_at)}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

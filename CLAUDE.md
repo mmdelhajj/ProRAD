@@ -3743,3 +3743,55 @@ This feature is critical for customers who:
 - Restore after server failure
 - Clone production to staging
 - Move between data centers
+
+---
+
+### v1.0.221 - Subscriber List UX Improvements (Feb 13, 2026)
+
+**6 improvements to the Subscribers page:**
+
+#### 1. Sticky Action Toolbar
+- **File**: `frontend/src/pages/Subscribers.jsx` (line 1199)
+- Action bar (Select All, Renew, Reset FUP, Activate, Deactivate, Disconnect, Rename, Add Days, Change Service, Refill, Ping, Delete) now stays **fixed at the top** when scrolling
+- CSS: `sticky top-0 z-30 shadow-sm`
+- Users no longer need to scroll back up to access bulk actions
+
+#### 2. Selected Row Highlight (Red)
+- **File**: `frontend/src/pages/Subscribers.jsx` (line 1416)
+- Selected rows now have a strong **red background** with left border
+- Light mode: `bg-red-300 border-l-4 border-l-red-700`
+- Dark mode: `bg-red-900/60 border-l-red-500 text-white`
+- Makes it instantly clear which subscribers are selected
+
+#### 3. Delete Confirmation Modal with Subscriber Names
+- **File**: `frontend/src/pages/Subscribers.jsx` (lines 2150-2197)
+- Replaced browser `confirm()` with custom styled modal
+- Shows red header with subscriber count
+- Lists each subscriber **name in bold red text** (up to 20 names)
+- X close button, Cancel button, Delete button
+- Works in both light and dark mode
+- Scrollable list for many subscribers
+
+#### 4. Username Color in Dark Mode
+- **File**: `frontend/src/pages/Subscribers.jsx` (line 627)
+- Username links now use **cyan color** (`dark:text-cyan-400`) in dark mode
+- Much more visible than the default indigo/primary color on dark backgrounds
+- Hover: `dark:hover:text-cyan-300`
+
+#### 5. Clickable Status Counters (Online/Offline/Active/Inactive/Expired)
+- **File**: `frontend/src/pages/Subscribers.jsx` (lines 956-983)
+- Status counters in the stats bar are now **clickable** (like FUP counters)
+- Click to filter: Online, Offline, Active, Inactive, Expired
+- Click again to toggle off (remove filter)
+- Active filter shows **highlighted ring** around the counter
+- Each status has matching highlight color (green for Online, red for Offline, etc.)
+
+#### 6. Reseller Dropdown Shows Name + "Created At" Field
+- **File**: `frontend/src/pages/SubscriberEdit.jsx` (lines 764-776)
+- Reseller dropdown now shows `Name (Balance: $X)` instead of just balance
+- Added **"Created At"** read-only field in subscriber edit page showing creation date/time
+- **File**: `frontend/src/pages/Subscribers.jsx` (lines 869-877)
+- Added **"Created At"** optional column in subscriber list table (enable via column settings)
+
+#### Fresh Install Compatibility
+All changes are **frontend-only** (React JSX + CSS). No backend changes, no database migrations, no API changes. These will work on any fresh install that includes the updated frontend dist files.

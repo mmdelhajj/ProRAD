@@ -124,6 +124,7 @@ export default function Subscribers() {
       address: false,
       region: false,
       notes: false,
+      created_at: false,
     }
     try {
       const saved = localStorage.getItem('subscriberColumns')
@@ -164,6 +165,9 @@ export default function Subscribers() {
   })
   const [priceCalculation, setPriceCalculation] = useState(null)
   const [calculatingPrice, setCalculatingPrice] = useState(false)
+
+  // Delete confirmation modal state
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   // Torch modal state
   const [torchModal, setTorchModal] = useState(null)
@@ -547,7 +551,13 @@ export default function Subscribers() {
     if (ids.length === 0) return
 
     if (action === 'delete') {
-      if (!confirm(`Delete ${ids.length} subscriber(s)?`)) return
+      const rows = data?.data || []
+      const names = ids.map(id => {
+        const sub = rows.find(r => r.id === id)
+        return sub ? (sub.full_name || sub.username) : `ID ${id}`
+      })
+      setDeleteConfirm({ ids, names })
+      return
     }
 
     bulkActionMutation.mutate({ ids, action })
@@ -617,7 +627,7 @@ export default function Subscribers() {
             <span className="inline-flex items-center gap-1">
               <Link
                 to={`/subscribers/${row.original.id}`}
-                className="font-semibold text-primary-600 hover:text-primary-800 hover:underline"
+                className="font-semibold text-primary-600 dark:text-cyan-400 hover:text-primary-800 dark:hover:text-cyan-300 hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
                 {row.original.username}
@@ -859,6 +869,15 @@ export default function Subscribers() {
           </span>
         ),
       }] : []),
+      ...(visibleColumns.created_at ? [{
+        accessorKey: 'created_at',
+        header: 'Created At',
+        cell: ({ row }) => (
+          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+            {row.original.created_at ? formatDate(row.original.created_at) : '-'}
+          </span>
+        ),
+      }] : []),
       ...(viewMode === 'archived' ? [{
         accessorKey: 'deleted_at',
         header: 'Deleted At',
@@ -937,27 +956,27 @@ export default function Subscribers() {
 
       {/* Stats Bar - Scrollable on mobile */}
       <div className="flex items-center gap-4 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border text-sm overflow-x-auto">
-        <div className="flex items-center gap-1.5">
+        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'online' && 'bg-green-100 dark:bg-green-900/40 ring-1 ring-green-400')} onClick={() => { setStatus(status === 'online' ? '' : 'online'); setPage(1); }}>
           <span className="w-2 h-2 rounded-full bg-green-500"></span>
           <span className="font-semibold text-green-600">{stats.online || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Online</span>
+          <span className="text-gray-500 dark:text-gray-400">Online</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'offline' && 'bg-red-100 dark:bg-red-900/40 ring-1 ring-red-400')} onClick={() => { setStatus(status === 'offline' ? '' : 'offline'); setPage(1); }}>
           <span className="w-2 h-2 rounded-full bg-red-500"></span>
           <span className="font-semibold text-red-600">{stats.offline || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Offline</span>
+          <span className="text-gray-500 dark:text-gray-400">Offline</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'active' && 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-400')} onClick={() => { setStatus(status === 'active' ? '' : 'active'); setPage(1); }}>
           <span className="w-2 h-2 rounded-full bg-blue-500"></span>
           <span className="font-semibold text-blue-600">{stats.active || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active</span>
+          <span className="text-gray-500 dark:text-gray-400">Active</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'inactive' && 'bg-gray-200 dark:bg-gray-600 ring-1 ring-gray-400')} onClick={() => { setStatus(status === 'inactive' ? '' : 'inactive'); setPage(1); }}>
           <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-          <span className="font-semibold text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{stats.inactive || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Inactive</span>
+          <span className="font-semibold text-gray-600 dark:text-gray-400">{stats.inactive || 0}</span>
+          <span className="text-gray-500 dark:text-gray-400">Inactive</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'expired' && 'bg-yellow-100 dark:bg-yellow-900/40 ring-1 ring-yellow-400')} onClick={() => { setStatus(status === 'expired' ? '' : 'expired'); setPage(1); }}>
           <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
           <span className="font-semibold text-yellow-600">{stats.expired || 0}</span>
           <span className="text-gray-500 dark:text-gray-400">Expired</span>
@@ -1180,7 +1199,7 @@ export default function Subscribers() {
       )}
 
       {/* ACTION BUTTONS TOOLBAR - Proradius4 style */}
-      <div className="card p-2">
+      <div className="card p-2 sticky top-0 z-30 shadow-sm">
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Select All Button */}
           <button
@@ -1397,8 +1416,8 @@ export default function Subscribers() {
                       className={clsx(
                         'cursor-pointer transition-colors',
                         isSelected
-                          ? 'bg-red-50 dark:bg-red-900/30 border-b-2 border-red-400 text-red-700'
-                          : 'hover:bg-gray-50'
+                          ? 'bg-red-300 dark:bg-red-900/60 border-l-4 border-l-red-700 dark:border-l-red-500 dark:text-white'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                       )}
                       onClick={() => toggleRowSelection(row.original.id)}
                     >
@@ -2126,6 +2145,54 @@ export default function Subscribers() {
             <div className="modal-footer flex-shrink-0">
               <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-secondary w-full sm:w-auto">
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteConfirm(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-red-600 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <TrashIcon className="w-6 h-6" />
+                Delete {deleteConfirm.ids.length} Subscriber{deleteConfirm.ids.length > 1 ? 's' : ''}?
+              </h3>
+              <button onClick={() => setDeleteConfirm(null)} className="text-white/80 hover:text-white">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">The following will be permanently deleted:</p>
+              <div className="max-h-60 overflow-y-auto space-y-1">
+                {deleteConfirm.names.slice(0, 20).map((name, i) => (
+                  <div key={i} className="flex items-center gap-2 py-1.5 px-3 bg-red-50 dark:bg-red-900/40 rounded-lg border border-red-200 dark:border-red-700">
+                    <span className="text-red-700 dark:text-red-200 font-bold text-lg">{name}</span>
+                  </div>
+                ))}
+                {deleteConfirm.names.length > 20 && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm py-1 px-3">
+                    ... and {deleteConfirm.names.length - 20} more
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="btn btn-secondary px-6"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  bulkActionMutation.mutate({ ids: deleteConfirm.ids, action: 'delete' })
+                  setDeleteConfirm(null)
+                }}
+                className="btn px-6 bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                Delete
               </button>
             </div>
           </div>
