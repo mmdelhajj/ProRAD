@@ -261,6 +261,19 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if reseller account is active
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		var reseller models.Reseller
+		if err := database.DB.First(&reseller, *user.ResellerID).Error; err == nil {
+			if !reseller.IsActive {
+				return c.Status(fiber.StatusUnauthorized).JSON(LoginResponse{
+					Success: false,
+					Message: "Reseller account is deactivated",
+				})
+			}
+		}
+	}
+
 	// Check if admin IP is allowed (only for admin users)
 	if user.UserType == models.UserTypeAdmin && !isAdminIPAllowed(clientIP) {
 		return c.Status(fiber.StatusForbidden).JSON(LoginResponse{

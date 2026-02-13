@@ -104,6 +104,19 @@ func AuthRequired(cfg *config.Config) fiber.Handler {
 			})
 		}
 
+		// Check if reseller account is active
+		if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+			var reseller models.Reseller
+			if err := database.DB.First(&reseller, *user.ResellerID).Error; err == nil {
+				if !reseller.IsActive {
+					return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+						"success": false,
+						"message": "Reseller account is deactivated",
+					})
+				}
+			}
+		}
+
 		// Store user info in context
 		c.Locals("user", &user)
 		c.Locals("userID", claims.UserID)

@@ -354,6 +354,10 @@ func (h *ResellerHandler) Update(c *fiber.Ctx) error {
 	}
 	if val, ok := req["is_active"]; ok {
 		resellerUpdates["is_active"] = val
+		// Also sync user account active status so existing JWT sessions are blocked
+		if reseller.User != nil {
+			database.DB.Model(&models.User{}).Where("id = ?", reseller.User.ID).Update("is_active", val)
+		}
 	}
 	if val, ok := req["permission_group"]; ok {
 		// Handle null/empty case
