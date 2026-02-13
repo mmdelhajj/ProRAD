@@ -15,6 +15,7 @@ export default function NetworkConfiguration() {
     dns2: '8.8.4.4',
     dns_method: 'netplan', // 'netplan' or 'resolv'
   })
+  const [availableInterfaces, setAvailableInterfaces] = useState([])
   const [testMode, setTestMode] = useState(false)
   const [countdown, setCountdown] = useState(60)
   const [testUntil, setTestUntil] = useState(null)
@@ -54,6 +55,20 @@ export default function NetworkConfiguration() {
     }
   }
 
+  const handleInterfaceChange = (e) => {
+    const selectedName = e.target.value;
+    const selectedInterface = availableInterfaces.find(iface => iface.name === selectedName);
+    
+    if (selectedInterface) {
+      setFormData(prev => ({
+        ...prev,
+        interface: selectedInterface.name,
+        ip_address: selectedInterface.ip
+      }));
+      toast.success(`Switched to ${selectedInterface.name} (${selectedInterface.ip})`);
+    }
+  }
+
   const fetchCurrentConfig = async () => {
     try {
       setLoading(true)
@@ -64,33 +79,67 @@ export default function NetworkConfiguration() {
 
         // Parse current config and pre-fill form
         if (data.current_ip_info) {
-          // Extract interface name and IP - skip loopback (lo)
+          // Extract ALL physical interfaces (even without IPv4)
           const lines = data.current_ip_info.split('\n');
+          const interfaceMap = new Map();
           let currentInterface = null;
 
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
 
-            // Match interface line (e.g., "2: eth0:")
-            const interfaceMatch = line.match(/\d+:\s+(\w+):/);
+            // Match interface line (e.g., 2: eth0:)
+            const interfaceMatch = line.match(/\d+:\s+([^:@\s]+)/);
             if (interfaceMatch) {
               currentInterface = interfaceMatch[1];
+              
+              // Skip Docker/virtual interfaces
+              const isDockerInterface = 
+                currentInterface.startsWith('docker') || 
+                currentInterface.startsWith('br-') || 
+                currentInterface.startsWith('veth');
+              
+              // Add physical interfaces (even without IP)
+              if (currentInterface !== 'lo' && !isDockerInterface) {
+                if (!interfaceMap.has(currentInterface)) {
+                  interfaceMap.set(currentInterface, {
+                    name: currentInterface,
+                    ip: 'No IPv4'
+                  });
+                }
+              }
             }
 
-            // Match IP address line (e.g., "    inet 139.162.169.197/24")
+            // Match IP address line (e.g.,  inet 139.162.169.197/24)
             const ipMatch = line.match(/inet\s+(\d+\.\d+\.\d+\.\d+\/\d+)/);
-            if (ipMatch && currentInterface && currentInterface !== 'lo' && !ipMatch[1].startsWith('127.')) {
-              // Found a real network interface with non-loopback IP
-              setFormData(prev => ({
-                ...prev,
-                interface: currentInterface,
-                ip_address: ipMatch[1]
-              }))
-              break; // Stop after finding first real interface
+            
+            if (ipMatch && currentInterface && interfaceMap.has(currentInterface) && 
+                !ipMatch[1].startsWith('127.')) {
+              // Update with IPv4 address
+              interfaceMap.set(currentInterface, {
+                name: currentInterface,
+                ip: ipMatch[1]
+              });
             }
           }
-        }
 
+          // Convert map to array
+          const interfaces = Array.from(interfaceMap.values());
+
+          // Store all available interfaces
+          setAvailableInterfaces(interfaces);
+
+          // Auto-select first interface with IPv4
+          const firstWithIP = interfaces.find(iface => iface.ip !== 'No IPv4');
+          const selected = firstWithIP || interfaces[0];
+          
+          if (selected) {
+            setFormData(prev => ({
+              ...prev,
+              interface: selected.name,
+              ip_address: selected.ip !== 'No IPv4' ? selected.ip : ''
+            }))
+          }
+        }
         // Extract gateway from routes (e.g., "default via 139.162.169.1")
         if (data.current_routes) {
           const gatewayMatch = data.current_routes.match(/default via\s+(\d+\.\d+\.\d+\.\d+)/);
@@ -363,15 +412,31 @@ export default function NetworkConfiguration() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Network Interface
           </label>
-          <input
-            type="text"
-            value={formData.interface}
-            onChange={(e) => handleChange('interface', e.target.value)}
-            placeholder="eth0, ens3, enp0s3"
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-          />
+          {availableInterfaces.length > 1 ? (
+            <select
+              value={formData.interface}
+              onChange={handleInterfaceChange}
+              className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            >
+              {availableInterfaces.map((iface) => (
+                <option key={iface.name} value={iface.name}>
+                  {iface.name} ({iface.ip})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={formData.interface}
+              onChange={(e) => handleChange('interface', e.target.value)}
+              placeholder="eth0, ens3, enp0s3"
+              className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            />
+          )}
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Common: eth0, ens3, enp0s3
+            {availableInterfaces.length > 1 
+              ? `${availableInterfaces.length} interfaces detected - select one to configure`
+              : 'Common: eth0, ens3, enp0s3'}
           </p>
         </div>
 
