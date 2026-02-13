@@ -412,7 +412,7 @@ export default function NetworkConfiguration() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Network Interface
           </label>
-          {availableInterfaces.length > 1 ? (
+          {availableInterfaces.length >= 1 ? (
             <select
               value={formData.interface}
               onChange={handleInterfaceChange}
@@ -434,8 +434,8 @@ export default function NetworkConfiguration() {
             />
           )}
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {availableInterfaces.length > 1 
-              ? `${availableInterfaces.length} interfaces detected - select one to configure`
+            {availableInterfaces.length >= 1
+              ? `${availableInterfaces.length} interface${availableInterfaces.length > 1 ? 's' : ''} detected`
               : 'Common: eth0, ens3, enp0s3'}
           </p>
         </div>

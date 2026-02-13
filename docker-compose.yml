@@ -119,6 +119,7 @@ services:
       - LICENSE_KEY=${LICENSE_KEY}
     volumes:
       - ./backend/proisp-radius/proisp-radius:/app/proisp-radius:ro
+      - ./VERSION:/opt/proxpanel/VERSION:ro
     depends_on:
       postgres:
         condition: service_healthy
