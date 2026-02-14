@@ -13,8 +13,8 @@ export default function Clock() {
   useEffect(() => {
     const fetchUptime = () => {
       api.get('/dashboard/system-info').then(res => {
-        if (res.data?.data?.uptime_seconds) {
-          setUptime(res.data.data.uptime_seconds)
+        if (res.data?.data?.os?.uptime_seconds) {
+          setUptime(res.data.data.os.uptime_seconds)
         }
       }).catch(() => {})
     }
