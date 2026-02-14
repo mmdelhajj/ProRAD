@@ -1325,7 +1325,7 @@ export default function SubscriberEdit() {
                 },
                 xAxis: {
                   type: 'category',
-                  data: Array.from({ length: 31 }, (_, i) => i + 1),
+                  data: Array.from({ length: dailyQuota?.daily_download?.length || new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() }, (_, i) => i + 1),
                   axisLine: { lineStyle: { color: '#ccc' } },
                   axisLabel: { color: '#666' },
                 },
@@ -1342,14 +1342,14 @@ export default function SubscriberEdit() {
                   {
                     name: 'Download',
                     type: 'bar',
-                    data: dailyQuota?.daily_download || Array(31).fill(0),
+                    data: dailyQuota?.daily_download || [],
                     itemStyle: { color: '#14B8A6' },
                     barWidth: '35%',
                   },
                   {
                     name: 'Upload',
                     type: 'bar',
-                    data: dailyQuota?.daily_upload || Array(31).fill(0),
+                    data: dailyQuota?.daily_upload || [],
                     itemStyle: { color: '#F97316' },
                     barWidth: '35%',
                   },
