@@ -141,7 +141,7 @@ docker-compose down && docker-compose up -d
 - Audit logging
 
 ## Recent Work
-- **Stale Session Cleanup + Duplicate IP Prevention v1.0.226 (Feb 14, 2026)**: Added `StaleSessionCleanupService` that runs every 5 minutes and closes radacct sessions with no interim update for 30+ minutes (prevents ghost session accumulation when MikroTik doesn't send STOP packets). Also syncs subscriber `is_online` status. Added duplicate IP check in bulk `set_static_ip` action - prevents admin from assigning an IP already used by another user in radreply. Fixed 5 existing duplicate IPs in radreply (13 users reassigned to unique IPs from correct pools), cleaned 955 stale radacct sessions, synced ip_pool_assignments with radreply. Files: `backend/internal/services/stale_session_cleanup.go` (new), `backend/internal/handlers/subscriber.go` (set_static_ip duplicate check), `backend/cmd/api/main.go` (service registration).
+- **Stale Session Cleanup + Duplicate IP Prevention + Pool Re-import v1.0.226 (Feb 14, 2026)**: Added `StaleSessionCleanupService` that runs every 5 minutes and closes radacct sessions with no interim update for 30+ minutes (prevents ghost session accumulation when MikroTik doesn't send STOP packets). Also syncs subscriber `is_online` status. Added duplicate IP check in bulk `set_static_ip` action - prevents admin from assigning an IP already used by another user in radreply. Fixed 5 duplicate IPs in radreply, cleaned 955 stale radacct sessions. Re-imported `ip_pool_assignments` from MikroTik with correct pool ranges (old data had wrong pool_name tags causing wrong-subnet IP assignments). Fixed 20 total users with wrong-pool IPs (deleted Framed-IP-Address, MikroTik assigns correct IP on reconnect). Files: `backend/internal/services/stale_session_cleanup.go` (new), `backend/internal/handlers/subscriber.go` (set_static_ip duplicate check), `backend/cmd/api/main.go` (service registration).
 - **Service Change IP Pool Fix v1.0.225 (Feb 14, 2026)**: Fixed wrong IP pool assignment when changing subscriber service. When a subscriber's service was changed (e.g. 6M to 3M), the old Framed-IP-Address in radreply was not deleted, so the user kept the old IP from the wrong pool. Fix: Both ChangeService handler and Update handler now delete Framed-IP-Address and release IP in ip_pool_assignments when service changes. On reconnect, RADIUS allocates new IP from correct pool. Also fixed 24 existing users with wrong pool IPs. Files: `backend/internal/handlers/subscriber.go` (ChangeService + Update handlers).
 - **System Uptime Display v1.0.224 (Feb 14, 2026)**: Added server uptime display next to the clock in the admin panel header. Shows uptime in format "Xd Xh Xm" with green ArrowPathIcon. Fetches from `/dashboard/system-info` API every 60 seconds and increments locally every second for smooth display. Visible on lg+ screens. Files: `frontend/src/components/Clock.jsx`.
 - **Reseller View All Subscribers Fix v1.0.223 (Feb 14, 2026)**: Fixed `subscribers.view_all` permission not working. The permission existed in the database but was never checked in code - resellers were always filtered to only see their own subscribers regardless of permissions. Fix: Added `checkUserPermission(user, "subscribers.view_all")` check in 6 locations in subscriber.go (list, get single, stats, bulk update, bulk action, archived). When a reseller has this permission, the reseller_id filter is skipped and they see all subscribers. Files: `backend/internal/handlers/subscriber.go` lines 151, 321, 629, 1920, 2030, 2825.
@@ -2642,14 +2642,30 @@ define a valid foreign key for relations
 
 **Conclusion:** Keep garble DISABLED. 90% security is sufficient.
 
-### v1.0.226 Stale Session Cleanup + Duplicate IP Prevention (Feb 14, 2026)
+### v1.0.226 Stale Session Cleanup + Duplicate IP Prevention + Pool Re-import (Feb 14, 2026)
 
-**Problem:** After v1.0.225, customer server had 1,197 "active" sessions for only 295 real users (955 ghost sessions). Also had 5 duplicate IPs in radreply (13 users sharing IPs) and 9 real IP conflicts between different users in active sessions.
+**Problem:** After v1.0.225, customer server had 1,197 "active" sessions for only 295 real users (955 ghost sessions). Also had 5 duplicate IPs in radreply (13 users sharing IPs), 9 real IP conflicts between different users, and `ip_pool_assignments` had wrong pool_name tags causing wrong-subnet IP assignments.
 
 **Root Causes:**
 1. **No stale session cleanup** - When MikroTik reboots or PPPoE sessions end without STOP packet, radacct sessions stay "open" forever
 2. **Old duplicate radreply entries** - Created before v1.0.179 fix, never cleaned up
-3. **ip_pool_assignments out of sync** - Not tracking actual radreply state
+3. **ip_pool_assignments had wrong pool_name tags** - IPs were tagged with wrong pool names (e.g., `10.180.94.145` tagged as "3M" but actually belongs to "2M" subnet). Caused by incorrect initial pool import
+4. **20 users had IPs from wrong pool subnets** - Some from old mismatches, some created during duplicate fix due to bad pool tags
+
+**MikroTik Pool Ranges (correct source of truth):**
+| Pool | Subnet |
+|------|--------|
+| 1M | 10.180.92.2-252 |
+| 2M | 10.180.94.2-252 |
+| 3M | 10.180.96.2-252 |
+| 4M | 10.180.98.2-252 |
+| 5M | 10.180.100.2-252 |
+| 6M | 10.180.102.2-252 |
+| 7M | 10.180.104.2-252 |
+| 8M | 10.180.106.2-252 |
+| 10M | 10.180.108.2-252 |
+| 2M-ZHR | 10.180.112.2-252 |
+| TS-1 | 10.180.114.2-252 |
 
 **Solution:**
 
@@ -2664,17 +2680,28 @@ define a valid foreign key for relations
    - Skips and logs warning if duplicate found
    - File: `backend/internal/handlers/subscriber.go`
 
-3. **One-time data cleanup on customer server (10.0.0.250)**:
-   - Reassigned 9 users with duplicate IPs to unique IPs from correct pools
+3. **Re-imported ip_pool_assignments from MikroTik**:
+   - Deleted all old entries with wrong pool tags
+   - Re-created from actual MikroTik pool ranges (each pool = one /24 subnet)
+   - Synced with radreply (277 IPs marked in_use)
+
+4. **Fixed 20 users with wrong-pool IPs**:
+   - Deleted their Framed-IP-Address from radreply
+   - MikroTik assigns correct IP from correct pool subnet on next reconnect
+   - No customer disruption (change takes effect on reconnect)
+
+5. **One-time data cleanup on customer server (10.0.0.250)**:
+   - Fixed 5 duplicate IPs in radreply
    - Closed 955 stale radacct sessions
-   - Synced ip_pool_assignments with radreply (286 in_use, 1676 available)
+   - Re-imported all pool assignments correctly
 
 **Fresh Install Coverage:**
 - StaleSessionCleanupService starts automatically on API startup
 - Duplicate IP check is part of the subscriber handler code
+- Pool import from MikroTik happens automatically when NAS is added
 - No database migration needed (uses existing tables)
 
-**Why Duplicates Won't Return:**
+**Why These Problems Won't Return:**
 | Layer | Prevents |
 |-------|----------|
 | AllocateIP (v1.0.179) | Checks both ip_pool_assignments AND radreply before allocating |
@@ -2682,6 +2709,7 @@ define a valid foreign key for relations
 | StaleSessionCleanupService (v1.0.226) | Closes ghost sessions every 5 min |
 | Duplicate IP check (v1.0.226) | Blocks manual duplicate IP assignment via bulk action |
 | RADIUS duplicate detection (server.go) | Disconnects old user when new session starts with same IP |
+| Correct pool import from MikroTik | Each pool maps to correct subnet, no wrong-pool assignments |
 
 ### Duplicate IP Problem Fix (Feb 2026)
 
