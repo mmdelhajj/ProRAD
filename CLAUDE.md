@@ -141,6 +141,7 @@ docker-compose down && docker-compose up -d
 - Audit logging
 
 ## Recent Work
+- **findAvailableIP Duplicate IP Fix v1.0.227 (Feb 14, 2026)**: Fixed `findAvailableIP()` in RADIUS static IP conflict resolver not checking `radreply` table for existing Framed-IP-Address entries. The function only checked `subscribers.ip_address` (online) and `subscribers.static_ip`, so it could assign an IP already used by another user in radreply, creating duplicates. Now checks all three sources (online IPs, static IPs, radreply Framed-IP-Address) before picking an available IP. This was the last code path that could create duplicate IPs. Files: `backend/internal/radius/server.go` (findAvailableIP function).
 - **Stale Session Cleanup + Duplicate IP Prevention + Pool Re-import v1.0.226 (Feb 14, 2026)**: Added `StaleSessionCleanupService` that runs every 5 minutes and closes radacct sessions with no interim update for 30+ minutes (prevents ghost session accumulation when MikroTik doesn't send STOP packets). Also syncs subscriber `is_online` status. Added duplicate IP check in bulk `set_static_ip` action - prevents admin from assigning an IP already used by another user in radreply. Fixed 5 duplicate IPs in radreply, cleaned 955 stale radacct sessions. Re-imported `ip_pool_assignments` from MikroTik with correct pool ranges (old data had wrong pool_name tags causing wrong-subnet IP assignments). Fixed 20 total users with wrong-pool IPs (deleted Framed-IP-Address, MikroTik assigns correct IP on reconnect). Files: `backend/internal/services/stale_session_cleanup.go` (new), `backend/internal/handlers/subscriber.go` (set_static_ip duplicate check), `backend/cmd/api/main.go` (service registration).
 - **Service Change IP Pool Fix v1.0.225 (Feb 14, 2026)**: Fixed wrong IP pool assignment when changing subscriber service. When a subscriber's service was changed (e.g. 6M to 3M), the old Framed-IP-Address in radreply was not deleted, so the user kept the old IP from the wrong pool. Fix: Both ChangeService handler and Update handler now delete Framed-IP-Address and release IP in ip_pool_assignments when service changes. On reconnect, RADIUS allocates new IP from correct pool. Also fixed 24 existing users with wrong pool IPs. Files: `backend/internal/handlers/subscriber.go` (ChangeService + Update handlers).
 - **System Uptime Display v1.0.224 (Feb 14, 2026)**: Added server uptime display next to the clock in the admin panel header. Shows uptime in format "Xd Xh Xm" with green ArrowPathIcon. Fetches from `/dashboard/system-info` API every 60 seconds and increments locally every second for smooth display. Visible on lg+ screens. Files: `frontend/src/components/Clock.jsx`.
@@ -2710,6 +2711,36 @@ define a valid foreign key for relations
 | Duplicate IP check (v1.0.226) | Blocks manual duplicate IP assignment via bulk action |
 | RADIUS duplicate detection (server.go) | Disconnects old user when new session starts with same IP |
 | Correct pool import from MikroTik | Each pool maps to correct subnet, no wrong-pool assignments |
+| findAvailableIP fix (v1.0.227) | Conflict resolver checks radreply before assigning IP |
+
+### v1.0.227 findAvailableIP Duplicate IP Fix (Feb 14, 2026)
+
+**Problem:** After fixing all duplicate IPs in v1.0.226, a new duplicate appeared within hours. `abedelrahmanalabed@mes.net.lb` and `mahmoudawwad@mes.net.lb` both had IP `10.180.96.16` in radreply.
+
+**Root Cause:** The `findAvailableIP()` function in `backend/internal/radius/server.go` (used by the static IP conflict resolver) only checked:
+1. `subscribers.ip_address` where `is_online = true`
+2. `subscribers.static_ip`
+
+But did **NOT** check `radreply Framed-IP-Address` entries. So when a static IP conflict occurred (3+ kicks), it picked an IP that was already assigned to another user in radreply.
+
+**Fix:** Added a third query to `findAvailableIP()`:
+```go
+// Get all IPs already assigned in radreply (Framed-IP-Address)
+var radreplyIPs []string
+database.DB.Model(&models.RadReply{}).
+    Where("attribute = ? AND value LIKE ?", "Framed-IP-Address", subnetBase+".%").
+    Pluck("value", &radreplyIPs)
+```
+
+**All 4 code paths that create/assign IPs now check radreply:**
+| Code Path | File | Checks radreply? |
+|-----------|------|-----------------|
+| AllocateIP | ippool/pool.go | Yes (v1.0.179) |
+| set_static_ip bulk action | handlers/subscriber.go | Yes (v1.0.226) |
+| findAvailableIP | radius/server.go | Yes (v1.0.227) |
+| Service change | handlers/subscriber.go | N/A (only deletes) |
+
+**Fresh Install Coverage:** Fix is in the RADIUS server code - works automatically on any install.
 
 ### Duplicate IP Problem Fix (Feb 2026)
 
