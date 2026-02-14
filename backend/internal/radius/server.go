@@ -146,12 +146,21 @@ func findAvailableIP(conflictIP string) string {
 		Where("static_ip LIKE ?", subnetBase+".%").
 		Pluck("static_ip", &staticIPs)
 
+	// Get all IPs already assigned in radreply (Framed-IP-Address)
+	var radreplyIPs []string
+	database.DB.Model(&models.RadReply{}).
+		Where("attribute = ? AND value LIKE ?", "Framed-IP-Address", subnetBase+".%").
+		Pluck("value", &radreplyIPs)
+
 	// Create a set of used IPs
 	usedSet := make(map[string]bool)
 	for _, ip := range usedIPs {
 		usedSet[ip] = true
 	}
 	for _, ip := range staticIPs {
+		usedSet[ip] = true
+	}
+	for _, ip := range radreplyIPs {
 		usedSet[ip] = true
 	}
 
