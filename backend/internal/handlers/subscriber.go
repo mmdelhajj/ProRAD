@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/ippool"
 	"github.com/proisp/backend/internal/license"
 	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/mikrotik"
@@ -1133,9 +1134,17 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 		}
 	}
 
-	// Auto-disconnect user if service changed (so they reconnect with new pool IP)
-	// Reload subscriber to get updated values
+	// If service changed, remove old Framed-IP-Address so user gets new IP from correct pool
 	database.DB.First(&subscriber, id)
+	if subscriber.ServiceID != oldServiceID {
+		// Delete old static IP from radreply - on reconnect, RADIUS will allocate from new pool
+		database.DB.Where("username = ? AND attribute = ?", subscriber.Username, "Framed-IP-Address").Delete(&models.RadReply{})
+		// Release old IP in pool tracking
+		ippool.ReleaseIPForUser(subscriber.Username)
+		log.Printf("ServiceChange: Cleared Framed-IP-Address for %s (service changed, will get new IP from correct pool)", subscriber.Username)
+	}
+
+	// Auto-disconnect user if service changed (so they reconnect with new pool IP)
 	if subscriber.ServiceID != oldServiceID && subscriber.NasID != nil {
 		// Service changed - disconnect user via MikroTik API so they reconnect with new pool
 		go func(username string, nasID uint) {
@@ -3506,6 +3515,11 @@ func (h *SubscriberHandler) ChangeService(c *fiber.Ctx) error {
 		Op:        "=",
 		Value:     fmt.Sprintf("%s/%s", newService.UploadSpeedStr, newService.DownloadSpeedStr),
 	})
+
+	// Remove old Framed-IP-Address so user gets new IP from correct pool on reconnect
+	database.DB.Where("username = ? AND attribute = ?", subscriber.Username, "Framed-IP-Address").Delete(&models.RadReply{})
+	ippool.ReleaseIPForUser(subscriber.Username)
+	log.Printf("ChangeService: Cleared Framed-IP-Address for %s (will get new IP from pool %s)", subscriber.Username, newService.PoolName)
 
 	if req.ExtendExpiry {
 		database.DB.Where("username = ? AND attribute = ?", subscriber.Username, "Expiration").Delete(&models.RadCheck{})
