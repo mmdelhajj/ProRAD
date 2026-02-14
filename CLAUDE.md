@@ -141,6 +141,7 @@ docker-compose down && docker-compose up -d
 - Audit logging
 
 ## Recent Work
+- **Stale Session Cleanup + Duplicate IP Prevention v1.0.226 (Feb 14, 2026)**: Added `StaleSessionCleanupService` that runs every 5 minutes and closes radacct sessions with no interim update for 30+ minutes (prevents ghost session accumulation when MikroTik doesn't send STOP packets). Also syncs subscriber `is_online` status. Added duplicate IP check in bulk `set_static_ip` action - prevents admin from assigning an IP already used by another user in radreply. Fixed 5 existing duplicate IPs in radreply (13 users reassigned to unique IPs from correct pools), cleaned 955 stale radacct sessions, synced ip_pool_assignments with radreply. Files: `backend/internal/services/stale_session_cleanup.go` (new), `backend/internal/handlers/subscriber.go` (set_static_ip duplicate check), `backend/cmd/api/main.go` (service registration).
 - **Service Change IP Pool Fix v1.0.225 (Feb 14, 2026)**: Fixed wrong IP pool assignment when changing subscriber service. When a subscriber's service was changed (e.g. 6M to 3M), the old Framed-IP-Address in radreply was not deleted, so the user kept the old IP from the wrong pool. Fix: Both ChangeService handler and Update handler now delete Framed-IP-Address and release IP in ip_pool_assignments when service changes. On reconnect, RADIUS allocates new IP from correct pool. Also fixed 24 existing users with wrong pool IPs. Files: `backend/internal/handlers/subscriber.go` (ChangeService + Update handlers).
 - **System Uptime Display v1.0.224 (Feb 14, 2026)**: Added server uptime display next to the clock in the admin panel header. Shows uptime in format "Xd Xh Xm" with green ArrowPathIcon. Fetches from `/dashboard/system-info` API every 60 seconds and increments locally every second for smooth display. Visible on lg+ screens. Files: `frontend/src/components/Clock.jsx`.
 - **Reseller View All Subscribers Fix v1.0.223 (Feb 14, 2026)**: Fixed `subscribers.view_all` permission not working. The permission existed in the database but was never checked in code - resellers were always filtered to only see their own subscribers regardless of permissions. Fix: Added `checkUserPermission(user, "subscribers.view_all")` check in 6 locations in subscriber.go (list, get single, stats, bulk update, bulk action, archived). When a reseller has this permission, the reseller_id filter is skipped and they see all subscribers. Files: `backend/internal/handlers/subscriber.go` lines 151, 321, 629, 1920, 2030, 2825.
@@ -2640,6 +2641,47 @@ define a valid foreign key for relations
 ```
 
 **Conclusion:** Keep garble DISABLED. 90% security is sufficient.
+
+### v1.0.226 Stale Session Cleanup + Duplicate IP Prevention (Feb 14, 2026)
+
+**Problem:** After v1.0.225, customer server had 1,197 "active" sessions for only 295 real users (955 ghost sessions). Also had 5 duplicate IPs in radreply (13 users sharing IPs) and 9 real IP conflicts between different users in active sessions.
+
+**Root Causes:**
+1. **No stale session cleanup** - When MikroTik reboots or PPPoE sessions end without STOP packet, radacct sessions stay "open" forever
+2. **Old duplicate radreply entries** - Created before v1.0.179 fix, never cleaned up
+3. **ip_pool_assignments out of sync** - Not tracking actual radreply state
+
+**Solution:**
+
+1. **StaleSessionCleanupService** (new background service):
+   - Runs every 5 minutes
+   - Closes sessions with no interim update for 30+ minutes
+   - Syncs subscriber `is_online` status (marks offline if no active session)
+   - File: `backend/internal/services/stale_session_cleanup.go`
+
+2. **Duplicate IP check in set_static_ip bulk action**:
+   - Before assigning IP, checks if another user already has it in radreply
+   - Skips and logs warning if duplicate found
+   - File: `backend/internal/handlers/subscriber.go`
+
+3. **One-time data cleanup on customer server (10.0.0.250)**:
+   - Reassigned 9 users with duplicate IPs to unique IPs from correct pools
+   - Closed 955 stale radacct sessions
+   - Synced ip_pool_assignments with radreply (286 in_use, 1676 available)
+
+**Fresh Install Coverage:**
+- StaleSessionCleanupService starts automatically on API startup
+- Duplicate IP check is part of the subscriber handler code
+- No database migration needed (uses existing tables)
+
+**Why Duplicates Won't Return:**
+| Layer | Prevents |
+|-------|----------|
+| AllocateIP (v1.0.179) | Checks both ip_pool_assignments AND radreply before allocating |
+| Service change (v1.0.225) | Deletes old Framed-IP-Address and releases IP on service change |
+| StaleSessionCleanupService (v1.0.226) | Closes ghost sessions every 5 min |
+| Duplicate IP check (v1.0.226) | Blocks manual duplicate IP assignment via bulk action |
+| RADIUS duplicate detection (server.go) | Disconnects old user when new session starts with same IP |
 
 ### Duplicate IP Problem Fix (Feb 2026)
 
