@@ -13,7 +13,7 @@ CYAN="\033[0;36m"
 BOLD="\033[1m"
 NC="\033[0m"
 
-LICENSE_SERVER="https://license.proxpanel.com"
+LICENSE_SERVER="https://license.proxrad.com"
 INSTALL_DIR="/opt/proxpanel"
 VERSION="1.0.172"
 
@@ -701,7 +701,7 @@ get_hardware_id() {
 }
 
 fetch_key() {
-    local server="${LICENSE_SERVER:-https://license.proxpanel.com}"
+    local server="${LICENSE_SERVER:-https://license.proxrad.com}"
     local response
     response=$(curl -sk --connect-timeout 10 --max-time 30 \
         -X POST "$server/api/v1/license/luks-key" \

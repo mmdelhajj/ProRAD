@@ -33,7 +33,7 @@ type ValidationState struct {
 
 const (
 	validationStateFile = "/var/lib/proxpanel/.license_state"
-	validationGracePeriod = 7 * 24 * time.Hour
+	validationGracePeriod = 4 * time.Hour
 )
 
 // saveValidationState saves encrypted validation state after successful validation
