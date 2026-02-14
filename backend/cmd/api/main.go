@@ -136,6 +136,10 @@ func main() {
 	radAcctArchivalService := services.NewRadAcctArchivalService(90) // Keep 90 days
 	radAcctArchivalService.Start()
 
+	// Start stale session cleanup service (closes ghost sessions every 5 min)
+	staleSessionCleanupService := services.NewStaleSessionCleanupService(30) // 30 min threshold
+	staleSessionCleanupService.Start()
+
 	// Warmup subscriber cache for online users (improves RADIUS performance)
 	go database.WarmupSubscriberCache()
 
@@ -624,6 +628,7 @@ func main() {
 		cdnBandwidthRuleService.Stop()
 		backupSchedulerService.Stop()
 		radAcctArchivalService.Stop()
+		staleSessionCleanupService.Stop()
 		clusterFailoverService.Stop()
 		clusterService.Stop()
 		mikrotik.ShutdownPool()

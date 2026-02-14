@@ -2773,6 +2773,17 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 			actionName = "Set Static IP"
 			database.DB.Model(&sub).Update("static_ip", req.ActionValue)
 			if req.ActionValue != "" {
+				// Check if another user already has this IP in radreply
+				var existingCount int64
+				database.DB.Model(&models.RadReply{}).Where(
+					"attribute = ? AND value = ? AND username != ?",
+					"Framed-IP-Address", req.ActionValue, sub.Username,
+				).Count(&existingCount)
+				if existingCount > 0 {
+					log.Printf("SetStaticIP: Skipped %s - IP %s already assigned to another user", sub.Username, req.ActionValue)
+					failed++
+					continue
+				}
 				database.DB.Where("username = ? AND attribute = ?", sub.Username, "Framed-IP-Address").Delete(&models.RadReply{})
 				database.DB.Create(&models.RadReply{
 					Username: sub.Username, Attribute: "Framed-IP-Address", Op: ":=", Value: req.ActionValue,
