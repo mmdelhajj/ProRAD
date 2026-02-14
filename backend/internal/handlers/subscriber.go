@@ -147,10 +147,12 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	// Build query (no Preload - manually load relations to avoid garble/GORM issues)
 	query := database.DB.Model(&models.Subscriber{})
 
-	// Filter by reseller for non-admin users
+	// Filter by reseller for non-admin users (unless they have view_all permission)
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		// Get reseller and their sub-resellers
-		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		if !checkUserPermission(user, "subscribers.view_all") {
+			// Get reseller and their sub-resellers
+			query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		}
 	}
 
 	// Search filter
@@ -313,12 +315,14 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 		FUP4     int64 `json:"fup4"`
 	}
 
-	// Build reseller filter condition
+	// Build reseller filter condition (unless they have view_all permission)
 	resellerFilter := ""
 	var resellerID uint
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		resellerFilter = "reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)"
-		resellerID = *user.ResellerID
+		if !checkUserPermission(user, "subscribers.view_all") {
+			resellerFilter = "reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)"
+			resellerID = *user.ResellerID
+		}
 	}
 
 	// Helper function to create filtered query
@@ -621,9 +625,11 @@ func (h *SubscriberHandler) GetPassword(c *fiber.Ctx) error {
 	var subscriber models.Subscriber
 	query := database.DB.Where("id = ?", id)
 
-	// Resellers can only view their own subscribers
+	// Resellers can only view their own subscribers (unless they have view_all permission)
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		if !checkUserPermission(user, "subscribers.view_all") {
+			query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		}
 	}
 
 	if err := query.First(&subscriber).Error; err != nil {
@@ -1914,7 +1920,9 @@ func (h *SubscriberHandler) BulkUpdate(c *fiber.Ctx) error {
 	// Build query based on user type
 	query := database.DB.Model(&models.Subscriber{}).Where("id IN ?", req.IDs)
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		if !checkUserPermission(user, "subscribers.view_all") {
+			query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		}
 	}
 
 	result := query.Updates(updates)
@@ -2024,7 +2032,9 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 	// Get subscribers
 	query := database.DB.Preload("Service").Where("id IN ?", req.IDs)
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		if !checkUserPermission(user, "subscribers.view_all") {
+			query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		}
 	}
 
 	var subscribers []models.Subscriber
@@ -2818,7 +2828,9 @@ func (h *SubscriberHandler) ListArchived(c *fiber.Ctx) error {
 		Where("deleted_at IS NOT NULL")
 
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		if !checkUserPermission(user, "subscribers.view_all") {
+			query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		}
 	}
 
 	if search != "" {
