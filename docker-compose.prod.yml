@@ -95,7 +95,7 @@ services:
       - API_PORT=8080
       - GIN_MODE=release
       - PROISP_PASSWORD_KEY=${PROISP_PASSWORD_KEY:-679e3d2269c858cf06bb7ddb3c7a1e5014f55a3eadc9dba9932bb9718d60f4f4}
-      - LICENSE_SERVER=${LICENSE_SERVER:-https://license.proxpanel.com}
+      - LICENSE_SERVER=${LICENSE_SERVER:-https://license.proxrad.com}
       - LICENSE_KEY=${LICENSE_KEY}
       - SERVER_IP=${SERVER_IP}
       - SERVER_MAC=${SERVER_MAC}
@@ -162,7 +162,7 @@ services:
       - PROISP_PASSWORD_KEY=${PROISP_PASSWORD_KEY:-679e3d2269c858cf06bb7ddb3c7a1e5014f55a3eadc9dba9932bb9718d60f4f4}
       - SERVER_MAC=${SERVER_MAC}
       - HOST_HOSTNAME=${HOST_HOSTNAME}
-      - LICENSE_SERVER=${LICENSE_SERVER:-https://license.proxpanel.com}
+      - LICENSE_SERVER=${LICENSE_SERVER:-https://license.proxrad.com}
       - LICENSE_KEY=${LICENSE_KEY}
     volumes:
       - ./backend/proisp-radius/proisp-radius:/app/proisp-radius:ro

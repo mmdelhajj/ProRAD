@@ -18,11 +18,11 @@ var CertPinningMode = "warn"
 // Pinned certificate fingerprints for license server
 // These are SHA-256 hashes of the server's public key (SPKI)
 var pinnedFingerprints = []string{
-	"f0470a620dc33ffa0b9462cf5db3202230e55548e74041bc3dcc4a59fc2e3e26", // license.proxpanel.com primary
+	"894384e149285334fbae471b4b01b80030f954a004613e0293bb2bf550db5829", // license.proxrad.com (Cloudflare)
 }
 
 // LicenseServerHost is the expected hostname
-const LicenseServerHost = "109.110.185.33"
+const LicenseServerHost = "license.proxrad.com"
 
 // CreatePinnedHTTPClient creates an HTTP client with certificate pinning
 func CreatePinnedHTTPClient() *http.Client {

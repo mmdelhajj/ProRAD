@@ -1261,7 +1261,7 @@ func (h *BackupHandler) fetchDBPasswordFromLicenseServerWithKey(licenseKey strin
 
 	licenseServer := os.Getenv("LICENSE_SERVER")
 	if licenseServer == "" {
-		licenseServer = "https://license.proxpanel.com"
+		licenseServer = "https://license.proxrad.com"
 	}
 
 	url := fmt.Sprintf("%s/api/v1/license/backup-password", licenseServer)

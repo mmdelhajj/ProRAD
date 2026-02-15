@@ -730,7 +730,7 @@ func (s *ClusterService) performAutoUpdate() {
 	// Get license server URL
 	licenseServer := os.Getenv("LICENSE_SERVER")
 	if licenseServer == "" {
-		licenseServer = "https://license.proxpanel.com"
+		licenseServer = "https://license.proxrad.com"
 	}
 
 	// Check for update from license server (POST request)
