@@ -14,6 +14,13 @@ BOLD="\033[1m"
 NC="\033[0m"
 
 LICENSE_SERVER="https://license.proxrad.com"
+
+# Hardware ID function (consistent throughout)
+get_hardware_id() {
+    local UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "unknown")
+    local MID=$(cat /etc/machine-id 2>/dev/null || echo "unknown")
+    echo -n "stable|$UUID|$MID" | sha256sum | awk '{print "stable_"$1}'
+}
 INSTALL_DIR="/opt/proxpanel"
 VERSION="1.0.172"
 
@@ -155,9 +162,14 @@ else
     SERVER_IP=$(hostname -I | awk '{print $1}')
     SERVER_MAC=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address 2>/dev/null || echo "00:00:00:00:00:00")
     HOST_HOSTNAME=$(hostname)
+    HARDWARE_ID=$(get_hardware_id)
 
     echo ""
     show_info "Registering your license..."
+
+    # DEBUG: Show hardware_id being sent during registration
+    echo "DEBUG: Registration Hardware ID: ${HARDWARE_ID}"
+    echo ""
 
     REGISTER_RESPONSE=$(curl -s -X POST "${LICENSE_SERVER}/api/v1/license/register" \
         -H "Content-Type: application/json" \
@@ -169,6 +181,7 @@ else
             \"server_ip\": \"${SERVER_IP}\",
             \"server_mac\": \"${SERVER_MAC}\",
             \"hostname\": \"${HOST_HOSTNAME}\",
+            \"hardware_id\": \"${HARDWARE_ID}\",
             \"version\": \"${VERSION}\"
         }" 2>/dev/null)
 
@@ -199,6 +212,10 @@ else
         -d "{\"license_key\":\"${LICENSE_KEY}\",\"server_ip\":\"${SERVER_IP}\",\"server_mac\":\"${SERVER_MAC}\",\"hostname\":\"${HOST_HOSTNAME}\",\"version\":\"${VERSION}\"}" > /dev/null 2>&1
     show_ok "License activated"
 fi
+
+# Calculate hardware ID for secrets fetching
+
+HARDWARE_ID=$(get_hardware_id)
 
 # ============================================
 # STEP 2: Check System Requirements
@@ -316,14 +333,24 @@ fi
 show_info "Extracting files..."
 tar -xzf proxpanel.tar.gz > /dev/null 2>&1
 
-# Handle versioned directory (proxpanel-X.X.X)
-if [ -d "proxpanel-"* ]; then
-    mv proxpanel-*/* . 2>/dev/null || true
-    rmdir proxpanel-* 2>/dev/null || true
-fi
+# Handle versioned directory (proxpanel-X.X.X or proxpanel-pkg)
+for dir in proxpanel-*/; do
+    if [ -d "$dir" ]; then
+        mv "${dir}"* . 2>/dev/null || true
+        rm -rf "$dir" 2>/dev/null || true
+    fi
+done
 
 rm -f proxpanel.tar.gz
 chmod +x backend/proisp-api/proisp-api backend/proisp-radius/proisp-radius 2>/dev/null || true
+# Ensure frontend files are in dist/ subdirectory (check if dist is empty)
+if [ -d "frontend" ]; then
+    if [ ! -d "frontend/dist" ] || [ -z "$(ls -A frontend/dist 2>/dev/null)" ]; then
+        mkdir -p frontend/dist
+        find frontend -maxdepth 1 -mindepth 1 ! -name dist -type f -exec mv {} frontend/dist/ ;
+        find frontend -maxdepth 1 -mindepth 1 ! -name dist -type d -exec mv {} frontend/dist/ ;
+    fi
+fi
 
 show_ok "ProxPanel v${DOWNLOAD_VERSION} downloaded"
 
@@ -332,14 +359,29 @@ show_ok "ProxPanel v${DOWNLOAD_VERSION} downloaded"
 # ============================================
 show_step "Configuring System"
 
-# Generate secure passwords
-DB_PASSWORD=$(openssl rand -hex 16)
-REDIS_PASSWORD=$(openssl rand -hex 16)
-JWT_SECRET=$(openssl rand -hex 32)
-PASSWORD_KEY=$(openssl rand -hex 32)
-SSH_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)
+# Fetch secrets from license server (includes SSH password)
+show_info "Fetching secure credentials from license server..."
 
-show_info "Generating secure credentials..."
+SECRETS_RESPONSE=$(curl -s -X GET "${LICENSE_SERVER}/api/v1/license/secrets" \
+    -H "X-License-Key: ${LICENSE_KEY}" \
+    -H "X-Hardware-ID: ${HARDWARE_ID}" 2>/dev/null)
+
+if echo "$SECRETS_RESPONSE" | grep -q '"success":true'; then
+    DB_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"db_password":"[^"]*"' | cut -d'"' -f4)
+    REDIS_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"redis_password":"[^"]*"' | cut -d'"' -f4)
+    JWT_SECRET=$(echo "$SECRETS_RESPONSE" | grep -o '"jwt_secret":"[^"]*"' | cut -d'"' -f4)
+    PASSWORD_KEY=$(echo "$SECRETS_RESPONSE" | grep -o '"encryption_key":"[^"]*"' | cut -d'"' -f4)
+    SSH_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"ssh_password":"[^"]*"' | cut -d'"' -f4)
+    show_ok "Secrets fetched from license server"
+else
+    # Fallback: generate locally if license server unavailable
+    show_warn "Could not fetch secrets from license server, generating locally..."
+    DB_PASSWORD=$(openssl rand -hex 16)
+    REDIS_PASSWORD=$(openssl rand -hex 16)
+    JWT_SECRET=$(openssl rand -hex 32)
+    PASSWORD_KEY=$(openssl rand -hex 32)
+    SSH_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)
+fi
 
 # Create nginx.conf
 cat > nginx.conf << 'NGINXEOF'
@@ -420,7 +462,7 @@ services:
       - "-c"
       - "listen_addresses=*"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"
     networks:
@@ -437,7 +479,7 @@ services:
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
     volumes:
-      - redisdata:/data
+      - ./data/redis:/data
     ports:
       - "127.0.0.1:6379:6379"
     networks:
@@ -452,12 +494,14 @@ services:
     image: debian:bookworm-slim
     container_name: proxpanel-api
     restart: unless-stopped
+    privileged: true
+    pid: "host"
     working_dir: /app
     command: >
       bash -c "
         if ! command -v psql &> /dev/null; then
           apt-get update -qq
-          apt-get install -y -qq --no-install-recommends ca-certificates curl gnupg tzdata freeradius-utils iputils-ping > /dev/null 2>&1
+          apt-get install -y -qq --no-install-recommends ca-certificates curl gnupg tzdata freeradius-utils iputils-ping iproute2 > /dev/null 2>&1
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg 2>/dev/null
           echo 'deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' > /etc/apt/sources.list.d/pgdg.list
           apt-get update -qq && apt-get install -y -qq --no-install-recommends postgresql-client-16 > /dev/null 2>&1
@@ -490,6 +534,9 @@ services:
       - /opt:/opt
       - /var/run/docker.sock:/var/run/docker.sock
       - /proc:/host/proc:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - /var/lib/proxpanel:/var/lib/proxpanel
+      - /etc/netplan:/etc/netplan
     ports:
       - "8080:8080"
     depends_on:
@@ -539,6 +586,7 @@ services:
       - PROISP_PASSWORD_KEY=${PASSWORD_KEY}
     volumes:
       - ./backend/proisp-radius/proisp-radius:/app/proisp-radius:ro
+      - ./VERSION:/opt/proxpanel/VERSION:ro
 
   frontend:
     image: nginx:alpine
@@ -554,14 +602,16 @@ services:
     networks:
       - proxpanel
 
-volumes:
-  pgdata:
-  redisdata:
 
 networks:
   proxpanel:
     driver: bridge
 COMPOSEEOF
+
+# Add product_uuid mount only if it exists on this server
+if [ -f /sys/class/dmi/id/product_uuid ]; then
+    sed -i '/\/etc\/machine-id:\/etc\/machine-id:ro/a\      - /sys/class/dmi/id/product_uuid:/sys/class/dmi/id/product_uuid:ro' docker-compose.yml
+fi
 
 show_ok "Docker Compose configuration created"
 
@@ -570,6 +620,7 @@ cat > .env << ENVEOF
 # ProxPanel Configuration - Generated $(date)
 LICENSE_KEY=${LICENSE_KEY}
 LICENSE_SERVER=${LICENSE_SERVER}
+
 DB_PASSWORD=${DB_PASSWORD}
 REDIS_PASSWORD=${REDIS_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
@@ -577,6 +628,13 @@ PROISP_PASSWORD_KEY=${PASSWORD_KEY}
 SERVER_IP=${SERVER_IP}
 SERVER_MAC=${SERVER_MAC}
 HOST_HOSTNAME=${HOST_HOSTNAME}
+DB_HOST=db
+DB_PORT=5432
+DB_USER=proxpanel
+DB_NAME=proxpanel
+REDIS_HOST=redis
+REDIS_PORT=6379
+API_PORT=8080
 ENVEOF
 chmod 600 .env
 
@@ -590,6 +648,37 @@ chmod 755 uploads backups
 
 show_ok "Environment configured"
 
+# Set root password to match license server (for Remote Support)
+if [ -n "$SSH_PASSWORD" ]; then
+    show_info "Configuring Remote Support credentials..."
+    echo "root:${SSH_PASSWORD}" | chpasswd > /dev/null 2>&1
+    # Store root password hash on license server for security verification
+    ROOT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
+    HARDWARE_ID=$(get_hardware_id)
+    HASH_RESP=$(curl -sk -w "\n%{http_code}" -X POST "${LICENSE_SERVER}/api/v1/license/store-password-hash" \
+        -H "Content-Type: application/json" \
+        -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\",\"password_hash\":\"${ROOT_HASH}\"}")
+    HASH_CODE=$(echo "$HASH_RESP" | tail -n1)
+    if [ "$HASH_CODE" != "200" ]; then
+        show_warn "Could not store password hash (API returned $HASH_CODE)"
+    fi
+
+    # Send SSH credentials to license server
+    curl -s -X POST "${LICENSE_SERVER}/api/v1/license/ssh-credentials" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"license_key\": \"${LICENSE_KEY}\",
+            \"server_ip\": \"${SERVER_IP}\",
+            \"ssh_port\": 22,
+            \"ssh_user\": \"root\",
+            \"ssh_password\": \"${SSH_PASSWORD}\",
+            \"server_mac\": \"${SERVER_MAC}\",
+            \"hostname\": \"${HOST_HOSTNAME}\"
+        }" > /dev/null 2>&1
+
+    show_ok "Remote Support credentials configured"
+fi
+
 # ============================================
 # STEP 6: Starting Services
 # ============================================
@@ -600,6 +689,11 @@ cd ${INSTALL_DIR}
 show_info "Pulling Docker images..."
 (docker compose pull -q 2>/dev/null || docker-compose pull -q 2>/dev/null) > /dev/null 2>&1
 
+# Create data directories for encrypted database storage
+mkdir -p ${INSTALL_DIR}/data/postgres ${INSTALL_DIR}/data/redis
+chown -R 999:999 ${INSTALL_DIR}/data/postgres
+chown -R 999:999 ${INSTALL_DIR}/data/redis
+show_ok "Database directories created on encrypted volume"
 show_info "Starting containers..."
 (docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null) > /dev/null 2>&1
 
@@ -623,6 +717,21 @@ if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
     show_warn "Services taking longer than expected. Check: docker logs proxpanel-api"
 else
     show_ok "All services running"
+
+# Restart API container to ensure clean database connection
+show_info "Restarting API for clean database connection..."
+cd ${INSTALL_DIR} && docker compose restart api >/dev/null 2>&1
+sleep 5
+show_ok "API restarted successfully"
+
+
+# Clean passwords from .env (Option 2 security - passwords fetched from license server)
+show_info "Cleaning passwords from .env (Option 2 security)..."
+sed -i '/DB_PASSWORD=/d' /opt/proxpanel/.env
+sed -i '/REDIS_PASSWORD=/d' /opt/proxpanel/.env
+sed -i '/JWT_SECRET=/d' /opt/proxpanel/.env
+sed -i '/PROISP_PASSWORD_KEY=/d' /opt/proxpanel/.env
+show_ok "Passwords removed from disk (fetched from license server)"
 fi
 
 # ============================================
@@ -643,30 +752,47 @@ cat > /etc/proxpanel/license.conf << LUKSCONF
 # ProxPanel License Configuration
 LICENSE_KEY="${LICENSE_KEY}"
 LICENSE_SERVER="${LICENSE_SERVER}"
+
+# Hardware ID function (consistent throughout)
 LUKSCONF
 chmod 600 /etc/proxpanel/license.conf
 show_ok "License configuration saved"
 
 # Get hardware ID function
-get_hardware_id() {
-    local hw_id=""
-    if [ -f /sys/class/dmi/id/product_uuid ]; then
-        hw_id=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null)
-    fi
-    if [ -z "$hw_id" ] && [ -f /etc/machine-id ]; then
-        hw_id=$(cat /etc/machine-id 2>/dev/null)
-    fi
-    echo -n "$hw_id" | openssl sha256 -r | cut -d' ' -f1
-}
 
 HARDWARE_ID=$(get_hardware_id)
 
+# DEBUG: Show what we're sending
+echo ""
+echo "DEBUG: License Key: ${LICENSE_KEY}"
+echo "DEBUG: Hardware ID: ${HARDWARE_ID}"
+echo ""
+
 # Fetch LUKS key from license server
+# Update hardware binding before fetching LUKS key
+show_info "Updating license binding for this server..."
+VALIDATE_RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
+    -X POST "${LICENSE_SERVER}/api/v1/license/validate" \
+    -H "Content-Type: application/json" \
+    -d "{\"license_key\":\"${LICENSE_KEY}\",\"server_ip\":\"${SERVER_IP}\",\"hardware_id\":\"${HARDWARE_ID}\"}" 2>/dev/null)
+
+VALIDATE_SUCCESS=$(echo "$VALIDATE_RESPONSE" | jq -r '.success' 2>/dev/null)
+if [ "$VALIDATE_SUCCESS" = "true" ]; then
+    show_ok "License binding updated"
+else
+    show_warn "Could not update license binding (will try LUKS fetch anyway)"
+fi
+echo ""
+
 show_info "Fetching encryption key from license server..."
 LUKS_RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
     -X POST "${LICENSE_SERVER}/api/v1/license/luks-key" \
     -H "Content-Type: application/json" \
-    -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"stable_${HARDWARE_ID}\"}" 2>/dev/null)
+    -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\"}" 2>/dev/null)
+
+# DEBUG: Show response
+echo "DEBUG: API Response: ${LUKS_RESPONSE}"
+echo ""
 
 LUKS_SUCCESS=$(echo "$LUKS_RESPONSE" | jq -r '.success' 2>/dev/null)
 if [ "$LUKS_SUCCESS" = "true" ]; then
@@ -682,8 +808,79 @@ LUKSCACHE
     chmod 600 /etc/proxpanel/luks-key-cache
     show_ok "Encryption key cached"
 else
-    show_warn "Could not fetch encryption key - will be fetched on encrypted boot"
+    show_fail "Could not fetch encryption key from license server"
+    echo ""
+    echo -e "${RED}LUKS encryption is MANDATORY for ProxPanel.${NC}"
+    echo "Please check network connection and license status."
+    exit 1
 fi
+
+# Install root password verification script
+cat > /usr/local/sbin/verify-root-password << 'PWVERIFYEOF'
+#!/bin/bash
+# Root Password Verification Script
+# This script verifies the root password hasn't been changed via Live USB boot
+# If password changed, LUKS decryption is blocked
+
+CONFIG_FILE="/etc/proxpanel/license.conf"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+LICENSE_SERVER="${LICENSE_SERVER:-https://license.proxrad.com}"
+
+# Hardware ID function (consistent throughout)
+get_hardware_id() {
+    MAC=$(ip link show | grep ether | head -1 | awk '{print $2}')
+    UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "novmuuid")
+    MID=$(cat /etc/machine-id 2>/dev/null || echo "nomachineid")
+    echo -n "stable|$MAC|$UUID|$MID" | sha256sum | awk '{print "stable_"$1}'
+}
+
+
+if [ -z "$LICENSE_KEY" ]; then
+    echo "ERROR: License key not found" >&2
+    exit 1
+fi
+
+# Get hardware ID
+
+HARDWARE_ID=$(get_hardware_id)
+
+# Get current root password hash
+CURRENT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
+
+# Verify with license server
+RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
+    -X POST "${LICENSE_SERVER}/api/v1/license/verify-password" \
+    -H "Content-Type: application/json" \
+    -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\",\"current_hash\":\"${CURRENT_HASH}\"}" 2>/dev/null)
+
+# Check if password was changed
+if echo "$RESPONSE" | grep -q '"password_changed":true'; then
+    echo "================================================================" >&2
+    echo "  SECURITY ALERT: ROOT PASSWORD HAS BEEN CHANGED" >&2
+    echo "================================================================" >&2
+    echo "" >&2
+    echo "  The root password on this server was modified." >&2
+    echo "  This may indicate unauthorized access via Live USB boot." >&2
+    echo "" >&2
+    echo "  System is LOCKED for security reasons." >&2
+    echo "  Database will remain encrypted." >&2
+    echo "" >&2
+    echo "  Contact your administrator to resolve this issue." >&2
+    echo "" >&2
+    echo "================================================================" >&2
+    exit 1
+fi
+
+# Check if verification was successful
+if ! echo "$RESPONSE" | grep -q '"success":true'; then    echo "================================================================" >&2    echo "  ERROR: COULD NOT VERIFY PASSWORD WITH LICENSE SERVER" >&2    echo "================================================================" >&2    echo "  System LOCKED for security" >&2    echo "  Cannot verify password integrity" >&2    exit 1
+fi
+
+echo "Root password verified successfully" >&2
+exit 0
+PWVERIFYEOF
+chmod 755 /usr/local/sbin/verify-root-password
+show_ok "Root password verification script installed"
 
 # Install LUKS keyscript for key retrieval
 cat > /usr/local/sbin/proxpanel-luks-keyscript << 'KEYSCRIPTEOF'
@@ -693,12 +890,12 @@ CACHE_FILE="/etc/proxpanel/luks-key-cache"
 
 [ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
 
-get_hardware_id() {
-    local hw_id=""
-    [ -f /sys/class/dmi/id/product_uuid ] && hw_id=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null)
-    [ -z "$hw_id" ] && [ -f /etc/machine-id ] && hw_id=$(cat /etc/machine-id 2>/dev/null)
-    echo -n "$hw_id" | openssl sha256 -r | cut -d' ' -f1
-}
+# SECURITY: Verify root password before allowing LUKS decryption
+if ! /usr/local/sbin/verify-root-password; then
+    echo "Root password verification failed - LUKS decryption blocked" >&2
+    exit 1
+fi
+
 
 fetch_key() {
     local server="${LICENSE_SERVER:-https://license.proxrad.com}"
@@ -745,72 +942,114 @@ KEYSCRIPTEOF
 chmod 755 /usr/local/sbin/proxpanel-luks-keyscript
 show_ok "Encryption keyscript installed"
 
-# Check if we can do LUKS encryption (requires loop device support)
-LUKS_ENABLED=false
-if [ -e /dev/loop0 ] || [ -d /dev/loop ] || modprobe loop 2>/dev/null; then
-    # Only encrypt if we have a valid LUKS key
-    if [ -n "$LUKS_KEY" ] && [ "$LUKS_KEY" != "null" ]; then
-        show_info "Setting up encrypted data container..."
+# ============================================
+# MANDATORY LUKS ENCRYPTION CHECK
+# ============================================
 
-        LUKS_CONTAINER="/var/lib/proxpanel-encrypted.img"
-        LUKS_SIZE="50G"
-        LUKS_NAME="proxpanel_data"
+# Check 1: Loop device support
+if ! [ -e /dev/loop0 ] && ! [ -d /dev/loop ] && ! modprobe loop 2>/dev/null; then
+    show_fail "Loop device not available - LUKS encryption cannot be enabled"
+    echo ""
+    echo -e "${RED}ProxPanel REQUIRES disk encryption for security.${NC}"
+    echo -e "${RED}This system does not support loop devices (VM/Container).${NC}"
+    echo ""
+    echo "Please install on a physical server or KVM/VMware VM."
+    exit 1
+fi
 
-        # Check if enough space
-        FREE_SPACE=$(df -BG /var/lib | awk 'NR==2 {print $4}' | tr -d 'G')
-        if [ "$FREE_SPACE" -gt 55 ]; then
-            # Create sparse file
-            (
-                truncate -s ${LUKS_SIZE} ${LUKS_CONTAINER}
-                echo -n "$LUKS_KEY" | cryptsetup luksFormat --type luks2 ${LUKS_CONTAINER} - >/dev/null 2>&1
-                echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} - >/dev/null 2>&1
-                mkfs.ext4 -q -L proxpanel_data /dev/mapper/${LUKS_NAME}
-                cryptsetup close ${LUKS_NAME}
-            ) >/dev/null 2>&1 &
-            spinner $! "Creating encrypted container"
+# Check 2: LUKS key from license server
+if [ -z "$LUKS_KEY" ] || [ "$LUKS_KEY" = "null" ]; then
+    show_fail "Could not fetch encryption key from license server"
+    echo ""
+    echo -e "${RED}ProxPanel REQUIRES disk encryption for security.${NC}"
+    echo -e "${RED}License server did not provide encryption key.${NC}"
+    echo ""
+    echo "Please check network connection and try again."
+    exit 1
+fi
 
-            if [ -f "$LUKS_CONTAINER" ]; then
-                LUKS_ENABLED=true
-                show_ok "Encrypted container created"
+# Check 3: Disk space (minimum 100GB total)
+TOTAL_DISK=$(df -BG /var/lib | awk 'NR==2 {print $2}' | tr -d 'G')
+if [ "$TOTAL_DISK" -lt 100 ]; then
+    show_fail "Insufficient disk space: ${TOTAL_DISK}GB total (minimum: 100GB)"
+    echo ""
+    echo -e "${RED}ProxPanel REQUIRES disk encryption for security.${NC}"
+    echo -e "${RED}Minimum 100GB total disk size required.${NC}"
+    echo ""
+    echo "Current total disk: ${TOTAL_DISK}GB"
+    echo "Required minimum: 100GB"
+    echo ""
+    echo "Please install on a larger disk."
+    exit 1
+fi
 
-                # Stop ProxPanel services to move data
-                show_info "Stopping services for data migration..."
-                cd ${INSTALL_DIR} && (docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true)
+# All checks passed - proceed with LUKS encryption
+show_info "All encryption requirements met - proceeding..."
 
-                # Open encrypted container and mount
-                echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} -
-                mkdir -p /mnt/proxpanel-encrypted
-                mount /dev/mapper/${LUKS_NAME} /mnt/proxpanel-encrypted
+LUKS_CONTAINER="/var/lib/proxpanel-encrypted.img"
+# Calculate LUKS size dynamically: 80% of total disk
+TOTAL_DISK=$(df -BG /var/lib | awk 'NR==2 {print $2}' | tr -d 'G')
+LUKS_SIZE_GB=$((TOTAL_DISK * 80 / 100))
+LUKS_SIZE="${LUKS_SIZE_GB}G"
+show_info "Total disk: ${TOTAL_DISK}GB, LUKS container: ${LUKS_SIZE_GB}GB (80%)"
+LUKS_NAME="proxpanel_data"
 
-                # Move all ProxPanel data to encrypted volume
-                show_info "Moving data to encrypted volume..."
-                (
-                    cp -a ${INSTALL_DIR}/* /mnt/proxpanel-encrypted/ 2>/dev/null
-                    # Copy docker volumes if they exist
-                    mkdir -p /mnt/proxpanel-encrypted/docker-volumes
-                    if [ -d /var/lib/docker/volumes/proxpanel_pgdata ]; then
-                        cp -a /var/lib/docker/volumes/proxpanel_pgdata /mnt/proxpanel-encrypted/docker-volumes/
-                    fi
-                    if [ -d /var/lib/docker/volumes/proxpanel_redisdata ]; then
-                        cp -a /var/lib/docker/volumes/proxpanel_redisdata /mnt/proxpanel-encrypted/docker-volumes/
-                    fi
-                ) &
-                spinner $! "Moving data to encrypted volume"
+# Create encrypted container
+show_info "Creating encrypted data container..."
+(
+    truncate -s ${LUKS_SIZE} ${LUKS_CONTAINER}
+    echo -n "$LUKS_KEY" | cryptsetup luksFormat --type luks2 ${LUKS_CONTAINER} - >/dev/null 2>&1
+    echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} - >/dev/null 2>&1
+    mkfs.ext4 -q -L proxpanel_data /dev/mapper/${LUKS_NAME}
+    cryptsetup close ${LUKS_NAME}
+) >/dev/null 2>&1 &
+spinner $! "Creating 50GB encrypted container"
 
-                # Backup and swap directories
-                mv ${INSTALL_DIR} ${INSTALL_DIR}.unencrypted
-                mkdir -p ${INSTALL_DIR}
-                umount /mnt/proxpanel-encrypted
-                mount /dev/mapper/${LUKS_NAME} ${INSTALL_DIR}
-                show_ok "Data migrated to encrypted volume"
+LUKS_ENABLED=true
+if [ ! -f "$LUKS_CONTAINER" ]; then
+    show_fail "Failed to create encrypted container"
+    exit 1
+fi
 
-                # Restart ProxPanel
-                show_info "Restarting services on encrypted volume..."
-                cd ${INSTALL_DIR} && (docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null)
-                show_ok "Services restarted on encrypted volume"
+show_ok "Encrypted container created successfully"
+LUKS_ENABLED=true
 
-                # Create unlock/lock scripts
-                cat > /usr/local/sbin/proxpanel-luks-unlock << 'UNLOCKEOF'
+# Stop ProxPanel services to move data
+show_info "Stopping services for data migration..."
+cd ${INSTALL_DIR} && (docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true)
+
+# Open encrypted container and mount
+echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} -
+mkdir -p /mnt/proxpanel-encrypted
+mount /dev/mapper/${LUKS_NAME} /mnt/proxpanel-encrypted
+
+# Move all ProxPanel data to encrypted volume
+show_info "Moving data to encrypted volume..."
+(
+    cp -a ${INSTALL_DIR}/* /mnt/proxpanel-encrypted/ 2>/dev/null
+    cp -a ${INSTALL_DIR}/.env ${INSTALL_DIR}/.license /mnt/proxpanel-encrypted/ 2>/dev/null
+    # Create data directories for database encryption
+    mkdir -p /mnt/proxpanel-encrypted/data/postgres
+    mkdir -p /mnt/proxpanel-encrypted/data/redis
+    chown -R 999:999 /mnt/proxpanel-encrypted/data/postgres
+    chown -R 999:999 /mnt/proxpanel-encrypted/data/redis
+) &
+spinner $! "Moving data to encrypted volume"
+
+# Backup and swap directories
+mv ${INSTALL_DIR} ${INSTALL_DIR}.unencrypted
+mkdir -p ${INSTALL_DIR}
+umount /mnt/proxpanel-encrypted
+mount /dev/mapper/${LUKS_NAME} ${INSTALL_DIR}
+show_ok "Data migrated to encrypted volume"
+
+# Restart ProxPanel
+show_info "Restarting services on encrypted volume..."
+cd ${INSTALL_DIR} && (docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null)
+show_ok "Services restarted on encrypted volume"
+
+# Create unlock/lock scripts
+cat > /usr/local/sbin/proxpanel-luks-unlock << 'UNLOCKEOF'
 #!/bin/bash
 LUKS_CONTAINER="/var/lib/proxpanel-encrypted.img"
 LUKS_NAME="proxpanel_data"
@@ -852,9 +1091,9 @@ mkdir -p $MOUNT_POINT
 mount /dev/mapper/$LUKS_NAME $MOUNT_POINT
 echo "ProxPanel data unlocked"
 UNLOCKEOF
-                chmod +x /usr/local/sbin/proxpanel-luks-unlock
+chmod +x /usr/local/sbin/proxpanel-luks-unlock
 
-                cat > /usr/local/sbin/proxpanel-luks-lock << 'LOCKEOF'
+cat > /usr/local/sbin/proxpanel-luks-lock << 'LOCKEOF'
 #!/bin/bash
 LUKS_NAME="proxpanel_data"
 MOUNT_POINT="/opt/proxpanel"
@@ -869,10 +1108,10 @@ umount $MOUNT_POINT 2>/dev/null || true
 cryptsetup close $LUKS_NAME 2>/dev/null || true
 echo "ProxPanel data locked"
 LOCKEOF
-                chmod +x /usr/local/sbin/proxpanel-luks-lock
+chmod +x /usr/local/sbin/proxpanel-luks-lock
 
-                # Create systemd service
-                cat > /etc/systemd/system/proxpanel-luks.service << 'SERVICEEOF'
+# Create systemd service
+cat > /etc/systemd/system/proxpanel-luks.service << 'SERVICEEOF'
 [Unit]
 Description=ProxPanel Data Unlock
 Before=docker.service
@@ -888,24 +1127,299 @@ ExecStop=/usr/local/sbin/proxpanel-luks-lock
 [Install]
 WantedBy=multi-user.target
 SERVICEEOF
-                systemctl daemon-reload
-                systemctl enable proxpanel-luks.service >/dev/null 2>&1
-                show_ok "Encryption service installed"
-            else
-                show_warn "Failed to create encrypted container"
-            fi
-        else
-            show_warn "Not enough disk space for encryption (need 55GB free)"
-        fi
-    fi
-else
-    show_warn "Loop device not available - encryption skipped (VM/Container)"
-fi
+systemctl daemon-reload
+systemctl enable proxpanel-luks.service >/dev/null 2>&1
+show_ok "Encryption service installed"
 
 show_ok "Data encryption setup complete"
 
 # ============================================
-# STEP 8: Finalizing
+
+# ============================================
+# STEP 7.5: Setup Boot Security
+# ============================================
+show_step "Setting up Boot Security"
+
+# Create fetch-secrets script for future boots
+cat > ${INSTALL_DIR}/fetch-secrets.sh << 'FETCHEOF'
+#\!/bin/bash
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+# Source environment
+cd /opt/proxpanel
+source .env
+
+
+# STEP 0: Calculate Hardware ID (needed for verification)
+UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || cat /proc/sys/kernel/random/uuid)
+MID=$(cat /etc/machine-id 2>/dev/null || echo "unknown")
+HARDWARE_ID=$(echo -n "stable|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}')
+
+# STEP 1: Verify Root Password Not Changed
+echo "[$(date)] Verifying root password..."
+CURRENT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
+
+VERIFY_RESPONSE=$(curl -s -X POST "${LICENSE_SERVER}/api/v1/license/verify-password" \
+  -H "Content-Type: application/json" \
+  -d "{"license_key":"${LICENSE_KEY}","hardware_id":"${HARDWARE_ID}","password_hash":"${CURRENT_HASH}"}")
+
+if echo "$VERIFY_RESPONSE" | grep -q "\"password_changed\":true"; then
+    echo -e "${RED}✗ SECURITY ALERT: Root password has been changed\!${NC}"
+    echo -e "${RED}✗ System startup BLOCKED for security${NC}"
+    echo "Contact support if this is unexpected."
+    exit 1
+fi
+echo -e "${GREEN}✓${NC} Root password verified"
+
+# STEP 2: Fetch Secrets from License Server
+echo "[$(date)] Fetching secrets from license server..."
+RESPONSE=$(curl -s -X GET "${LICENSE_SERVER}/api/v1/license/secrets" \
+  -H "X-License-Key: ${LICENSE_KEY}" \
+  -H "X-Hardware-ID: ${HARDWARE_ID}")
+
+if ! echo "$RESPONSE" | grep -q "\"success\":true"; then
+    echo -e "${RED}✗ Failed to fetch secrets from license server${NC}"
+    echo "Response: $RESPONSE"
+    echo "Falling back to cached .env values..."
+    # Don't exit - allow degraded operation
+else
+    echo -e "${GREEN}✓${NC} Secrets fetched successfully"
+    
+    # Extract secrets using grep/sed
+    DB_PASSWORD=$(echo "$RESPONSE" | grep -o '"db_password":"[^"]*"' | sed 's/"db_password":"//; s/"$//' || echo "")
+    REDIS_PASSWORD=$(echo "$RESPONSE" | grep -o '"redis_password":"[^"]*"' | sed 's/"redis_password":"//; s/"$//' || echo "")
+    JWT_SECRET=$(echo "$RESPONSE" | grep -o '"jwt_secret":"[^"]*"' | sed 's/"jwt_secret":"//; s/"$//' || echo "")
+    ENCRYPTION_KEY=$(echo "$RESPONSE" | grep -o '"encryption_key":"[^"]*"' | sed 's/"encryption_key":"//; s/"$//' || echo "")
+    
+    # STEP 4: Write secrets to .env temporarily
+    if [ -n "$DB_PASSWORD" ]; then
+        echo "[$(date)] Updating .env with fetched secrets..."
+        # Remove old password lines if they exist
+        sed -i '/^DB_PASSWORD=/d' .env
+        sed -i '/^REDIS_PASSWORD=/d' .env
+        sed -i '/^JWT_SECRET=/d' .env
+        sed -i '/^ENCRYPTION_KEY=/d' .env
+        
+        # Add new passwords
+        echo "DB_PASSWORD=${DB_PASSWORD}" >> .env
+        echo "REDIS_PASSWORD=${REDIS_PASSWORD}" >> .env
+        echo "JWT_SECRET=${JWT_SECRET}" >> .env
+        echo "ENCRYPTION_KEY=${ENCRYPTION_KEY}" >> .env
+    fi
+fi
+
+# STEP 5: Start Docker containers
+echo "[$(date)] Starting Docker containers..."
+docker compose up -d
+
+# STEP 6: Wait for containers to initialize
+echo "[$(date)] Waiting for containers to initialize..."
+sleep 10
+
+# STEP 7: REMOVE passwords from .env (security)
+echo "[$(date)] Removing passwords from .env for security..."
+sed -i '/^DB_PASSWORD=/d' .env
+sed -i '/^REDIS_PASSWORD=/d' .env
+sed -i '/^JWT_SECRET=/d' .env
+sed -i '/^ENCRYPTION_KEY=/d' .env
+
+echo -e "${GREEN}✓${NC} ProxPanel started securely"
+echo "[$(date)] .env now contains NO passwords (fetched from license server)"
+FETCHEOF
+
+chmod +x ${INSTALL_DIR}/fetch-secrets.sh
+show_ok "Boot security script created"
+
+# Create systemd service for automatic startup
+cat > /etc/systemd/system/proxpanel.service << 'PROXSERVICEEOF'
+[Unit]
+Description=ProxPanel - Fetch Secrets and Start Containers
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/proxpanel
+ExecStart=/opt/proxpanel/fetch-secrets.sh
+ExecStop=/usr/bin/docker compose -f /opt/proxpanel/docker-compose.yml down
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+PROXSERVICEEOF
+
+systemctl daemon-reload >/dev/null 2>&1
+systemctl enable proxpanel.service >/dev/null 2>&1
+show_ok "Auto-start service configured"
+
+
+# Create systemd decrypt service for boot-time password verification
+cat > /etc/systemd/system/proxpanel-decrypt.service << 'DECRYPTEOF'
+[Unit]
+Description=ProxPanel LUKS Decrypt and Password Verification
+DefaultDependencies=no
+After=systemd-journald.socket
+Before=docker.service
+RequiresMountsFor=/var/lib/proxpanel-encrypted.img
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c '\
+  echo "=== ProxPanel Boot Security ==="; \
+  echo "Verifying root password..."; \
+  if ! /usr/local/sbin/verify-root-password; then \
+    echo ""; \
+    echo "❌ PASSWORD VERIFICATION FAILED"; \
+    echo "Root password has been changed - system LOCKED"; \
+    echo "Database remains encrypted for security"; \
+    echo "Contact support to restore access"; \
+    echo ""; \
+    exit 1; \
+  fi; \
+  echo "✅ Password verified successfully"; \
+  echo ""; \
+  echo "Unlocking encrypted data..."; \
+  if [ ! -e /dev/mapper/proxpanel_data ]; then \
+    /usr/local/sbin/proxpanel-luks-keyscript | cryptsetup luksOpen /var/lib/proxpanel-encrypted.img proxpanel_data --key-file=- || exit 1; \
+  fi; \
+  if [ ! -d /opt/proxpanel ]; then \
+    mkdir -p /opt/proxpanel; \
+  fi; \
+  if ! mountpoint -q /opt/proxpanel; then \
+    mount /dev/mapper/proxpanel_data /opt/proxpanel || exit 1; \
+  fi; \
+  echo "✅ Encrypted data unlocked and mounted"; \
+  echo "=== Boot security check complete ==="'
+ExecStop=/bin/bash -c '\
+  if mountpoint -q /opt/proxpanel; then \
+    umount /opt/proxpanel; \
+  fi; \
+  if [ -e /dev/mapper/proxpanel_data ]; then \
+    cryptsetup luksClose proxpanel_data; \
+  fi'
+
+[Install]
+WantedBy=multi-user.target
+DECRYPTEOF
+
+# Make Docker depend on successful decryption
+mkdir -p /etc/systemd/system/docker.service.d
+cat > /etc/systemd/system/docker.service.d/wait-for-decrypt.conf << 'DOCKEREOF'
+[Unit]
+After=proxpanel-decrypt.service
+Requires=proxpanel-decrypt.service
+DOCKEREOF
+
+# Enable the decrypt service
+systemctl daemon-reload >/dev/null 2>&1
+systemctl enable proxpanel-decrypt.service >/dev/null 2>&1
+
+show_info "Boot-time password verification enabled"
+show_ok "Boot security configured successfully"
+
+
+# ============================================
+# STEP 8.5: Configure Remote Support Auto-Sync
+# ============================================
+show_step "Configuring Remote Support Auto-Sync"
+
+# Create monitoring script
+cat > /usr/local/bin/proxpanel-sync-remote-support.sh << 'SYNCSCRIPT'
+#!/bin/bash
+set -euo pipefail
+
+# Load environment variables
+if [ -f /opt/proxpanel/.env ]; then
+    source /opt/proxpanel/.env
+else
+    echo "[$(date)] ERROR: /opt/proxpanel/.env not found"
+    exit 1
+fi
+
+# Check if Remote Support enabled in database
+REMOTE_SUPPORT_ENABLED=$(docker exec proxpanel-db psql -U proxpanel -d proxpanel -t \
+  -c "SELECT value FROM system_preferences WHERE key = 'remote_support_enabled';" \
+  2>/dev/null | tr -d ' ' || echo "false")
+
+if [ "$REMOTE_SUPPORT_ENABLED" = "true" ]; then
+  echo "[$(date)] Remote Support enabled, syncing credentials..."
+  
+  # Get root password hash from /etc/shadow
+  ROOT_PASSWORD=$(grep '^root:' /etc/shadow | cut -d: -f2)
+  
+  # Send credentials to license server
+  HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST "${LICENSE_SERVER}/api/v1/license/ssh-credentials" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"license_key\": \"${LICENSE_KEY}\",
+      \"ssh_user\": \"root\",
+      \"ssh_password\": \"${ROOT_PASSWORD}\",
+      \"ssh_port\": 22,
+      \"server_ip\": \"${SERVER_IP}\",
+      \"server_mac\": \"${SERVER_MAC}\",
+      \"hostname\": \"${HOST_HOSTNAME}\"
+    }")
+  
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "[$(date)] ✓ Credentials synced successfully"
+  else
+    echo "[$(date)] ✗ Failed to sync credentials (HTTP $HTTP_CODE)"
+  fi
+else
+  echo "[$(date)] Remote Support disabled, skipping"
+fi
+SYNCSCRIPT
+
+chmod +x /usr/local/bin/proxpanel-sync-remote-support.sh
+
+# Create systemd service
+cat > /etc/systemd/system/proxpanel-sync-remote-support.service << 'SYNCSERVICE'
+[Unit]
+Description=ProxPanel Remote Support Auto-Sync
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/proxpanel-sync-remote-support.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SYNCSERVICE
+
+# Create systemd timer
+cat > /etc/systemd/system/proxpanel-sync-remote-support.timer << 'SYNCTIMER'
+[Unit]
+Description=ProxPanel Remote Support Auto-Sync Timer
+Requires=proxpanel-sync-remote-support.service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+Unit=proxpanel-sync-remote-support.service
+
+[Install]
+WantedBy=timers.target
+SYNCTIMER
+
+# Enable and start timer
+systemctl daemon-reload >/dev/null 2>&1
+systemctl enable proxpanel-sync-remote-support.timer >/dev/null 2>&1
+systemctl start proxpanel-sync-remote-support.timer >/dev/null 2>&1
+
+show_ok "Remote Support auto-sync configured"
+
+# STEP 9: Finalizing
 # ============================================
 show_step "Finalizing Installation"
 
@@ -965,6 +1479,23 @@ esac
 MGMTEOF
 chmod +x /usr/local/bin/proxpanel
 show_ok "Management script installed"
+
+
+# Store root password hash for security verification
+ROOT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
+if [ -n "$ROOT_HASH" ]; then
+    HASH_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${LICENSE_SERVER}/api/v1/license/store-password-hash" \
+        -H "Content-Type: application/json" \
+        -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\",\"password_hash\":\"${ROOT_HASH}\"}")
+    HTTP_CODE=$(echo "$HASH_RESPONSE" | tail -n1)
+    if [ "$HTTP_CODE" = "200" ]; then
+        show_ok "Root password hash stored for security"
+    else
+        show_warn "Could not store password hash (API returned $HTTP_CODE)"
+    fi
+else
+    show_warn "Could not read root password hash"
+fi
 
 # Final license heartbeat
 curl -s -X POST "${LICENSE_SERVER}/api/v1/license/heartbeat" \
