@@ -118,8 +118,8 @@ func (s *RadAcctArchivalService) archiveOldRecords() {
 
 	// Copy old records to archive table
 	copySQL := `
-		INSERT INTO rad_acct_archive
-		SELECT * FROM rad_acct
+		INSERT INTO radacct_archive
+		SELECT * FROM radacct
 		WHERE acctstoptime IS NOT NULL
 		AND acctstoptime < $1
 		ON CONFLICT (radacctid) DO NOTHING
@@ -138,7 +138,7 @@ func (s *RadAcctArchivalService) archiveOldRecords() {
 
 	// Delete archived records from main table
 	deleteSQL := `
-		DELETE FROM rad_acct
+		DELETE FROM radacct
 		WHERE acctstoptime IS NOT NULL
 		AND acctstoptime < $1
 	`
@@ -156,7 +156,7 @@ func (s *RadAcctArchivalService) archiveOldRecords() {
 
 	// Run VACUUM ANALYZE to reclaim space (async, don't block)
 	go func() {
-		database.DB.Exec("VACUUM ANALYZE rad_acct")
+		database.DB.Exec("VACUUM ANALYZE radacct")
 	}()
 
 	log.Printf("RadAcctArchivalService: Archival complete (copied: %d, deleted: %d)", copiedRows, deletedRows)
@@ -165,7 +165,7 @@ func (s *RadAcctArchivalService) archiveOldRecords() {
 // ensureArchiveTable creates the archive table if it doesn't exist
 func (s *RadAcctArchivalService) ensureArchiveTable() error {
 	createTableSQL := `
-		CREATE TABLE IF NOT EXISTS rad_acct_archive (
+		CREATE TABLE IF NOT EXISTS radacct_archive (
 			radacctid BIGSERIAL PRIMARY KEY,
 			acctsessionid VARCHAR(64) NOT NULL,
 			acctuniqueid VARCHAR(32),
@@ -205,9 +205,9 @@ func (s *RadAcctArchivalService) ensureArchiveTable() error {
 
 	// Create indexes on archive table
 	indexes := []string{
-		"CREATE INDEX IF NOT EXISTS idx_rad_acct_archive_username ON rad_acct_archive(username)",
-		"CREATE INDEX IF NOT EXISTS idx_rad_acct_archive_stoptime ON rad_acct_archive(acctstoptime)",
-		"CREATE INDEX IF NOT EXISTS idx_rad_acct_archive_nasip ON rad_acct_archive(nasipaddress)",
+		"CREATE INDEX IF NOT EXISTS idx_radacct_archive_username ON radacct_archive(username)",
+		"CREATE INDEX IF NOT EXISTS idx_radacct_archive_stoptime ON radacct_archive(acctstoptime)",
+		"CREATE INDEX IF NOT EXISTS idx_radacct_archive_nasip ON radacct_archive(nasipaddress)",
 	}
 
 	for _, idx := range indexes {
@@ -227,21 +227,21 @@ func (s *RadAcctArchivalService) GetArchiveStats() map[string]interface{} {
 
 	// Count main table records
 	var mainCount int64
-	database.DB.Raw("SELECT COUNT(*) FROM rad_acct").Scan(&mainCount)
+	database.DB.Raw("SELECT COUNT(*) FROM radacct").Scan(&mainCount)
 	stats["main_table_records"] = mainCount
 
 	// Count archive table records
 	var archiveCount int64
-	database.DB.Raw("SELECT COUNT(*) FROM rad_acct_archive").Scan(&archiveCount)
+	database.DB.Raw("SELECT COUNT(*) FROM radacct_archive").Scan(&archiveCount)
 	stats["archive_table_records"] = archiveCount
 
 	// Get oldest record in main table
 	var oldestDate time.Time
-	database.DB.Raw("SELECT MIN(acctstarttime) FROM rad_acct").Scan(&oldestDate)
+	database.DB.Raw("SELECT MIN(acctstarttime) FROM radacct").Scan(&oldestDate)
 	stats["oldest_main_record"] = oldestDate
 
 	// Get oldest record in archive
-	database.DB.Raw("SELECT MIN(acctstarttime) FROM rad_acct_archive").Scan(&oldestDate)
+	database.DB.Raw("SELECT MIN(acctstarttime) FROM radacct_archive").Scan(&oldestDate)
 	stats["oldest_archive_record"] = oldestDate
 
 	stats["retention_days"] = s.retentionDays

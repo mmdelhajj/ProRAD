@@ -127,7 +127,7 @@ func WarmupSubscriberCache() {
 	// Load online subscribers into cache
 	rows, err := DB.Raw(`
 		SELECT s.id, s.username, s.password_plain, s.service_id, s.status,
-			   s.is_online, s.expires_at, s.mac_address, s.static_ip,
+			   s.is_online, s.expiry_date, s.mac_address, s.static_ip,
 			   COALESCE(sv.download_speed, 0) as download_speed,
 			   COALESCE(sv.upload_speed, 0) as upload_speed,
 			   COALESCE(sv.download_speed_str, '') as download_speed_str,

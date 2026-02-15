@@ -102,7 +102,7 @@ func EnsureIndexes() {
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_username ON subscribers(username)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_status ON subscribers(status)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_is_online ON subscribers(is_online)",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_expires_at ON subscribers(expires_at)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_expiry_date ON subscribers(expiry_date)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_created_at ON subscribers(created_at)",
 
 		// Composite index for common query patterns
@@ -116,14 +116,14 @@ func EnsureIndexes() {
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_created_at ON transactions(created_at)",
 
 		// RADIUS accounting
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_username ON rad_acct(username)",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_nasipaddress ON rad_acct(nasipaddress)",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_acctstarttime ON rad_acct(acctstarttime)",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_acctstoptime ON rad_acct(acctstoptime)",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_acctsessionid ON rad_acct(acctsessionid)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_radacct_username ON radacct(username)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_radacct_nasipaddress ON radacct(nasipaddress)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_radacct_acctstarttime ON radacct(acctstarttime)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_radacct_acctstoptime ON radacct(acctstoptime)",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_radacct_acctsessionid ON radacct(acctsessionid)",
 
 		// Active sessions index for QuotaSync
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rad_acct_active ON rad_acct(username, acctstarttime) WHERE acctstoptime IS NULL",
+		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_radacct_active ON radacct(username, acctstarttime) WHERE acctstoptime IS NULL",
 
 		// Services
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_services_name ON services(name)",

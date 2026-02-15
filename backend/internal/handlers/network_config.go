@@ -254,11 +254,12 @@ func (h *NetworkConfigHandler) DetectDNSMethod(c *fiber.Ctx) error {
 	if usesSystemdResolved {
 		resolvectlOutput, _ := exec.Command("bash", "-c", "nsenter -t 1 -m -u -i -n -p -- resolvectl status 2>/dev/null | grep 'DNS Servers' | head -1").Output()
 		if len(resolvectlOutput) > 0 {
-			parts := strings.Fields(string(resolvectlOutput))
-			for i, part := range parts {
-				if part == "Servers:" && i+1 < len(parts) {
-					resolvDNS = strings.Fields(strings.TrimPrefix(string(resolvectlOutput), "DNS Servers:"))
-					break
+			outputStr := strings.TrimSpace(string(resolvectlOutput))
+			// Remove "DNS Servers:" prefix (with possible leading whitespace)
+			if idx := strings.Index(outputStr, "DNS Servers:"); idx >= 0 {
+				dnsStr := strings.TrimSpace(outputStr[idx+len("DNS Servers:"):])
+				if dnsStr != "" {
+					resolvDNS = strings.Fields(dnsStr)
 				}
 			}
 		}

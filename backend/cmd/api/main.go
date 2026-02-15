@@ -132,7 +132,7 @@ func main() {
 	clusterFailoverService := services.NewClusterFailover()
 	clusterFailoverService.Start()
 
-	// Start rad_acct archival service (keeps main table small for performance)
+	// Start radacct archival service (keeps main table small for performance)
 	radAcctArchivalService := services.NewRadAcctArchivalService(90) // Keep 90 days
 	radAcctArchivalService.Start()
 
@@ -777,8 +777,8 @@ func enableProISPIPManagement() {
 		// Setting doesn't exist - this is a fresh install, enable it
 		log.Println("Fresh install detected: Enabling ProISP IP Pool Management...")
 		if err := database.DB.Exec(`
-			INSERT INTO system_preferences (key, value, value_type, created_at, updated_at)
-			VALUES ('proisp_ip_management', 'true', 'bool', NOW(), NOW())
+			INSERT INTO system_preferences (key, value, value_type)
+			VALUES ('proisp_ip_management', 'true', 'bool')
 			ON CONFLICT (key) DO NOTHING
 		`).Error; err != nil {
 			log.Printf("Warning: Failed to enable ProISP IP Management: %v", err)
