@@ -497,6 +497,16 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 			framedIPToSend = allocatedIP
 			log.Printf("ProISP IP Management: Allocated IP=%s for %s from pool %s",
 				framedIPToSend, username, subscriber.Service.PoolName)
+
+			// Save to radreply so this IP persists across reconnections
+			database.DB.Where("username = ? AND attribute = ?", username, "Framed-IP-Address").Delete(&models.RadReply{})
+			database.DB.Create(&models.RadReply{
+				Username:  username,
+				Attribute: "Framed-IP-Address",
+				Op:        ":=",
+				Value:     allocatedIP,
+			})
+			log.Printf("ProISP IP Management: Saved Framed-IP-Address=%s to radreply for %s", allocatedIP, username)
 		}
 	}
 
