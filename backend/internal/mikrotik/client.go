@@ -3501,20 +3501,31 @@ func (c *Client) GetLiveTorch(subscriberIP string, durationSec int) (*TorchResul
 	return result, nil
 }
 
+// PingEvent represents a single ping packet for live streaming
+type PingEvent struct {
+	Type string  `json:"type"` // "reply" or "timeout"
+	Seq  int     `json:"seq"`
+	Host string  `json:"host,omitempty"`
+	Time float64 `json:"time,omitempty"` // milliseconds
+	TTL  int     `json:"ttl,omitempty"`
+	Size int     `json:"size,omitempty"`
+}
+
 // PingResult contains the result of a ping operation
 type PingResult struct {
-	Host       string  `json:"host"`
-	Sent       int     `json:"sent"`
-	Received   int     `json:"received"`
-	PacketLoss int     `json:"packet_loss"`
-	MinRTT     float64 `json:"min_rtt"`
-	AvgRTT     float64 `json:"avg_rtt"`
-	MaxRTT     float64 `json:"max_rtt"`
-	Status     string  `json:"status"`
+	Host       string    `json:"host"`
+	Sent       int       `json:"sent"`
+	Received   int       `json:"received"`
+	PacketLoss int       `json:"packet_loss"`
+	MinRTT     float64   `json:"min_rtt"`
+	AvgRTT     float64   `json:"avg_rtt"`
+	MaxRTT     float64   `json:"max_rtt"`
+	RTTs       []float64 `json:"rtts"`
+	Status     string    `json:"status"`
 }
 
 // Ping executes ping command on MikroTik to reach subscriber IP
-func (c *Client) Ping(ip string, count int) (*PingResult, error) {
+func (c *Client) Ping(ip string, count int, size int) (*PingResult, error) {
 	if c.conn == nil {
 		if err := c.Connect(); err != nil {
 			return nil, err
@@ -3522,10 +3533,10 @@ func (c *Client) Ping(ip string, count int) (*PingResult, error) {
 	}
 
 	if count <= 0 {
-		count = 4
+		count = 50
 	}
-	if count > 10 {
-		count = 10
+	if count > 100 {
+		count = 100
 	}
 
 	result := &PingResult{
@@ -3542,6 +3553,9 @@ func (c *Client) Ping(ip string, count int) (*PingResult, error) {
 	c.sendWord("=address=" + ip)
 	c.sendWord("=count=" + strconv.Itoa(count))
 	c.sendWord("=interval=200ms")
+	if size > 0 {
+		c.sendWord("=size=" + strconv.Itoa(size))
+	}
 	c.sendWord("")
 
 	// Read ping responses
@@ -3555,57 +3569,37 @@ func (c *Client) Ping(ip string, count int) (*PingResult, error) {
 		}
 
 		if word == "!done" {
-			break
-		}
-
-		if word == "!re" {
-			// Read ping reply attributes
 			for {
 				attr, err := c.readWord()
 				if err != nil || attr == "" {
 					break
 				}
+			}
+			break
+		}
 
-				if strings.HasPrefix(attr, "=time=") {
-					// Got a reply - parse RTT
-					// MikroTik formats: "301us", "94ms514us", "1s200ms", "5ms"
-					timeStr := strings.TrimPrefix(attr, "=time=")
-					var rtt float64
+		if word == "!re" {
+			var packetTime float64
+			hasTime := false
+			isTimeout := false
 
-					// Check for combined format like "94ms514us"
-					if strings.Contains(timeStr, "ms") && strings.Contains(timeStr, "us") {
-						// Format: NNmsNNNus
-						parts := strings.Split(timeStr, "ms")
-						if len(parts) == 2 {
-							ms, _ := strconv.ParseFloat(parts[0], 64)
-							usStr := strings.TrimSuffix(parts[1], "us")
-							us, _ := strconv.ParseFloat(usStr, 64)
-							rtt = ms + us/1000.0
-						}
-					} else if strings.HasSuffix(timeStr, "us") {
-						// Microseconds only - convert to milliseconds
-						timeStr = strings.TrimSuffix(timeStr, "us")
-						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
-							rtt = val / 1000.0
-						}
-					} else if strings.HasSuffix(timeStr, "ms") {
-						// Milliseconds only
-						timeStr = strings.TrimSuffix(timeStr, "ms")
-						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
-							rtt = val
-						}
-					} else if strings.HasSuffix(timeStr, "s") {
-						// Seconds - convert to milliseconds
-						timeStr = strings.TrimSuffix(timeStr, "s")
-						if val, err := strconv.ParseFloat(timeStr, 64); err == nil {
-							rtt = val * 1000.0
-						}
-					}
-					if rtt > 0 {
-						rtts = append(rtts, rtt)
-						received++
-					}
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
 				}
+				if strings.HasPrefix(attr, "=time=") {
+					hasTime = true
+					packetTime = parseMikrotikTime(strings.TrimPrefix(attr, "=time="))
+				}
+				if strings.HasPrefix(attr, "=timeout=") || attr == "=status=timeout" {
+					isTimeout = true
+				}
+			}
+
+			if hasTime && !isTimeout {
+				rtts = append(rtts, packetTime)
+				received++
 			}
 		}
 
@@ -3622,15 +3616,23 @@ func (c *Client) Ping(ip string, count int) (*PingResult, error) {
 	}
 
 	result.Received = received
+	// Filter out timeout markers (-1) for the RTTs array
+	var validRTTs []float64
+	for _, r := range rtts {
+		if r >= 0 {
+			validRTTs = append(validRTTs, r)
+		}
+	}
+	result.RTTs = validRTTs
 	if count > 0 {
 		result.PacketLoss = ((count - received) * 100) / count
 	}
 
-	if len(rtts) > 0 {
+	if len(validRTTs) > 0 {
 		var sum float64
-		result.MinRTT = rtts[0]
-		result.MaxRTT = rtts[0]
-		for _, rtt := range rtts {
+		result.MinRTT = validRTTs[0]
+		result.MaxRTT = validRTTs[0]
+		for _, rtt := range validRTTs {
 			sum += rtt
 			if rtt < result.MinRTT {
 				result.MinRTT = rtt
@@ -3639,11 +3641,372 @@ func (c *Client) Ping(ip string, count int) (*PingResult, error) {
 				result.MaxRTT = rtt
 			}
 		}
-		result.AvgRTT = sum / float64(len(rtts))
+		result.AvgRTT = sum / float64(len(validRTTs))
 		result.Status = "success"
 	} else {
 		result.Status = "timeout"
 	}
 
 	return result, nil
+}
+
+// parseMikrotikTime parses MikroTik time formats into milliseconds
+// Formats: "301us", "94ms514us", "1s200ms", "5ms", "0ms", "1s", plain number "5"
+func parseMikrotikTime(timeStr string) float64 {
+	timeStr = strings.TrimSpace(timeStr)
+	if timeStr == "" {
+		return 0
+	}
+
+	// Combined format: "94ms514us" or "1s200ms" or "1s200ms514us"
+	if strings.Contains(timeStr, "s") && strings.Contains(timeStr, "ms") && strings.HasPrefix(timeStr, "") {
+		// Format: Ns...ms... - extract seconds part
+		sParts := strings.SplitN(timeStr, "s", 2)
+		if len(sParts) == 2 && !strings.HasPrefix(sParts[0], "m") {
+			// First part might be seconds
+			sVal, err := strconv.ParseFloat(sParts[0], 64)
+			if err == nil {
+				// Remainder is ms...
+				return sVal*1000.0 + parseMikrotikTime(sParts[1])
+			}
+		}
+	}
+
+	// Combined format: "94ms514us"
+	if strings.Contains(timeStr, "ms") && strings.Contains(timeStr, "us") {
+		parts := strings.Split(timeStr, "ms")
+		if len(parts) == 2 {
+			ms, _ := strconv.ParseFloat(parts[0], 64)
+			usStr := strings.TrimSuffix(parts[1], "us")
+			us, _ := strconv.ParseFloat(usStr, 64)
+			return ms + us/1000.0
+		}
+	}
+
+	// Microseconds only
+	if strings.HasSuffix(timeStr, "us") {
+		val, err := strconv.ParseFloat(strings.TrimSuffix(timeStr, "us"), 64)
+		if err == nil {
+			return val / 1000.0
+		}
+	}
+
+	// Milliseconds only
+	if strings.HasSuffix(timeStr, "ms") {
+		val, err := strconv.ParseFloat(strings.TrimSuffix(timeStr, "ms"), 64)
+		if err == nil {
+			return val
+		}
+	}
+
+	// Seconds only
+	if strings.HasSuffix(timeStr, "s") {
+		val, err := strconv.ParseFloat(strings.TrimSuffix(timeStr, "s"), 64)
+		if err == nil {
+			return val * 1000.0
+		}
+	}
+
+	// Plain number - assume milliseconds
+	val, err := strconv.ParseFloat(timeStr, 64)
+	if err == nil {
+		return val
+	}
+
+	return 0
+}
+
+// PingLive executes ping and calls onPacket for each received packet (for live streaming)
+func (c *Client) PingLive(ip string, count int, size int, onPacket func(PingEvent)) (*PingResult, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
+	if count <= 0 {
+		count = 50
+	}
+	if count > 100 {
+		count = 100
+	}
+
+	result := &PingResult{
+		Host:   ip,
+		Sent:   count,
+		Status: "unknown",
+	}
+
+	c.conn.SetDeadline(time.Now().Add(time.Duration(count*2+5) * time.Second))
+
+	c.sendWord("/ping")
+	c.sendWord("=address=" + ip)
+	c.sendWord("=count=" + strconv.Itoa(count))
+	c.sendWord("=interval=200ms")
+	if size > 0 {
+		c.sendWord("=size=" + strconv.Itoa(size))
+	}
+	c.sendWord("")
+
+	received := 0
+	var validRTTs []float64
+
+	for {
+		word, err := c.readWord()
+		if err != nil {
+			break
+		}
+
+		if word == "!done" {
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+			}
+			break
+		}
+
+		if word == "!re" {
+			var packetTime float64
+			hasTime := false
+			isTimeout := false
+			var seq, ttl, pktSize int
+			var host string
+
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				if strings.HasPrefix(attr, "=time=") {
+					hasTime = true
+					packetTime = parseMikrotikTime(strings.TrimPrefix(attr, "=time="))
+				}
+				if strings.HasPrefix(attr, "=timeout=") || attr == "=status=timeout" {
+					isTimeout = true
+				}
+				if strings.HasPrefix(attr, "=seq=") {
+					seq, _ = strconv.Atoi(strings.TrimPrefix(attr, "=seq="))
+				}
+				if strings.HasPrefix(attr, "=host=") {
+					host = strings.TrimPrefix(attr, "=host=")
+				}
+				if strings.HasPrefix(attr, "=ttl=") {
+					ttl, _ = strconv.Atoi(strings.TrimPrefix(attr, "=ttl="))
+				}
+				if strings.HasPrefix(attr, "=size=") {
+					pktSize, _ = strconv.Atoi(strings.TrimPrefix(attr, "=size="))
+				}
+			}
+
+			if hasTime && !isTimeout {
+				validRTTs = append(validRTTs, packetTime)
+				received++
+				if onPacket != nil {
+					onPacket(PingEvent{Type: "reply", Seq: seq, Host: host, Time: packetTime, TTL: ttl, Size: pktSize})
+				}
+			} else if isTimeout {
+				if onPacket != nil {
+					onPacket(PingEvent{Type: "timeout", Seq: seq})
+				}
+			}
+		}
+
+		if word == "!trap" {
+			var trapMsg string
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				log.Printf("PINGLIVE DEBUG: trap attr: %s", attr)
+				trapMsg += attr + " "
+			}
+			result.Status = "error"
+			return result, fmt.Errorf("ping failed: %s", trapMsg)
+		}
+	}
+
+	result.Received = received
+	result.RTTs = validRTTs
+	if count > 0 {
+		result.PacketLoss = ((count - received) * 100) / count
+	}
+
+	if len(validRTTs) > 0 {
+		var sum float64
+		result.MinRTT = validRTTs[0]
+		result.MaxRTT = validRTTs[0]
+		for _, rtt := range validRTTs {
+			sum += rtt
+			if rtt < result.MinRTT {
+				result.MinRTT = rtt
+			}
+			if rtt > result.MaxRTT {
+				result.MaxRTT = rtt
+			}
+		}
+		result.AvgRTT = sum / float64(len(validRTTs))
+		result.Status = "success"
+	} else {
+		result.Status = "timeout"
+	}
+
+	return result, nil
+}
+
+// TracerouteHop represents a single hop in a traceroute result
+type TracerouteHop struct {
+	Hop     int     `json:"hop"`
+	Address string  `json:"address"`
+	Loss    string  `json:"loss"`
+	Last    float64 `json:"last"`
+	Avg     float64 `json:"avg"`
+	Best    float64 `json:"best"`
+	Worst   float64 `json:"worst"`
+	Status  string  `json:"status"`
+}
+
+// Traceroute executes traceroute command on MikroTik
+func (c *Client) Traceroute(address string, timeout int) ([]TracerouteHop, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
+	if timeout <= 0 {
+		timeout = 3
+	}
+
+	// Set deadline for traceroute operation (can take a while)
+	c.conn.SetDeadline(time.Now().Add(60 * time.Second))
+
+	// Run traceroute via MikroTik API
+	c.sendWord("/tool/traceroute")
+	c.sendWord("=address=" + address)
+	c.sendWord("=count=1")
+	c.sendWord("=timeout=" + strconv.Itoa(timeout) + "s")
+	c.sendWord("")
+
+	var hops []TracerouteHop
+	hopMap := make(map[int]*TracerouteHop)
+
+	for {
+		word, err := c.readWord()
+		if err != nil {
+			break
+		}
+
+		if word == "!done" {
+			break
+		}
+
+		if word == "!re" {
+			hop := &TracerouteHop{}
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+
+				if strings.HasPrefix(attr, "=.section=") {
+					hopNum, _ := strconv.Atoi(strings.TrimPrefix(attr, "=.section="))
+					hop.Hop = hopNum + 1
+				} else if strings.HasPrefix(attr, "=address=") {
+					hop.Address = strings.TrimPrefix(attr, "=address=")
+				} else if strings.HasPrefix(attr, "=loss=") {
+					hop.Loss = strings.TrimPrefix(attr, "=loss=")
+				} else if strings.HasPrefix(attr, "=last=") {
+					hop.Last = c.parseTracerouteTime(strings.TrimPrefix(attr, "=last="))
+				} else if strings.HasPrefix(attr, "=avg=") {
+					hop.Avg = c.parseTracerouteTime(strings.TrimPrefix(attr, "=avg="))
+				} else if strings.HasPrefix(attr, "=best=") {
+					hop.Best = c.parseTracerouteTime(strings.TrimPrefix(attr, "=best="))
+				} else if strings.HasPrefix(attr, "=worst=") {
+					hop.Worst = c.parseTracerouteTime(strings.TrimPrefix(attr, "=worst="))
+				} else if strings.HasPrefix(attr, "=status=") {
+					hop.Status = strings.TrimPrefix(attr, "=status=")
+				}
+			}
+
+			if hop.Hop > 0 {
+				if existing, ok := hopMap[hop.Hop]; ok {
+					if hop.Address != "" {
+						existing.Address = hop.Address
+					}
+					if hop.Loss != "" {
+						existing.Loss = hop.Loss
+					}
+					if hop.Last > 0 {
+						existing.Last = hop.Last
+					}
+					if hop.Avg > 0 {
+						existing.Avg = hop.Avg
+					}
+					if hop.Best > 0 {
+						existing.Best = hop.Best
+					}
+					if hop.Worst > 0 {
+						existing.Worst = hop.Worst
+					}
+					if hop.Status != "" {
+						existing.Status = hop.Status
+					}
+				} else {
+					hopMap[hop.Hop] = hop
+				}
+			}
+		}
+
+		if word == "!trap" {
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+			}
+			return nil, fmt.Errorf("traceroute failed")
+		}
+	}
+
+	// Convert map to sorted slice
+	for i := 1; i <= len(hopMap); i++ {
+		if h, ok := hopMap[i]; ok {
+			hops = append(hops, *h)
+		}
+	}
+
+	return hops, nil
+}
+
+// parseTracerouteTime parses MikroTik time format into milliseconds
+func (c *Client) parseTracerouteTime(timeStr string) float64 {
+	timeStr = strings.TrimSpace(timeStr)
+	if timeStr == "" || timeStr == "timeout" {
+		return 0
+	}
+
+	if strings.Contains(timeStr, "ms") && strings.Contains(timeStr, "us") {
+		parts := strings.Split(timeStr, "ms")
+		if len(parts) == 2 {
+			ms, _ := strconv.ParseFloat(parts[0], 64)
+			usStr := strings.TrimSuffix(parts[1], "us")
+			us, _ := strconv.ParseFloat(usStr, 64)
+			return ms + us/1000.0
+		}
+	} else if strings.HasSuffix(timeStr, "us") {
+		val, _ := strconv.ParseFloat(strings.TrimSuffix(timeStr, "us"), 64)
+		return val / 1000.0
+	} else if strings.HasSuffix(timeStr, "ms") {
+		val, _ := strconv.ParseFloat(strings.TrimSuffix(timeStr, "ms"), 64)
+		return val
+	} else if strings.HasSuffix(timeStr, "s") {
+		val, _ := strconv.ParseFloat(strings.TrimSuffix(timeStr, "s"), 64)
+		return val * 1000.0
+	}
+
+	val, _ := strconv.ParseFloat(timeStr, 64)
+	return val
 }

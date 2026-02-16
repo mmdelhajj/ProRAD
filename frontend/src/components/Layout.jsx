@@ -40,6 +40,7 @@ import {
   ChevronDownIcon,
   EyeIcon,
   EyeSlashIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
@@ -67,6 +68,7 @@ const allNavigation = [
   { name: 'Settings', href: '/settings', icon: CogIcon, permission: 'settings.view' },
   { name: 'Change Bulk', href: '/change-bulk', icon: QueueListIcon, permission: 'subscribers.change_bulk' },
   { name: 'Sharing Detection', href: '/sharing', icon: ShieldExclamationIcon, permission: 'admin' },
+  { name: 'Diagnostic Tools', href: '/diagnostic-tools', icon: WrenchScrewdriverIcon, permission: 'admin' },
 ]
 
 // Get saved menu order from localStorage

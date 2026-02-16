@@ -3856,7 +3856,7 @@ func (h *SubscriberHandler) Ping(c *fiber.Ctx) error {
 	)
 	defer client.Close()
 
-	pingResult, err := client.Ping(ipAddress, 4)
+	pingResult, err := client.Ping(ipAddress, 4, 0)
 
 	// Format output in Windows-like style
 	var output strings.Builder

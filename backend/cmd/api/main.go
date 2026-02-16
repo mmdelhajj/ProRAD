@@ -210,6 +210,7 @@ func main() {
 	licenseHandler := handlers.NewLicenseHandler()
 	systemUpdateHandler := handlers.NewSystemUpdateHandler()
 	networkConfigHandler := handlers.NewNetworkConfigHandler()
+	diagnosticHandler := handlers.NewDiagnosticHandler()
 
 	// API routes
 	api := app.Group("/api")
@@ -429,6 +430,14 @@ func main() {
 	networkConfig.Get("/detect-dns", networkConfigHandler.DetectDNSMethod)
 	networkConfig.Post("/test", networkConfigHandler.TestNetworkConfig)
 	networkConfig.Post("/apply", networkConfigHandler.ApplyNetworkConfig)
+
+	// Diagnostic Tools routes (Admin only)
+	diagnostic := protected.Group("/diagnostic", middleware.AdminOnly())
+	diagnostic.Post("/ping", diagnosticHandler.Ping)
+	diagnostic.Post("/ping-stream", diagnosticHandler.PingStream)
+	diagnostic.Post("/traceroute", diagnosticHandler.Traceroute)
+	diagnostic.Post("/nslookup", diagnosticHandler.NSLookup)
+	diagnostic.Get("/search-subscribers", diagnosticHandler.SearchSubscribers)
 
 	// HA Cluster routes (Admin only) - clusterHandler already created in public routes section
 	cluster := protected.Group("/cluster", middleware.AdminOnly())
@@ -712,6 +721,7 @@ func ensureRequiredPackages() {
 	}{
 		{"radclient", "freeradius-utils", "radclient (for CoA)"},
 		{"ping", "iputils-ping", "ping"},
+		{"traceroute", "traceroute", "traceroute (for diagnostics)"},
 		{"pg_dump", "postgresql-client", "pg_dump (for backups)"},
 	}
 

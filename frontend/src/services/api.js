@@ -385,6 +385,14 @@ export const publicApi = {
   exchangeImpersonateToken: (token) => axios.post('/api/auth/impersonate-exchange', { token }),
 }
 
+// Diagnostic Tools API
+export const diagnosticApi = {
+  ping: (data) => api.post('/diagnostic/ping', data),
+  traceroute: (data) => api.post('/diagnostic/traceroute', data),
+  nslookup: (data) => api.post('/diagnostic/nslookup', data),
+  searchSubscribers: (nasId, query) => api.get(`/diagnostic/search-subscribers?nas_id=${nasId}&q=${query}`),
+}
+
 // Network Configuration API
 export const networkApi = {
   getCurrentConfig: () => api.get('/system/network/current'),

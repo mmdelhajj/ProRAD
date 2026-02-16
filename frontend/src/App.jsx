@@ -36,6 +36,7 @@ const SharingDetection = lazy(() => import('./pages/SharingDetection'))
 const CDNList = lazy(() => import('./pages/CDNList'))
 const CDNBandwidthRules = lazy(() => import('./pages/CDNBandwidthRules'))
 const Profile = lazy(() => import('./pages/Profile'))
+const DiagnosticTools = lazy(() => import('./pages/DiagnosticTools'))
 
 // Loading fallback component
 function PageLoader() {
@@ -148,6 +149,7 @@ function App() {
                   <Route path="/sharing" element={<PermissionRoute adminOnly><SharingDetection /></PermissionRoute>} />
                   <Route path="/cdn" element={<PermissionRoute adminOnly><CDNList /></PermissionRoute>} />
                   <Route path="/cdn-bandwidth-rules" element={<PermissionRoute adminOnly><CDNBandwidthRules /></PermissionRoute>} />
+                  <Route path="/diagnostic-tools" element={<PermissionRoute adminOnly><DiagnosticTools /></PermissionRoute>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>
