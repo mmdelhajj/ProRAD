@@ -38,6 +38,8 @@ import {
   ArrowUturnLeftIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
@@ -89,6 +91,28 @@ const saveMenuOrder = (order) => {
   }
 }
 
+// Get saved hidden items from localStorage
+const getSavedHiddenItems = () => {
+  try {
+    const saved = localStorage.getItem('menuHidden')
+    if (saved) {
+      return new Set(JSON.parse(saved))
+    }
+  } catch (e) {
+    console.error('Failed to load hidden items:', e)
+  }
+  return new Set()
+}
+
+// Save hidden items to localStorage
+const saveHiddenItems = (hiddenSet) => {
+  try {
+    localStorage.setItem('menuHidden', JSON.stringify([...hiddenSet]))
+  } catch (e) {
+    console.error('Failed to save hidden items:', e)
+  }
+}
+
 // Apply saved order to navigation
 const applyMenuOrder = (navigation, savedOrder) => {
   if (!savedOrder || savedOrder.length === 0) return navigation
@@ -106,6 +130,7 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [orderedNav, setOrderedNav] = useState([])
+  const [hiddenItems, setHiddenItems] = useState(() => getSavedHiddenItems())
 
   const location = useLocation()
   const navigate = useNavigate()
@@ -167,8 +192,30 @@ export default function Layout({ children }) {
     })
   }, [])
 
+  // Toggle item visibility
+  const toggleHidden = useCallback((href) => {
+    setHiddenItems(prev => {
+      const next = new Set(prev)
+      if (next.has(href)) {
+        next.delete(href)
+      } else {
+        next.add(href)
+      }
+      saveHiddenItems(next)
+      return next
+    })
+  }, [])
+
+  // Show all hidden items
+  const handleShowAll = useCallback(() => {
+    setHiddenItems(new Set())
+    saveHiddenItems(new Set())
+  }, [])
+
   const handleResetOrder = () => {
     localStorage.removeItem('menuOrder')
+    localStorage.removeItem('menuHidden')
+    setHiddenItems(new Set())
     // Re-filter and use default order
     const filtered = allNavigation.filter((item) => {
       if (item.permission === null) return true
@@ -188,11 +235,21 @@ export default function Layout({ children }) {
       <button
         onClick={handleResetOrder}
         className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded"
-        title="Reset to default order"
+        title="Reset order and show all"
       >
         <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
         Reset
       </button>
+      {hiddenItems.size > 0 && (
+        <button
+          onClick={handleShowAll}
+          className="flex items-center gap-1 px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded"
+          title="Show all hidden items"
+        >
+          <EyeIcon className="w-3.5 h-3.5" />
+          Show All
+        </button>
+      )}
       <div className="flex-1" />
       <button
         onClick={toggleEditMode}
@@ -206,55 +263,73 @@ export default function Layout({ children }) {
 
   // Render navigation items
   const renderNavItems = (isMobile = false) => {
-    return orderedNav.map((item, index) => {
-      const isActive = location.pathname === item.href
-      const Icon = item.icon
+    return orderedNav
+      .filter(item => editMode || !hiddenItems.has(item.href))
+      .map((item, index) => {
+        const isActive = location.pathname === item.href
+        const Icon = item.icon
+        const isHidden = hiddenItems.has(item.href)
 
-      if (editMode) {
-        return (
-          <div
-            key={item.href}
-            className="flex items-center gap-1 px-1 py-0.5 text-xs font-medium rounded-md bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
-          >
-            <div className="flex flex-col">
+        if (editMode) {
+          return (
+            <div
+              key={item.href}
+              className={clsx(
+                'flex items-center gap-1 px-1 py-0.5 text-xs font-medium rounded-md',
+                isHidden
+                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 line-through'
+                  : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200'
+              )}
+            >
+              <div className="flex flex-col">
+                <button
+                  onClick={() => moveUp(index)}
+                  disabled={index === 0}
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronUpIcon className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => moveDown(index)}
+                  disabled={index === orderedNav.length - 1}
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronDownIcon className="w-3 h-3" />
+                </button>
+              </div>
               <button
-                onClick={() => moveUp(index)}
-                disabled={index === 0}
-                className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={() => toggleHidden(item.href)}
+                className={clsx(
+                  'p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-500',
+                  isHidden ? 'text-red-400 dark:text-red-500' : 'text-gray-500 dark:text-gray-400'
+                )}
+                title={isHidden ? 'Show item' : 'Hide item'}
               >
-                <ChevronUpIcon className="w-3 h-3" />
+                {isHidden ? <EyeSlashIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
               </button>
-              <button
-                onClick={() => moveDown(index)}
-                disabled={index === orderedNav.length - 1}
-                className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronDownIcon className="w-3 h-3" />
-              </button>
+              <Icon className={clsx('w-4 h-4 flex-shrink-0', isHidden ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400')} />
+              <span className="truncate flex-1">{item.name}</span>
             </div>
-            <Icon className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
-            <span className="truncate flex-1">{item.name}</span>
-          </div>
-        )
-      }
+          )
+        }
 
-      return (
-        <Link
-          key={item.href}
-          to={item.href}
-          onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-          className={clsx(
-            'flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors',
-            isActive
-              ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-          )}
-        >
-          <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
-          <span className="truncate">{item.name}</span>
-        </Link>
-      )
-    })
+        return (
+          <Link
+            key={item.href}
+            to={item.href}
+            onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+            className={clsx(
+              'flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors',
+              isActive
+                ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            )}
+          >
+            <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span className="truncate">{item.name}</span>
+          </Link>
+        )
+      })
   }
 
   return (
@@ -301,7 +376,7 @@ export default function Layout({ children }) {
               className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <Bars2Icon className="w-4 h-4 mr-2" />
-              Reorder Menu
+              Customize Menu
             </button>
           )}
           <div className="flex items-center px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300">
@@ -358,7 +433,7 @@ export default function Layout({ children }) {
                 className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <Bars2Icon className="w-4 h-4 mr-2" />
-                Reorder Menu
+                Customize Menu
               </button>
             )}
             <div className="flex items-center px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300">
