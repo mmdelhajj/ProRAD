@@ -27,7 +27,16 @@ export default function Services() {
   const { hasPermission } = useAuthStore()
   const [showModal, setShowModal] = useState(false)
   const [editingService, setEditingService] = useState(null)
-  const [sorting, setSorting] = useState([])
+  const [sorting, setSorting] = useState(() => {
+    try {
+      const saved = localStorage.getItem('services_sorting')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+
+  useEffect(() => {
+    localStorage.setItem('services_sorting', JSON.stringify(sorting))
+  }, [sorting])
   const [formData, setFormData] = useState({
     name: '',
     description: '',
