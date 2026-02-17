@@ -268,7 +268,7 @@ func (h *ClusterHandler) SetupSecondary(c *fiber.Ctx) error {
 			ServerName:             req.ServerName,
 			ServerIP:               req.ServerIP,
 			MainServerIP:           joinResp.MainServerIP,
-			MainServerPort:         8080,
+			MainServerPort:         80,
 			HardwareID:             getHardwareID(),
 			DatabaseID:             getDatabaseID(),
 			IsActive:               true,
@@ -710,7 +710,7 @@ func (h *ClusterHandler) TestConnection(c *fiber.Ctx) error {
 	}
 
 	// Test TCP connection to API port
-	conn, err := net.DialTimeout("tcp", req.MainServerIP+":8080", 5*time.Second)
+	conn, err := net.DialTimeout("tcp", req.MainServerIP+":80", 5*time.Second)
 	if err != nil {
 		return c.JSON(fiber.Map{
 			"success":     false,
@@ -860,7 +860,7 @@ func (h *ClusterHandler) joinCluster(mainIP string, req models.ClusterJoinReques
 	}
 
 	// Make POST request to main server
-	url := fmt.Sprintf("http://%s:8080/api/cluster/join", mainIP)
+	url := fmt.Sprintf("http://%s/api/cluster/join", mainIP)
 	resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to main server: %v", err)
@@ -1310,7 +1310,7 @@ func (h *ClusterHandler) CheckMainStatus(c *fiber.Ctx) error {
 
 	// Try to connect to main server API
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(fmt.Sprintf("http://%s:8080/health", config.MainServerIP))
+	resp, err := client.Get(fmt.Sprintf("http://%s/health", config.MainServerIP))
 	if err == nil {
 		resp.Body.Close()
 		if resp.StatusCode == 200 {
@@ -1578,7 +1578,7 @@ func (h *ClusterHandler) syncUploadsFromMain(mainIP, clusterSecret string) {
 		"cluster_secret": clusterSecret,
 	})
 
-	url := fmt.Sprintf("http://%s:8080/api/cluster/uploads", mainIP)
+	url := fmt.Sprintf("http://%s/api/cluster/uploads", mainIP)
 	resp, err := client.Post(url, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		log.Printf("Failed to fetch uploads from main: %v", err)
