@@ -3,3 +3,11 @@ node_modules/
 .env
 reference/
 ssl/
+
+# Compiled binaries
+backend/api
+backend/radius
+backend/proisp-api/api
+backend/proisp-radius/radius
+backend/cmd/radius/proisp-radius
+backend/cmd/api/proisp-api
