@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore'
 import {
   useReactTable,
   getCoreRowModel,
+  getSortedRowModel,
   flexRender,
 } from '@tanstack/react-table'
 import {
@@ -14,6 +15,9 @@ import {
   XMarkIcon,
   GlobeAltIcon,
   ClockIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ChevronUpDownIcon,
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -23,6 +27,7 @@ export default function Services() {
   const { hasPermission } = useAuthStore()
   const [showModal, setShowModal] = useState(false)
   const [editingService, setEditingService] = useState(null)
+  const [sorting, setSorting] = useState([])
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -366,6 +371,115 @@ export default function Services() {
     setServiceCDNs([])
   }
 
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [duplicatingService, setDuplicatingService] = useState(null)
+  const [duplicateName, setDuplicateName] = useState('')
+
+  const handleRowClick = (service) => {
+    setDuplicatingService(service)
+    setDuplicateName(service.name + ' (Copy)')
+    setShowDuplicateModal(true)
+  }
+
+  const duplicateMutation = useMutation({
+    mutationFn: async ({ originalService, newName }) => {
+      const data = {
+        name: newName,
+        description: originalService.description || '',
+        download_speed: originalService.download_speed || 0,
+        upload_speed: originalService.upload_speed || 0,
+        download_speed_str: originalService.download_speed ? `${originalService.download_speed}k` : '',
+        upload_speed_str: originalService.upload_speed ? `${originalService.upload_speed}k` : '',
+        price: originalService.price || 0,
+        day_price: originalService.day_price || 0,
+        validity_days: originalService.validity_days || 30,
+        daily_quota: originalService.daily_quota || 0,
+        monthly_quota: originalService.monthly_quota || 0,
+        burst_download: originalService.burst_download || 0,
+        burst_upload: originalService.burst_upload || 0,
+        burst_threshold: originalService.burst_threshold || 0,
+        burst_time: originalService.burst_time || 0,
+        priority: originalService.priority || 8,
+        fup1_threshold: originalService.fup1_threshold || 0,
+        fup1_download_speed: originalService.fup1_download_speed || 0,
+        fup1_upload_speed: originalService.fup1_upload_speed || 0,
+        fup2_threshold: originalService.fup2_threshold || 0,
+        fup2_download_speed: originalService.fup2_download_speed || 0,
+        fup2_upload_speed: originalService.fup2_upload_speed || 0,
+        fup3_threshold: originalService.fup3_threshold || 0,
+        fup3_download_speed: originalService.fup3_download_speed || 0,
+        fup3_upload_speed: originalService.fup3_upload_speed || 0,
+        monthly_fup1_threshold: originalService.monthly_fup1_threshold || 0,
+        monthly_fup1_download_speed: originalService.monthly_fup1_download_speed || 0,
+        monthly_fup1_upload_speed: originalService.monthly_fup1_upload_speed || 0,
+        monthly_fup2_threshold: originalService.monthly_fup2_threshold || 0,
+        monthly_fup2_download_speed: originalService.monthly_fup2_download_speed || 0,
+        monthly_fup2_upload_speed: originalService.monthly_fup2_upload_speed || 0,
+        monthly_fup3_threshold: originalService.monthly_fup3_threshold || 0,
+        monthly_fup3_download_speed: originalService.monthly_fup3_download_speed || 0,
+        monthly_fup3_upload_speed: originalService.monthly_fup3_upload_speed || 0,
+        time_based_speed_enabled: originalService.time_based_speed_enabled || false,
+        time_from_hour: originalService.time_from_hour || 0,
+        time_from_minute: originalService.time_from_minute || 0,
+        time_to_hour: originalService.time_to_hour || 0,
+        time_to_minute: originalService.time_to_minute || 0,
+        time_download_ratio: originalService.time_download_ratio || 0,
+        time_upload_ratio: originalService.time_upload_ratio || 0,
+        pool_name: originalService.pool_name || '',
+        address_list_in: originalService.address_list_in || '',
+        address_list_out: originalService.address_list_out || '',
+        queue_type: originalService.queue_type || 'simple',
+        is_active: true,
+      }
+      const result = await serviceApi.create(data)
+      // Copy CDN configurations
+      if (result.data?.data?.id) {
+        try {
+          const cdnRes = await cdnApi.listServiceCDNs(originalService.id)
+          const cdns = cdnRes.data.data || []
+          if (cdns.length > 0) {
+            await cdnApi.updateServiceCDNs(result.data.data.id, { cdns: cdns.map(sc => ({
+              cdn_id: sc.cdn_id,
+              speed_limit: sc.speed_limit,
+              bypass_quota: sc.bypass_quota,
+              pcq_enabled: sc.pcq_enabled || false,
+              pcq_limit: sc.pcq_limit || 50,
+              pcq_total_limit: sc.pcq_total_limit || 2000,
+              pcq_nas_id: sc.pcq_nas_id || null,
+              pcq_target_pools: sc.pcq_target_pools || '',
+              is_active: sc.is_active ?? true,
+              time_based_speed_enabled: sc.time_based_speed_enabled || false,
+              time_from_hour: sc.time_from_hour || 0,
+              time_from_minute: sc.time_from_minute || 0,
+              time_to_hour: sc.time_to_hour || 0,
+              time_to_minute: sc.time_to_minute || 0,
+              time_speed_ratio: sc.time_speed_ratio || 0,
+            }))})
+          }
+        } catch (err) {
+          console.error('Failed to copy CDN configs:', err)
+        }
+      }
+      return result
+    },
+    onSuccess: () => {
+      toast.success('Service duplicated successfully')
+      queryClient.invalidateQueries(['services'])
+      setShowDuplicateModal(false)
+      setDuplicatingService(null)
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to duplicate service'),
+  })
+
+  const handleDuplicate = (e) => {
+    e.preventDefault()
+    if (!duplicateName.trim()) {
+      toast.error('Service name is required')
+      return
+    }
+    duplicateMutation.mutate({ originalService: duplicatingService, newName: duplicateName.trim() })
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     // Generate speed strings from kbps values (e.g., 1400 -> "1400k")
@@ -487,16 +601,20 @@ export default function Services() {
       {
         accessorKey: 'name',
         header: 'Name',
+        enableSorting: true,
         cell: ({ row }) => (
           <div>
             <div className="font-medium">{row.original.name}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.description}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{row.original.description}</div>
           </div>
         ),
       },
       {
-        accessorKey: 'speed',
+        id: 'speed',
         header: 'Speed',
+        enableSorting: true,
+        accessorFn: (row) => row.download_speed || 0,
+        sortingFn: 'basic',
         cell: ({ row }) => (
           <div className="text-sm">
             <div>↓ {row.original.download_speed} kb</div>
@@ -507,16 +625,20 @@ export default function Services() {
       {
         accessorKey: 'price',
         header: 'Price',
+        enableSorting: true,
+        sortingFn: 'basic',
         cell: ({ row }) => `$${row.original.price?.toFixed(2)}`,
       },
       {
         accessorKey: 'validity_days',
         header: 'Validity',
+        enableSorting: false,
         cell: ({ row }) => `${row.original.validity_days} days`,
       },
       {
         accessorKey: 'quota',
         header: 'Quota',
+        enableSorting: false,
         cell: ({ row }) => (
           <div className="text-sm">
             {row.original.daily_quota || row.original.monthly_quota ? (
@@ -533,6 +655,7 @@ export default function Services() {
       {
         accessorKey: 'pool_name',
         header: 'Pool',
+        enableSorting: false,
         cell: ({ row }) => (
           <span className={clsx('text-sm', row.original.pool_name ? 'text-gray-900' : 'text-gray-400')}>
             {row.original.pool_name || 'None'}
@@ -542,6 +665,7 @@ export default function Services() {
       {
         accessorKey: 'fup',
         header: 'FUP Tiers',
+        enableSorting: false,
         cell: ({ row }) => {
           const s = row.original
           const hasFUP = s.fup1_download_speed > 0 || s.fup2_download_speed > 0 || s.fup3_download_speed > 0
@@ -575,6 +699,7 @@ export default function Services() {
       {
         accessorKey: 'is_active',
         header: 'Status',
+        enableSorting: false,
         cell: ({ row }) => (
           <span className={clsx('badge', row.original.is_active ? 'badge-success' : 'badge-gray')}>
             {row.original.is_active ? 'Active' : 'Inactive'}
@@ -584,8 +709,9 @@ export default function Services() {
       {
         id: 'actions',
         header: 'Actions',
+        enableSorting: false,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {hasPermission('services.edit') && (
               <button
                 onClick={() => openModal(row.original)}
@@ -618,7 +744,10 @@ export default function Services() {
   const table = useReactTable({
     data: services || [],
     columns,
+    state: { sorting },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   })
 
   return (
@@ -644,7 +773,21 @@ export default function Services() {
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
                     <th key={header.id}>
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getCanSort() ? (
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          className="flex items-center gap-1 cursor-pointer select-none hover:text-primary-600 dark:hover:text-primary-400"
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {{
+                            asc: <ChevronUpIcon className="w-4 h-4 text-primary-600 dark:text-primary-400" />,
+                            desc: <ChevronDownIcon className="w-4 h-4 text-primary-600 dark:text-primary-400" />,
+                          }[header.column.getIsSorted()] ?? <ChevronUpDownIcon className="w-3.5 h-3.5 text-gray-400" />}
+                        </button>
+                      ) : (
+                        flexRender(header.column.columnDef.header, header.getContext())
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -667,7 +810,11 @@ export default function Services() {
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
+                  <tr
+                    key={row.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    onClick={() => handleRowClick(row.original)}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -681,7 +828,48 @@ export default function Services() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Duplicate Modal */}
+      {showDuplicateModal && duplicatingService && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowDuplicateModal(false)} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Duplicate Service</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Copy all settings from <span className="font-medium text-gray-700 dark:text-gray-300">{duplicatingService.name}</span>
+                </p>
+                <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                  <div>Speed: ↓{duplicatingService.download_speed}kb / ↑{duplicatingService.upload_speed}kb</div>
+                  <div>Price: ${duplicatingService.price?.toFixed(2)} | Validity: {duplicatingService.validity_days} days</div>
+                  {duplicatingService.pool_name && <div>Pool: {duplicatingService.pool_name}</div>}
+                </div>
+                <form onSubmit={handleDuplicate} className="mt-4">
+                  <label className="label">New Service Name</label>
+                  <input
+                    type="text"
+                    value={duplicateName}
+                    onChange={(e) => setDuplicateName(e.target.value)}
+                    className="input w-full"
+                    autoFocus
+                    required
+                  />
+                  <div className="flex justify-end gap-3 mt-4">
+                    <button type="button" onClick={() => setShowDuplicateModal(false)} className="btn-secondary">
+                      Cancel
+                    </button>
+                    <button type="submit" disabled={duplicateMutation.isLoading} className="btn-primary">
+                      {duplicateMutation.isLoading ? 'Duplicating...' : 'Duplicate'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit/Create Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
