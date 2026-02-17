@@ -3974,3 +3974,39 @@ server_name license.proxpanel.com license.proxrad.com;
 - Binaries: Built Feb 15, 02:26 UTC from verified latest code
 - All 39 checklist items from v1.0.219-229 confirmed present in compiled code
 - Install script matches reference docker-compose.yml with intentional production improvements
+
+### v1.0.230 Schema Fixes + Password Change Alerts (Feb 15, 2026)
+- Fixed 4 schema bugs: expires_at→expiry_date, rad_acct→radacct, system_preferences INSERT, DNS parser
+- Password change alerts: license server creates alert when root password hash changes
+- Frontend/dist package fix: assets/ subdirectory properly included
+
+### v1.0.231 Menu Hide/Show Feature (Feb 16, 2026)
+- Sidebar customization: eye icon toggle to hide/show menu items
+- "Show All" button to reveal all hidden items
+- "Reset" button to restore default menu visibility
+- Preferences saved to localStorage
+
+### v1.0.232-233 Diagnostic Tools (Feb 16-17, 2026)
+- New Diagnostic Tools page with Ping, Traceroute, NSLookup tabs
+- Ping: runs from MikroTik router, configurable packet size (64-64000), count (1-100), live streaming results
+- Traceroute: runs from MikroTik, shows hop table with address/loss/RTT stats
+- NSLookup: runs from server, shows A/AAAA/CNAME/MX/NS/TXT records
+- Combined user search/IP input field with autocomplete for Ping
+- Server-side traceroute for public IPs (MikroTik for private)
+- RADIUS auto-saves Framed-IP-Address to radreply after pool allocation
+- Files: `backend/internal/handlers/diagnostic.go`, `frontend/src/pages/DiagnosticTools.jsx`, `backend/internal/mikrotik/client.go`
+
+### v1.0.233 Install Script + Cluster Port Fix (Feb 17, 2026)
+- Install script: tar.gz validation before extraction, binary/frontend existence checks after extraction
+- Cluster port changed from 8080 to 80 (nginx) for networks that block non-standard ports
+- File: `backend/internal/handlers/cluster.go` - all `:8080` references changed to port 80
+
+### v1.0.234-235 Services Page Sorting + Duplicate (Feb 17, 2026)
+- **Column sorting**: Click Name, Speed, or Price column headers to sort (A-Z / Z-A)
+- Speed sorting is **numeric** (1M, 2M, 4M, 8M, 10M - not alphabetical)
+- Sort indicators (up/down/neutral arrows) on sortable headers
+- **Sort persists** after page refresh and re-login (saved to localStorage)
+- **Duplicate service**: Click any service row → popup with name field pre-filled as "Name (Copy)"
+- Copies ALL settings: speed, price, FUP tiers, CDN configs, burst, pool, time-based speed, quotas
+- Edit/Delete buttons in Actions column still work (stopPropagation prevents duplicate popup)
+- File: `frontend/src/pages/Services.jsx` (frontend-only, no backend changes needed)
