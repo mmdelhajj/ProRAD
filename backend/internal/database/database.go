@@ -95,6 +95,10 @@ func Close() {
 // This should be called after AutoMigrate
 func EnsureIndexes() {
 	indexes := []string{
+		// Fix: Replace UNIQUE constraint with partial unique index (allow soft-deleted duplicates)
+		"ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_username_key",
+		"CREATE UNIQUE INDEX IF NOT EXISTS subscribers_username_key ON subscribers (username) WHERE deleted_at IS NULL",
+
 		// Subscribers - most frequently queried table
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_reseller_id ON subscribers(reseller_id)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscribers_service_id ON subscribers(service_id)",
