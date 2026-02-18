@@ -113,8 +113,7 @@ func main() {
 	// Sync all PCQ configurations to NAS devices on startup
 	go services.SyncAllPCQOnStartup()
 
-	// Start PCQ auto-repair service (checks every 5 minutes)
-	go services.StartPCQAutoRepairService()
+	// PCQ auto-repair removed - use manual "Sync to MikroTik" button in CDN page
 
 	// Start backup scheduler service
 	backupSchedulerService := services.NewBackupSchedulerService(cfg)
