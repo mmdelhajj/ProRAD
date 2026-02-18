@@ -424,82 +424,77 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 			"last_bypass_cdn_bytes":  currentBypassBytes,
 		}
 
-		// Check if we're in "free time" window (time-based speed control)
-		// If within the time window and ratios are not 100%, data is FREE (not counted)
-		isFreeTime := false
+		// Check if we're in the free hours window and calculate quota discount
+		// freePercent = how much of usage is FREE (0=none, 70=70% free, 100=completely free)
+		freePercent := int64(0)
 		if sub.Service != nil && sub.Service.ID > 0 {
-			isFreeTime = isWithinTimeWindow(sub.Service, now)
-			if isFreeTime {
-				log.Printf("QuotaSync: %s is in FREE TIME window (%02d:%02d-%02d:%02d) - usage not counted",
+			if isWithinTimeWindow(sub.Service, now) {
+				// Use TimeDownloadRatio as the free percentage (0-100)
+				freePercent = int64(sub.Service.TimeDownloadRatio)
+				if freePercent > 100 {
+					freePercent = 100
+				}
+				if freePercent < 0 {
+					freePercent = 0
+				}
+				log.Printf("QuotaSync: %s is in FREE HOURS window (%02d:%02d-%02d:%02d) - %d%% free (only %d%% of usage counted)",
 					sub.Username,
 					sub.Service.TimeFromHour, sub.Service.TimeFromMinute,
 					sub.Service.TimeToHour, sub.Service.TimeToMinute,
+					freePercent, 100-freePercent,
 				)
 			}
 		}
+
+		// Apply quota discount: counted = delta * (100 - freePercent) / 100
+		// 100% free = 0 counted, 70% free = 30% counted, 0% free = 100% counted
+		discountedDownload := deltaDownload * (100 - freePercent) / 100
+		discountedUpload := deltaUpload * (100 - freePercent) / 100
+		isFreeTime := freePercent == 100 // fully free (for monthly skip optimization)
 
 		// Calculate new daily quota values
 		var newDailyDownload, newDailyUpload int64
 		if shouldResetDailyQuota(freshSub.LastDailyReset, now) {
 			// Reset time has passed - reset daily counters
-			if isFreeTime {
-				newDailyDownload = 0
-				newDailyUpload = 0
-			} else {
-				newDailyDownload = deltaDownload
-				newDailyUpload = deltaUpload
-			}
+			newDailyDownload = discountedDownload
+			newDailyUpload = discountedUpload
 			updates["last_daily_reset"] = now
 		} else if wasReset {
-			// FUP was reset - use delta only (fresh counters are 0)
-			if isFreeTime {
-				newDailyDownload = 0
-				newDailyUpload = 0
-			} else {
-				newDailyDownload = deltaDownload
-				newDailyUpload = deltaUpload
-			}
+			// FUP was reset - use discounted delta only (fresh counters are 0)
+			newDailyDownload = discountedDownload
+			newDailyUpload = discountedUpload
 		} else {
-			// Same day - add delta to existing (use fresh data)
-			// But skip adding if in free time
-			if isFreeTime {
-				newDailyDownload = freshSub.DailyDownloadUsed
-				newDailyUpload = freshSub.DailyUploadUsed
-			} else {
-				newDailyDownload = freshSub.DailyDownloadUsed + deltaDownload
-				newDailyUpload = freshSub.DailyUploadUsed + deltaUpload
-			}
+			// Same day - add discounted delta to existing
+			newDailyDownload = freshSub.DailyDownloadUsed + discountedDownload
+			newDailyUpload = freshSub.DailyUploadUsed + discountedUpload
 		}
 		updates["daily_download_used"] = newDailyDownload
 		updates["daily_upload_used"] = newDailyUpload
 
 		// Calculate new monthly quota values
 		// Monthly is NOT affected by daily FUP reset - it continues to accumulate
-		// But skip adding if in free time
 		var newMonthlyDownload, newMonthlyUpload int64
 		thisMonth := now.Format("2006-01")
 
-		// During FREE TIME, don't touch monthly at all - skip entire monthly calculation
+		// During 100% FREE TIME, skip monthly update entirely for efficiency
 		if isFreeTime {
-			// Keep existing monthly values - don't add to updates
 			newMonthlyDownload = freshSub.MonthlyDownloadUsed
 			newMonthlyUpload = freshSub.MonthlyUploadUsed
-			log.Printf("QuotaSync: %s FREE TIME - keeping monthly frozen at %.2f GB (from DB: dl=%d ul=%d)",
+			log.Printf("QuotaSync: %s FREE HOURS 100%% - monthly frozen at %.2f GB",
 				sub.Username,
-				float64(freshSub.MonthlyDownloadUsed+freshSub.MonthlyUploadUsed)/1024/1024/1024,
-				freshSub.MonthlyDownloadUsed, freshSub.MonthlyUploadUsed)
+				float64(freshSub.MonthlyDownloadUsed+freshSub.MonthlyUploadUsed)/1024/1024/1024)
 		} else if freshSub.LastMonthlyReset == nil || freshSub.LastMonthlyReset.Format("2006-01") != thisMonth {
 			// New month - reset monthly counters
-			newMonthlyDownload = deltaDownload
-			newMonthlyUpload = deltaUpload
+			newMonthlyDownload = discountedDownload
+			newMonthlyUpload = discountedUpload
 			updates["last_monthly_reset"] = now
 			updates["monthly_download_used"] = newMonthlyDownload
 			updates["monthly_upload_used"] = newMonthlyUpload
 			updates["monthly_quota_used"] = newMonthlyDownload + newMonthlyUpload
 		} else {
-			// Same month, not free time - add delta to existing
-			newMonthlyDownload = freshSub.MonthlyDownloadUsed + deltaDownload
-			newMonthlyUpload = freshSub.MonthlyUploadUsed + deltaUpload
+			// Same month - add discounted delta to existing
+			newMonthlyDownload = freshSub.MonthlyDownloadUsed + discountedDownload
+			newMonthlyUpload = freshSub.MonthlyUploadUsed + discountedUpload
 			updates["monthly_download_used"] = newMonthlyDownload
 			updates["monthly_upload_used"] = newMonthlyUpload
 			updates["monthly_quota_used"] = newMonthlyDownload + newMonthlyUpload
@@ -515,13 +510,13 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 		}
 
 		if deltaDownload > 0 || deltaUpload > 0 {
-			log.Printf("QuotaSync: %s - delta: dl=%.2fMB ul=%.2fMB, daily: %.2fMB, monthly: %.2fGB (free=%v)",
+			log.Printf("QuotaSync: %s - delta: dl=%.2fMB ul=%.2fMB, daily: %.2fMB, monthly: %.2fGB (free=%d%%)",
 				sub.Username,
 				float64(deltaDownload)/1024/1024,
 				float64(deltaUpload)/1024/1024,
 				float64(newDailyDownload+newDailyUpload)/1024/1024,
 				float64(newMonthlyDownload+newMonthlyUpload)/1024/1024/1024,
-				isFreeTime,
+				freePercent,
 			)
 		}
 
@@ -1224,17 +1219,13 @@ func SyncSubscriberQuota(subscriber *models.Subscriber) error {
 	return database.DB.Save(subscriber).Error
 }
 
-// isWithinTimeWindow checks if the current time falls within the service's time-based speed window
+// isWithinTimeWindow checks if the current time falls within the service's free hours window
 func isWithinTimeWindow(service *models.Service, now time.Time) bool {
-	// Skip if time-based speed is disabled
+	// Skip if free hours is disabled
 	if !service.TimeBasedSpeedEnabled {
 		return false
 	}
-	// Skip if ratios are both 0 (no boost) or time window not configured
-	// Ratio is a BOOST percentage: 100% = double speed, 200% = triple speed, 0% = no change
-	if service.TimeDownloadRatio == 0 && service.TimeUploadRatio == 0 {
-		return false
-	}
+	// Skip if time window not configured (both from and to are 00:00)
 	if service.TimeFromHour == 0 && service.TimeFromMinute == 0 &&
 		service.TimeToHour == 0 && service.TimeToMinute == 0 {
 		return false

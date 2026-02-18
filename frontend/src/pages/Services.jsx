@@ -83,6 +83,7 @@ export default function Services() {
     time_download_ratio: '0',
     time_upload_ratio: '0',
     // MikroTik/RADIUS settings
+    nas_id: null,
     pool_name: '',
     address_list_in: '',
     address_list_out: '',
@@ -122,6 +123,22 @@ export default function Services() {
       const response = await nasApi.getPools(nasId)
       const pools = response.data.data || []
       setPcqPools(prev => ({ ...prev, [cdnId]: { loading: false, pools } }))
+      // Auto-select pool matching service's pool_name if no real range selected yet
+      const poolName = formData.pool_name
+      if (poolName) {
+        const match = pools.find(p => p.name === poolName)
+        if (match) {
+          setServiceCDNs(prev => prev.map(sc => {
+            if (sc.cdn_id !== cdnId) return sc
+            // Only override if current value is not already a CIDR range
+            const hasRange = sc.pcq_target_pools && sc.pcq_target_pools.includes('/')
+            if (!hasRange) {
+              return { ...sc, pcq_target_pools: match.ranges }
+            }
+            return sc
+          }))
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch pools:', err)
       setPcqPools(prev => ({ ...prev, [cdnId]: { loading: false, pools: [] } }))
@@ -270,6 +287,7 @@ export default function Services() {
         time_to_ampm: (service.time_to_hour || 0) >= 12 ? 'PM' : 'AM',
         time_download_ratio: service.time_download_ratio?.toString() || '0',
         time_upload_ratio: service.time_upload_ratio?.toString() || '0',
+        nas_id: service.nas_id || null,
         pool_name: service.pool_name || '',
         address_list_in: service.address_list_in || '',
         address_list_out: service.address_list_out || '',
@@ -328,10 +346,14 @@ export default function Services() {
         queue_type: 'simple',
       })
     }
-    // Reset IP pools state
-    setSelectedNasId(null)
+    // Reset IP pools state (restore NAS from service if editing)
+    const restoredNasId = service?.nas_id || null
+    setSelectedNasId(restoredNasId)
     setIpPools([])
     setIpPoolsLoading(false)
+    if (restoredNasId) {
+      fetchIPPoolsForService(restoredNasId)
+    }
 
     // Load service CDNs if editing
     setCdnsLoaded(false)
@@ -434,6 +456,7 @@ export default function Services() {
         time_to_minute: originalService.time_to_minute || 0,
         time_download_ratio: originalService.time_download_ratio || 0,
         time_upload_ratio: originalService.time_upload_ratio || 0,
+        nas_id: originalService.nas_id || null,
         pool_name: originalService.pool_name || '',
         address_list_in: originalService.address_list_in || '',
         address_list_out: originalService.address_list_out || '',
@@ -563,6 +586,9 @@ export default function Services() {
   // CDN management functions
   const addCDNConfig = (cdnId) => {
     if (serviceCDNs.find(sc => sc.cdn_id === cdnId)) return
+    // Auto-fill NAS and pool from RADIUS Settings if already selected
+    const autoNasId = selectedNasId || formData.nas_id || null
+    const autoPool = formData.pool_name || ''
     setServiceCDNs([...serviceCDNs, {
       cdn_id: cdnId,
       speed_limit: 0,
@@ -570,8 +596,8 @@ export default function Services() {
       pcq_enabled: false,
       pcq_limit: 50,
       pcq_total_limit: 2000,
-      pcq_nas_id: null,
-      pcq_target_pools: '',
+      pcq_nas_id: autoNasId,
+      pcq_target_pools: autoPool,
       is_active: true,
       time_based_speed_enabled: false,
       time_from_hour: 12,
@@ -582,6 +608,10 @@ export default function Services() {
       time_to_ampm: 'AM',
       time_speed_ratio: 100,
     }])
+    // Auto-fetch pools for this CDN if NAS is already selected
+    if (autoNasId) {
+      fetchPoolsForCDN(cdnId, autoNasId)
+    }
   }
 
   const removeCDNConfig = (cdnId) => {
@@ -1060,6 +1090,7 @@ export default function Services() {
                         onChange={(e) => {
                           const nasId = e.target.value ? parseInt(e.target.value) : null
                           setSelectedNasId(nasId)
+                          setFormData(prev => ({ ...prev, nas_id: nasId }))
                           if (nasId) {
                             fetchIPPoolsForService(nasId)
                           } else {
@@ -1291,7 +1322,7 @@ export default function Services() {
 
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-medium">Time-Based Speed Control (Automatic)</h3>
+                    <h3 className="font-medium">Free Hours — Quota Discount (Automatic)</h3>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1306,7 +1337,7 @@ export default function Services() {
                     </label>
                   </div>
                   <p className="text-sm text-gray-500 mb-4">
-                    Automatically BOOST speed during specified hours. Set ratio to 0% for no boost, 100% for double speed, 200% for triple speed.
+                    Give customers free quota during specified hours. Set 100% = completely free (no quota counted), 70% = 70% free (only 30% counted), 0% = no discount. Use Bandwidth Rules to boost speed separately.
                   </p>
 
                   <div className={`grid grid-cols-2 gap-4 mb-4 ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -1384,7 +1415,7 @@ export default function Services() {
 
                   <div className={`grid grid-cols-2 gap-4 p-3 bg-indigo-50 rounded-lg ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
-                      <label className="label text-indigo-700">Download Boost (%)</label>
+                      <label className="label text-indigo-700">Quota Free % (Download)</label>
                       <input
                         type="number"
                         name="time_download_ratio"
@@ -1392,11 +1423,13 @@ export default function Services() {
                         onChange={handleChange}
                         className="input"
                         placeholder="100"
-                        min="1"
+                        min="0"
+                        max="100"
                       />
+                      <p className="text-xs text-indigo-500 mt-1">100% = fully free, 70% = 30% counted</p>
                     </div>
                     <div>
-                      <label className="label text-indigo-700">Upload Boost (%)</label>
+                      <label className="label text-indigo-700">Quota Free % (Upload)</label>
                       <input
                         type="number"
                         name="time_upload_ratio"
@@ -1404,8 +1437,10 @@ export default function Services() {
                         onChange={handleChange}
                         className="input"
                         placeholder="100"
-                        min="1"
+                        min="0"
+                        max="100"
                       />
+                      <p className="text-xs text-indigo-500 mt-1">100% = fully free, 70% = 30% counted</p>
                     </div>
                   </div>
                 </div>
@@ -1462,8 +1497,8 @@ export default function Services() {
                               <label className="label text-xs">Speed Limit (Mbps)</label>
                               <input
                                 type="number"
-                                value={sc.speed_limit}
-                                onChange={(e) => updateCDNConfig(sc.cdn_id, 'speed_limit', parseInt(e.target.value) || 0)}
+                                value={sc.speed_limit === 0 ? '' : sc.speed_limit}
+                                onChange={(e) => updateCDNConfig(sc.cdn_id, 'speed_limit', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                                 className="input text-sm"
                                 placeholder="0 = unlimited"
                                 min="0"
@@ -1501,7 +1536,16 @@ export default function Services() {
                                 <input
                                   type="checkbox"
                                   checked={sc.pcq_enabled}
-                                  onChange={(e) => updateCDNConfig(sc.cdn_id, 'pcq_enabled', e.target.checked)}
+                                  onChange={(e) => {
+                                    const enabled = e.target.checked
+                                    const autoNasId = selectedNasId || formData.nas_id || null
+                                    if (enabled && autoNasId && !sc.pcq_nas_id) {
+                                      updateCDNConfigMultiple(sc.cdn_id, { pcq_enabled: true, pcq_nas_id: autoNasId })
+                                      fetchPoolsForCDN(sc.cdn_id, autoNasId)
+                                    } else {
+                                      updateCDNConfig(sc.cdn_id, 'pcq_enabled', enabled)
+                                    }
+                                  }}
                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                                 />
                                 <span className="text-sm text-blue-700 font-medium">PCQ Mode</span>
@@ -1510,26 +1554,38 @@ export default function Services() {
                             </div>
                             {sc.pcq_enabled && (
                               <div className="mt-2 p-3 bg-blue-50 rounded space-y-3">
-                                {/* NAS Selector */}
-                                <div>
-                                  <label className="label text-xs text-blue-700">Select NAS</label>
-                                  <select
-                                    value={sc.pcq_nas_id || ''}
-                                    onChange={(e) => {
-                                      const nasId = e.target.value ? parseInt(e.target.value) : null
-                                      updateCDNConfigMultiple(sc.cdn_id, { pcq_nas_id: nasId, pcq_target_pools: '' })
-                                      if (nasId) {
-                                        fetchPoolsForCDN(sc.cdn_id, nasId)
-                                      }
-                                    }}
-                                    className="input text-sm"
-                                  >
-                                    <option value="">-- Select NAS --</option>
-                                    {nasList?.filter(n => n.is_active).map(nas => (
-                                      <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
-                                    ))}
-                                  </select>
-                                </div>
+                                {/* NAS Selector - hidden if service already has NAS selected in RADIUS Settings */}
+                                {(() => {
+                                  const serviceNasId = selectedNasId || formData.nas_id || null
+                                  const serviceNas = serviceNasId ? nasList?.find(n => n.id === serviceNasId) : null
+                                  if (serviceNas) {
+                                    return (
+                                      <div className="text-xs text-blue-700">
+                                        NAS: <span className="font-medium">{serviceNas.name} ({serviceNas.ip_address})</span>
+                                        <span className="text-gray-400 ml-1">— from RADIUS Settings</span>
+                                      </div>
+                                    )
+                                  }
+                                  return (
+                                    <div>
+                                      <label className="label text-xs text-blue-700">Select NAS</label>
+                                      <select
+                                        value={sc.pcq_nas_id || ''}
+                                        onChange={(e) => {
+                                          const nasId = e.target.value ? parseInt(e.target.value) : null
+                                          updateCDNConfigMultiple(sc.cdn_id, { pcq_nas_id: nasId, pcq_target_pools: '' })
+                                          if (nasId) { fetchPoolsForCDN(sc.cdn_id, nasId) }
+                                        }}
+                                        className="input text-sm"
+                                      >
+                                        <option value="">-- Select NAS --</option>
+                                        {nasList?.filter(n => n.is_active).map(nas => (
+                                          <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  )
+                                })()}
 
                                 {/* Pool Selector */}
                                 {sc.pcq_nas_id && (
@@ -1539,7 +1595,9 @@ export default function Services() {
                                       <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Loading pools...</div>
                                     ) : pcqPools[sc.cdn_id]?.pools?.length > 0 ? (
                                       <div className="grid grid-cols-2 gap-2 mt-1">
-                                        {pcqPools[sc.cdn_id].pools.map(pool => {
+                                        {pcqPools[sc.cdn_id].pools.filter(pool =>
+                                          !formData.pool_name || pool.name === formData.pool_name
+                                        ).map(pool => {
                                           const selectedPools = sc.pcq_target_pools ? sc.pcq_target_pools.split(',') : []
                                           const isSelected = selectedPools.includes(pool.ranges)
                                           return (

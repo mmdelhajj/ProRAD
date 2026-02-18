@@ -187,6 +187,7 @@ type CreateServiceRequest struct {
 	ExpiryUnit       int     `json:"expiry_unit"`
 	EntireMonth      bool    `json:"entire_month"`
 	MonthlyAccount   bool    `json:"monthly_account"`
+	NasID            *uint   `json:"nas_id"`
 	PoolName         string  `json:"pool_name"`
 	AddressListIn    string  `json:"address_list_in"`
 	AddressListOut   string  `json:"address_list_out"`
@@ -276,6 +277,7 @@ func (h *ServiceHandler) Create(c *fiber.Ctx) error {
 		ExpiryUnit:       models.ExpiryUnit(req.ExpiryUnit),
 		EntireMonth:      req.EntireMonth,
 		MonthlyAccount:   req.MonthlyAccount,
+		NasID:            req.NasID,
 		PoolName:         req.PoolName,
 		AddressListIn:    req.AddressListIn,
 		AddressListOut:   req.AddressListOut,
@@ -377,7 +379,7 @@ func (h *ServiceHandler) Update(c *fiber.Ctx) error {
 		"monthly_fup3_threshold", "monthly_fup3_download_speed", "monthly_fup3_upload_speed",
 		"price", "day_price", "reset_price",
 		"expiry_value", "expiry_unit", "entire_month", "monthly_account",
-		"pool_name", "address_list_in", "address_list_out", "queue_type",
+		"nas_id", "pool_name", "address_list_in", "address_list_out", "queue_type",
 		"time_based_speed_enabled",
 		"time_from_hour", "time_from_minute", "time_to_hour", "time_to_minute",
 		"time_download_ratio", "time_upload_ratio",

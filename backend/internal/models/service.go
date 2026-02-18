@@ -91,6 +91,7 @@ type Service struct {
 	TimeUploadRatio       int  `gorm:"column:time_upload_ratio;default:100" json:"time_upload_ratio"`                 // percentage (100 = full, 200 = double)
 
 	// Mikrotik
+	NasID           *uint  `gorm:"column:nas_id" json:"nas_id"`
 	PoolName        string `gorm:"column:pool_name;size:100" json:"pool_name"`
 	AddressListIn   string `gorm:"column:address_list_in;size:100" json:"address_list_in"`
 	AddressListOut  string `gorm:"column:address_list_out;size:100" json:"address_list_out"`

@@ -286,6 +286,7 @@ CREATE TABLE IF NOT EXISTS services (
     time_to_minute INTEGER DEFAULT 0,
     time_download_ratio INTEGER DEFAULT 100,
     time_upload_ratio INTEGER DEFAULT 100,
+    nas_id INTEGER,
     pool_name VARCHAR(100),
     address_list_in VARCHAR(100),
     address_list_out VARCHAR(100),
@@ -1106,3 +1107,11 @@ AND NOT EXISTS (SELECT 1 FROM resellers WHERE user_id = u.id);
 -- Update admin user with reseller_id
 UPDATE users SET reseller_id = (SELECT id FROM resellers WHERE name = 'Main Admin' LIMIT 1)
 WHERE username = 'admin' AND reseller_id IS NULL;
+
+-- Add nas_id column to services if not exists (for remembering which NAS was used to select pool)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'services' AND column_name = 'nas_id') THEN
+        ALTER TABLE services ADD COLUMN nas_id INTEGER;
+    END IF;
+END $$;
