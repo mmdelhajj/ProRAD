@@ -4011,3 +4011,28 @@ server_name license.proxpanel.com license.proxrad.com;
 - Copies ALL settings: speed, price, FUP tiers, CDN configs, burst, pool, time-based speed, quotas
 - Edit/Delete buttons in Actions column still work (stopPropagation prevents duplicate popup)
 - File: `frontend/src/pages/Services.jsx` (frontend-only, no backend changes needed)
+
+### v1.0.240-245 CDN NAS Auto-Fill + UX Fixes (Feb 18, 2026)
+- **v1.0.240**: Added `nas_id` column to services table — NAS selection persists when editing/duplicating a service. Fixed React state ordering bug where `setSelectedNasId(service.nas_id)` was overridden by `setSelectedNasId(null)`.
+- **v1.0.241**: PCQ NAS hidden in CDN config — when PCQ enabled, NAS selector replaced by label "NAS: RouterName — from RADIUS Settings" (already selected above).
+- **v1.0.242**: PCQ pool auto-selects the pool matching service's RADIUS Settings `pool_name` after pools load.
+- **v1.0.243**: Fixed auto-select bug — `pcq_target_pools` stored pool NAME ("12M") so `length===0` check failed. Fixed by checking for `/` (CIDR range) instead.
+- **v1.0.244**: PCQ pool list filtered to show only the matching pool, not all pools.
+- **v1.0.245**: Speed Limit field UX fix — showed "0" and couldn't be cleared to type. Fixed: shows empty when value is 0, converts to 0 only on save.
+- Files: `frontend/src/pages/Services.jsx`, `backend/internal/models/service.go`, `backend/internal/handlers/service.go`, `backend/internal/models/schema.sql`
+
+### v1.0.246 Free Hours — Quota Discount (Feb 18, 2026)
+- **Renamed** "Time-Based Speed Control" → **"Free Hours — Quota Discount"**
+- **New meaning for ratio field** (was speed boost %, now quota free %):
+  - `100%` = completely free (no quota counted during window)
+  - `70%` = 70% free (only 30% of usage counted)
+  - `0%` = no discount (normal counting)
+- **Formula**: `counted = delta × (100 - freePercent) / 100`
+- **Fixed**: ratio=0% no longer disables the bypass (removed the `ratio==0` early-return check)
+- **Speed boost removed** from this feature — use Bandwidth Rules for speed changes
+- **Input range**: 0–100 with helper text explaining the meaning
+- **Default**: 100% for new services
+- **Existing services** with 200% (old boost values) auto-capped to 100% in DB
+- **Partial quota**: e.g. 70% free = ISP gives 70% discount on usage during night hours
+- Files: `backend/internal/services/quota_sync.go`, `frontend/src/pages/Services.jsx`
+- Deployed to: `185.111.161.111` (infosys customer)
