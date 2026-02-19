@@ -4165,8 +4165,9 @@ func (c *Client) parseTracerouteTime(timeStr string) float64 {
 // PortRuleConfig holds configuration for port-based PCQ rules
 type PortRuleConfig struct {
 	Name        string // Rule name (e.g. "SP")
-	Port        string // Port number (e.g. "8080")
-	Direction   string // "src", "dst", or "both"
+	Port        string // Port number (e.g. "8080") - empty for dscp direction
+	Direction   string // "src", "dst", "both", or "dscp"
+	DSCPValue   int    // DSCP value 0-63 (only for dscp direction)
 	SpeedLimitM int64  // Speed in Mbps
 	CompanyName string
 }
@@ -4226,69 +4227,115 @@ func (c *Client) SyncPortRule(config PortRuleConfig) error {
 	log.Printf("MikroTik: Created/updated port rule queue type %s rate=%s", queueTypeName, pcqRate)
 
 	// Step 2: Create mangle rule(s) based on direction
-	type mangleRule struct {
-		comment   string
-		portField string // "src-port" or "dst-port"
-	}
-	var rules []mangleRule
-	if config.Direction == "src" || config.Direction == "both" {
-		rules = append(rules, mangleRule{
-			comment:   fmt.Sprintf("%s PORT %s src-%s", config.CompanyName, config.Name, config.Port),
-			portField: "src-port",
-		})
-	}
-	if config.Direction == "dst" || config.Direction == "both" {
-		rules = append(rules, mangleRule{
-			comment:   fmt.Sprintf("%s PORT %s dst-%s", config.CompanyName, config.Name, config.Port),
-			portField: "dst-port",
-		})
-	}
-
-	for _, rule := range rules {
+	if config.Direction == "dscp" {
+		// DSCP direction: single mangle rule matching by DSCP value, chain=postrouting
+		dscpComment := fmt.Sprintf("%s CDN %s DSCP %d", config.CompanyName, config.Name, config.DSCPValue)
 		c.conn.SetDeadline(time.Now().Add(c.timeout))
 		c.sendWord("/ip/firewall/mangle/print")
-		c.sendWord("?comment=" + rule.comment)
+		c.sendWord("?comment=" + dscpComment)
 		c.sendWord("")
 		response, err = c.readResponse()
 		if err != nil {
-			return fmt.Errorf("failed to check mangle rule: %v", err)
+			return fmt.Errorf("failed to check DSCP mangle rule: %v", err)
 		}
-		var mangleID string
+		var dscpMangleID string
 		for _, word := range response {
 			if strings.HasPrefix(word, "=.id=") {
-				mangleID = strings.TrimPrefix(word, "=.id=")
+				dscpMangleID = strings.TrimPrefix(word, "=.id=")
 				break
 			}
 		}
-		// Remove existing rule if any (to ensure port value is updated)
-		if mangleID != "" {
+		if dscpMangleID != "" {
 			c.conn.SetDeadline(time.Now().Add(c.timeout))
 			c.sendWord("/ip/firewall/mangle/remove")
-			c.sendWord("=.id=" + mangleID)
+			c.sendWord("=.id=" + dscpMangleID)
 			c.sendWord("")
 			c.readResponse()
 		}
-		// Create mangle rule
 		c.conn.SetDeadline(time.Now().Add(c.timeout))
 		c.sendWord("/ip/firewall/mangle/add")
 		c.sendWord("=action=mark-packet")
-		c.sendWord("=chain=forward")
-		c.sendWord("=protocol=tcp")
-		c.sendWord(fmt.Sprintf("=%s=%s", rule.portField, config.Port))
+		c.sendWord("=chain=postrouting")
+		c.sendWord(fmt.Sprintf("=dscp=%d", config.DSCPValue))
 		c.sendWord("=new-packet-mark=" + packetMark)
 		c.sendWord("=passthrough=no")
-		c.sendWord("=comment=" + rule.comment)
+		c.sendWord("=comment=" + dscpComment)
 		c.sendWord("")
 		resp, err := c.readResponse()
 		if err != nil {
-			return fmt.Errorf("failed to create mangle rule: %v", err)
+			return fmt.Errorf("failed to create DSCP mangle rule: %v", err)
 		}
 		for _, word := range resp {
 			if strings.HasPrefix(word, "!trap") {
-				return fmt.Errorf("mangle rule error: %v", resp)
+				return fmt.Errorf("DSCP mangle rule error: %v", resp)
 			}
 		}
-		log.Printf("MikroTik: Created port rule mangle %s=%s mark=%s", rule.portField, config.Port, packetMark)
+		log.Printf("MikroTik: Created DSCP mangle rule dscp=%d mark=%s", config.DSCPValue, packetMark)
+	} else {
+		type mangleRule struct {
+			comment   string
+			portField string // "src-port" or "dst-port"
+		}
+		var rules []mangleRule
+		if config.Direction == "src" || config.Direction == "both" {
+			rules = append(rules, mangleRule{
+				comment:   fmt.Sprintf("%s PORT %s src-%s", config.CompanyName, config.Name, config.Port),
+				portField: "src-port",
+			})
+		}
+		if config.Direction == "dst" || config.Direction == "both" {
+			rules = append(rules, mangleRule{
+				comment:   fmt.Sprintf("%s PORT %s dst-%s", config.CompanyName, config.Name, config.Port),
+				portField: "dst-port",
+			})
+		}
+
+		for _, rule := range rules {
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/ip/firewall/mangle/print")
+			c.sendWord("?comment=" + rule.comment)
+			c.sendWord("")
+			response, err = c.readResponse()
+			if err != nil {
+				return fmt.Errorf("failed to check mangle rule: %v", err)
+			}
+			var mangleID string
+			for _, word := range response {
+				if strings.HasPrefix(word, "=.id=") {
+					mangleID = strings.TrimPrefix(word, "=.id=")
+					break
+				}
+			}
+			// Remove existing rule if any (to ensure port value is updated)
+			if mangleID != "" {
+				c.conn.SetDeadline(time.Now().Add(c.timeout))
+				c.sendWord("/ip/firewall/mangle/remove")
+				c.sendWord("=.id=" + mangleID)
+				c.sendWord("")
+				c.readResponse()
+			}
+			// Create mangle rule
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/ip/firewall/mangle/add")
+			c.sendWord("=action=mark-packet")
+			c.sendWord("=chain=forward")
+			c.sendWord("=protocol=tcp")
+			c.sendWord(fmt.Sprintf("=%s=%s", rule.portField, config.Port))
+			c.sendWord("=new-packet-mark=" + packetMark)
+			c.sendWord("=passthrough=no")
+			c.sendWord("=comment=" + rule.comment)
+			c.sendWord("")
+			resp, err := c.readResponse()
+			if err != nil {
+				return fmt.Errorf("failed to create mangle rule: %v", err)
+			}
+			for _, word := range resp {
+				if strings.HasPrefix(word, "!trap") {
+					return fmt.Errorf("mangle rule error: %v", resp)
+				}
+			}
+			log.Printf("MikroTik: Created port rule mangle %s=%s mark=%s", rule.portField, config.Port, packetMark)
+		}
 	}
 
 	// Step 3: Create/update simple queue
@@ -4361,7 +4408,11 @@ func (c *Client) SyncPortRule(config PortRuleConfig) error {
 		}
 	}
 
-	log.Printf("MikroTik: Port rule %s synced (port=%s dir=%s speed=%dM)", config.Name, config.Port, config.Direction, config.SpeedLimitM)
+	if config.Direction == "dscp" {
+		log.Printf("MikroTik: Port rule %s synced (dscp=%d dir=%s speed=%dM)", config.Name, config.DSCPValue, config.Direction, config.SpeedLimitM)
+	} else {
+		log.Printf("MikroTik: Port rule %s synced (port=%s dir=%s speed=%dM)", config.Name, config.Port, config.Direction, config.SpeedLimitM)
+	}
 	return nil
 }
 

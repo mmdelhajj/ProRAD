@@ -28,6 +28,7 @@ func (h *CDNHandler) CreatePortRule(c *fiber.Ctx) error {
 		Name      string `json:"name"`
 		Port      string `json:"port"`
 		Direction string `json:"direction"`
+		DSCPValue *int   `json:"dscp_value"`
 		SpeedMbps int64  `json:"speed_mbps"`
 		NASID     *uint  `json:"nas_id"`
 		IsActive  bool   `json:"is_active"`
@@ -35,17 +36,25 @@ func (h *CDNHandler) CreatePortRule(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request"})
 	}
-	if body.Name == "" || body.Port == "" || body.SpeedMbps <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Name, port, and speed are required"})
+	if body.Name == "" || body.SpeedMbps <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Name and speed are required"})
 	}
 	if body.Direction == "" {
 		body.Direction = "both"
+	}
+	if body.Direction == "dscp" {
+		if body.DSCPValue == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "DSCP value is required for DSCP direction"})
+		}
+	} else if body.Port == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Port is required for non-DSCP direction"})
 	}
 
 	rule := models.CDNPortRule{
 		Name:      body.Name,
 		Port:      body.Port,
 		Direction: body.Direction,
+		DSCPValue: body.DSCPValue,
 		SpeedMbps: body.SpeedMbps,
 		NASID:     body.NASID,
 		IsActive:  body.IsActive,
@@ -68,6 +77,7 @@ func (h *CDNHandler) UpdatePortRule(c *fiber.Ctx) error {
 		Name      string `json:"name"`
 		Port      string `json:"port"`
 		Direction string `json:"direction"`
+		DSCPValue *int   `json:"dscp_value"`
 		SpeedMbps int64  `json:"speed_mbps"`
 		NASID     *uint  `json:"nas_id"`
 		IsActive  bool   `json:"is_active"`
@@ -79,6 +89,7 @@ func (h *CDNHandler) UpdatePortRule(c *fiber.Ctx) error {
 	rule.Name = body.Name
 	rule.Port = body.Port
 	rule.Direction = body.Direction
+	rule.DSCPValue = body.DSCPValue
 	rule.SpeedMbps = body.SpeedMbps
 	rule.NASID = body.NASID
 	rule.IsActive = body.IsActive
@@ -135,10 +146,15 @@ func (h *CDNHandler) SyncAllPortRulesToNAS(c *fiber.Ctx) error {
 func syncPortRuleToNAS(rule models.CDNPortRule) {
 	companyName := getCDNCompanyName()
 
+	dscpValue := 0
+	if rule.DSCPValue != nil {
+		dscpValue = *rule.DSCPValue
+	}
 	config := mikrotik.PortRuleConfig{
 		Name:        rule.Name,
 		Port:        rule.Port,
 		Direction:   rule.Direction,
+		DSCPValue:   dscpValue,
 		SpeedLimitM: rule.SpeedMbps,
 		CompanyName: companyName,
 	}

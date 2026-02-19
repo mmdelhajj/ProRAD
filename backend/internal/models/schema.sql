@@ -852,8 +852,9 @@ CREATE TABLE IF NOT EXISTS service_cdns (
 CREATE TABLE IF NOT EXISTS cdn_port_rules (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    port VARCHAR(50) NOT NULL,
+    port VARCHAR(50),
     direction VARCHAR(10) DEFAULT 'both',
+    dscp_value INTEGER,
     speed_mbps BIGINT NOT NULL DEFAULT 5,
     nas_id INTEGER,
     is_active BOOLEAN DEFAULT true,
@@ -861,6 +862,8 @@ CREATE TABLE IF NOT EXISTS cdn_port_rules (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
 );
+ALTER TABLE cdn_port_rules ADD COLUMN IF NOT EXISTS dscp_value INTEGER;
+ALTER TABLE cdn_port_rules ALTER COLUMN port DROP NOT NULL;
 
 -- Bandwidth Rules
 CREATE TABLE IF NOT EXISTS bandwidth_rules (

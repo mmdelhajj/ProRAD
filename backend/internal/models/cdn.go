@@ -59,8 +59,9 @@ func (ServiceCDN) TableName() string {
 type CDNPortRule struct {
 	ID          uint           `gorm:"column:id;primaryKey" json:"id"`
 	Name        string         `gorm:"column:name;size:100;not null" json:"name"`
-	Port        string         `gorm:"column:port;size:50;not null" json:"port"`           // e.g. "8080"
-	Direction   string         `gorm:"column:direction;size:10;default:'both'" json:"direction"` // src, dst, both
+	Port        string         `gorm:"column:port;size:50" json:"port"`                   // e.g. "8080" (empty for dscp direction)
+	Direction   string         `gorm:"column:direction;size:10;default:'both'" json:"direction"` // src, dst, both, dscp
+	DSCPValue   *int           `gorm:"column:dscp_value" json:"dscp_value"`               // DSCP value 0-63 (only for dscp direction)
 	SpeedMbps   int64          `gorm:"column:speed_mbps;not null;default:5" json:"speed_mbps"` // Speed limit in Mbps
 	NASID       *uint          `gorm:"column:nas_id" json:"nas_id"`
 	IsActive    bool           `gorm:"column:is_active;default:true" json:"is_active"`

@@ -16,12 +16,14 @@ const DIRECTIONS = [
   { value: 'src', label: 'Source Port Only (src-port)' },
   { value: 'dst', label: 'Destination Port Only (dst-port)' },
   { value: 'both', label: 'Both (src-port + dst-port)' },
+  { value: 'dscp', label: 'DSCP Only (no port)' },
 ]
 
 const defaultForm = {
   name: '',
   port: '',
   direction: 'both',
+  dscp_value: 63,
   speed_mbps: 5,
   nas_id: null,
   is_active: true,
@@ -82,6 +84,7 @@ export default function CDNPortRules() {
         name: rule.name || '',
         port: rule.port || '',
         direction: rule.direction || 'both',
+        dscp_value: rule.dscp_value ?? 63,
         speed_mbps: rule.speed_mbps || 5,
         nas_id: rule.nas_id || null,
         is_active: rule.is_active ?? true,
@@ -100,11 +103,18 @@ export default function CDNPortRules() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    saveMutation.mutate({
+    const payload = {
       ...formData,
       speed_mbps: parseInt(formData.speed_mbps) || 5,
       nas_id: formData.nas_id ? parseInt(formData.nas_id) : null,
-    })
+    }
+    if (formData.direction === 'dscp') {
+      payload.dscp_value = parseInt(formData.dscp_value) || 0
+      payload.port = ''
+    } else {
+      payload.dscp_value = null
+    }
+    saveMutation.mutate(payload)
   }
 
   const handleChange = (e) => {
@@ -115,15 +125,17 @@ export default function CDNPortRules() {
     }))
   }
 
-  const directionLabel = (d) => {
+  const directionLabel = (d, rule) => {
     if (d === 'src') return 'src-port'
     if (d === 'dst') return 'dst-port'
+    if (d === 'dscp') return `dscp=${rule?.dscp_value ?? ''}`
     return 'src + dst'
   }
 
   const directionColor = (d) => {
     if (d === 'src') return 'bg-blue-100 text-blue-800'
     if (d === 'dst') return 'bg-purple-100 text-purple-800'
+    if (d === 'dscp') return 'bg-orange-100 text-orange-800'
     return 'bg-green-100 text-green-800'
   }
 
@@ -208,13 +220,19 @@ export default function CDNPortRules() {
                       </div>
                     </td>
                     <td>
-                      <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                        :{rule.port}
-                      </span>
+                      {rule.direction === 'dscp' ? (
+                        <span className="font-mono text-sm bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded">
+                          DSCP {rule.dscp_value}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                          :{rule.port}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <span className={clsx('text-xs font-medium px-2 py-1 rounded-full', directionColor(rule.direction))}>
-                        {directionLabel(rule.direction)}
+                        {directionLabel(rule.direction, rule)}
                       </span>
                     </td>
                     <td>
@@ -303,20 +321,6 @@ export default function CDNPortRules() {
                 </div>
 
                 <div>
-                  <label className="label">Port</label>
-                  <input
-                    type="text"
-                    name="port"
-                    value={formData.port}
-                    onChange={handleChange}
-                    className="input font-mono"
-                    placeholder="e.g. 8080"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">TCP port number to match</p>
-                </div>
-
-                <div>
                   <label className="label">Direction</label>
                   <select
                     name="direction"
@@ -329,11 +333,44 @@ export default function CDNPortRules() {
                     ))}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    {formData.direction === 'src' && 'Generates: src-port mangle rule only'}
-                    {formData.direction === 'dst' && 'Generates: dst-port mangle rule only'}
-                    {formData.direction === 'both' && 'Generates: src-port + dst-port mangle rules'}
+                    {formData.direction === 'src' && 'Generates: src-port mangle rule (chain=forward)'}
+                    {formData.direction === 'dst' && 'Generates: dst-port mangle rule (chain=forward)'}
+                    {formData.direction === 'both' && 'Generates: src-port + dst-port mangle rules (chain=forward)'}
+                    {formData.direction === 'dscp' && 'Generates: DSCP mangle rule (chain=postrouting, no port)'}
                   </p>
                 </div>
+
+                {formData.direction !== 'dscp' ? (
+                  <div>
+                    <label className="label">Port</label>
+                    <input
+                      type="text"
+                      name="port"
+                      value={formData.port}
+                      onChange={handleChange}
+                      className="input font-mono"
+                      placeholder="e.g. 8080"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">TCP port number to match</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="label">DSCP Value (0–63)</label>
+                    <input
+                      type="number"
+                      name="dscp_value"
+                      value={formData.dscp_value}
+                      onChange={handleChange}
+                      className="input font-mono"
+                      placeholder="e.g. 63"
+                      min="0"
+                      max="63"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">DSCP value to match (0–63). Common values: 46=EF, 34=AF41, 63=custom</p>
+                  </div>
+                )}
 
                 <div>
                   <label className="label">Speed Limit (Mbps)</label>
@@ -377,15 +414,21 @@ export default function CDNPortRules() {
                 </div>
 
                 {/* Preview */}
-                {formData.name && formData.port && (
+                {formData.name && (formData.direction === 'dscp' ? true : formData.port) && (
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 font-mono text-xs text-gray-600 dark:text-gray-300 space-y-1">
                     <div className="text-gray-400 mb-1">MikroTik preview:</div>
                     <div>queue type: PORT-{formData.name}-{formData.speed_mbps} ({formData.speed_mbps}M PCQ)</div>
-                    {(formData.direction === 'src' || formData.direction === 'both') && (
-                      <div>mangle: chain=forward protocol=tcp src-port={formData.port} mark=PORT-{formData.name}</div>
-                    )}
-                    {(formData.direction === 'dst' || formData.direction === 'both') && (
-                      <div>mangle: chain=forward protocol=tcp dst-port={formData.port} mark=PORT-{formData.name}</div>
+                    {formData.direction === 'dscp' ? (
+                      <div>mangle: chain=postrouting dscp={formData.dscp_value} new-packet-mark=PORT-{formData.name} passthrough=no</div>
+                    ) : (
+                      <>
+                        {(formData.direction === 'src' || formData.direction === 'both') && (
+                          <div>mangle: chain=forward protocol=tcp src-port={formData.port} mark=PORT-{formData.name}</div>
+                        )}
+                        {(formData.direction === 'dst' || formData.direction === 'both') && (
+                          <div>mangle: chain=forward protocol=tcp dst-port={formData.port} mark=PORT-{formData.name}</div>
+                        )}
+                      </>
                     )}
                     <div>queue: PORT-{formData.name}-{formData.speed_mbps}M (packet-mark=PORT-{formData.name})</div>
                   </div>
