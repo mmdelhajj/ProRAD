@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { nasApi, diagnosticApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import {
@@ -23,8 +24,9 @@ const TABS = [
 const PACKET_SIZES = [64, 500, 1000, 1400, 1500, 8000, 16000, 32000, 64000]
 
 export default function DiagnosticTools() {
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState('ping')
-  const [selectedNasId, setSelectedNasId] = useState('')
+  const [selectedNasId, setSelectedNasId] = useState(searchParams.get('nas_id') || '')
 
   // Ping state
   const [pingTarget, setPingTarget] = useState('')
@@ -62,12 +64,17 @@ export default function DiagnosticTools() {
 
   const nasList = nasData || []
 
-  // Auto-select NAS if only one
+  // Auto-select NAS: prefer URL param, fall back to first NAS if only one
   useEffect(() => {
-    if (nasList.length === 1 && !selectedNasId) {
-      setSelectedNasId(String(nasList[0].id))
+    if (!selectedNasId && nasList.length > 0) {
+      const paramId = searchParams.get('nas_id')
+      if (paramId && nasList.find(n => String(n.id) === paramId)) {
+        setSelectedNasId(paramId)
+      } else if (nasList.length === 1) {
+        setSelectedNasId(String(nasList[0].id))
+      }
     }
-  }, [nasList, selectedNasId])
+  }, [nasList])
 
   // Close dropdown on outside click
   useEffect(() => {

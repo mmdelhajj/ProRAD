@@ -89,6 +89,8 @@ export default function SubscriberEdit() {
     simultaneous_sessions: 1,
     expiry_date: '',
     note: '',
+    price: '',
+    override_price: false,
   })
 
   const { data: subscriberResponse, isLoading } = useQuery({
@@ -271,6 +273,8 @@ export default function SubscriberEdit() {
         simultaneous_sessions: subscriber.simultaneous_sessions || 1,
         expiry_date: subscriber.expiry_date ? subscriber.expiry_date.split('T')[0] : '',
         note: subscriber.note || '',
+        price: subscriber.price || '',
+        override_price: subscriber.override_price || false,
       })
 
     }
@@ -480,6 +484,12 @@ export default function SubscriberEdit() {
     e.preventDefault()
     const data = { ...formData }
     if (!data.password) delete data.password
+    if (data.override_price && data.price !== '') {
+      data.price = parseFloat(data.price)
+    } else {
+      data.price = 0
+      data.override_price = false
+    }
     if (data.service_id) data.service_id = parseInt(data.service_id)
     if (data.nas_id) data.nas_id = parseInt(data.nas_id)
     else delete data.nas_id
@@ -740,6 +750,39 @@ export default function SubscriberEdit() {
                     />
                   </div>
                 )}
+                {/* Override Price */}
+                <div>
+                  <label className="label">Price</label>
+                  <div className="flex items-center gap-3 mb-2">
+                    <input
+                      type="checkbox"
+                      id="override_price"
+                      name="override_price"
+                      checked={formData.override_price}
+                      onChange={handleChange}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label htmlFor="override_price" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                      Override service price for this subscriber
+                    </label>
+                  </div>
+                  {formData.override_price ? (
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleChange}
+                      placeholder="Enter custom price"
+                      step="0.01"
+                      min="0"
+                      className="input"
+                    />
+                  ) : (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                      Using service default: ${services?.find(s => s.id == formData.service_id)?.price ?? '—'}
+                    </div>
+                  )}
+                </div>
                 <div>
                   <label className="label">NAS</label>
                   <select

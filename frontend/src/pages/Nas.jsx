@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { nasApi } from '../services/api'
 import {
@@ -18,6 +19,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   WifiIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -350,6 +352,13 @@ export default function Nas() {
                 <ArrowPathIcon className="w-4 h-4" />
               </button>
             )}
+            <Link
+              to={`/diagnostic-tools?nas_id=${row.original.id}`}
+              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded inline-flex"
+              title="Diagnostic Tools"
+            >
+              <WrenchScrewdriverIcon className="w-4 h-4" />
+            </Link>
             <button
               onClick={() => openModal(row.original)}
               className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"

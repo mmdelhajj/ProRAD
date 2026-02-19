@@ -912,6 +912,174 @@ func (h *SubscriberHandler) Create(c *fiber.Ctx) error {
 	})
 }
 
+// buildSubscriberChanges compares the old subscriber state against the updates map
+// and returns a human-readable description of every field that changed.
+func buildSubscriberChanges(old *models.Subscriber, updates map[string]interface{}, passwordChanged bool) string {
+	fieldLabels := map[string]string{
+		"full_name":             "Name",
+		"email":                 "Email",
+		"phone":                 "Phone",
+		"address":               "Address",
+		"region":                "Region",
+		"building":              "Building",
+		"nationality":           "Nationality",
+		"country":               "Country",
+		"note":                  "Note",
+		"service_id":            "Service",
+		"nas_id":                "NAS",
+		"switch_id":             "Switch",
+		"status":                "Status",
+		"static_ip":             "Static IP",
+		"simultaneous_sessions": "Sessions",
+		"expiry_date":           "Expiry Date",
+		"auto_renew":            "Auto Renew",
+		"save_mac":              "Save MAC",
+		"auto_recharge":         "Auto Recharge",
+		"auto_recharge_days":    "Auto Recharge Days",
+		"reseller_id":           "Reseller",
+		"price":                 "Price",
+		"override_price":        "Override Price",
+		"latitude":              "Latitude",
+		"longitude":             "Longitude",
+	}
+	statusLabels := map[int]string{1: "Active", 2: "Inactive", 3: "Expired", 4: "Stopped"}
+
+	// Return current value of a field from the old subscriber struct as a display string.
+	getOldValue := func(field string) string {
+		switch field {
+		case "full_name":
+			return old.FullName
+		case "email":
+			return old.Email
+		case "phone":
+			return old.Phone
+		case "address":
+			return old.Address
+		case "region":
+			return old.Region
+		case "building":
+			return old.Building
+		case "nationality":
+			return old.Nationality
+		case "country":
+			return old.Country
+		case "note":
+			return old.Note
+		case "service_id":
+			return fmt.Sprintf("#%d", old.ServiceID)
+		case "nas_id":
+			if old.NasID != nil {
+				return fmt.Sprintf("#%d", *old.NasID)
+			}
+			return "none"
+		case "switch_id":
+			if old.SwitchID != nil {
+				return fmt.Sprintf("#%d", *old.SwitchID)
+			}
+			return "none"
+		case "status":
+			if label, ok := statusLabels[int(old.Status)]; ok {
+				return label
+			}
+			return fmt.Sprintf("%d", int(old.Status))
+		case "static_ip":
+			return old.StaticIP
+		case "simultaneous_sessions":
+			return fmt.Sprintf("%d", old.SimultaneousSessions)
+		case "expiry_date":
+			return old.ExpiryDate.Format("2006-01-02")
+		case "auto_renew":
+			return fmt.Sprintf("%v", old.AutoRenew)
+		case "save_mac":
+			return fmt.Sprintf("%v", old.SaveMAC)
+		case "auto_recharge":
+			return fmt.Sprintf("%v", old.AutoRecharge)
+		case "reseller_id":
+			if old.ResellerID == 0 {
+				return "none"
+			}
+			return fmt.Sprintf("#%d", old.ResellerID)
+		case "price":
+			return fmt.Sprintf("$%.2f", old.Price)
+		case "override_price":
+			return fmt.Sprintf("%v", old.OverridePrice)
+		case "latitude":
+			return fmt.Sprintf("%.6f", old.Latitude)
+		case "longitude":
+			return fmt.Sprintf("%.6f", old.Longitude)
+		}
+		return ""
+	}
+
+	// Format a new value from the updates map as a display string.
+	getNewValue := func(field string, val interface{}) string {
+		switch field {
+		case "status":
+			s := 0
+			switch v := val.(type) {
+			case int:
+				s = v
+			case float64:
+				s = int(v)
+			}
+			if label, ok := statusLabels[s]; ok {
+				return label
+			}
+			return fmt.Sprintf("%d", s)
+		case "price":
+			if f, ok := val.(float64); ok {
+				return fmt.Sprintf("$%.2f", f)
+			}
+		case "expiry_date":
+			if t, ok := val.(time.Time); ok {
+				return t.Format("2006-01-02")
+			}
+		case "override_price", "auto_renew", "save_mac", "auto_recharge":
+			if b, ok := val.(bool); ok {
+				return fmt.Sprintf("%v", b)
+			}
+		case "service_id", "nas_id", "switch_id", "reseller_id":
+			switch v := val.(type) {
+			case int:
+				return fmt.Sprintf("#%d", v)
+			case float64:
+				return fmt.Sprintf("#%d", int(v))
+			}
+		}
+		return fmt.Sprintf("%v", val)
+	}
+
+	var changes []string
+	if passwordChanged {
+		changes = append(changes, "Password changed")
+	}
+	for field, newVal := range updates {
+		if field == "password" || field == "password_plain" {
+			continue
+		}
+		label, ok := fieldLabels[field]
+		if !ok {
+			label = field
+		}
+		oldStr := getOldValue(field)
+		newStr := getNewValue(field, newVal)
+		if oldStr == newStr {
+			continue
+		}
+		if oldStr == "" || oldStr == "none" {
+			changes = append(changes, fmt.Sprintf("%s set to %s", label, newStr))
+		} else if newStr == "" || newStr == "none" || newStr == "0" {
+			changes = append(changes, fmt.Sprintf("%s cleared (was %s)", label, oldStr))
+		} else {
+			changes = append(changes, fmt.Sprintf("%s: %s → %s", label, oldStr, newStr))
+		}
+	}
+	if len(changes) == 0 {
+		return fmt.Sprintf(`Updated subscriber "%s"`, old.Username)
+	}
+	return fmt.Sprintf(`Updated subscriber "%s": %s`, old.Username, strings.Join(changes, ", "))
+}
+
 // Update updates a subscriber
 func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
@@ -964,6 +1132,7 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 		"latitude", "longitude", "save_mac", "auto_recharge", "auto_recharge_days",
 		"status", "static_ip", "simultaneous_sessions", "expiry_date",
 		"auto_renew", "reseller_id",
+		"price", "override_price",
 	}
 
 	// Store old values for RADIUS and MikroTik updates
@@ -1012,6 +1181,14 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 				if str, ok := val.(string); ok {
 					updates[field] = str
 				}
+			case "price":
+				if f, ok := val.(float64); ok {
+					updates[field] = f
+				}
+			case "override_price":
+				if b, ok := val.(bool); ok {
+					updates[field] = b
+				}
 			default:
 				// Skip empty strings for optional fields
 				if str, ok := val.(string); ok && str == "" {
@@ -1024,17 +1201,28 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 
 	// Handle password update
 	var passwordToUpdate string
+	var passwordChanged bool
 	if password, ok := req["password"].(string); ok && password != "" {
 		// Skip if password is already encrypted (user didn't change it)
 		if strings.HasPrefix(password, "ENC:") {
 			// Don't update password - it's the encrypted value from the form
 		} else {
-			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-			updates["password"] = string(hashedPassword)
-			updates["password_plain"] = security.EncryptPassword(password)
-			passwordToUpdate = password
+			// Compare against current plaintext password to detect actual changes.
+			// The frontend always sends the decrypted password back, so we must compare
+			// to avoid marking unchanged passwords as "Password changed" in audit log.
+			currentPlain := security.DecryptPassword(subscriber.PasswordPlain)
+			if password != currentPlain {
+				hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+				updates["password"] = string(hashedPassword)
+				updates["password_plain"] = security.EncryptPassword(password)
+				passwordToUpdate = password
+				passwordChanged = true
+			}
 		}
 	}
+
+	// Snapshot old subscriber state before applying updates (used for audit diff)
+	oldSubscriber := subscriber
 
 	if err := database.DB.Model(&subscriber).Updates(updates).Error; err != nil {
 		fmt.Printf("Update error: %v, updates: %+v\n", err, updates)
@@ -1078,21 +1266,12 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 		database.DB.Create(&models.RadCheck{Username: currentUsername, Attribute: "Simultaneous-Use", Op: ":=", Value: fmt.Sprintf("%d", simValue)})
 	}
 
-	// Create audit log
-	user := middleware.GetCurrentUser(c)
-	auditLog := models.AuditLog{
-		UserID:      user.ID,
-		Username:    user.Username,
-		UserType:    user.UserType,
-		Action:      models.AuditActionUpdate,
-		EntityType:  "subscriber",
-		EntityID:    subscriber.ID,
-		EntityName:  subscriber.Username,
-		Description: "Updated subscriber",
-		IPAddress:   c.IP(),
-		UserAgent:   c.Get("User-Agent"),
-	}
-	database.DB.Create(&auditLog)
+	// Pass detailed audit description to middleware via Fiber locals.
+	// The middleware creates the actual DB entry after c.Next() returns.
+	// (Direct database.DB.Create fails silently when OldValue/NewValue are empty jsonb columns)
+	c.Locals("audit_description", buildSubscriberChanges(&oldSubscriber, updates, passwordChanged))
+	c.Locals("audit_entity_id", subscriber.ID)
+	c.Locals("audit_entity_name", subscriber.Username)
 
 	// Sync static IP changes to MikroTik address list
 	if newStaticIP, ok := req["static_ip"].(string); ok {

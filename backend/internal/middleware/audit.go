@@ -52,10 +52,15 @@ func AuditLogger() fiber.Handler {
 		// Execute the request
 		err := c.Next()
 
+		// Read optional custom audit details injected by the handler
+		customDesc, _ := c.Locals("audit_description").(string)
+		customEntityID, _ := c.Locals("audit_entity_id").(uint)
+		customEntityName, _ := c.Locals("audit_entity_name").(string)
+
 		// Only log successful responses
 		statusCode := c.Response().StatusCode()
 		if statusCode >= 200 && statusCode < 400 && user != nil {
-			logAuditEntry(user, method, path, ip, userAgent, requestBody, entityNameBeforeDelete)
+			logAuditEntry(user, method, path, ip, userAgent, requestBody, entityNameBeforeDelete, customDesc, customEntityID, customEntityName)
 		}
 
 		return err
@@ -72,7 +77,7 @@ func extractIDFromPath(path string) string {
 	return ""
 }
 
-func logAuditEntry(user *models.User, method, path, ip, userAgent string, requestBody []byte, preDeleteName string) {
+func logAuditEntry(user *models.User, method, path, ip, userAgent string, requestBody []byte, preDeleteName, customDesc string, customEntityID uint, customEntityName string) {
 	if user == nil {
 		return
 	}
@@ -96,8 +101,13 @@ func logAuditEntry(user *models.User, method, path, ip, userAgent string, reques
 		return
 	}
 
-	// Generate human-readable description
-	description := generateDescription(action, entityType, path, requestBody, preDeleteName)
+	// Use handler-provided description if available, otherwise generate generic one
+	var description string
+	if customDesc != "" {
+		description = customDesc
+	} else {
+		description = generateDescription(action, entityType, path, requestBody, preDeleteName)
+	}
 
 	// Create audit log
 	auditLog := models.AuditLog{
@@ -106,6 +116,8 @@ func logAuditEntry(user *models.User, method, path, ip, userAgent string, reques
 		UserType:    user.UserType,
 		Action:      action,
 		EntityType:  entityType,
+		EntityID:    customEntityID,
+		EntityName:  customEntityName,
 		Description: description,
 		IPAddress:   ip,
 		UserAgent:   userAgent,
