@@ -4187,6 +4187,29 @@ func (c *Client) SyncPortRule(config PortRuleConfig) error {
 			return fmt.Errorf("simple queue error: %v", resp)
 		}
 	}
+
+	// Move queue to top (position 0) so it processes before user queues
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/queue/simple/print")
+	c.sendWord("?comment=" + queueComment)
+	c.sendWord("")
+	response, err = c.readResponse()
+	if err == nil {
+		for _, word := range response {
+			if strings.HasPrefix(word, "=.id=") {
+				queueID := strings.TrimPrefix(word, "=.id=")
+				c.conn.SetDeadline(time.Now().Add(c.timeout))
+				c.sendWord("/queue/simple/move")
+				c.sendWord("=numbers=" + queueID)
+				c.sendWord("=destination=0")
+				c.sendWord("")
+				c.readResponse()
+				log.Printf("MikroTik: Moved port rule queue %s to top", queueName)
+				break
+			}
+		}
+	}
+
 	log.Printf("MikroTik: Port rule %s synced (port=%s dir=%s speed=%dM)", config.Name, config.Port, config.Direction, config.SpeedLimitM)
 	return nil
 }
