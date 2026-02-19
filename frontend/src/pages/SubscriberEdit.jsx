@@ -294,6 +294,7 @@ export default function SubscriberEdit() {
           const downloadValue = data.download || 0
           const uploadValue = data.upload || 0
           const cdnTraffic = data.cdn_traffic || []
+          const cdnIsRate = data.cdn_is_rate || false // true = Torch (bytes/sec), false = connection tracking (cumulative)
 
           // Update CDN data arrays first to calculate total CDN rate
           const updatedCdnList = []
@@ -305,20 +306,24 @@ export default function SubscriberEdit() {
               cdnDataRefs.current[cdn.cdn_id] = Array(30).fill(0)
             }
 
-            // Calculate delta bytes (current - previous) to get rate
             const currentBytes = cdn.bytes || 0
-            const prevBytes = cdnPrevBytesRef.current[cdn.cdn_id]
-
-            // Only calculate rate if we have a previous reading (skip first poll)
             let cdnMbps = 0
-            if (prevBytes !== undefined && currentBytes >= prevBytes) {
-              const deltaBytes = currentBytes - prevBytes
-              // Convert delta bytes to Mbps (deltaBytes * 8 / 1,000,000 / 2 seconds interval)
-              cdnMbps = (deltaBytes * 8 / 1000000 / 2) || 0
+
+            if (cdnIsRate) {
+              // Torch mode: bytes field is already bytes/sec rate — convert directly to Mbps
+              cdnMbps = (currentBytes * 8 / 1000000) || 0
+            } else {
+              // Connection tracking mode: bytes is cumulative — calculate delta
+              const prevBytes = cdnPrevBytesRef.current[cdn.cdn_id]
+              if (prevBytes !== undefined && currentBytes >= prevBytes) {
+                const deltaBytes = currentBytes - prevBytes
+                // Convert delta bytes to Mbps (deltaBytes * 8 / 1,000,000 / 2 seconds interval)
+                cdnMbps = (deltaBytes * 8 / 1000000 / 2) || 0
+              }
+              // Store current bytes for next delta calculation
+              cdnPrevBytesRef.current[cdn.cdn_id] = currentBytes
             }
 
-            // Store current bytes for next calculation
-            cdnPrevBytesRef.current[cdn.cdn_id] = currentBytes
             cdnDataRefs.current[cdn.cdn_id] = [...cdnDataRefs.current[cdn.cdn_id].slice(1), cdnMbps]
 
             // Add to total CDN rate

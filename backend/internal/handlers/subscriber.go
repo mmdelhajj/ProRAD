@@ -3995,6 +3995,7 @@ type BandwidthResponse struct {
 	IPAddress    string         `json:"ip_address"`
 	CallerID     string         `json:"caller_id"`
 	CDNTraffic   []CDNBandwidth `json:"cdn_traffic,omitempty"`
+	CDNIsRate    bool           `json:"cdn_is_rate"` // true = Bytes field is bytes/sec rate (Torch), false = cumulative (delta needed)
 }
 
 // GetBandwidth returns real-time bandwidth data for a subscriber
@@ -4103,18 +4104,15 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 				}
 			}
 
-			// Get CDN traffic using connection tracking (NO MikroTik config needed!)
-			cdnCounters, err := client.GetCDNTrafficForSubscriber(session.Address, cdnConfigs)
-			log.Printf("CDN Debug: GetCDNTrafficForSubscriber for %s returned %d entries, err=%v", session.Address, len(cdnCounters), err)
+			// Get CDN traffic using Torch on subscriber's PPPoE interface
+			// Works even when connection tracking is disabled or NAT is on a different MikroTik
+			cdnCounters, err := client.GetCDNTrafficViaTorch(session.Address, cdnConfigs)
+			log.Printf("CDN Torch: GetCDNTrafficViaTorch for %s returned %d entries, err=%v", session.Address, len(cdnCounters), err)
 
-			// Build CDN traffic response - ONLY show CDNs with actual traffic (bytes > 0)
+			// Build CDN traffic response — include all CDNs so frontend can show/hide bars
 			if err == nil {
+				response.CDNIsRate = true // Bytes = bytes/sec rate from Torch (frontend uses directly, no delta needed)
 				for _, counter := range cdnCounters {
-					// Skip CDNs with no traffic
-					if counter.Bytes <= 0 {
-						continue
-					}
-					log.Printf("CDN Debug: CDN %s bytes=%d", counter.CDNName, counter.Bytes)
 					color := cdnColorMap[counter.CDNID]
 					if color == "" {
 						color = defaultColor
@@ -4127,7 +4125,7 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 					})
 				}
 			}
-			// If error or no traffic, don't show any CDN (no 0.00 Mbps display)
+			// If error, CDNTraffic stays empty — no CDN bars shown
 		}
 	}
 

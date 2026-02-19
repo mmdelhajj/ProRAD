@@ -1828,6 +1828,153 @@ func (c *Client) GetCDNTrafficForSubscriber(subscriberIP string, cdns []CDNSubne
 	return results, nil
 }
 
+// GetCDNTrafficViaTorch gets per-CDN traffic rates using MikroTik Torch on the subscriber's
+// PPPoE interface. Works even when connection tracking is disabled or NAT is on a different device.
+// Returns CDNTrafficCounter with Bytes = bytes/sec rate (not cumulative).
+func (c *Client) GetCDNTrafficViaTorch(subscriberIP string, cdns []CDNSubnetConfig) ([]CDNTrafficCounter, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
+	// Step 1: Find the PPPoE interface for this subscriber
+	c.conn.SetDeadline(time.Now().Add(15 * time.Second))
+	c.sendWord("/ppp/active/print")
+	c.sendWord("?address=" + subscriberIP)
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PPPoE session: %v", err)
+	}
+
+	var ifaceName string
+	for _, word := range response {
+		if strings.HasPrefix(word, "=name=") {
+			username := strings.TrimPrefix(word, "=name=")
+			ifaceName = "<pppoe-" + username + ">"
+			break
+		}
+	}
+
+	if ifaceName == "" {
+		return nil, fmt.Errorf("subscriber not connected or interface not found")
+	}
+
+	log.Printf("CDN Torch: Interface %s for subscriber %s", ifaceName, subscriberIP)
+
+	// Step 2: Pre-parse CDN subnets for fast matching
+	type cdnEntry struct {
+		config  CDNSubnetConfig
+		subnets []string
+	}
+	cdnEntries := make([]cdnEntry, 0, len(cdns))
+	cdnRates := make(map[uint]int64) // cdnID -> bytes/sec
+	for _, cdn := range cdns {
+		cdnEntries = append(cdnEntries, cdnEntry{
+			config:  cdn,
+			subnets: parseSubnetList(cdn.Subnets),
+		})
+		cdnRates[cdn.ID] = 0
+	}
+
+	matchCDN := func(ip string) *CDNSubnetConfig {
+		for i := range cdnEntries {
+			for _, subnet := range cdnEntries[i].subnets {
+				if isIPInCIDR(ip, subnet) {
+					return &cdnEntries[i].config
+				}
+			}
+		}
+		return nil
+	}
+
+	// Step 3: Run torch for 2 seconds on the subscriber's PPPoE interface
+	c.conn.SetDeadline(time.Now().Add(20 * time.Second))
+	c.sendWord("/tool/torch")
+	c.sendWord("=interface=" + ifaceName)
+	c.sendWord("=src-address=0.0.0.0/0")
+	c.sendWord("=dst-address=0.0.0.0/0")
+	c.sendWord("=port=any")
+	c.sendWord("=ip-protocol=any")
+	c.sendWord("=duration=2")
+	c.sendWord("")
+
+	// Step 4: Parse torch output and match against CDN subnets
+	for {
+		word, err := c.readWord()
+		if err != nil || word == "!done" {
+			break
+		}
+
+		if word == "!trap" {
+			errMsg := ""
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				if strings.HasPrefix(attr, "=message=") {
+					errMsg = strings.TrimPrefix(attr, "=message=")
+				}
+			}
+			return nil, fmt.Errorf("torch error: %s", errMsg)
+		}
+
+		if word == "!re" {
+			var srcAddr, dstAddr string
+			var txRate, rxRate int64
+
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				switch {
+				case strings.HasPrefix(attr, "=src-address="):
+					srcAddr = strings.TrimPrefix(attr, "=src-address=")
+				case strings.HasPrefix(attr, "=dst-address="):
+					dstAddr = strings.TrimPrefix(attr, "=dst-address=")
+				case strings.HasPrefix(attr, "=tx="):
+					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=tx="), 10, 64)
+					txRate = bits / 8 // bps → bytes/sec
+				case strings.HasPrefix(attr, "=rx="):
+					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=rx="), 10, 64)
+					rxRate = bits / 8
+				}
+			}
+
+			if srcAddr == "" || dstAddr == "" {
+				continue
+			}
+
+			// On a PPPoE interface:
+			//   tx = traffic going TO subscriber (download) → src is the remote/CDN server
+			//   rx = traffic FROM subscriber (upload) → dst is the remote/CDN server
+			if cdn := matchCDN(srcAddr); cdn != nil {
+				cdnRates[cdn.ID] += txRate
+			}
+			if cdn := matchCDN(dstAddr); cdn != nil {
+				cdnRates[cdn.ID] += rxRate
+			}
+		}
+	}
+
+	// Step 5: Build results — Bytes = bytes/sec rate (not cumulative)
+	var results []CDNTrafficCounter
+	for _, cdn := range cdns {
+		results = append(results, CDNTrafficCounter{
+			CDNID:   cdn.ID,
+			CDNName: cdn.Name,
+			Bytes:   cdnRates[cdn.ID],
+		})
+	}
+
+	log.Printf("CDN Torch: Completed for %s: %v", subscriberIP, cdnRates)
+	return results, nil
+}
+
 // parseSubnetList splits subnet string into slice
 func parseSubnetList(subnets string) []string {
 	var result []string
