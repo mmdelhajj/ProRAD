@@ -1924,7 +1924,7 @@ func (c *Client) GetCDNTrafficViaTorch(subscriberIP string, cdns []CDNSubnetConf
 
 		if word == "!re" {
 			var srcAddr, dstAddr string
-			var txRate, rxRate int64
+			var txRate int64
 
 			for {
 				attr, err := c.readWord()
@@ -1940,8 +1940,8 @@ func (c *Client) GetCDNTrafficViaTorch(subscriberIP string, cdns []CDNSubnetConf
 					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=tx="), 10, 64)
 					txRate = bits / 8 // bps → bytes/sec
 				case strings.HasPrefix(attr, "=rx="):
-					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=rx="), 10, 64)
-					rxRate = bits / 8
+					// rxRate not used — txRate covers download in both directions
+					_ = attr
 				}
 			}
 
@@ -1949,14 +1949,18 @@ func (c *Client) GetCDNTrafficViaTorch(subscriberIP string, cdns []CDNSubnetConf
 				continue
 			}
 
-			// On a PPPoE interface:
-			//   tx = traffic going TO subscriber (download) → src is the remote/CDN server
-			//   rx = traffic FROM subscriber (upload) → dst is the remote/CDN server
-			if cdn := matchCDN(srcAddr); cdn != nil {
-				cdnRates[cdn.ID] += txRate
+			// On a PPPoE interface, txRate = bytes going TO the subscriber (download).
+			// Subscribers INITIATE connections (src=subscriber, dst=CDN), so:
+			//   - When src=subscriber → remote/CDN is the dst → download = txRate
+			//   - When src=CDN → remote/CDN is the src → download = txRate (still going TO subscriber)
+			// In both cases txRate = download. Pick the remote IP (not the subscriber's IP).
+			remoteIP := dstAddr
+			if srcAddr != subscriberIP {
+				remoteIP = srcAddr
 			}
-			if cdn := matchCDN(dstAddr); cdn != nil {
-				cdnRates[cdn.ID] += rxRate
+			if cdn := matchCDN(remoteIP); cdn != nil {
+				cdnRates[cdn.ID] += txRate
+				log.Printf("CDN Torch: remote=%s CDN=%s dl=%d B/s", remoteIP, cdn.Name, txRate)
 			}
 		}
 	}
