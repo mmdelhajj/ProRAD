@@ -609,6 +609,15 @@ func main() {
 	cdns.Post("/:id/sync-pcq", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncPCQToNAS)
 	cdns.Post("/sync-all-pcq", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncAllPCQToNAS)
 
+	// CDN Port Rules routes
+	portRules := protected.Group("/cdn-port-rules")
+	portRules.Get("/", middleware.RequirePermission("cdn.view"), cdnHandler.ListPortRules)
+	portRules.Post("/", middleware.RequirePermission("cdn.create"), cdnHandler.CreatePortRule)
+	portRules.Put("/:id", middleware.RequirePermission("cdn.edit"), cdnHandler.UpdatePortRule)
+	portRules.Delete("/:id", middleware.RequirePermission("cdn.delete"), cdnHandler.DeletePortRule)
+	portRules.Post("/:id/sync", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncPortRuleToNAS)
+	portRules.Post("/sync-all", middleware.RequirePermission("cdn.edit"), cdnHandler.SyncAllPortRulesToNAS)
+
 	// CDN Bandwidth Rules routes
 	cdnBandwidth := protected.Group("/cdn-bandwidth-rules")
 	cdnBandwidth.Get("/", middleware.RequirePermission("cdn.view"), cdnBandwidthHandler.ListRules)

@@ -54,3 +54,21 @@ func (CDN) TableName() string {
 func (ServiceCDN) TableName() string {
 	return "service_cdns"
 }
+
+// CDNPortRule represents a port-based PCQ speed rule applied on MikroTik
+type CDNPortRule struct {
+	ID          uint           `gorm:"column:id;primaryKey" json:"id"`
+	Name        string         `gorm:"column:name;size:100;not null" json:"name"`
+	Port        string         `gorm:"column:port;size:50;not null" json:"port"`           // e.g. "8080"
+	Direction   string         `gorm:"column:direction;size:10;default:'both'" json:"direction"` // src, dst, both
+	SpeedMbps   int64          `gorm:"column:speed_mbps;not null;default:5" json:"speed_mbps"` // Speed limit in Mbps
+	NASID       *uint          `gorm:"column:nas_id" json:"nas_id"`
+	IsActive    bool           `gorm:"column:is_active;default:true" json:"is_active"`
+	CreatedAt   time.Time      `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt   time.Time      `gorm:"column:updated_at" json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`
+}
+
+func (CDNPortRule) TableName() string {
+	return "cdn_port_rules"
+}

@@ -4010,3 +4010,261 @@ func (c *Client) parseTracerouteTime(timeStr string) float64 {
 	val, _ := strconv.ParseFloat(timeStr, 64)
 	return val
 }
+
+// PortRuleConfig holds configuration for port-based PCQ rules
+type PortRuleConfig struct {
+	Name        string // Rule name (e.g. "SP")
+	Port        string // Port number (e.g. "8080")
+	Direction   string // "src", "dst", or "both"
+	SpeedLimitM int64  // Speed in Mbps
+	CompanyName string
+}
+
+// SyncPortRule creates PCQ queue type + mangle rule(s) + simple queue for port-based speed limiting
+func (c *Client) SyncPortRule(config PortRuleConfig) error {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return err
+		}
+	}
+
+	queueTypeName := fmt.Sprintf("PORT-%s-%d", config.Name, config.SpeedLimitM)
+	pcqRate := fmt.Sprintf("%dM", config.SpeedLimitM)
+	packetMark := fmt.Sprintf("PORT-%s", config.Name)
+	queueName := fmt.Sprintf("PORT-%s-%dM", config.Name, config.SpeedLimitM)
+	queueComment := fmt.Sprintf("Port rule %s port %s %dM", config.Name, config.Port, config.SpeedLimitM)
+
+	// Step 1: Create/update PCQ queue type
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/queue/type/print")
+	c.sendWord("?name=" + queueTypeName)
+	c.sendWord("")
+	response, err := c.readResponse()
+	if err != nil {
+		return fmt.Errorf("failed to check queue type: %v", err)
+	}
+	var qtID string
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			qtID = strings.TrimPrefix(word, "=.id=")
+			break
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	if qtID != "" {
+		c.sendWord("/queue/type/set")
+		c.sendWord("=.id=" + qtID)
+		c.sendWord("=pcq-rate=" + pcqRate)
+		c.sendWord("")
+	} else {
+		c.sendWord("/queue/type/add")
+		c.sendWord("=name=" + queueTypeName)
+		c.sendWord("=kind=pcq")
+		c.sendWord("=pcq-rate=" + pcqRate)
+		c.sendWord("=pcq-classifier=dst-address")
+		c.sendWord("=pcq-limit=50KiB")
+		c.sendWord("=pcq-total-limit=2000KiB")
+		c.sendWord("=pcq-burst-rate=0")
+		c.sendWord("=pcq-burst-threshold=0")
+		c.sendWord("=pcq-burst-time=10s")
+		c.sendWord("")
+	}
+	if _, err := c.readResponse(); err != nil {
+		return fmt.Errorf("failed to create/update queue type: %v", err)
+	}
+	log.Printf("MikroTik: Created/updated port rule queue type %s rate=%s", queueTypeName, pcqRate)
+
+	// Step 2: Create mangle rule(s) based on direction
+	type mangleRule struct {
+		comment   string
+		portField string // "src-port" or "dst-port"
+	}
+	var rules []mangleRule
+	if config.Direction == "src" || config.Direction == "both" {
+		rules = append(rules, mangleRule{
+			comment:   fmt.Sprintf("%s PORT %s src-%s", config.CompanyName, config.Name, config.Port),
+			portField: "src-port",
+		})
+	}
+	if config.Direction == "dst" || config.Direction == "both" {
+		rules = append(rules, mangleRule{
+			comment:   fmt.Sprintf("%s PORT %s dst-%s", config.CompanyName, config.Name, config.Port),
+			portField: "dst-port",
+		})
+	}
+
+	for _, rule := range rules {
+		c.conn.SetDeadline(time.Now().Add(c.timeout))
+		c.sendWord("/ip/firewall/mangle/print")
+		c.sendWord("?comment=" + rule.comment)
+		c.sendWord("")
+		response, err = c.readResponse()
+		if err != nil {
+			return fmt.Errorf("failed to check mangle rule: %v", err)
+		}
+		var mangleID string
+		for _, word := range response {
+			if strings.HasPrefix(word, "=.id=") {
+				mangleID = strings.TrimPrefix(word, "=.id=")
+				break
+			}
+		}
+		// Remove existing rule if any (to ensure port value is updated)
+		if mangleID != "" {
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/ip/firewall/mangle/remove")
+			c.sendWord("=.id=" + mangleID)
+			c.sendWord("")
+			c.readResponse()
+		}
+		// Create mangle rule
+		c.conn.SetDeadline(time.Now().Add(c.timeout))
+		c.sendWord("/ip/firewall/mangle/add")
+		c.sendWord("=action=mark-packet")
+		c.sendWord("=chain=forward")
+		c.sendWord("=protocol=tcp")
+		c.sendWord(fmt.Sprintf("=%s=%s", rule.portField, config.Port))
+		c.sendWord("=new-packet-mark=" + packetMark)
+		c.sendWord("=passthrough=no")
+		c.sendWord("=comment=" + rule.comment)
+		c.sendWord("")
+		resp, err := c.readResponse()
+		if err != nil {
+			return fmt.Errorf("failed to create mangle rule: %v", err)
+		}
+		for _, word := range resp {
+			if strings.HasPrefix(word, "!trap") {
+				return fmt.Errorf("mangle rule error: %v", resp)
+			}
+		}
+		log.Printf("MikroTik: Created port rule mangle %s=%s mark=%s", rule.portField, config.Port, packetMark)
+	}
+
+	// Step 3: Create/update simple queue
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/queue/simple/print")
+	c.sendWord("?comment=" + queueComment)
+	c.sendWord("")
+	response, err = c.readResponse()
+	if err != nil {
+		return fmt.Errorf("failed to check simple queue: %v", err)
+	}
+	var sqID string
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			sqID = strings.TrimPrefix(word, "=.id=")
+			break
+		}
+	}
+	queueType := fmt.Sprintf("%s/%s", queueTypeName, queueTypeName)
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	if sqID != "" {
+		c.sendWord("/queue/simple/set")
+		c.sendWord("=.id=" + sqID)
+		c.sendWord("=name=" + queueName)
+		c.sendWord("=packet-marks=" + packetMark)
+		c.sendWord("=queue=" + queueType)
+		c.sendWord("=max-limit=1G/1G")
+		c.sendWord("=comment=" + queueComment)
+		c.sendWord("")
+	} else {
+		c.sendWord("/queue/simple/add")
+		c.sendWord("=name=" + queueName)
+		c.sendWord("=target=0.0.0.0/0")
+		c.sendWord("=packet-marks=" + packetMark)
+		c.sendWord("=queue=" + queueType)
+		c.sendWord("=max-limit=1G/1G")
+		c.sendWord("=priority=8/8")
+		c.sendWord("=comment=" + queueComment)
+		c.sendWord("")
+	}
+	resp, err := c.readResponse()
+	if err != nil {
+		return fmt.Errorf("failed to create/update simple queue: %v", err)
+	}
+	for _, word := range resp {
+		if strings.HasPrefix(word, "!trap") {
+			return fmt.Errorf("simple queue error: %v", resp)
+		}
+	}
+	log.Printf("MikroTik: Port rule %s synced (port=%s dir=%s speed=%dM)", config.Name, config.Port, config.Direction, config.SpeedLimitM)
+	return nil
+}
+
+// RemovePortRule removes all MikroTik rules for a port rule
+func (c *Client) RemovePortRule(name string, speedLimitM int64, companyName string) error {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return err
+		}
+	}
+
+	queueTypeName := fmt.Sprintf("PORT-%s-%d", name, speedLimitM)
+	queueComment := fmt.Sprintf("Port rule %s", name)
+	manglePrefix := fmt.Sprintf("%s PORT %s", companyName, name)
+
+	// Remove simple queue(s) by comment prefix
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/queue/simple/print")
+	c.sendWord("")
+	response, _ := c.readResponse()
+	var currentID string
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			currentID = strings.TrimPrefix(word, "=.id=")
+		} else if strings.HasPrefix(word, "=comment=") {
+			comment := strings.TrimPrefix(word, "=comment=")
+			if strings.HasPrefix(comment, queueComment) && currentID != "" {
+				c.conn.SetDeadline(time.Now().Add(c.timeout))
+				c.sendWord("/queue/simple/remove")
+				c.sendWord("=.id=" + currentID)
+				c.sendWord("")
+				c.readResponse()
+				log.Printf("MikroTik: Removed port rule simple queue for %s", name)
+			}
+		}
+	}
+
+	// Remove mangle rules by comment prefix
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/ip/firewall/mangle/print")
+	c.sendWord("")
+	response, _ = c.readResponse()
+	currentID = ""
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			currentID = strings.TrimPrefix(word, "=.id=")
+		} else if strings.HasPrefix(word, "=comment=") {
+			comment := strings.TrimPrefix(word, "=comment=")
+			if strings.HasPrefix(comment, manglePrefix) && currentID != "" {
+				c.conn.SetDeadline(time.Now().Add(c.timeout))
+				c.sendWord("/ip/firewall/mangle/remove")
+				c.sendWord("=.id=" + currentID)
+				c.sendWord("")
+				c.readResponse()
+				log.Printf("MikroTik: Removed port rule mangle for %s", name)
+			}
+		}
+	}
+
+	// Remove queue type
+	c.conn.SetDeadline(time.Now().Add(c.timeout))
+	c.sendWord("/queue/type/print")
+	c.sendWord("?name=" + queueTypeName)
+	c.sendWord("")
+	response, _ = c.readResponse()
+	for _, word := range response {
+		if strings.HasPrefix(word, "=.id=") {
+			qtID := strings.TrimPrefix(word, "=.id=")
+			c.conn.SetDeadline(time.Now().Add(c.timeout))
+			c.sendWord("/queue/type/remove")
+			c.sendWord("=.id=" + qtID)
+			c.sendWord("")
+			c.readResponse()
+			log.Printf("MikroTik: Removed port rule queue type %s", queueTypeName)
+			break
+		}
+	}
+
+	return nil
+}

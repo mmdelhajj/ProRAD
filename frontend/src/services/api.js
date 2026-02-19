@@ -364,6 +364,13 @@ export const cdnApi = {
   updateServiceCDNs: (serviceId, data) => api.put(`/services/${serviceId}/cdns`, data),
   addServiceCDN: (serviceId, data) => api.post(`/services/${serviceId}/cdns`, data),
   deleteServiceCDN: (serviceId, cdnId) => api.delete(`/services/${serviceId}/cdns/${cdnId}`),
+  // Port Rules
+  listPortRules: () => api.get('/cdn-port-rules'),
+  createPortRule: (data) => api.post('/cdn-port-rules', data),
+  updatePortRule: (id, data) => api.put(`/cdn-port-rules/${id}`, data),
+  deletePortRule: (id) => api.delete(`/cdn-port-rules/${id}`),
+  syncPortRule: (id) => api.post(`/cdn-port-rules/${id}/sync`),
+  syncAllPortRules: () => api.post('/cdn-port-rules/sync-all'),
 }
 
 export const notificationApi = {

@@ -41,6 +41,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   WrenchScrewdriverIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
@@ -51,6 +52,7 @@ const allNavigation = [
   { name: 'Services', href: '/services', icon: CogIcon, permission: 'services.view' },
   { name: 'CDN List', href: '/cdn', icon: GlobeAltIcon, permission: 'admin' },
   { name: 'CDN Bandwidth Rules', href: '/cdn-bandwidth-rules', icon: AdjustmentsHorizontalIcon, permission: 'admin' },
+  { name: 'CDN Port Rules', href: '/cdn-port-rules', icon: BoltIcon, permission: 'admin' },
   { name: 'NAS/Routers', href: '/nas', icon: ServerIcon, permission: 'nas.view' },
   { name: 'Resellers', href: '/resellers', icon: BuildingOfficeIcon, permission: 'resellers.view' },
   { name: 'Sessions', href: '/sessions', icon: SignalIcon, permission: 'sessions.view' },

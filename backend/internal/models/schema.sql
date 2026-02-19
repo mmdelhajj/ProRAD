@@ -848,6 +848,20 @@ CREATE TABLE IF NOT EXISTS service_cdns (
     UNIQUE(service_id, cdn_id)
 );
 
+-- CDN Port Rules
+CREATE TABLE IF NOT EXISTS cdn_port_rules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    port VARCHAR(50) NOT NULL,
+    direction VARCHAR(10) DEFAULT 'both',
+    speed_mbps BIGINT NOT NULL DEFAULT 5,
+    nas_id INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
 -- Bandwidth Rules
 CREATE TABLE IF NOT EXISTS bandwidth_rules (
     id SERIAL PRIMARY KEY,
