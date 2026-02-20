@@ -15,14 +15,15 @@ NC="\033[0m"
 
 LICENSE_SERVER="https://license.proxrad.com"
 
-# Hardware ID function (consistent throughout)
+# Hardware ID function (consistent throughout - matches API formula stable|MAC|UUID|MID)
 get_hardware_id() {
-    local UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "unknown")
-    local MID=$(cat /etc/machine-id 2>/dev/null || echo "unknown")
-    echo -n "stable|$UUID|$MID" | sha256sum | awk '{print "stable_"$1}'
+    local MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "00:00:00:00:00:00")
+    local UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
+    local MID=$(cat /etc/machine-id 2>/dev/null || echo "")
+    echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.172"
+VERSION="1.0.246"
 
 step_count=8
 current_step=0
@@ -108,21 +109,30 @@ echo ""
 echo -e "    ${BOLD}Please enter your details to get started:${NC}"
 echo ""
 
-# Check if license key provided
-echo -e "    ${CYAN}Do you have a license key? [y/N]:${NC} \c"
-read HAS_LICENSE < /dev/tty
+# Check if license key provided as argument (non-interactive mode)
+if [ -n "$1" ]; then
+    LICENSE_KEY="$1"
+    show_info "Using license key from argument: ${LICENSE_KEY}"
+    HAS_LICENSE="y"
+else
+    echo -e "    ${CYAN}Do you have a license key? [y/N]:${NC} \c"
+    read HAS_LICENSE < /dev/tty
+
+    if [[ "$HAS_LICENSE" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo -e "    ${CYAN}License Key:${NC} \c"
+        read LICENSE_KEY < /dev/tty
+
+        if [ -z "$LICENSE_KEY" ]; then
+            show_fail "License key is required"
+        fi
+    fi
+fi
 
 if [[ "$HAS_LICENSE" =~ ^[Yy]$ ]]; then
-    echo ""
-    echo -e "    ${CYAN}License Key:${NC} \c"
-    read LICENSE_KEY < /dev/tty
-
-    if [ -z "$LICENSE_KEY" ]; then
-        show_fail "License key is required"
-    fi
 
     # Validate existing license
-    SERVER_IP=$(hostname -I | awk '{print $1}')
+    SERVER_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || curl -s --max-time 5 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
     SERVER_MAC=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address 2>/dev/null || echo "00:00:00:00:00:00")
     HOST_HOSTNAME=$(hostname)
 
@@ -159,7 +169,7 @@ else
     fi
 
     # Get server info
-    SERVER_IP=$(hostname -I | awk '{print $1}')
+    SERVER_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || curl -s --max-time 5 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
     SERVER_MAC=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address 2>/dev/null || echo "00:00:00:00:00:00")
     HOST_HOSTNAME=$(hostname)
     HARDWARE_ID=$(get_hardware_id)
@@ -186,7 +196,7 @@ else
         }" 2>/dev/null)
 
     LICENSE_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"license_key":"[^"]*"' | cut -d'"' -f4)
-    ENCRYPTION_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"encryption_key":"[^"]*"' | cut -d'"' -f4)
+    ENCRYPTION_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"encryption_key":"[^"]*"' | head -1 | cut -d'"' -f4)
     EXPIRES_AT=$(echo "$REGISTER_RESPONSE" | grep -o '"expires_at":"[^"]*"' | cut -d'"' -f4 | cut -dT -f1)
 
     if [ -z "$LICENSE_KEY" ]; then
@@ -330,8 +340,27 @@ if [ ! -s proxpanel.tar.gz ]; then
     show_fail "Download failed - empty file"
 fi
 
+# Validate it's actually a tar.gz (not an error JSON response)
+if ! file proxpanel.tar.gz 2>/dev/null | grep -qE "gzip|tar"; then
+    RESPONSE=$(cat proxpanel.tar.gz)
+    rm -f proxpanel.tar.gz
+    show_fail "Download failed - server returned: ${RESPONSE}"
+fi
+
 show_info "Extracting files..."
 tar -xzf proxpanel.tar.gz > /dev/null 2>&1
+TAR_EXIT=$?
+if [ $TAR_EXIT -ne 0 ]; then
+    show_fail "Extraction failed (exit code $TAR_EXIT) - package may be corrupted"
+fi
+
+# Validate critical files exist after extraction
+if [ ! -f "backend/proisp-api/proisp-api" ]; then
+    show_fail "Extraction failed - API binary not found after extraction"
+fi
+if [ ! -d "frontend/dist" ] || [ -z "$(ls -A frontend/dist 2>/dev/null)" ]; then
+    show_fail "Extraction failed - frontend dist is empty after extraction"
+fi
 
 # Handle versioned directory (proxpanel-X.X.X or proxpanel-pkg)
 for dir in proxpanel-*/; do
@@ -367,11 +396,11 @@ SECRETS_RESPONSE=$(curl -s -X GET "${LICENSE_SERVER}/api/v1/license/secrets" \
     -H "X-Hardware-ID: ${HARDWARE_ID}" 2>/dev/null)
 
 if echo "$SECRETS_RESPONSE" | grep -q '"success":true'; then
-    DB_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"db_password":"[^"]*"' | cut -d'"' -f4)
-    REDIS_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"redis_password":"[^"]*"' | cut -d'"' -f4)
-    JWT_SECRET=$(echo "$SECRETS_RESPONSE" | grep -o '"jwt_secret":"[^"]*"' | cut -d'"' -f4)
-    PASSWORD_KEY=$(echo "$SECRETS_RESPONSE" | grep -o '"encryption_key":"[^"]*"' | cut -d'"' -f4)
-    SSH_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"ssh_password":"[^"]*"' | cut -d'"' -f4)
+    DB_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"db_password":"[^"]*"' | head -1 | cut -d'"' -f4)
+    REDIS_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"redis_password":"[^"]*"' | head -1 | cut -d'"' -f4)
+    JWT_SECRET=$(echo "$SECRETS_RESPONSE" | grep -o '"jwt_secret":"[^"]*"' | head -1 | cut -d'"' -f4)
+    PASSWORD_KEY=$(echo "$SECRETS_RESPONSE" | grep -o '"encryption_key":"[^"]*"' | head -1 | cut -d'"' -f4)
+    SSH_PASSWORD=$(echo "$SECRETS_RESPONSE" | grep -o '"ssh_password":"[^"]*"' | head -1 | cut -d'"' -f4)
     show_ok "Secrets fetched from license server"
 else
     # Fallback: generate locally if license server unavailable
@@ -829,10 +858,10 @@ LICENSE_SERVER="${LICENSE_SERVER:-https://license.proxrad.com}"
 
 # Hardware ID function (consistent throughout)
 get_hardware_id() {
-    MAC=$(ip link show | grep ether | head -1 | awk '{print $2}')
-    UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "novmuuid")
-    MID=$(cat /etc/machine-id 2>/dev/null || echo "nomachineid")
-    echo -n "stable|$MAC|$UUID|$MID" | sha256sum | awk '{print "stable_"$1}'
+    MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "00:00:00:00:00:00")
+    UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
+    MID=$(cat /etc/machine-id 2>/dev/null || echo "")
+    echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 
 
@@ -996,15 +1025,18 @@ LUKS_NAME="proxpanel_data"
 
 # Create encrypted container
 show_info "Creating encrypted data container..."
-(
-    truncate -s ${LUKS_SIZE} ${LUKS_CONTAINER}
-    echo -n "$LUKS_KEY" | cryptsetup luksFormat --type luks2 ${LUKS_CONTAINER} - >/dev/null 2>&1
-    echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} - >/dev/null 2>&1
-    mkfs.ext4 -q -L proxpanel_data /dev/mapper/${LUKS_NAME}
-    cryptsetup close ${LUKS_NAME}
-) >/dev/null 2>&1 &
-spinner $! "Creating 50GB encrypted container"
 
+# Close any existing mapper device from previous install attempts
+cryptsetup close ${LUKS_NAME} 2>/dev/null || true
+
+# Create sequentially with error checking (never background - silent failures cause unformatted LUKS)
+truncate -s ${LUKS_SIZE} ${LUKS_CONTAINER} || { show_fail "Failed to create LUKS image"; exit 1; }
+echo -n "$LUKS_KEY" | cryptsetup luksFormat --type luks2 ${LUKS_CONTAINER} - >/dev/null 2>&1 || { show_fail "Failed to format LUKS container"; exit 1; }
+echo -n "$LUKS_KEY" | cryptsetup open ${LUKS_CONTAINER} ${LUKS_NAME} - >/dev/null 2>&1 || { show_fail "Failed to open LUKS container"; exit 1; }
+mkfs.ext4 -q -L proxpanel_data /dev/mapper/${LUKS_NAME} || { cryptsetup close ${LUKS_NAME}; show_fail "Failed to format encrypted filesystem"; exit 1; }
+cryptsetup close ${LUKS_NAME}
+
+show_ok "Encrypted container created successfully"
 LUKS_ENABLED=true
 if [ ! -f "$LUKS_CONTAINER" ]; then
     show_fail "Failed to create encrypted container"
@@ -1191,10 +1223,10 @@ else
     echo -e "${GREEN}✓${NC} Secrets fetched successfully"
     
     # Extract secrets using grep/sed
-    DB_PASSWORD=$(echo "$RESPONSE" | grep -o '"db_password":"[^"]*"' | sed 's/"db_password":"//; s/"$//' || echo "")
-    REDIS_PASSWORD=$(echo "$RESPONSE" | grep -o '"redis_password":"[^"]*"' | sed 's/"redis_password":"//; s/"$//' || echo "")
-    JWT_SECRET=$(echo "$RESPONSE" | grep -o '"jwt_secret":"[^"]*"' | sed 's/"jwt_secret":"//; s/"$//' || echo "")
-    ENCRYPTION_KEY=$(echo "$RESPONSE" | grep -o '"encryption_key":"[^"]*"' | sed 's/"encryption_key":"//; s/"$//' || echo "")
+    DB_PASSWORD=$(echo "$RESPONSE" | grep -o '"db_password":"[^"]*"' | head -1 | sed 's/"db_password":"//; s/"$//' || echo "")
+    REDIS_PASSWORD=$(echo "$RESPONSE" | grep -o '"redis_password":"[^"]*"' | head -1 | sed 's/"redis_password":"//; s/"$//' || echo "")
+    JWT_SECRET=$(echo "$RESPONSE" | grep -o '"jwt_secret":"[^"]*"' | head -1 | sed 's/"jwt_secret":"//; s/"$//' || echo "")
+    ENCRYPTION_KEY=$(echo "$RESPONSE" | grep -o '"encryption_key":"[^"]*"' | head -1 | sed 's/"encryption_key":"//; s/"$//' || echo "")
     
     # STEP 4: Write secrets to .env temporarily
     if [ -n "$DB_PASSWORD" ]; then
