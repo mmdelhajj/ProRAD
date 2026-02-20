@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.264"
+VERSION="1.0.265"
 
 step_count=8
 current_step=0
@@ -322,7 +322,7 @@ mkdir -p ${INSTALL_DIR}
 cd ${INSTALL_DIR}
 
 # Get latest version info
-VERSION_INFO=$(curl -s "${LICENSE_SERVER}/api/v1/updates/check?license_key=${LICENSE_KEY}" 2>/dev/null)
+VERSION_INFO=$(curl -s -X POST "${LICENSE_SERVER}/api/v1/update/check" -H "Content-Type: application/json" -d "{\"license_key\":\"${LICENSE_KEY}\"}" 2>/dev/null)
 DOWNLOAD_VERSION=$(echo "$VERSION_INFO" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 if [ -z "$DOWNLOAD_VERSION" ]; then
@@ -332,7 +332,7 @@ fi
 show_info "Downloading version ${DOWNLOAD_VERSION}..."
 
 (
-    curl -s -o proxpanel.tar.gz "${LICENSE_SERVER}/api/v1/updates/download?license_key=${LICENSE_KEY}&version=${DOWNLOAD_VERSION}" 2>/dev/null
+    curl -s -o proxpanel.tar.gz "${LICENSE_SERVER}/api/v1/update/download/${DOWNLOAD_VERSION}?license_key=${LICENSE_KEY}" 2>/dev/null
 ) &
 spinner $! "Downloading package..."
 
