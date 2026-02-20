@@ -42,6 +42,7 @@ import {
   EyeSlashIcon,
   WrenchScrewdriverIcon,
   BoltIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
@@ -138,7 +139,7 @@ export default function Layout({ children }) {
 
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, hasPermission, isAdmin } = useAuthStore()
+  const { user, logout, hasPermission, isAdmin, isReseller, refreshUser } = useAuthStore()
   const { companyName, companyLogo, fetchBranding, loaded } = useBrandingStore()
   const { theme, toggleTheme } = useThemeStore()
 
@@ -148,6 +149,15 @@ export default function Layout({ children }) {
       fetchBranding()
     }
   }, [loaded, fetchBranding])
+
+  // Refresh reseller balance periodically
+  useEffect(() => {
+    if (!isReseller()) return
+    const interval = setInterval(() => {
+      refreshUser()
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Filter and order navigation
   useEffect(() => {
@@ -480,6 +490,22 @@ export default function Layout({ children }) {
           <div className="flex-1" />
           <div className="flex items-center gap-3">
             <UpdateNotification />
+            {isReseller() && (
+              <>
+                <div className="hidden sm:flex items-center gap-1.5 text-sm">
+                  <BanknotesIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <span className={clsx(
+                    'font-semibold',
+                    (user?.reseller?.balance ?? 0) >= 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  )}>
+                    ${parseFloat(user?.reseller?.balance ?? 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="hidden sm:block text-gray-300 dark:text-gray-600">|</div>
+              </>
+            )}
             <Clock />
           </div>
         </header>
