@@ -384,7 +384,7 @@ export default function Layout({ children }) {
           {renderNavItems(true)}
         </nav>
         <div className="p-2 border-t dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900">
-          {isAdmin() && !editMode && (
+          {(isAdmin() || isReseller()) && !editMode && (
             <button
               onClick={toggleEditMode}
               className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -441,7 +441,7 @@ export default function Layout({ children }) {
             {renderNavItems(false)}
           </nav>
           <div className="p-2 border-t dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900">
-            {isAdmin() && !editMode && (
+            {(isAdmin() || isReseller()) && !editMode && (
               <button
                 onClick={toggleEditMode}
                 className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
