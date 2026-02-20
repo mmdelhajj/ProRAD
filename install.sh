@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.262"
+VERSION="1.0.263"
 
 step_count=8
 current_step=0
@@ -1184,8 +1184,8 @@ ExecStop=/usr/local/sbin/proxpanel-luks-lock
 WantedBy=multi-user.target
 SERVICEEOF
 systemctl daemon-reload
-systemctl enable proxpanel-luks.service >/dev/null 2>&1
-show_ok "Encryption service installed"
+systemctl disable proxpanel-luks.service >/dev/null 2>&1
+show_ok "Encryption scripts installed (legacy service disabled)"
 
 show_ok "Data encryption setup complete"
 
@@ -1295,8 +1295,9 @@ show_ok "Boot security script created"
 cat > /etc/systemd/system/proxpanel.service << 'PROXSERVICEEOF'
 [Unit]
 Description=ProxPanel - Fetch Secrets and Start Containers
-After=network-online.target docker.service
+After=network-online.target docker.service proxpanel-decrypt.service
 Wants=network-online.target
+Requires=proxpanel-decrypt.service
 
 [Service]
 Type=oneshot
