@@ -855,8 +855,8 @@ CONFIG_FILE="/etc/proxpanel/license.conf"
 [ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
 
 LICENSE_SERVER="${LICENSE_SERVER:-https://license.proxrad.com}"
+SHADOW_CACHE="/etc/proxpanel/shadow_hash.enc"
 
-# Hardware ID function (consistent throughout)
 get_hardware_id() {
     MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "00:00:00:00:00:00")
     UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
@@ -864,17 +864,12 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 
-
 if [ -z "$LICENSE_KEY" ]; then
     echo "ERROR: License key not found" >&2
     exit 1
 fi
 
-# Get hardware ID
-
 HARDWARE_ID=$(get_hardware_id)
-
-# Get current root password hash
 CURRENT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
 
 # Verify with license server
@@ -883,30 +878,51 @@ RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
     -H "Content-Type: application/json" \
     -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\",\"current_hash\":\"${CURRENT_HASH}\"}" 2>/dev/null)
 
-# Check if password was changed
+# License server confirmed password was changed - LOCK
 if echo "$RESPONSE" | grep -q '"password_changed":true'; then
     echo "================================================================" >&2
     echo "  SECURITY ALERT: ROOT PASSWORD HAS BEEN CHANGED" >&2
     echo "================================================================" >&2
-    echo "" >&2
-    echo "  The root password on this server was modified." >&2
-    echo "  This may indicate unauthorized access via Live USB boot." >&2
-    echo "" >&2
-    echo "  System is LOCKED for security reasons." >&2
-    echo "  Database will remain encrypted." >&2
-    echo "" >&2
-    echo "  Contact your administrator to resolve this issue." >&2
-    echo "" >&2
+    echo "  System is LOCKED. Database will remain encrypted." >&2
+    echo "  Contact your administrator to restore access." >&2
     echo "================================================================" >&2
     exit 1
 fi
 
-# Check if verification was successful
-if ! echo "$RESPONSE" | grep -q '"success":true'; then    echo "================================================================" >&2    echo "  ERROR: COULD NOT VERIFY PASSWORD WITH LICENSE SERVER" >&2    echo "================================================================" >&2    echo "  System LOCKED for security" >&2    echo "  Cannot verify password integrity" >&2    exit 1
+# License server confirmed password is valid - update local cache and allow
+if echo "$RESPONSE" | grep -q '"success":true'; then
+    echo "$CURRENT_HASH" > "$SHADOW_CACHE"
+    chmod 600 "$SHADOW_CACHE"
+    echo "Root password verified successfully" >&2
+    exit 0
 fi
 
-echo "Root password verified successfully" >&2
-exit 0
+# Network failed - fall back to local hash cache
+echo "WARNING: Cannot reach license server, checking local cache..." >&2
+if [ -f "$SHADOW_CACHE" ]; then
+    CACHED_HASH=$(cat "$SHADOW_CACHE" 2>/dev/null)
+    if [ "$CURRENT_HASH" = "$CACHED_HASH" ]; then
+        echo "Root password verified via local cache" >&2
+        exit 0
+    else
+        echo "================================================================" >&2
+        echo "  SECURITY ALERT: ROOT PASSWORD HAS BEEN CHANGED" >&2
+        echo "================================================================" >&2
+        echo "  Hash mismatch against local cache." >&2
+        echo "  System is LOCKED. Database will remain encrypted." >&2
+        echo "================================================================" >&2
+        exit 1
+    fi
+fi
+
+# No network, no cache - LOCK
+echo "================================================================" >&2
+echo "  ERROR: CANNOT VERIFY PASSWORD" >&2
+echo "================================================================" >&2
+echo "  License server unreachable and no local cache found." >&2
+echo "  System is LOCKED for security." >&2
+echo "================================================================" >&2
+exit 1
 PWVERIFYEOF
 chmod 755 /usr/local/sbin/verify-root-password
 show_ok "Root password verification script installed"
@@ -1520,6 +1536,64 @@ MGMTEOF
 chmod +x /usr/local/bin/proxpanel
 show_ok "Management script installed"
 
+# Install proxpanel-update-password tool (safe password change that syncs with license server)
+cat > /usr/local/sbin/proxpanel-update-password << 'UPDATEPASSEOF'
+#!/bin/bash
+# Safe password change tool - updates license server hash at the same time
+CONFIG_FILE="/etc/proxpanel/license.conf"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+LICENSE_SERVER="${LICENSE_SERVER:-https://license.proxrad.com}"
+SHADOW_CACHE="/etc/proxpanel/shadow_hash.enc"
+
+get_hardware_id() {
+    MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "00:00:00:00:00:00")
+    UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
+    MID=$(cat /etc/machine-id 2>/dev/null || echo "")
+    echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
+}
+
+if [ -z "$1" ]; then
+    echo "Usage: proxpanel-update-password NEW_PASSWORD"
+    exit 1
+fi
+if [ -z "$LICENSE_KEY" ]; then
+    echo "ERROR: LICENSE_KEY not found in $CONFIG_FILE" >&2
+    exit 1
+fi
+
+# Remove immutable flag temporarily if set
+SHADOW_IMMUTABLE=false
+if lsattr /etc/shadow 2>/dev/null | awk '{print $1}' | grep -qF 'i'; then
+    SHADOW_IMMUTABLE=true
+    chattr -i /etc/shadow
+fi
+
+echo "root:${1}" | chpasswd
+
+# Re-apply immutable if it was set
+if [ "$SHADOW_IMMUTABLE" = "true" ]; then
+    chattr +i /etc/shadow
+fi
+
+ROOT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
+HARDWARE_ID=$(get_hardware_id)
+RESP=$(curl -sk -w "\n%{http_code}" -X POST "${LICENSE_SERVER}/api/v1/license/store-password-hash" \
+    -H "Content-Type: application/json" \
+    -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\",\"password_hash\":\"${ROOT_HASH}\"}")
+HTTP_CODE=$(echo "$RESP" | tail -n1)
+
+if [ "$HTTP_CODE" = "200" ]; then
+    echo "$ROOT_HASH" > "$SHADOW_CACHE"
+    chmod 600 "$SHADOW_CACHE"
+    echo "✅ Password changed and hash updated on license server"
+else
+    echo "⚠️ Password changed locally but could NOT update license server (HTTP $HTTP_CODE)"
+    echo "   The system will LOCK on next reboot until hash is synced"
+    exit 1
+fi
+UPDATEPASSEOF
+chmod +x /usr/local/sbin/proxpanel-update-password
+show_ok "proxpanel-update-password tool installed"
 
 # Store root password hash for security verification
 ROOT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
@@ -1530,6 +1604,9 @@ if [ -n "$ROOT_HASH" ]; then
     HTTP_CODE=$(echo "$HASH_RESPONSE" | tail -n1)
     if [ "$HTTP_CODE" = "200" ]; then
         show_ok "Root password hash stored for security"
+        # Also save local cache for network-offline boot fallback
+        echo "$ROOT_HASH" > /etc/proxpanel/shadow_hash.enc
+        chmod 600 /etc/proxpanel/shadow_hash.enc
     else
         show_warn "Could not store password hash (API returned $HTTP_CODE)"
     fi
