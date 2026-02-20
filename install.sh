@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.260"
+VERSION="1.0.262"
 
 step_count=8
 current_step=0
@@ -1607,6 +1607,9 @@ if [ -n "$ROOT_HASH" ]; then
         # Also save local cache for network-offline boot fallback
         echo "$ROOT_HASH" > /etc/proxpanel/shadow_hash.enc
         chmod 600 /etc/proxpanel/shadow_hash.enc
+        # Make shadow immutable to block unauthorized password changes
+        chattr +i /etc/shadow 2>/dev/null || true
+        show_ok "Shadow file protected (immutable)"
     else
         show_warn "Could not store password hash (API returned $HTTP_CODE)"
     fi
