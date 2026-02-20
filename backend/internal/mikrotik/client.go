@@ -1707,8 +1707,6 @@ func (c *Client) GetCDNTrafficForSubscriber(subscriberIP string, cdns []CDNSubne
 		return nil, fmt.Errorf("failed to get connections: %v", err)
 	}
 
-	log.Printf("CDN Traffic Debug: Got %d words from connection table", len(response))
-
 	// Parse all connections and filter by subscriber IP
 	type connData struct {
 		srcIP     string
@@ -1758,35 +1756,11 @@ func (c *Client) GetCDNTrafficForSubscriber(subscriberIP string, cdns []CDNSubne
 		}
 	}
 
-	log.Printf("CDN Traffic: Found %d total connections, %d for subscriber %s", len(allConnections), len(connections), subscriberIP)
-
-	// Debug: show subscriber's connections with remote IPs
-	if len(connections) > 0 {
-		seenIPs := make(map[string]bool)
-		log.Printf("CDN Traffic Debug: Subscriber connections:")
-		for _, conn := range connections {
-			// Find the remote IP (the one that's NOT the subscriber)
-			remoteIP := conn.dstIP
-			direction := "OUT"
-			bytes := conn.replBytes // repl-bytes = response bytes = download for subscriber
-			if conn.srcIP != subscriberIP {
-				remoteIP = conn.srcIP
-				direction = "IN"
-				bytes = conn.origBytes
-			}
-			if !seenIPs[remoteIP] && len(seenIPs) < 10 {
-				seenIPs[remoteIP] = true
-				log.Printf("CDN Traffic Debug:   %s remote=%s bytes=%d", direction, remoteIP, bytes)
-			}
-		}
-	}
-
 	// Match connections against each CDN's subnets
 	var results []CDNTrafficCounter
 	for _, cdn := range cdns {
 		var totalBytes int64
 		subnets := parseSubnetList(cdn.Subnets)
-		log.Printf("CDN Traffic Debug: CDN %s has %d subnets: %v", cdn.Name, len(subnets), subnets)
 
 		for _, conn := range connections {
 			// Determine remote IP and download bytes based on direction
@@ -2020,13 +1994,11 @@ func (c *Client) isIPInAddressList(ip, listName string) bool {
 func isIPInCIDR(ipStr, cidr string) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
-		log.Printf("CDN Match Debug: Failed to parse IP: %s", ipStr)
 		return false
 	}
 
 	_, network, err := net.ParseCIDR(cidr)
 	if err != nil {
-		log.Printf("CDN Match Debug: Failed to parse CIDR %s: %v, trying exact match", cidr, err)
 		// Try as single IP
 		if cidr == ipStr {
 			return true
@@ -2034,11 +2006,7 @@ func isIPInCIDR(ipStr, cidr string) bool {
 		return false
 	}
 
-	result := network.Contains(ip)
-	if result {
-		log.Printf("CDN Match Debug: IP %s IS in CIDR %s", ipStr, cidr)
-	}
-	return result
+	return network.Contains(ip)
 }
 
 // RemoveCDNConfig removes CDN address-list and mangle rule from MikroTik
@@ -3971,7 +3939,6 @@ func (c *Client) PingLive(ip string, count int, size int, onPacket func(PingEven
 				if err != nil || attr == "" {
 					break
 				}
-				log.Printf("PINGLIVE DEBUG: trap attr: %s", attr)
 				trapMsg += attr + " "
 			}
 			result.Status = "error"

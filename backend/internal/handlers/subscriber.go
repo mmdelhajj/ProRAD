@@ -239,7 +239,6 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 			"message": "Failed to fetch subscribers: " + err.Error(),
 		})
 	}
-	log.Printf("DEBUG: Fetched %d subscribers", len(subscribers))
 
 	// Manually load Service and Reseller relations (to avoid garble/GORM Preload issues)
 	if len(subscribers) > 0 {
@@ -266,7 +265,6 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 				log.Printf("ERROR: Failed to load services: %v", err)
 			}
 		}
-		log.Printf("DEBUG: Loaded %d services", len(services))
 		serviceMap := make(map[uint]*models.Service)
 		for i := range services {
 			serviceMap[services[i].ID] = &services[i]
@@ -283,7 +281,6 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 				log.Printf("ERROR: Failed to load resellers: %v", err)
 			}
 		}
-		log.Printf("DEBUG: Loaded %d resellers", len(resellers))
 		resellerMap := make(map[uint]*models.Reseller)
 		for i := range resellers {
 			resellerMap[resellers[i].ID] = &resellers[i]
@@ -4258,7 +4255,6 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 		database.DB.Preload("CDN").Where("service_id = ? AND is_active = ?", subscriber.ServiceID, true).Find(&serviceCDNs)
 
 		if len(serviceCDNs) > 0 {
-			log.Printf("CDN Debug: Found %d service CDNs for subscriber %s", len(serviceCDNs), subscriber.Username)
 
 			// Build map of CDNID to color from database
 			cdnColorMap := make(map[uint]string)
@@ -4279,8 +4275,7 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 					} else {
 						cdnColorMap[cdn.CDNID] = defaultColor
 					}
-					log.Printf("CDN Debug: CDN %s (ID=%d) subnets: %s, color: %s", cdn.CDN.Name, cdn.CDNID, cdn.CDN.Subnets, cdnColorMap[cdn.CDNID])
-				}
+					}
 			}
 
 			// Get CDN traffic using Torch on subscriber's PPPoE interface

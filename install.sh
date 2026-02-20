@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.246"
+VERSION="1.0.260"
 
 step_count=8
 current_step=0
@@ -918,6 +918,14 @@ CONFIG_FILE="/etc/proxpanel/license.conf"
 CACHE_FILE="/etc/proxpanel/luks-key-cache"
 
 [ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+# Hardware ID function (must match API formula: stable|MAC|UUID|MID)
+get_hardware_id() {
+    MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "")
+    UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
+    MID=$(cat /etc/machine-id 2>/dev/null || echo "")
+    echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print $1}'
+}
 
 # SECURITY: Verify root password before allowing LUKS decryption
 if ! /usr/local/sbin/verify-root-password; then

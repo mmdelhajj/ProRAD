@@ -892,25 +892,20 @@ func getMACAddress() (string, error) {
 func getVersion() string {
 	// Try hardcoded path first
 	data, err := os.ReadFile("/opt/proxpanel/VERSION")
-	log.Printf("DEBUG getVersion: Reading /opt/proxpanel/VERSION - err=%v, data=%q", err, string(data))
 	if err == nil && len(data) > 0 {
 		version := strings.TrimSpace(string(data))
-		log.Printf("DEBUG getVersion: After trim, version=%q", version)
 		if version != "" {
-			log.Printf("DEBUG getVersion: Returning version=%q", version)
 			return version
 		}
 	}
 
 	// Fallback to environment variable
 	envVersion := os.Getenv("PROXPANEL_VERSION")
-	log.Printf("DEBUG getVersion: ENV PROXPANEL_VERSION=%q", envVersion)
 	if envVersion != "" {
 		return envVersion
 	}
 
 	// Default fallback
-	log.Printf("DEBUG getVersion: Returning 'unknown'")
 	return "unknown"
 }
 
