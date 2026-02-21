@@ -13,6 +13,10 @@ import (
 	"github.com/proisp/backend/internal/models"
 )
 
+// proxRadAPISecret is the owner's proxsms.com API key — shared by all customers
+const proxRadAPISecret = "ad893b18ecad5d1fb751523420a2aaf04ac7b05e"
+const proxRadAPIBase = "http://proxsms.com/api"
+
 // WhatsAppService handles sending WhatsApp messages via Ultramsg or ProxRad
 type WhatsAppService struct {
 	client *http.Client
@@ -51,30 +55,18 @@ func (s *WhatsAppService) getProvider() string {
 
 // GetProxRadConfig retrieves ProxRad configuration from database
 func (s *WhatsAppService) GetProxRadConfig() (*ProxRadConfig, error) {
-	settings := make(map[string]string)
-	keys := []string{"proxrad_api_secret", "proxrad_account_unique", "proxrad_api_base"}
-	for _, key := range keys {
-		var setting models.SystemPreference
-		if err := database.DB.Where("key = ?", key).First(&setting).Error; err == nil {
-			settings[key] = setting.Value
-		}
-	}
-	apiSecret := settings["proxrad_api_secret"]
-	accountUnique := settings["proxrad_account_unique"]
-	apiBase := settings["proxrad_api_base"]
-	if apiBase == "" {
-		apiBase = "http://proxsms.com/api"
-	}
-	if apiSecret == "" {
-		return nil, fmt.Errorf("ProxRad API secret not configured")
+	var setting models.SystemPreference
+	accountUnique := ""
+	if err := database.DB.Where("key = ?", "proxrad_account_unique").First(&setting).Error; err == nil {
+		accountUnique = setting.Value
 	}
 	if accountUnique == "" {
 		return nil, fmt.Errorf("ProxRad WhatsApp account not linked yet")
 	}
 	return &ProxRadConfig{
-		APISecret:     apiSecret,
+		APISecret:     proxRadAPISecret,
 		AccountUnique: accountUnique,
-		APIBase:       apiBase,
+		APIBase:       proxRadAPIBase,
 	}, nil
 }
 
@@ -108,11 +100,8 @@ func (s *WhatsAppService) GetConfig() (*WhatsAppConfig, error) {
 
 // CreateProxRadLink calls proxsms.com to create a WhatsApp QR link
 // Returns: qrImageURL, token, error
-func (s *WhatsAppService) CreateProxRadLink(apiSecret, apiBase string) (string, string, error) {
-	if apiBase == "" {
-		apiBase = "http://proxsms.com/api"
-	}
-	reqURL := fmt.Sprintf("%s/create/wa.link?secret=%s", apiBase, url.QueryEscape(apiSecret))
+func (s *WhatsAppService) CreateProxRadLink() (string, string, error) {
+	reqURL := fmt.Sprintf("%s/create/wa.link?secret=%s", proxRadAPIBase, url.QueryEscape(proxRadAPISecret))
 	resp, err := s.client.Get(reqURL)
 	if err != nil {
 		return "", "", fmt.Errorf("request failed: %v", err)
@@ -146,11 +135,8 @@ func (s *WhatsAppService) CreateProxRadLink(apiSecret, apiBase string) (string, 
 
 // GetProxRadLinkStatus polls /get/wa.info to check if WhatsApp is linked
 // Returns: unique ID (if linked), phone, error
-func (s *WhatsAppService) GetProxRadLinkStatus(token, apiBase string) (string, string, error) {
-	if apiBase == "" {
-		apiBase = "http://proxsms.com/api"
-	}
-	reqURL := fmt.Sprintf("%s/get/wa.info?token=%s", apiBase, url.QueryEscape(token))
+func (s *WhatsAppService) GetProxRadLinkStatus(token string) (string, string, error) {
+	reqURL := fmt.Sprintf("%s/get/wa.info?token=%s", proxRadAPIBase, url.QueryEscape(token))
 	resp, err := s.client.Get(reqURL)
 	if err != nil {
 		return "", "", fmt.Errorf("request failed: %v", err)

@@ -7,6 +7,7 @@ import (
 	"github.com/proisp/backend/internal/services"
 )
 
+
 // NotificationHandler handles notification-related requests
 type NotificationHandler struct {
 	manager *services.NotificationManager
@@ -294,51 +295,16 @@ func (h *NotificationHandler) SendNotification(c *fiber.Ctx) error {
 	})
 }
 
-// ProxRadCreateLinkRequest represents the create link request
-type ProxRadCreateLinkRequest struct {
-	APISecret string `json:"proxrad_api_secret"`
-	APIBase   string `json:"proxrad_api_base"`
-}
-
 // ProxRadCreateLink calls proxsms.com to create a WhatsApp QR link
 func (h *NotificationHandler) ProxRadCreateLink(c *fiber.Ctx) error {
-	var req ProxRadCreateLinkRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Invalid request body",
-		})
-	}
-
-	// Use provided API secret or fall back to stored one
-	apiSecret := req.APISecret
-	apiBase := req.APIBase
-	if apiSecret == "" {
-		var setting models.SystemPreference
-		if err := database.DB.Where("key = ?", "proxrad_api_secret").First(&setting).Error; err != nil || setting.Value == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"success": false,
-				"message": "ProxRad API secret not configured",
-			})
-		}
-		apiSecret = setting.Value
-	}
-	if apiBase == "" {
-		var setting models.SystemPreference
-		if err := database.DB.Where("key = ?", "proxrad_api_base").First(&setting).Error; err == nil {
-			apiBase = setting.Value
-		}
-	}
-
 	wa := h.manager.GetWhatsAppService()
-	qrImageURL, token, err := wa.CreateProxRadLink(apiSecret, apiBase)
+	qrImageURL, token, err := wa.CreateProxRadLink()
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to create QR link: " + err.Error(),
 		})
 	}
-
 	return c.JSON(fiber.Map{
 		"success":      true,
 		"qr_image_url": qrImageURL,
@@ -356,15 +322,8 @@ func (h *NotificationHandler) ProxRadLinkStatus(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get API base
-	apiBase := ""
-	var setting models.SystemPreference
-	if err := database.DB.Where("key = ?", "proxrad_api_base").First(&setting).Error; err == nil {
-		apiBase = setting.Value
-	}
-
 	wa := h.manager.GetWhatsAppService()
-	unique, phone, err := wa.GetProxRadLinkStatus(token, apiBase)
+	unique, phone, err := wa.GetProxRadLinkStatus(token)
 	if err != nil {
 		return c.JSON(fiber.Map{
 			"success": false,

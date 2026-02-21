@@ -394,10 +394,7 @@ export default function Settings() {
     setProxradLinked(false)
     setProxradPhone('')
     try {
-      const res = await api.post('/notifications/proxrad/create-link', {
-        proxrad_api_secret: formData.proxrad_api_secret,
-        proxrad_api_base: formData.proxrad_api_base
-      })
+      const res = await api.post('/notifications/proxrad/create-link', {})
       setProxradQrUrl(res.data.qr_image_url)
       setProxradToken(res.data.token)
       // Start polling for link status
@@ -1545,101 +1542,70 @@ export default function Settings() {
                   /* ProxRad provider */
                   <div className="space-y-4">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Your ProxRad API secret from <span className="font-mono">proxsms.com</span>. After entering your secret, click <strong>Link WhatsApp</strong> to scan a QR code with your phone.
+                      Scan a QR code with your WhatsApp phone to link your account. Notifications will be sent from your linked number.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Secret</label>
-                        <input
-                          type="password"
-                          value={formData.proxrad_api_secret || ''}
-                          onChange={(e) => handleChange('proxrad_api_secret', e.target.value)}
-                          placeholder="Your proxsms.com API secret"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Base URL (optional)</label>
-                        <input
-                          type="text"
-                          value={formData.proxrad_api_base || ''}
-                          onChange={(e) => handleChange('proxrad_api_base', e.target.value)}
-                          placeholder="http://proxsms.com/api"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Linked status or Link button */}
+                    {/* Linked status */}
                     {formData.proxrad_account_unique && !proxradQrUrl ? (
                       <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
                         <span className="text-green-600 dark:text-green-400 text-xl">✅</span>
                         <div>
                           <p className="text-sm font-medium text-green-800 dark:text-green-300">WhatsApp Linked</p>
                           <p className="text-xs text-green-600 dark:text-green-400">
-                            Account: {formData.proxrad_account_unique}{proxradPhone ? ` · ${proxradPhone}` : ''}
+                            {proxradPhone || formData.proxrad_account_unique}
                           </p>
                         </div>
                         <button
                           onClick={handleProxRadLink}
-                          disabled={proxradLinking || !formData.proxrad_api_secret}
+                          disabled={proxradLinking}
                           className="ml-auto px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
                         >
                           Re-link
                         </button>
                       </div>
                     ) : proxradQrUrl ? (
-                      /* QR code modal inline */
+                      /* QR code inline */
                       <div className="p-4 border-2 border-dashed border-green-400 dark:border-green-600 rounded-lg text-center space-y-3">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Scan this QR code with your WhatsApp</p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Scan with WhatsApp on your phone</p>
                         <img
                           src={proxradQrUrl}
                           alt="WhatsApp QR Code"
-                          className="mx-auto w-48 h-48 object-contain bg-white p-2 rounded-lg border border-gray-200"
+                          className="mx-auto w-52 h-52 object-contain bg-white p-2 rounded-lg border border-gray-200"
                         />
                         <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                           <span className="animate-spin inline-block w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full"></span>
                           Waiting for scan...
                         </div>
-                        <button
-                          onClick={handleProxRadCancelLink}
-                          className="text-xs text-gray-500 hover:text-gray-700 underline"
-                        >
-                          Cancel
-                        </button>
+                        <button onClick={handleProxRadCancelLink} className="text-xs text-gray-500 hover:text-gray-700 underline">Cancel</button>
                       </div>
                     ) : (
                       <button
                         onClick={handleProxRadLink}
-                        disabled={proxradLinking || !formData.proxrad_api_secret}
+                        disabled={proxradLinking}
                         className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {proxradLinking ? (
-                          <>
-                            <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-                            Generating QR...
-                          </>
+                          <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>Generating QR...</>
                         ) : '📱 Link WhatsApp Account'}
                       </button>
                     )}
 
-                    {/* Test message */}
-                    {formData.proxrad_account_unique && (
-                      <div className="md:col-span-2">
+                    {/* Test after linked */}
+                    {formData.proxrad_account_unique && !proxradQrUrl && (
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
                         <div className="flex gap-2">
                           <input
                             type="text"
                             value={testPhone}
                             onChange={(e) => setTestPhone(e.target.value)}
-                            placeholder="+1234567890 (with country code)"
+                            placeholder="+1234567890"
                             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
                           />
                           <button
                             onClick={handleTestWhatsapp}
                             disabled={testingWhatsapp}
-                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
                           >
                             {testingWhatsapp ? 'Testing...' : 'Test Send'}
                           </button>
