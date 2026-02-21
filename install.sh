@@ -624,8 +624,10 @@ services:
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/ssl/proxpanel:ro
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - api
     networks:
@@ -675,7 +677,7 @@ echo "${LICENSE_KEY}" > .license
 chmod 600 .license
 
 # Create directories
-mkdir -p uploads backups
+mkdir -p uploads backups certs
 chmod 755 uploads backups
 
 show_ok "Environment configured"

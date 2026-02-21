@@ -1010,10 +1010,6 @@ export default function Subscribers() {
           <span className="text-gray-500 dark:text-gray-400">Expired</span>
         </div>
         <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-2"></div>
-        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('0'); setPage(1); }}>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP0:</span>
-          <span className="font-semibold text-emerald-600">{stats.fup0 || 0}</span>
-        </div>
         <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('1'); setPage(1); }}>
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP1:</span>
           <span className="font-semibold text-amber-600">{stats.fup1 || 0}</span>

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/proisp/backend/internal/database"
 )
 
 type SSLHandler struct{}
@@ -102,18 +103,22 @@ func (h *SSLHandler) InstallSSL(c *fiber.Ctx) error {
 		if err := h.addAcmeChallengeToNginx(); err != nil {
 			send("⚠️  Nginx update warning: " + err.Error())
 		} else {
-			exec.Command("docker", "exec", "proxpanel-frontend", "nginx", "-s", "reload").Run() //nolint
-			time.Sleep(1 * time.Second)
+			// Must restart (not just reload): writeFileInPlace preserves inode,
+			// but if the file was previously replaced by os.WriteFile the inode changed.
+			// Restart ensures Docker bind mount picks up the current path inode.
+			exec.Command("docker", "restart", "proxpanel-frontend").Run() //nolint
+			time.Sleep(3 * time.Second)
 			send("✓ Nginx configured for ACME challenge")
 		}
 
 		// Install certbot on host via nsenter if not installed
 		send("📦 Checking certbot installation...")
-		checkCmd := exec.Command("nsenter", "-t", "1", "-m", "-u", "-n", "-i", "--", "which", "certbot")
+		checkCmd := exec.Command("nsenter", "-t", "1", "-m", "-u", "-n", "-i", "--",
+			"bash", "-c", "command -v certbot >/dev/null 2>&1 || test -f /usr/local/bin/certbot || test -f /snap/bin/certbot")
 		if err := checkCmd.Run(); err != nil {
 			send("📦 Installing certbot (this may take a minute)...")
 			installCmd := exec.Command("nsenter", "-t", "1", "-m", "-u", "-n", "-i", "--",
-				"bash", "-c", "snap install --classic certbot 2>&1 && ln -sf /snap/bin/certbot /usr/local/bin/certbot 2>/dev/null || true")
+				"bash", "-c", "apt-get install -y certbot 2>&1 || snap install --classic certbot 2>&1 && ln -sf /snap/bin/certbot /usr/local/bin/certbot 2>/dev/null || true")
 			out, err := installCmd.CombinedOutput()
 			if err != nil {
 				send("❌ Failed to install certbot: " + string(out))
@@ -152,7 +157,6 @@ func (h *SSLHandler) InstallSSL(c *fiber.Ctx) error {
 			"--preferred-challenges", "http",
 			"--manual-auth-hook", "/opt/proxpanel/acme-auth-hook.sh",
 			"--manual-cleanup-hook", "/opt/proxpanel/acme-cleanup-hook.sh",
-			"--manual-public-ip-logging-ok",
 			"--expand",
 			"-d", domain,
 		)
@@ -192,32 +196,21 @@ func (h *SSLHandler) InstallSSL(c *fiber.Ctx) error {
 		}
 		send("✓ Certificates copied to /opt/proxpanel/certs/")
 
-		// Update docker-compose.yml
-		send("⚙️  Updating docker-compose.yml...")
-		if err := h.updateDockerComposeForSSL(); err != nil {
-			send("⚠️  docker-compose.yml update warning: " + err.Error())
-		} else {
-			send("✓ docker-compose.yml updated")
-		}
-
-		// Write SSL nginx.conf
+		// Write SSL nginx.conf (in-place, preserves inode so container sees update)
 		send("⚙️  Configuring nginx for HTTPS...")
 		if err := h.writeSSLNginxConf(domain); err != nil {
 			send("❌ Failed to write nginx SSL config: " + err.Error())
 			sendFinal("error", "")
 			return
 		}
+		// Also write to frontend/nginx.conf in case old installs mount that path
+		h.writeSSLNginxConfTo(domain, "/opt/proxpanel/frontend/nginx.conf") //nolint
 		send("✓ nginx.conf updated for HTTPS")
 
-		// Recreate frontend container
+		// Restart frontend container (NOT docker compose up -d — that creates new networks
+		// which steal routes to MikroTik IPs in the same subnet)
 		send("🔄 Restarting nginx with SSL (brief downtime ~5 seconds)...")
-		restartCmd := exec.Command("bash", "-c",
-			"docker stop proxpanel-frontend && docker rm proxpanel-frontend && cd /opt/proxpanel && docker-compose up -d frontend 2>&1")
-		restartOut, err := restartCmd.CombinedOutput()
-		if err != nil {
-			send("⚠️  Container restart warning: " + string(restartOut))
-			exec.Command("docker", "start", "proxpanel-frontend").Run() //nolint
-		}
+		exec.Command("docker", "restart", "proxpanel-frontend").Run() //nolint
 		time.Sleep(3 * time.Second)
 		send("✓ nginx restarted with SSL")
 
@@ -238,12 +231,10 @@ func (h *SSLHandler) InstallSSL(c *fiber.Ctx) error {
 			send("✓ Auto-renewal cron configured (runs daily at 3 AM)")
 		}
 
-		// Save domain to system preferences
+		// Save domain to system preferences via database
 		send("💾 Saving configuration...")
-		exec.Command("docker", "exec", "proxpanel-db", "psql", "-U", "proxpanel", "-d", "proxpanel", "-c",
-			fmt.Sprintf(`INSERT INTO system_preferences (key, value) VALUES ('custom_domain', '%s') ON CONFLICT (key) DO UPDATE SET value = '%s'`, domain, domain)).Run() //nolint
-		exec.Command("docker", "exec", "proxpanel-db", "psql", "-U", "proxpanel", "-d", "proxpanel", "-c",
-			`INSERT INTO system_preferences (key, value) VALUES ('ssl_enabled', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'`).Run() //nolint
+		database.DB.Exec("INSERT INTO system_preferences (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?", "custom_domain", domain, domain)
+		database.DB.Exec("INSERT INTO system_preferences (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?", "ssl_enabled", "true", "true")
 
 		send(fmt.Sprintf("✅ SSL configured successfully! Panel at https://%s", domain))
 		sendFinal("success", domain)
@@ -254,7 +245,7 @@ func (h *SSLHandler) InstallSSL(c *fiber.Ctx) error {
 
 // addAcmeChallengeToNginx adds the ACME challenge proxy location to nginx.conf
 func (h *SSLHandler) addAcmeChallengeToNginx() error {
-	confPath := "/opt/proxpanel/frontend/nginx.conf"
+	confPath := "/opt/proxpanel/nginx.conf"
 	content, err := os.ReadFile(confPath)
 	if err != nil {
 		return err
@@ -275,14 +266,30 @@ func (h *SSLHandler) addAcmeChallengeToNginx() error {
     }
 
 `
-	// Insert before the streaming location block
-	insertBefore := "    # Streaming API"
+	// Insert before the first location block (always present)
+	insertBefore := "    location = /index.html"
 	if !strings.Contains(conf, insertBefore) {
-		insertBefore = "    location /api/"
+		insertBefore = "    location /api"
+	}
+	if !strings.Contains(conf, insertBefore) {
+		insertBefore = "    location /"
 	}
 	conf = strings.Replace(conf, insertBefore, acmeBlock+insertBefore, 1)
 
-	return os.WriteFile(confPath, []byte(conf), 0644)
+	// Write in-place to preserve inode (Docker bind mounts track inode, not path)
+	return writeFileInPlace(confPath, []byte(conf))
+}
+
+// writeSSLNginxConfTo writes the SSL nginx config to a specific path (for compatibility with old installs)
+func (h *SSLHandler) writeSSLNginxConfTo(domain, path string) error {
+	if _, err := os.Stat(path); err != nil {
+		return err // skip if file doesn't exist
+	}
+	content, err := os.ReadFile("/opt/proxpanel/nginx.conf")
+	if err != nil {
+		return err
+	}
+	return writeFileInPlace(path, content)
 }
 
 // updateDockerComposeForSSL adds port 443 and cert volume to docker-compose.yml
@@ -313,7 +320,7 @@ func (h *SSLHandler) updateDockerComposeForSSL() error {
 
 // writeSSLNginxConf writes a new nginx.conf with SSL support
 func (h *SSLHandler) writeSSLNginxConf(domain string) error {
-	confPath := "/opt/proxpanel/frontend/nginx.conf"
+	confPath := "/opt/proxpanel/nginx.conf"
 	existing, err := os.ReadFile(confPath)
 	if err != nil {
 		return err
@@ -458,7 +465,21 @@ server {
 }
 `, domain, domain, domain)
 
-	return os.WriteFile(confPath, []byte(sslConf), 0644)
+	return writeFileInPlace(confPath, []byte(sslConf))
+}
+
+// writeFileInPlace writes content to a file without changing its inode.
+// Docker bind mounts track inodes, so os.WriteFile (which creates a new file) would
+// cause the container to keep seeing the old content. This function truncates and
+// rewrites the existing file, preserving the inode so the container sees the update.
+func writeFileInPlace(path string, data []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(data)
+	return err
 }
 
 // GetSSLStatus returns current SSL/domain configuration
@@ -466,27 +487,25 @@ func (h *SSLHandler) GetSSLStatus(c *fiber.Ctx) error {
 	domain := ""
 	sslEnabled := false
 
-	// Read from DB via docker exec
-	rows, _ := exec.Command("docker", "exec", "proxpanel-db", "psql", "-U", "proxpanel", "-d", "proxpanel",
-		"-tAc", "SELECT key, value FROM system_preferences WHERE key IN ('custom_domain', 'ssl_enabled')").Output()
-	for _, line := range strings.Split(string(rows), "\n") {
-		parts := strings.SplitN(strings.TrimSpace(line), "|", 2)
-		if len(parts) == 2 {
-			if parts[0] == "custom_domain" {
-				domain = parts[1]
-			}
-			if parts[0] == "ssl_enabled" && parts[1] == "true" {
-				sslEnabled = true
-			}
+	// Read from DB via GORM
+	var prefs []struct {
+		Key   string
+		Value string
+	}
+	database.DB.Raw("SELECT key, value FROM system_preferences WHERE key IN ('custom_domain', 'ssl_enabled')").Scan(&prefs)
+	for _, p := range prefs {
+		if p.Key == "custom_domain" {
+			domain = p.Value
+		}
+		if p.Key == "ssl_enabled" && p.Value == "true" {
+			sslEnabled = true
 		}
 	}
 
 	// Check if cert actually exists
 	certExists := false
-	if domain != "" {
-		if _, err := os.Stat("/opt/proxpanel/certs/fullchain.pem"); err == nil {
-			certExists = true
-		}
+	if _, err := os.Stat("/opt/proxpanel/certs/fullchain.pem"); err == nil {
+		certExists = true
 	}
 
 	return c.JSON(fiber.Map{
