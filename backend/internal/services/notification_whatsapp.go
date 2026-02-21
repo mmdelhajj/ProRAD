@@ -13,7 +13,7 @@ import (
 	"github.com/proisp/backend/internal/models"
 )
 
-// WhatsAppService handles sending WhatsApp messages via Ultramsg
+// WhatsAppService handles sending WhatsApp messages via Ultramsg or ProxRad
 type WhatsAppService struct {
 	client *http.Client
 }
@@ -31,6 +31,51 @@ func NewWhatsAppService() *WhatsAppService {
 type WhatsAppConfig struct {
 	InstanceID string
 	Token      string
+}
+
+// ProxRadConfig holds ProxRad (proxsms.com) WhatsApp configuration
+type ProxRadConfig struct {
+	APISecret     string
+	AccountUnique string
+	APIBase       string
+}
+
+// getProvider reads the configured WhatsApp provider from DB
+func (s *WhatsAppService) getProvider() string {
+	var setting models.SystemPreference
+	if err := database.DB.Where("key = ?", "whatsapp_provider").First(&setting).Error; err == nil {
+		return setting.Value
+	}
+	return "ultramsg"
+}
+
+// GetProxRadConfig retrieves ProxRad configuration from database
+func (s *WhatsAppService) GetProxRadConfig() (*ProxRadConfig, error) {
+	settings := make(map[string]string)
+	keys := []string{"proxrad_api_secret", "proxrad_account_unique", "proxrad_api_base"}
+	for _, key := range keys {
+		var setting models.SystemPreference
+		if err := database.DB.Where("key = ?", key).First(&setting).Error; err == nil {
+			settings[key] = setting.Value
+		}
+	}
+	apiSecret := settings["proxrad_api_secret"]
+	accountUnique := settings["proxrad_account_unique"]
+	apiBase := settings["proxrad_api_base"]
+	if apiBase == "" {
+		apiBase = "http://proxsms.com/api"
+	}
+	if apiSecret == "" {
+		return nil, fmt.Errorf("ProxRad API secret not configured")
+	}
+	if accountUnique == "" {
+		return nil, fmt.Errorf("ProxRad WhatsApp account not linked yet")
+	}
+	return &ProxRadConfig{
+		APISecret:     apiSecret,
+		AccountUnique: accountUnique,
+		APIBase:       apiBase,
+	}, nil
 }
 
 // GetConfig retrieves WhatsApp configuration from database
@@ -61,13 +106,129 @@ func (s *WhatsAppService) GetConfig() (*WhatsAppConfig, error) {
 	}, nil
 }
 
-// SendMessage sends a WhatsApp text message
+// CreateProxRadLink calls proxsms.com to create a WhatsApp QR link
+// Returns: qrImageURL, token, error
+func (s *WhatsAppService) CreateProxRadLink(apiSecret, apiBase string) (string, string, error) {
+	if apiBase == "" {
+		apiBase = "http://proxsms.com/api"
+	}
+	reqURL := fmt.Sprintf("%s/create/wa.link?secret=%s", apiBase, url.QueryEscape(apiSecret))
+	resp, err := s.client.Get(reqURL)
+	if err != nil {
+		return "", "", fmt.Errorf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var result struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+		Data    struct {
+			QRImageLink string `json:"qrimagelink"`
+			InfoLink    string `json:"infolink"`
+			QRString    string `json:"qrstring"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", "", fmt.Errorf("failed to parse response: %v", err)
+	}
+	if result.Status != 200 {
+		return "", "", fmt.Errorf("proxsms error: %s", result.Message)
+	}
+	// Extract token from infolink URL param
+	parsedURL, err := url.Parse(result.Data.InfoLink)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse info link: %v", err)
+	}
+	token := parsedURL.Query().Get("token")
+	return result.Data.QRImageLink, token, nil
+}
+
+// GetProxRadLinkStatus polls /get/wa.info to check if WhatsApp is linked
+// Returns: unique ID (if linked), phone, error
+func (s *WhatsAppService) GetProxRadLinkStatus(token, apiBase string) (string, string, error) {
+	if apiBase == "" {
+		apiBase = "http://proxsms.com/api"
+	}
+	reqURL := fmt.Sprintf("%s/get/wa.info?token=%s", apiBase, url.QueryEscape(token))
+	resp, err := s.client.Get(reqURL)
+	if err != nil {
+		return "", "", fmt.Errorf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var result struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+		Data    struct {
+			Unique string `json:"unique"`
+			Phone  string `json:"phone"`
+			Name   string `json:"name"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", "", fmt.Errorf("failed to parse response: %v", err)
+	}
+	if result.Status != 200 {
+		return "", "", fmt.Errorf("not linked yet")
+	}
+	return result.Data.Unique, result.Data.Phone, nil
+}
+
+// SendMessageViaProxRad sends a WhatsApp message using proxsms.com API
+func (s *WhatsAppService) SendMessageViaProxRad(config *ProxRadConfig, to, message string) error {
+	reqURL := fmt.Sprintf("%s/send/whatsapp", config.APIBase)
+
+	formData := url.Values{}
+	formData.Set("secret", config.APISecret)
+	formData.Set("account", config.AccountUnique)
+	formData.Set("recipient", to)
+	formData.Set("type", "text")
+	formData.Set("message", message)
+	formData.Set("priority", "1")
+
+	req, err := http.NewRequest("POST", reqURL, strings.NewReader(formData.Encode()))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var result struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &result); err == nil && result.Status != 200 {
+		return fmt.Errorf("proxsms error: %s", result.Message)
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("proxsms HTTP error (%d): %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// SendMessage sends a WhatsApp text message (routes to correct provider)
 func (s *WhatsAppService) SendMessage(to, message string) error {
+	provider := s.getProvider()
+	if provider == "proxrad" {
+		config, err := s.GetProxRadConfig()
+		if err != nil {
+			return err
+		}
+		return s.SendMessageViaProxRad(config, to, message)
+	}
+	// Default: Ultramsg
 	config, err := s.GetConfig()
 	if err != nil {
 		return err
 	}
-
 	return s.SendMessageWithConfig(config, to, message)
 }
 

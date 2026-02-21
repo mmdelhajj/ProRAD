@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/services"
 )
 
@@ -289,5 +291,97 @@ func (h *NotificationHandler) SendNotification(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Notification sent",
+	})
+}
+
+// ProxRadCreateLinkRequest represents the create link request
+type ProxRadCreateLinkRequest struct {
+	APISecret string `json:"proxrad_api_secret"`
+	APIBase   string `json:"proxrad_api_base"`
+}
+
+// ProxRadCreateLink calls proxsms.com to create a WhatsApp QR link
+func (h *NotificationHandler) ProxRadCreateLink(c *fiber.Ctx) error {
+	var req ProxRadCreateLinkRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	// Use provided API secret or fall back to stored one
+	apiSecret := req.APISecret
+	apiBase := req.APIBase
+	if apiSecret == "" {
+		var setting models.SystemPreference
+		if err := database.DB.Where("key = ?", "proxrad_api_secret").First(&setting).Error; err != nil || setting.Value == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"message": "ProxRad API secret not configured",
+			})
+		}
+		apiSecret = setting.Value
+	}
+	if apiBase == "" {
+		var setting models.SystemPreference
+		if err := database.DB.Where("key = ?", "proxrad_api_base").First(&setting).Error; err == nil {
+			apiBase = setting.Value
+		}
+	}
+
+	wa := h.manager.GetWhatsAppService()
+	qrImageURL, token, err := wa.CreateProxRadLink(apiSecret, apiBase)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create QR link: " + err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":      true,
+		"qr_image_url": qrImageURL,
+		"token":        token,
+	})
+}
+
+// ProxRadLinkStatus polls proxsms.com to check if WhatsApp is linked
+func (h *NotificationHandler) ProxRadLinkStatus(c *fiber.Ctx) error {
+	token := c.Query("token")
+	if token == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "token is required",
+		})
+	}
+
+	// Get API base
+	apiBase := ""
+	var setting models.SystemPreference
+	if err := database.DB.Where("key = ?", "proxrad_api_base").First(&setting).Error; err == nil {
+		apiBase = setting.Value
+	}
+
+	wa := h.manager.GetWhatsAppService()
+	unique, phone, err := wa.GetProxRadLinkStatus(token, apiBase)
+	if err != nil {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"linked":  false,
+			"message": "Not linked yet",
+		})
+	}
+
+	// Save the unique ID to DB
+	database.DB.Where(models.SystemPreference{Key: "proxrad_account_unique"}).
+		Assign(models.SystemPreference{Value: unique}).
+		FirstOrCreate(&models.SystemPreference{})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"linked":  true,
+		"unique":  unique,
+		"phone":   phone,
 	})
 }

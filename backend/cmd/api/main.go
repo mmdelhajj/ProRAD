@@ -404,6 +404,8 @@ func main() {
 	notifications.Post("/test-sms", notificationHandler.TestSMS)
 	notifications.Post("/test-whatsapp", notificationHandler.TestWhatsApp)
 	notifications.Get("/whatsapp-status", notificationHandler.GetWhatsAppStatus)
+	notifications.Post("/proxrad/create-link", notificationHandler.ProxRadCreateLink)
+	notifications.Get("/proxrad/link-status", notificationHandler.ProxRadLinkStatus)
 
 	// Customer update notification routes (accessible to all authenticated users)
 	notificationRoutes := protected.Group("/notifications/updates")
