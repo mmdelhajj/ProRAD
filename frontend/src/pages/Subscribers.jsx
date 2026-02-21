@@ -613,6 +613,20 @@ export default function Subscribers() {
         header: '',
         cell: ({ row }) => {
           const statusInfo = getStatusDisplay(row.original)
+          if (sortBy === 'daily_usage' || sortBy === 'monthly_usage') {
+            const rank = (page - 1) * limit + row.index + 1
+            return (
+              <div className="flex items-center justify-center">
+                <span className={clsx(
+                  'text-[10px] font-bold px-1 py-0.5 rounded min-w-[22px] text-center',
+                  rank === 1 ? 'bg-yellow-400 text-yellow-900' :
+                  rank === 2 ? 'bg-gray-300 text-gray-700' :
+                  rank === 3 ? 'bg-orange-300 text-orange-900' :
+                  'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                )}>#{rank}</span>
+              </div>
+            )
+          }
           return (
             <div className="flex items-center justify-center">
               <span className={clsx('w-3 h-3 rounded-full', statusInfo.color, row.original.is_online && 'animate-pulse')} />
@@ -657,6 +671,18 @@ export default function Subscribers() {
                   FUP{row.original.fup_level}
                 </span>
               )}
+              {sortBy === 'daily_usage' && (() => {
+                const bytes = (row.original.daily_download_used || 0) + (row.original.daily_upload_used || 0)
+                const gb = bytes / 1073741824
+                const label = gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1048576).toFixed(0)} MB`
+                return <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 rounded whitespace-nowrap">↓ {label}</span>
+              })()}
+              {sortBy === 'monthly_usage' && (() => {
+                const bytes = (row.original.monthly_download_used || 0) + (row.original.monthly_upload_used || 0)
+                const gb = bytes / 1073741824
+                const label = gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1048576).toFixed(0)} MB`
+                return <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded whitespace-nowrap">↓ {label}</span>
+              })()}
             </span>
           </div>
         ),
@@ -886,7 +912,7 @@ export default function Subscribers() {
         cell: ({ row }) => formatDate(row.original.deleted_at),
       }] : []),
     ],
-    [viewMode, visibleColumns]
+    [viewMode, visibleColumns, sortBy, page, limit]
   )
 
   const table = useReactTable({
