@@ -332,6 +332,7 @@ export const settingsApi = {
   }),
   deleteFavicon: () => api.delete('/settings/favicon'),
   restartServices: (services) => api.post('/system/restart-services', { services }),
+  getSSLStatus: () => api.get('/settings/ssl-status'),
 }
 
 export const clusterApi = {

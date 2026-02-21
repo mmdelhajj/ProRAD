@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import { setTimezone } from '../utils/timezone'
 import toast from 'react-hot-toast'
-import { PhotoIcon, TrashIcon, SwatchIcon, CpuChipIcon, ServerIcon, ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
+import { PhotoIcon, TrashIcon, SwatchIcon, CpuChipIcon, ServerIcon, ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import ClusterTab from '../components/ClusterTab'
 import NetworkConfiguration from '../components/NetworkConfiguration'
 import { dashboardApi } from '../services/api'
@@ -18,7 +18,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // All valid tab IDs
-  const validTabs = ['branding', 'general', 'billing', 'service_change', 'radius', 'notifications', 'security', 'account', 'license', 'cluster', 'system']
+  const validTabs = ['branding', 'general', 'billing', 'service_change', 'radius', 'notifications', 'security', 'account', 'license', 'cluster', 'system', 'ssl']
 
   // Check if we should open a specific tab (from URL params)
   const urlTab = searchParams.get('tab')
@@ -59,6 +59,13 @@ export default function Settings() {
   const [testingWhatsapp, setTestingWhatsapp] = useState(false)
   const [testEmail, setTestEmail] = useState('')
   const [testPhone, setTestPhone] = useState('')
+
+  // SSL state
+  const [sslDomain, setSslDomain] = useState('')
+  const [sslEmail, setSslEmail] = useState('')
+  const [sslLog, setSslLog] = useState([])
+  const [sslStreaming, setSslStreaming] = useState(false)
+  const sslAbortRef = useRef(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -165,6 +172,64 @@ export default function Settings() {
     }
   }
 
+  const handleInstallSSL = async () => {
+    if (!sslDomain || !sslEmail) return
+    setSslLog([])
+    setSslStreaming(true)
+    const controller = new AbortController()
+    sslAbortRef.current = controller
+    try {
+      const token = useAuthStore.getState().token
+      const formData = new FormData()
+      formData.append('domain', sslDomain)
+      formData.append('email', sslEmail)
+      const response = await fetch('/api/settings/ssl-stream', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        let msg = 'SSL installation failed'
+        try { msg = JSON.parse(text).message || msg } catch {}
+        setSslLog([`❌ ${msg}`])
+        setSslStreaming(false)
+        return
+      }
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const data = JSON.parse(line)
+            if (data.status === 'success') {
+              refetchSSLStatus()
+            } else if (data.status === 'error') {
+              // error already shown in log
+            } else if (data.msg) {
+              setSslLog(prev => [...prev, data.msg])
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setSslLog(prev => [...prev, `❌ Error: ${err.message}`])
+      }
+    } finally {
+      setSslStreaming(false)
+      sslAbortRef.current = null
+    }
+  }
+
   // License query
   const { data: licenseData, isLoading: licenseLoading, refetch: refetchLicense } = useQuery({
     queryKey: ['license', activeTab],
@@ -200,6 +265,21 @@ export default function Settings() {
       toast.error(err.response?.data?.message || 'Failed to validate license')
     }
   })
+
+  // SSL status query
+  const { data: sslStatus, refetch: refetchSSLStatus } = useQuery({
+    queryKey: ['ssl-status'],
+    queryFn: () => settingsApi.getSSLStatus().then(res => res.data),
+    enabled: activeTab === 'system' || activeTab === 'ssl',
+    staleTime: 30000,
+  })
+
+  // Pre-fill domain from saved SSL status
+  useEffect(() => {
+    if (sslStatus?.domain && !sslDomain) {
+      setSslDomain(sslStatus.domain)
+    }
+  }, [sslStatus])
 
   // Check for updates query
   const { data: updateData, refetch: refetchUpdate, isLoading: updateLoading } = useQuery({
@@ -310,6 +390,7 @@ export default function Settings() {
     { id: 'license', label: 'License' },
     { id: 'cluster', label: 'HA Cluster' },
     { id: 'system', label: 'Network' },
+    { id: 'ssl', label: 'SSL Certificate' },
   ]
 
   // Logo upload handler
@@ -1860,6 +1941,93 @@ export default function Settings() {
                   Failed to load system information
                 </div>
               )}
+            </div>
+          ) : activeTab === 'ssl' ? (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <LockClosedIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Custom Domain & SSL Certificate</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Point your domain to this server and get a free HTTPS certificate from Let's Encrypt</p>
+                  </div>
+                </div>
+
+                {sslStatus?.cert_exists && (
+                  <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+                    <CheckCircleIcon className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      SSL active — panel accessible at <strong>https://{sslStatus.domain}</strong>
+                    </p>
+                  </div>
+                )}
+                {sslStatus?.domain && !sslStatus?.cert_exists && (
+                  <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-center gap-2">
+                    <ExclamationTriangleIcon className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      Domain configured (<strong>{sslStatus.domain}</strong>) but no certificate found — run installation below.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain / Subdomain</label>
+                    <input
+                      type="text"
+                      value={sslDomain}
+                      onChange={e => setSslDomain(e.target.value.trim())}
+                      placeholder="panel.yourisp.com"
+                      className="input w-full"
+                      disabled={sslStreaming}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Must point to this server's public IP address via DNS</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email (Let's Encrypt)</label>
+                    <input
+                      type="email"
+                      value={sslEmail}
+                      onChange={e => setSslEmail(e.target.value.trim())}
+                      placeholder="admin@yourisp.com"
+                      className="input w-full"
+                      disabled={sslStreaming}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Used for certificate expiry notifications</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleInstallSSL}
+                  disabled={sslStreaming || !sslDomain || !sslEmail}
+                  className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sslStreaming ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                      Installing SSL...
+                    </span>
+                  ) : sslStatus?.cert_exists ? 'Renew SSL Certificate' : 'Get SSL Certificate'}
+                </button>
+
+                {sslLog.length > 0 && (
+                  <div className="mt-4 bg-gray-900 rounded-lg p-4 font-mono text-xs max-h-80 overflow-y-auto space-y-0.5">
+                    {sslLog.map((line, i) => (
+                      <div key={i} className={
+                        line.includes('❌') ? 'text-red-400' :
+                        line.includes('✅') || line.startsWith('✓') ? 'text-green-400' :
+                        line.includes('⚠') ? 'text-yellow-400' :
+                        'text-gray-300'
+                      }>{line}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

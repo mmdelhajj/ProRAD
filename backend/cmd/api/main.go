@@ -210,6 +210,7 @@ func main() {
 	systemUpdateHandler := handlers.NewSystemUpdateHandler()
 	networkConfigHandler := handlers.NewNetworkConfigHandler()
 	diagnosticHandler := handlers.NewDiagnosticHandler()
+	sslHandler := handlers.NewSSLHandler()
 
 	// API routes
 	api := app.Group("/api")
@@ -235,6 +236,9 @@ func main() {
 
 	// Serve uploaded files (logos, etc.)
 	app.Static("/uploads", "/app/uploads")
+
+	// Let's Encrypt ACME HTTP-01 challenge (public, no auth required)
+	app.Get("/.well-known/acme-challenge/:token", sslHandler.ServeAcmeChallenge)
 
 	// Customer Portal routes (public login, protected dashboard)
 	customerHandler := handlers.NewCustomerPortalHandler(cfg)
@@ -388,6 +392,8 @@ func main() {
 	settings.Delete("/login-background", settingsHandler.DeleteLoginBackground)
 	settings.Post("/favicon", settingsHandler.UploadFavicon)
 	settings.Delete("/favicon", settingsHandler.DeleteFavicon)
+	settings.Get("/ssl-status", sslHandler.GetSSLStatus)
+	settings.Post("/ssl-stream", sslHandler.InstallSSL)
 	settings.Get("/:key", settingsHandler.Get)
 	settings.Put("/:key", settingsHandler.Update)
 	settings.Delete("/:key", settingsHandler.Delete)

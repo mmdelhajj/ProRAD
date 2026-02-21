@@ -453,85 +453,26 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		sessions = []models.RadAcct{}
 	}
 
-	// Calculate quota from radacct (persists across reconnections) + live MikroTik data
+	// Use real-time quota data from subscribers table (updated every 30s by QuotaSync)
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	month := now.Format("2006-01")
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
-	// Get daily total from radacct (all sessions today, including completed ones)
-	var dailyStats struct {
-		TotalInput  int64
-		TotalOutput int64
-	}
-	database.DB.Model(&models.RadAcct{}).
-		Select("COALESCE(SUM(acctinputoctets), 0) as total_input, COALESCE(SUM(acctoutputoctets), 0) as total_output").
-		Where("username = ? AND acctstarttime >= ?", subscriber.Username, startOfDay).
-		Scan(&dailyStats)
-
-	// Get monthly total from radacct
-	var monthlyStats struct {
-		TotalInput  int64
-		TotalOutput int64
-	}
-	database.DB.Model(&models.RadAcct{}).
-		Select("COALESCE(SUM(acctinputoctets), 0) as total_input, COALESCE(SUM(acctoutputoctets), 0) as total_output").
-		Where("username = ? AND acctstarttime >= ?", subscriber.Username, startOfMonth).
-		Scan(&monthlyStats)
-
-	// Radacct: input = upload (user sends), output = download (user receives)
 	dailyQuota := models.DailyQuota{
 		SubscriberID: subscriber.ID,
 		Date:         today,
-		Download:     dailyStats.TotalOutput,
-		Upload:       dailyStats.TotalInput,
-		Total:        dailyStats.TotalInput + dailyStats.TotalOutput,
+		Download:     subscriber.DailyDownloadUsed,
+		Upload:       subscriber.DailyUploadUsed,
+		Total:        subscriber.DailyDownloadUsed + subscriber.DailyUploadUsed,
 	}
 
 	monthlyQuota := models.MonthlyQuota{
 		SubscriberID: subscriber.ID,
 		Month:        month,
-		Download:     monthlyStats.TotalOutput,
-		Upload:       monthlyStats.TotalInput,
-		Total:        monthlyStats.TotalInput + monthlyStats.TotalOutput,
-	}
-
-	// If subscriber is online, add live traffic from MikroTik (not yet in radacct)
-	if subscriber.IsOnline && subscriber.Nas != nil {
-		client := mikrotik.NewClient(
-			fmt.Sprintf("%s:%d", subscriber.Nas.IPAddress, subscriber.Nas.APIPort),
-			subscriber.Nas.APIUsername,
-			subscriber.Nas.APIPassword,
-		)
-		if session, err := client.GetActiveSession(subscriber.Username); err == nil {
-			// MikroTik: TxBytes = client download, RxBytes = client upload
-			currentDownload := session.TxBytes
-			currentUpload := session.RxBytes
-
-			// Get the current session's accounting record to find already-recorded bytes
-			var currentAcct models.RadAcct
-			if err := database.DB.Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL",
-				subscriber.SessionID, subscriber.Username).First(&currentAcct).Error; err == nil {
-				// Add only the delta between live MikroTik data and last recorded accounting
-				liveDownloadDelta := currentDownload - currentAcct.AcctOutputOctets
-				liveUploadDelta := currentUpload - currentAcct.AcctInputOctets
-
-				if liveDownloadDelta > 0 {
-					dailyQuota.Download += liveDownloadDelta
-					dailyQuota.Total += liveDownloadDelta
-					monthlyQuota.Download += liveDownloadDelta
-					monthlyQuota.Total += liveDownloadDelta
-				}
-				if liveUploadDelta > 0 {
-					dailyQuota.Upload += liveUploadDelta
-					dailyQuota.Total += liveUploadDelta
-					monthlyQuota.Upload += liveUploadDelta
-					monthlyQuota.Total += liveUploadDelta
-				}
-			}
-		}
-		client.Close()
+		Download:     subscriber.MonthlyDownloadUsed,
+		Upload:       subscriber.MonthlyUploadUsed,
+		Total:        subscriber.MonthlyDownloadUsed + subscriber.MonthlyUploadUsed,
 	}
 
 	// Get daily breakdown for each day of the current month
