@@ -219,9 +219,9 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", filterResellerID, filterResellerID)
 	}
 
-	// Count total
+	// Count total (use a fresh session clone to avoid GORM statement mutation affecting the main query)
 	var total int64
-	query.Count(&total)
+	query.Session(&gorm.Session{}).Count(&total)
 
 	// Apply sorting
 	if sortBy == "daily_usage" {
