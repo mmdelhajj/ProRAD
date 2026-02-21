@@ -1021,7 +1021,7 @@ export default function Subscribers() {
         {/* Top Daily */}
         <div
           className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', sortBy === 'daily_usage' && 'bg-cyan-100 dark:bg-cyan-900/40 ring-1 ring-cyan-400')}
-          onClick={() => { setSortBy(sortBy === 'daily_usage' ? '' : 'daily_usage'); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
+          onClick={() => { setSortBy(sortBy === 'daily_usage' ? '' : 'daily_usage'); setSorting([]); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
         >
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Top Daily</span>
           {sortBy === 'daily_usage' && <span className="text-cyan-600 text-xs">▼</span>}
@@ -1030,7 +1030,7 @@ export default function Subscribers() {
         {/* Top Monthly */}
         <div
           className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', sortBy === 'monthly_usage' && 'bg-indigo-100 dark:bg-indigo-900/40 ring-1 ring-indigo-400')}
-          onClick={() => { setSortBy(sortBy === 'monthly_usage' ? '' : 'monthly_usage'); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
+          onClick={() => { setSortBy(sortBy === 'monthly_usage' ? '' : 'monthly_usage'); setSorting([]); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
         >
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Top Monthly</span>
           {sortBy === 'monthly_usage' && <span className="text-indigo-600 text-xs">▼</span>}
