@@ -207,6 +207,11 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 		}
 	}
 
+	// Monthly FUP filter
+	if c.Query("monthly_fup") == "true" {
+		query = query.Where("monthly_fup_level >= 1")
+	}
+
 	// Reseller filter (for admin to filter by specific reseller)
 	filterResellerID, _ := strconv.Atoi(c.Query("reseller_id", "0"))
 	if filterResellerID > 0 {
@@ -219,16 +224,22 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	query.Count(&total)
 
 	// Apply sorting
-	allowedSortFields := map[string]bool{
-		"username": true, "full_name": true, "created_at": true, "expiry_date": true, "is_online": true,
+	if sortBy == "daily_usage" {
+		query = query.Order("(daily_download_used + daily_upload_used) DESC")
+	} else if sortBy == "monthly_usage" {
+		query = query.Order("(monthly_download_used + monthly_upload_used) DESC")
+	} else {
+		allowedSortFields := map[string]bool{
+			"username": true, "full_name": true, "created_at": true, "expiry_date": true, "is_online": true,
+		}
+		if !allowedSortFields[sortBy] {
+			sortBy = "created_at"
+		}
+		if sortDir != "asc" && sortDir != "desc" {
+			sortDir = "desc"
+		}
+		query = query.Order(fmt.Sprintf("%s %s", sortBy, sortDir))
 	}
-	if !allowedSortFields[sortBy] {
-		sortBy = "created_at"
-	}
-	if sortDir != "asc" && sortDir != "desc" {
-		sortDir = "desc"
-	}
-	query = query.Order(fmt.Sprintf("%s %s", sortBy, sortDir))
 
 	// Fetch subscribers
 	var subscribers []models.Subscriber
@@ -299,18 +310,19 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 
 	// Calculate stats
 	var stats struct {
-		Total    int64 `json:"total"`
-		Online   int64 `json:"online"`
-		Offline  int64 `json:"offline"`
-		Active   int64 `json:"active"`
-		Inactive int64 `json:"inactive"`
-		Expired  int64 `json:"expired"`
-		Expiring int64 `json:"expiring"`
-		FUP0     int64 `json:"fup0"`
-		FUP1     int64 `json:"fup1"`
-		FUP2     int64 `json:"fup2"`
-		FUP3     int64 `json:"fup3"`
-		FUP4     int64 `json:"fup4"`
+		Total      int64 `json:"total"`
+		Online     int64 `json:"online"`
+		Offline    int64 `json:"offline"`
+		Active     int64 `json:"active"`
+		Inactive   int64 `json:"inactive"`
+		Expired    int64 `json:"expired"`
+		Expiring   int64 `json:"expiring"`
+		FUP0       int64 `json:"fup0"`
+		FUP1       int64 `json:"fup1"`
+		FUP2       int64 `json:"fup2"`
+		FUP3       int64 `json:"fup3"`
+		FUP4       int64 `json:"fup4"`
+		MonthlyFUP int64 `json:"monthly_fup"`
 	}
 
 	// Build reseller filter condition (unless they have view_all permission)
@@ -346,6 +358,7 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	filteredQuery().Where("fup_level = ?", 2).Count(&stats.FUP2)
 	filteredQuery().Where("fup_level = ?", 3).Count(&stats.FUP3)
 	filteredQuery().Where("fup_level = ?", 4).Count(&stats.FUP4)
+	filteredQuery().Where("monthly_fup_level >= ?", 1).Count(&stats.MonthlyFUP)
 
 	return c.JSON(fiber.Map{
 		"success": true,

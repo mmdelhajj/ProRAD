@@ -98,6 +98,8 @@ export default function Subscribers() {
   const [nasId, setNasId] = useState('')
   const [resellerId, setResellerId] = useState('')
   const [fupLevel, setFupLevel] = useState('')
+  const [monthlyFup, setMonthlyFup] = useState(false)
+  const [sortBy, setSortBy] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [sorting, setSorting] = useState([])
   const [viewMode, setViewMode] = useState('active')
@@ -177,13 +179,13 @@ export default function Subscribers() {
 
   // Fetch subscribers
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, resellerId, fupLevel, viewMode],
+    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, resellerId, fupLevel, viewMode, monthlyFup, sortBy],
     queryFn: () => {
       if (viewMode === 'archived') {
         return subscriberApi.listArchived({ page, limit, search }).then((r) => r.data)
       }
       return subscriberApi
-        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId, reseller_id: resellerId, fup_level: fupLevel })
+        .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId, reseller_id: resellerId, fup_level: fupLevel, monthly_fup: monthlyFup ? 'true' : '', sort_by: sortBy })
         .then((r) => r.data)
     },
   })
@@ -1004,6 +1006,36 @@ export default function Subscribers() {
             <span className="font-semibold text-purple-600">{stats.fup4 || 0}</span>
           </div>
         )}
+
+        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0"></div>
+
+        {/* Monthly FUP */}
+        <div
+          className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', monthlyFup && 'bg-pink-100 dark:bg-pink-900/40 ring-1 ring-pink-400')}
+          onClick={() => { setMonthlyFup(!monthlyFup); setFupLevel(''); setSortBy(''); setPage(1); }}
+        >
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Monthly FUP:</span>
+          <span className="font-semibold text-pink-600">{stats.monthly_fup || 0}</span>
+        </div>
+
+        {/* Top Daily */}
+        <div
+          className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', sortBy === 'daily_usage' && 'bg-cyan-100 dark:bg-cyan-900/40 ring-1 ring-cyan-400')}
+          onClick={() => { setSortBy(sortBy === 'daily_usage' ? '' : 'daily_usage'); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
+        >
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Top Daily</span>
+          {sortBy === 'daily_usage' && <span className="text-cyan-600 text-xs">▼</span>}
+        </div>
+
+        {/* Top Monthly */}
+        <div
+          className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', sortBy === 'monthly_usage' && 'bg-indigo-100 dark:bg-indigo-900/40 ring-1 ring-indigo-400')}
+          onClick={() => { setSortBy(sortBy === 'monthly_usage' ? '' : 'monthly_usage'); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
+        >
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Top Monthly</span>
+          {sortBy === 'monthly_usage' && <span className="text-indigo-600 text-xs">▼</span>}
+        </div>
+
         <div className="flex items-center gap-1.5 ml-auto">
           <span className="font-semibold text-gray-700 dark:text-gray-300">{data?.meta?.total || 0}</span>
           <span className="text-gray-500 dark:text-gray-400">Total</span>
