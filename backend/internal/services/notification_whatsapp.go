@@ -110,13 +110,9 @@ func (s *WhatsAppService) CreateProxRadLink() (string, string, error) {
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
-		Status  int    `json:"status"`
-		Message string `json:"message"`
-		Data    struct {
-			QRImageLink string `json:"qrimagelink"`
-			InfoLink    string `json:"infolink"`
-			QRString    string `json:"qrstring"`
-		} `json:"data"`
+		Status  int             `json:"status"`
+		Message string          `json:"message"`
+		Data    json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", "", fmt.Errorf("failed to parse response: %v", err)
@@ -124,13 +120,22 @@ func (s *WhatsAppService) CreateProxRadLink() (string, string, error) {
 	if result.Status != 200 {
 		return "", "", fmt.Errorf("proxsms error: %s", result.Message)
 	}
+	// Parse the data object (only reached if status==200)
+	var data struct {
+		QRImageLink string `json:"qrimagelink"`
+		InfoLink    string `json:"infolink"`
+		QRString    string `json:"qrstring"`
+	}
+	if err := json.Unmarshal(result.Data, &data); err != nil {
+		return "", "", fmt.Errorf("failed to parse data: %v", err)
+	}
 	// Extract token from infolink URL param
-	parsedURL, err := url.Parse(result.Data.InfoLink)
+	parsedURL, err := url.Parse(data.InfoLink)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to parse info link: %v", err)
 	}
 	token := parsedURL.Query().Get("token")
-	return result.Data.QRImageLink, token, nil
+	return data.QRImageLink, token, nil
 }
 
 // GetProxRadLinkStatus polls /get/wa.info to check if WhatsApp is linked
@@ -145,13 +150,9 @@ func (s *WhatsAppService) GetProxRadLinkStatus(token string) (string, string, er
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
-		Status  int    `json:"status"`
-		Message string `json:"message"`
-		Data    struct {
-			Unique string `json:"unique"`
-			Phone  string `json:"phone"`
-			Name   string `json:"name"`
-		} `json:"data"`
+		Status  int             `json:"status"`
+		Message string          `json:"message"`
+		Data    json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", "", fmt.Errorf("failed to parse response: %v", err)
@@ -159,7 +160,15 @@ func (s *WhatsAppService) GetProxRadLinkStatus(token string) (string, string, er
 	if result.Status != 200 {
 		return "", "", fmt.Errorf("not linked yet")
 	}
-	return result.Data.Unique, result.Data.Phone, nil
+	var data struct {
+		Unique string `json:"unique"`
+		Phone  string `json:"phone"`
+		Name   string `json:"name"`
+	}
+	if err := json.Unmarshal(result.Data, &data); err != nil {
+		return "", "", fmt.Errorf("failed to parse data: %v", err)
+	}
+	return data.Unique, data.Phone, nil
 }
 
 // SendMessageViaProxRad sends a WhatsApp message using proxsms.com API
