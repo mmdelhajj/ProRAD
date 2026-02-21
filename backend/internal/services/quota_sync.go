@@ -1106,6 +1106,32 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 				log.Printf("FUP: Speed update pending for %s - will apply on reconnect", sub.Username)
 			}
 			log.Printf("FUP: Applied %s to %s (%s FUP%d)", fupRateLimit, sub.Username, fupSource, targetFUPLevel)
+		// Fire communication rules with trigger_event='fup_applied'
+		{
+			var quotaUsed, quotaTotal int64
+			if fupSource == "daily" {
+				quotaUsed = dailyUsed
+				switch targetFUPLevel {
+				case 1:
+					quotaTotal = service.FUP1Threshold
+				case 2:
+					quotaTotal = service.FUP2Threshold
+				case 3:
+					quotaTotal = service.FUP3Threshold
+				}
+			} else {
+				quotaUsed = monthlyUsed
+				switch targetFUPLevel {
+				case 1:
+					quotaTotal = service.MonthlyFUP1Threshold
+				case 2:
+					quotaTotal = service.MonthlyFUP2Threshold
+				case 3:
+					quotaTotal = service.MonthlyFUP3Threshold
+				}
+			}
+			go fireFUPAppliedRules(sub, targetFUPLevel, quotaUsed, quotaTotal)
+		}
 		} else if targetFUPLevel == 0 && oldEffectiveLevel > 0 {
 			// Restore original speed (both daily and monthly FUP cleared)
 			log.Printf("FUP: %s all FUP cleared, restoring original speed", sub.Username)
@@ -1655,4 +1681,96 @@ func (s *QuotaSyncService) detectAndResolveStaticIPConflicts() {
 		// Clear the IP address in database so it doesn't show as duplicate
 		database.DB.Model(&models.Subscriber{}).Where("id = ?", user.ID).Update("ip_address", nil)
 	}
+}
+
+// fireFUPAppliedRules fires communication rules with trigger_event='fup_applied'.
+// Called in a goroutine when a subscriber's FUP level increases.
+// quotaUsed/quotaTotal are in bytes; they are formatted as human-readable strings.
+func fireFUPAppliedRules(sub *models.Subscriber, fupLevel int, quotaUsed, quotaTotal int64) {
+	if sub == nil {
+		return
+	}
+
+	var rules []models.CommunicationRule
+	if err := database.DB.Where("trigger_event = ? AND enabled = ?", "fup_applied", true).Find(&rules).Error; err != nil {
+		log.Printf("FUPRule: Failed to query communication rules: %v", err)
+		return
+	}
+	if len(rules) == 0 {
+		return
+	}
+
+	// Prepare template variables
+	expiryDate := ""
+	if !sub.ExpiryDate.IsZero() {
+		expiryDate = sub.ExpiryDate.Format("2006-01-02")
+	}
+	serviceName := ""
+	if sub.Service != nil {
+		serviceName = sub.Service.Name
+	}
+	balance := fmt.Sprintf("%.2f", sub.Price)
+	quotaUsedStr := formatFUPQuota(quotaUsed)
+	quotaTotalStr := formatFUPQuota(quotaTotal)
+
+	for _, rule := range rules {
+		if rule.Template == "" {
+			continue
+		}
+
+		msg := rule.Template
+		msg = strings.ReplaceAll(msg, "{username}", sub.Username)
+		msg = strings.ReplaceAll(msg, "{full_name}", sub.FullName)
+		msg = strings.ReplaceAll(msg, "{expiry_date}", expiryDate)
+		msg = strings.ReplaceAll(msg, "{service_name}", serviceName)
+		msg = strings.ReplaceAll(msg, "{balance}", balance)
+		msg = strings.ReplaceAll(msg, "{quota_used}", quotaUsedStr)
+		msg = strings.ReplaceAll(msg, "{quota_total}", quotaTotalStr)
+		msg = strings.ReplaceAll(msg, "{fup_level}", fmt.Sprintf("%d", fupLevel))
+
+		switch rule.Channel {
+		case "whatsapp":
+			if sub.Phone != "" {
+				wa := NewWhatsAppService()
+				if err := wa.SendMessage(sub.Phone, msg); err != nil {
+					log.Printf("FUPRule[%s]: WhatsApp send failed for %s: %v", rule.Name, sub.Username, err)
+				} else {
+					log.Printf("FUPRule[%s]: WhatsApp sent to %s", rule.Name, sub.Username)
+				}
+			}
+		case "sms":
+			if sub.Phone != "" {
+				sms := NewSMSService()
+				if err := sms.SendSMS(sub.Phone, msg); err != nil {
+					log.Printf("FUPRule[%s]: SMS send failed for %s: %v", rule.Name, sub.Username, err)
+				} else {
+					log.Printf("FUPRule[%s]: SMS sent to %s", rule.Name, sub.Username)
+				}
+			}
+		case "email":
+			if sub.Email != "" {
+				emailSvc := NewEmailService()
+				subject := fmt.Sprintf("FUP Level %d Applied - %s", fupLevel, sub.Username)
+				if err := emailSvc.SendEmail(sub.Email, subject, msg, false); err != nil {
+					log.Printf("FUPRule[%s]: Email send failed for %s: %v", rule.Name, sub.Username, err)
+				} else {
+					log.Printf("FUPRule[%s]: Email sent to %s", rule.Name, sub.Username)
+				}
+			}
+		}
+	}
+}
+
+// formatFUPQuota formats a byte count as a human-readable string.
+func formatFUPQuota(bytes int64) string {
+	if bytes <= 0 {
+		return "0 MB"
+	}
+	if bytes >= 1024*1024*1024 {
+		return fmt.Sprintf("%.2f GB", float64(bytes)/1024/1024/1024)
+	}
+	if bytes >= 1024*1024 {
+		return fmt.Sprintf("%.2f MB", float64(bytes)/1024/1024)
+	}
+	return fmt.Sprintf("%d KB", bytes/1024)
 }
