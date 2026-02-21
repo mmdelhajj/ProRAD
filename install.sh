@@ -635,6 +635,9 @@ services:
 networks:
   proxpanel:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
 COMPOSEEOF
 
 # Add product_uuid mount only if it exists on this server
@@ -1245,13 +1248,13 @@ if ! echo "$RESPONSE" | grep -q "\"success\":true"; then
     # Don't exit - allow degraded operation
 else
     echo -e "${GREEN}✓${NC} Secrets fetched successfully"
-    
-    # Extract secrets using grep/sed
+
+    # Extract secrets using grep/sed (head -1 prevents duplicates from nested JSON)
     DB_PASSWORD=$(echo "$RESPONSE" | grep -o '"db_password":"[^"]*"' | head -1 | sed 's/"db_password":"//; s/"$//' || echo "")
     REDIS_PASSWORD=$(echo "$RESPONSE" | grep -o '"redis_password":"[^"]*"' | head -1 | sed 's/"redis_password":"//; s/"$//' || echo "")
     JWT_SECRET=$(echo "$RESPONSE" | grep -o '"jwt_secret":"[^"]*"' | head -1 | sed 's/"jwt_secret":"//; s/"$//' || echo "")
     ENCRYPTION_KEY=$(echo "$RESPONSE" | grep -o '"encryption_key":"[^"]*"' | head -1 | sed 's/"encryption_key":"//; s/"$//' || echo "")
-    
+
     # STEP 4: Write secrets to .env temporarily
     if [ -n "$DB_PASSWORD" ]; then
         echo "[$(date)] Updating .env with fetched secrets..."
@@ -1260,29 +1263,40 @@ else
         sed -i '/^REDIS_PASSWORD=/d' .env
         sed -i '/^JWT_SECRET=/d' .env
         sed -i '/^ENCRYPTION_KEY=/d' .env
-        
-        # Add new passwords
-        echo "DB_PASSWORD=${DB_PASSWORD}" >> .env
-        echo "REDIS_PASSWORD=${REDIS_PASSWORD}" >> .env
-        echo "JWT_SECRET=${JWT_SECRET}" >> .env
-        echo "ENCRYPTION_KEY=${ENCRYPTION_KEY}" >> .env
+
+        # Add new passwords (printf prevents trailing newline issues)
+        printf 'DB_PASSWORD=%s\n' "${DB_PASSWORD}" >> .env
+        printf 'REDIS_PASSWORD=%s\n' "${REDIS_PASSWORD}" >> .env
+        printf 'JWT_SECRET=%s\n' "${JWT_SECRET}" >> .env
+        printf 'ENCRYPTION_KEY=%s\n' "${ENCRYPTION_KEY}" >> .env
     fi
 fi
 
+# Ensure secrets are ALWAYS removed from .env even if script fails
+cleanup_secrets() {
+    sed -i '/^DB_PASSWORD=/d' /opt/proxpanel/.env 2>/dev/null
+    sed -i '/^REDIS_PASSWORD=/d' /opt/proxpanel/.env 2>/dev/null
+    sed -i '/^JWT_SECRET=/d' /opt/proxpanel/.env 2>/dev/null
+    sed -i '/^ENCRYPTION_KEY=/d' /opt/proxpanel/.env 2>/dev/null
+}
+trap cleanup_secrets EXIT
+
 # STEP 5: Start Docker containers
 echo "[$(date)] Starting Docker containers..."
-docker compose up -d
+if docker ps -a --format '{{.Names}}' | grep -q "proxpanel-api"; then
+    # Containers already exist - start them without recreating networks
+    # (avoids Docker creating new networks that steal routes)
+    docker start proxpanel-db proxpanel-redis 2>/dev/null || true
+    sleep 3
+    docker start proxpanel-api proxpanel-radius proxpanel-frontend 2>/dev/null || true
+else
+    # Fresh install - containers don't exist yet, use docker compose
+    docker compose up -d
+fi
 
 # STEP 6: Wait for containers to initialize
 echo "[$(date)] Waiting for containers to initialize..."
 sleep 10
-
-# STEP 7: REMOVE passwords from .env (security)
-echo "[$(date)] Removing passwords from .env for security..."
-sed -i '/^DB_PASSWORD=/d' .env
-sed -i '/^REDIS_PASSWORD=/d' .env
-sed -i '/^JWT_SECRET=/d' .env
-sed -i '/^ENCRYPTION_KEY=/d' .env
 
 echo -e "${GREEN}✓${NC} ProxPanel started securely"
 echo "[$(date)] .env now contains NO passwords (fetched from license server)"
