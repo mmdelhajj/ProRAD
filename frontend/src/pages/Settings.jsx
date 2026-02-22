@@ -1585,7 +1585,7 @@ export default function Settings() {
                           </p>
                         </div>
                         <button
-                          onClick={() => { handleChange('proxrad_account_unique', ''); handleChange('proxrad_phone', ''); setProxradPhone('') }}
+                          onClick={() => { handleChangeAndSave('proxrad_account_unique', ''); handleChangeAndSave('proxrad_phone', ''); setProxradPhone('') }}
                           className="text-xs text-red-500 hover:text-red-700"
                         >
                           Unlink
