@@ -16,6 +16,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   CircleStackIcon,
+  SignalIcon,
 } from '@heroicons/react/24/outline'
 
 const tabs = [
@@ -70,6 +71,7 @@ export default function SubscriberEdit() {
   const portRuleDataRefs = useRef({}) // { rule_id: [30 data points] }
   const portRulePrevBytesRef = useRef({}) // { rule_id: previous_bytes }
   const [portRuleList, setPortRuleList] = useState([]) // List of port rules with their colors
+  const [livePing, setLivePing] = useState({ ms: 0, ok: false }) // Live ping to subscriber
 
   const [formData, setFormData] = useState({
     username: '',
@@ -359,6 +361,13 @@ export default function SubscriberEdit() {
             cdnTraffic: cdnTraffic,
             portRuleTraffic: portRuleTraffic,
           })
+
+          // Update live ping
+          if (data.ping_ok) {
+            setLivePing({ ms: data.ping_ms, ok: true })
+          } else {
+            setLivePing(prev => ({ ...prev, ok: false }))
+          }
 
           // Update data arrays
           downloadDataRef.current = [...downloadDataRef.current.slice(1), regularDownload]
@@ -1509,12 +1518,29 @@ export default function SubscriberEdit() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Live Bandwidth Graph</h3>
               {subscriber?.is_online && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                  </span>
-                  Live (updating every 2s)
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    Live (updating every 2s)
+                  </div>
+                  {livePing.ok ? (
+                    <div className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full ${
+                      livePing.ms < 20  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
+                      livePing.ms < 80  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
+                                          'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                    }`}>
+                      <SignalIcon className="h-3.5 w-3.5" />
+                      {livePing.ms.toFixed(1)} ms
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
+                      <SignalIcon className="h-3.5 w-3.5" />
+                      — ms
+                    </div>
+                  )}
                 </div>
               )}
             </div>

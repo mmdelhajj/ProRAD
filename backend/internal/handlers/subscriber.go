@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -4137,17 +4138,19 @@ type PortRuleBandwidth struct {
 
 // BandwidthResponse represents real-time bandwidth data
 type BandwidthResponse struct {
-	Timestamp      int64               `json:"timestamp"`
-	Download       float64             `json:"download"`   // Mbps
-	Upload         float64             `json:"upload"`     // Mbps
-	RxBytes        int64               `json:"rx_bytes"`
-	TxBytes        int64               `json:"tx_bytes"`
-	Uptime         string              `json:"uptime"`
-	IPAddress      string              `json:"ip_address"`
-	CallerID       string              `json:"caller_id"`
-	CDNTraffic     []CDNBandwidth      `json:"cdn_traffic,omitempty"`
-	CDNIsRate      bool                `json:"cdn_is_rate"` // true = Bytes field is bytes/sec rate (Torch), false = cumulative (delta needed)
+	Timestamp       int64               `json:"timestamp"`
+	Download        float64             `json:"download"`    // Mbps
+	Upload          float64             `json:"upload"`      // Mbps
+	RxBytes         int64               `json:"rx_bytes"`
+	TxBytes         int64               `json:"tx_bytes"`
+	Uptime          string              `json:"uptime"`
+	IPAddress       string              `json:"ip_address"`
+	CallerID        string              `json:"caller_id"`
+	CDNTraffic      []CDNBandwidth      `json:"cdn_traffic,omitempty"`
+	CDNIsRate       bool                `json:"cdn_is_rate"` // true = Bytes field is bytes/sec rate (Torch), false = cumulative (delta needed)
 	PortRuleTraffic []PortRuleBandwidth `json:"port_rule_traffic,omitempty"`
+	PingMs          float64             `json:"ping_ms"`  // RTT in milliseconds (0 if not available)
+	PingOk          bool                `json:"ping_ok"`  // false = timeout or error
 }
 
 // GetBandwidth returns real-time bandwidth data for a subscriber
@@ -4222,6 +4225,27 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 		Uptime:     session.Uptime,
 		IPAddress:  session.Address,
 		CallerID:   session.CallerID,
+	}
+
+	// Run live ping in parallel with Torch (separate MikroTik connection)
+	var pingMs float64
+	var pingOk bool
+	var pingWg sync.WaitGroup
+	if session.Address != "" {
+		pingWg.Add(1)
+		go func() {
+			defer pingWg.Done()
+			pingClient := mikrotik.NewClient(
+				fmt.Sprintf("%s:%d", subscriber.Nas.IPAddress, subscriber.Nas.APIPort),
+				subscriber.Nas.APIUsername,
+				subscriber.Nas.APIPassword,
+			)
+			defer pingClient.Close()
+			if result, err := pingClient.Ping(session.Address, 1, 0); err == nil && result.Received > 0 {
+				pingMs = result.AvgRTT
+				pingOk = true
+			}
+		}()
 	}
 
 	// Get CDN and Port Rule traffic breakdown using a single Torch run
@@ -4307,6 +4331,11 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 			}
 		}
 	}
+
+	// Wait for ping goroutine and add result
+	pingWg.Wait()
+	response.PingMs = pingMs
+	response.PingOk = pingOk
 
 	return c.JSON(fiber.Map{
 		"success": true,
