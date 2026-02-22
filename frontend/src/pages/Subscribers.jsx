@@ -122,6 +122,7 @@ export default function Subscribers() {
       last_seen: true,
       daily_quota: true,
       monthly_quota: true,
+      price: false,
       balance: false,
       address: false,
       region: false,
@@ -870,6 +871,22 @@ export default function Subscribers() {
                 </span>
               </div>
             </div>
+          )
+        },
+      }] : []),
+      ...(visibleColumns.price ? [{
+        accessorKey: 'price',
+        header: 'Price',
+        cell: ({ row }) => {
+          const sub = row.original
+          const price = sub.override_price ? sub.price : sub.service?.price
+          return (
+            <span className="font-medium">
+              ${(price || 0).toFixed(2)}
+              {sub.override_price && (
+                <span className="ml-1 text-xs text-orange-500" title="Custom price">★</span>
+              )}
+            </span>
           )
         },
       }] : []),
