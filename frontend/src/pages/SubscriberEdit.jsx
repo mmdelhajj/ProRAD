@@ -17,7 +17,32 @@ import {
   EyeSlashIcon,
   CircleStackIcon,
   SignalIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
+
+// Fix leaflet default marker icons in Vite/webpack builds
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
+
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({ click: (e) => onMapClick(e.latlng.lat, e.latlng.lng) })
+  return null
+}
+
+function MapFlyTo({ target }) {
+  const map = useMap()
+  useEffect(() => {
+    if (target && target[0] && target[1]) map.flyTo(target, 15, { duration: 0.5 })
+  }, [target, map])
+  return null
+}
 
 const tabs = [
   { id: 'info', name: 'Info', icon: UserIcon },
@@ -98,6 +123,8 @@ export default function SubscriberEdit() {
     note: '',
     price: '',
     override_price: false,
+    latitude: 0,
+    longitude: 0,
   })
 
   const { data: subscriberResponse, isLoading } = useQuery({
@@ -174,6 +201,7 @@ export default function SubscriberEdit() {
   }
 
   // Bandwidth rule modal state
+  const [mapFlyTarget, setMapFlyTarget] = useState(null)
   const [showBandwidthRuleModal, setShowBandwidthRuleModal] = useState(false)
   const [editingBandwidthRule, setEditingBandwidthRule] = useState(null)
   const [bandwidthRuleForm, setBandwidthRuleForm] = useState({
@@ -282,6 +310,8 @@ export default function SubscriberEdit() {
         note: subscriber.note || '',
         price: subscriber.price || '',
         override_price: subscriber.override_price || false,
+        latitude: subscriber.latitude || 0,
+        longitude: subscriber.longitude || 0,
       })
 
     }
@@ -1308,6 +1338,98 @@ export default function SubscriberEdit() {
                     placeholder="Internal notes about this subscriber..."
                   />
                 </div>
+
+                {/* Location */}
+                <div>
+                  <label className="label flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <MapPinIcon className="w-4 h-4" />
+                      Location
+                    </span>
+                    {(formData.latitude !== 0 || formData.longitude !== 0) && (
+                      <button
+                        type="button"
+                        onClick={() => { setFormData(prev => ({ ...prev, latitude: 0, longitude: 0 })); setMapFlyTarget(null) }}
+                        className="text-xs text-red-500 hover:text-red-700 font-normal"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="Latitude (e.g. 34.4324)"
+                      value={formData.latitude || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setMapFlyTarget([formData.latitude, formData.longitude]) } }}
+                      className="input flex-1 text-sm"
+                    />
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="Longitude (e.g. 35.8328)"
+                      value={formData.longitude || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setMapFlyTarget([formData.latitude, formData.longitude]) } }}
+                      className="input flex-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMapFlyTarget([formData.latitude, formData.longitude])}
+                      className="btn-secondary text-sm px-3"
+                      title="Go to coordinates"
+                    >
+                      Go
+                    </button>
+                  </div>
+                  {!isLoading && (
+                    <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600" style={{ height: '280px' }}>
+                      <MapContainer
+                        key={`map-${id || 'new'}`}
+                        center={[formData.latitude || 33.8938, formData.longitude || 35.5018]}
+                        zoom={formData.latitude && formData.longitude ? 15 : 9}
+                        style={{ height: '100%', width: '100%' }}
+                      >
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        />
+                        <MapClickHandler
+                          onMapClick={(lat, lng) => {
+                            setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))
+                            setMapFlyTarget([lat, lng])
+                          }}
+                        />
+                        {formData.latitude !== 0 && formData.longitude !== 0 && (
+                          <Marker
+                            position={[formData.latitude, formData.longitude]}
+                            draggable={true}
+                            eventHandlers={{
+                              dragend: (e) => {
+                                const { lat, lng } = e.target.getLatLng()
+                                setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))
+                              }
+                            }}
+                          />
+                        )}
+                        <MapFlyTo target={mapFlyTarget} />
+                      </MapContainer>
+                    </div>
+                  )}
+                  {formData.latitude !== 0 && formData.longitude !== 0 ? (
+                    <p className="text-xs text-gray-400 mt-1">
+                      📍 {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)} —{' '}
+                      <a href={`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                        Open in Google Maps
+                      </a>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-1">Click on the map to set location, or type coordinates above</p>
+                  )}
+                </div>
+
               </div>
             </div>
           </div>
