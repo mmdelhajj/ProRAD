@@ -3,7 +3,6 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
-	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/services"
 )
 
@@ -335,13 +334,9 @@ func (h *NotificationHandler) ProxRadLinkStatus(c *fiber.Ctx) error {
 
 	// If newly connected, auto-save the account unique and phone
 	if connected && info.Unique != "" {
-		database.DB.Where(models.SystemPreference{Key: "proxrad_account_unique"}).
-			Assign(models.SystemPreference{Value: info.Unique}).
-			FirstOrCreate(&models.SystemPreference{})
+		savePreference("proxrad_account_unique", info.Unique)
 		if info.Phone != "" {
-			database.DB.Where(models.SystemPreference{Key: "proxrad_phone"}).
-				Assign(models.SystemPreference{Value: info.Phone}).
-				FirstOrCreate(&models.SystemPreference{})
+			savePreference("proxrad_phone", info.Phone)
 		}
 		database.InvalidateSettingsCache()
 	}
@@ -371,6 +366,14 @@ func (h *NotificationHandler) GetProxRadAccounts(c *fiber.Ctx) error {
 	})
 }
 
+// savePreference upserts a system_preferences key reliably
+func savePreference(key, value string) {
+	database.DB.Exec(
+		"INSERT INTO system_preferences (key, value, value_type) VALUES (?, ?, 'string') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+		key, value,
+	)
+}
+
 // SelectProxRadAccount saves the chosen account unique ID to DB
 func (h *NotificationHandler) SelectProxRadAccount(c *fiber.Ctx) error {
 	var body struct {
@@ -384,13 +387,9 @@ func (h *NotificationHandler) SelectProxRadAccount(c *fiber.Ctx) error {
 		})
 	}
 
-	database.DB.Where(models.SystemPreference{Key: "proxrad_account_unique"}).
-		Assign(models.SystemPreference{Value: body.Unique}).
-		FirstOrCreate(&models.SystemPreference{})
+	savePreference("proxrad_account_unique", body.Unique)
 	if body.Phone != "" {
-		database.DB.Where(models.SystemPreference{Key: "proxrad_phone"}).
-			Assign(models.SystemPreference{Value: body.Phone}).
-			FirstOrCreate(&models.SystemPreference{})
+		savePreference("proxrad_phone", body.Phone)
 	}
 	database.InvalidateSettingsCache()
 
