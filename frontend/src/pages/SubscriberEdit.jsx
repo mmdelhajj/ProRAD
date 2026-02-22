@@ -21,7 +21,6 @@ import {
 } from '@heroicons/react/24/outline'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 
 // Fix leaflet default marker icons in Vite/webpack builds
 delete L.Icon.Default.prototype._getIconUrl
@@ -31,17 +30,58 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-function MapClickHandler({ onMapClick }) {
-  useMapEvents({ click: (e) => onMapClick(e.latlng.lat, e.latlng.lng) })
-  return null
-}
+// Vanilla Leaflet map component (avoids react-leaflet version conflicts)
+function LocationMap({ lat, lng, onLocationChange, flyTarget }) {
+  const containerRef = useRef(null)
+  const mapRef = useRef(null)
+  const markerRef = useRef(null)
+  const cbRef = useRef(onLocationChange)
+  useEffect(() => { cbRef.current = onLocationChange })
 
-function MapFlyTo({ target }) {
-  const map = useMap()
+  // Initialize map once
   useEffect(() => {
-    if (target && target[0] && target[1]) map.flyTo(target, 15, { duration: 0.5 })
-  }, [target, map])
-  return null
+    if (!containerRef.current) return
+    const map = L.map(containerRef.current, {
+      center: [lat || 33.8938, lng || 35.5018],
+      zoom: (lat && lng) ? 15 : 9,
+    })
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map)
+    if (lat && lng) {
+      const marker = L.marker([lat, lng], { draggable: true }).addTo(map)
+      marker.on('dragend', (e) => { const p = e.target.getLatLng(); cbRef.current(p.lat, p.lng) })
+      markerRef.current = marker
+    }
+    map.on('click', (e) => cbRef.current(e.latlng.lat, e.latlng.lng))
+    mapRef.current = map
+    return () => { map.remove(); mapRef.current = null; markerRef.current = null }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update marker when lat/lng changes
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    if (lat && lng) {
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lng])
+      } else {
+        const marker = L.marker([lat, lng], { draggable: true }).addTo(map)
+        marker.on('dragend', (e) => { const p = e.target.getLatLng(); cbRef.current(p.lat, p.lng) })
+        markerRef.current = marker
+      }
+    } else if (markerRef.current) {
+      markerRef.current.remove()
+      markerRef.current = null
+    }
+  }, [lat, lng])
+
+  // Fly to location on demand
+  useEffect(() => {
+    if (mapRef.current && flyTarget) mapRef.current.flyTo(flyTarget, 15, { duration: 0.5 })
+  }, [flyTarget])
+
+  return <div ref={containerRef} style={{ height: '280px', width: '100%' }} />
 }
 
 const tabs = [
@@ -202,6 +242,7 @@ export default function SubscriberEdit() {
 
   // Bandwidth rule modal state
   const [mapFlyTarget, setMapFlyTarget] = useState(null)
+  const [gettingLocation, setGettingLocation] = useState(false)
   const [showBandwidthRuleModal, setShowBandwidthRuleModal] = useState(false)
   const [editingBandwidthRule, setEditingBandwidthRule] = useState(null)
   const [bandwidthRuleForm, setBandwidthRuleForm] = useState({
@@ -1383,50 +1424,78 @@ export default function SubscriberEdit() {
                     >
                       Go
                     </button>
-                  </div>
-                  {!isLoading && (
-                    <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600" style={{ height: '280px' }}>
-                      <MapContainer
-                        key={`map-${id || 'new'}`}
-                        center={[formData.latitude || 33.8938, formData.longitude || 35.5018]}
-                        zoom={formData.latitude && formData.longitude ? 15 : 9}
-                        style={{ height: '100%', width: '100%' }}
-                      >
-                        <TileLayer
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        />
-                        <MapClickHandler
-                          onMapClick={(lat, lng) => {
+                    <button
+                      type="button"
+                      disabled={gettingLocation}
+                      onClick={() => {
+                        if (!navigator.geolocation) {
+                          alert('Geolocation is not supported by your browser')
+                          return
+                        }
+                        setGettingLocation(true)
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            const lat = pos.coords.latitude
+                            const lng = pos.coords.longitude
                             setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))
                             setMapFlyTarget([lat, lng])
-                          }}
-                        />
-                        {formData.latitude !== 0 && formData.longitude !== 0 && (
-                          <Marker
-                            position={[formData.latitude, formData.longitude]}
-                            draggable={true}
-                            eventHandlers={{
-                              dragend: (e) => {
-                                const { lat, lng } = e.target.getLatLng()
-                                setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))
-                              }
-                            }}
-                          />
-                        )}
-                        <MapFlyTo target={mapFlyTarget} />
-                      </MapContainer>
+                            setGettingLocation(false)
+                          },
+                          (err) => {
+                            setGettingLocation(false)
+                            if (err.code === 1) {
+                              alert('Location blocked by Safari.\n\nSafari stores a separate permission per website. To reset it:\n\n1. Open iPhone Settings\n2. Go to Safari → Advanced → Website Data\n3. Find this website and swipe to delete it\n4. Reload the page — Safari will ask permission again\n5. Tap "Allow"\n\nAlternatively:\nSettings → Privacy & Security → Location Services → Safari Websites → set to "While Using"')
+                            } else if (err.code === 2) {
+                              alert('GPS unavailable. Make sure Location Services is ON in Settings → Privacy & Security → Location Services.')
+                            } else {
+                              alert('Location timed out. Make sure GPS is enabled and try again.')
+                            }
+                          },
+                          { enableHighAccuracy: true, timeout: 10000 }
+                        )
+                      }}
+                      className="btn-secondary text-sm px-3 flex items-center gap-1 whitespace-nowrap"
+                      title="Use my current location"
+                    >
+                      {gettingLocation ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                        </svg>
+                      ) : (
+                        <MapPinIcon className="w-4 h-4" />
+                      )}
+                      {gettingLocation ? 'Getting...' : 'My Location'}
+                    </button>
+                  </div>
+                  {!isLoading && (
+                    <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                      <LocationMap
+                        lat={formData.latitude}
+                        lng={formData.longitude}
+                        onLocationChange={(lat, lng) => {
+                          setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))
+                          setMapFlyTarget([lat, lng])
+                        }}
+                        flyTarget={mapFlyTarget}
+                      />
                     </div>
                   )}
-                  {formData.latitude !== 0 && formData.longitude !== 0 ? (
-                    <p className="text-xs text-gray-400 mt-1">
-                      📍 {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)} —{' '}
-                      <a href={`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                        Open in Google Maps
+                  {formData.latitude !== 0 && formData.longitude !== 0 && (
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-gray-400">
+                        📍 {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                      </p>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${formData.latitude},${formData.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary text-xs px-3 py-1 flex items-center gap-1"
+                      >
+                        <MapPinIcon className="w-3.5 h-3.5" />
+                        Navigate
                       </a>
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-400 mt-1">Click on the map to set location, or type coordinates above</p>
+                    </div>
                   )}
                 </div>
 

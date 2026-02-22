@@ -40,9 +40,35 @@ import {
   Squares2X2Icon,
   CheckIcon,
   SignalIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
+
+function ViewLocationMap({ lat, lng }) {
+  const containerRef = useRef(null)
+  const mapRef = useRef(null)
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return
+    const map = L.map(containerRef.current, { center: [lat, lng], zoom: 16 })
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map)
+    L.marker([lat, lng]).addTo(map)
+    mapRef.current = map
+    return () => { map.remove(); mapRef.current = null }
+  }, [lat, lng])
+  return <div ref={containerRef} style={{ height: '320px', width: '100%' }} />
+}
 
 const statusFilters = [
   { value: '', label: 'All Status' },
@@ -174,6 +200,8 @@ export default function Subscribers() {
 
   // Torch modal state
   const [torchModal, setTorchModal] = useState(null)
+  // Map modal state
+  const [mapModal, setMapModal] = useState(null)
   const [torchData, setTorchData] = useState(null)
   const [torchLoading, setTorchLoading] = useState(false)
   const [torchAutoRefresh, setTorchAutoRefresh] = useState(true) // Auto-refresh ON by default
@@ -661,6 +689,15 @@ export default function Subscribers() {
                   title="Live Traffic (Torch)"
                 >
                   <SignalIcon className="w-4 h-4" />
+                </button>
+              )}
+              {row.original.latitude && row.original.longitude && parseFloat(row.original.latitude) !== 0 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMapModal(row.original) }}
+                  className="text-blue-500 hover:text-blue-700"
+                  title="View Location on Map"
+                >
+                  <MapPinIcon className="w-4 h-4" />
                 </button>
               )}
               {row.original.fup_level > 0 && (
@@ -2221,6 +2258,40 @@ export default function Subscribers() {
           </div>
         </div>
       )}
+      {/* Location Map Modal */}
+      {mapModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setMapModal(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-blue-600 px-4 py-3 flex items-center justify-between">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <MapPinIcon className="w-5 h-5" />
+                {mapModal.full_name || mapModal.username}
+              </h3>
+              <button onClick={() => setMapModal(null)} className="text-white/80 hover:text-white">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="rounded-b-xl overflow-hidden">
+              <ViewLocationMap lat={parseFloat(mapModal.latitude)} lng={parseFloat(mapModal.longitude)} />
+            </div>
+            <div className="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                📍 {parseFloat(mapModal.latitude).toFixed(6)}, {parseFloat(mapModal.longitude).toFixed(6)}
+              </p>
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${mapModal.latitude},${mapModal.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary text-xs px-3 py-1 flex items-center gap-1"
+              >
+                <MapPinIcon className="w-3.5 h-3.5" />
+                Navigate
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteConfirm(null)}>
