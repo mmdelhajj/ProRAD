@@ -60,12 +60,13 @@ export default function Settings() {
   const [testEmail, setTestEmail] = useState('')
   const [testPhone, setTestPhone] = useState('')
 
-  // ProxRad WhatsApp linking state
-  const [proxradLinking, setProxradLinking] = useState(false)
-  const [proxradQrUrl, setProxradQrUrl] = useState('')
-  const [proxradToken, setProxradToken] = useState('')
-  const [proxradLinked, setProxradLinked] = useState(false)
+  // ProxRad WhatsApp state
+  const [proxradAccounts, setProxradAccounts] = useState([])
+  const [proxradLoading, setProxradLoading] = useState(false)
   const [proxradPhone, setProxradPhone] = useState('')
+  const [proxradQrUrl, setProxradQrUrl] = useState('')
+  const [proxradInfoUrl, setProxradInfoUrl] = useState('')
+  const [proxradLinking, setProxradLinking] = useState(false)
   const proxradPollRef = useRef(null)
 
   // SSL state
@@ -159,6 +160,13 @@ export default function Settings() {
   const handleChange = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }))
     setHasChanges(true)
+  }
+
+  const handleChangeAndSave = (key, value) => {
+    setFormData(prev => ({ ...prev, [key]: value }))
+    api.put('/settings/bulk', { settings: [{ key, value: String(value) }] })
+      .then(() => queryClient.invalidateQueries(['settings']))
+      .catch(() => {})
   }
 
   const handleSave = () => {
@@ -386,46 +394,67 @@ export default function Settings() {
     }
   }
 
-  // ProxRad: Start WhatsApp linking (fetch QR)
-  const handleProxRadLink = async () => {
+  // ProxRad: Start QR linking flow
+  const handleProxRadCreateLink = async () => {
     setProxradLinking(true)
     setProxradQrUrl('')
-    setProxradToken('')
-    setProxradLinked(false)
-    setProxradPhone('')
+    setProxradInfoUrl('')
     try {
-      const res = await api.post('/notifications/proxrad/create-link', {})
+      const res = await api.get('/notifications/proxrad/create-link')
       setProxradQrUrl(res.data.qr_image_url)
-      setProxradToken(res.data.token)
-      // Start polling for link status
+      setProxradInfoUrl(res.data.info_url)
+      // Start polling for connection status
       proxradPollRef.current = setInterval(async () => {
         try {
-          const statusRes = await api.get(`/notifications/proxrad/link-status?token=${res.data.token}`)
-          if (statusRes.data.linked) {
+          const status = await api.get(`/notifications/proxrad/link-status?info_url=${encodeURIComponent(res.data.info_url)}`)
+          if (status.data.connected) {
             clearInterval(proxradPollRef.current)
-            setProxradLinked(true)
-            setProxradPhone(statusRes.data.phone || '')
-            // Update formData with the linked unique ID
-            handleChange('proxrad_account_unique', statusRes.data.unique)
+            setProxradLinking(false)
             setProxradQrUrl('')
-            setProxradToken('')
+            setProxradInfoUrl('')
+            handleChange('proxrad_account_unique', status.data.unique)
+            setProxradPhone(status.data.phone || status.data.unique)
             toast.success('WhatsApp account linked successfully!')
           }
-        } catch (e) { /* still polling */ }
-      }, 2000)
+        } catch {}
+      }, 3000)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create QR link')
-    } finally {
       setProxradLinking(false)
+      toast.error(err.response?.data?.message || 'Failed to create WhatsApp link')
     }
   }
 
-  // ProxRad: Cancel linking
   const handleProxRadCancelLink = () => {
-    if (proxradPollRef.current) clearInterval(proxradPollRef.current)
-    setProxradQrUrl('')
-    setProxradToken('')
+    clearInterval(proxradPollRef.current)
     setProxradLinking(false)
+    setProxradQrUrl('')
+    setProxradInfoUrl('')
+  }
+
+  // ProxRad: Load WhatsApp accounts from proxsms.com
+  const handleProxRadLoadAccounts = async () => {
+    setProxradLoading(true)
+    try {
+      const res = await api.get('/notifications/proxrad/accounts')
+      setProxradAccounts(res.data.accounts || [])
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to fetch accounts')
+    } finally {
+      setProxradLoading(false)
+    }
+  }
+
+  // ProxRad: Select an account
+  const handleProxRadSelectAccount = async (unique, phone) => {
+    try {
+      await api.post('/notifications/proxrad/select-account', { unique, phone })
+      handleChange('proxrad_account_unique', unique)
+      setProxradPhone(phone)
+      setProxradAccounts([])
+      toast.success('WhatsApp account selected!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to select account')
+    }
   }
 
   const tabs = [
@@ -1482,7 +1511,7 @@ export default function Settings() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
                   <select
                     value={formData.whatsapp_provider || 'ultramsg'}
-                    onChange={(e) => handleChange('whatsapp_provider', e.target.value)}
+                    onChange={(e) => handleChangeAndSave('whatsapp_provider', e.target.value)}
                     className="w-full sm:w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
                   >
                     <option value="ultramsg">Ultramsg</option>
@@ -1542,56 +1571,117 @@ export default function Settings() {
                   /* ProxRad provider */
                   <div className="space-y-4">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Scan a QR code with your WhatsApp phone to link your account. Notifications will be sent from your linked number.
+                      Link your WhatsApp number via ProxRad (proxsms.com). Scan the QR code to connect a new number, or load existing accounts.
                     </p>
 
-                    {/* Linked status */}
-                    {formData.proxrad_account_unique && !proxradQrUrl ? (
+                    {/* Currently selected account */}
+                    {formData.proxrad_account_unique && !proxradLinking && (
                       <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
                         <span className="text-green-600 dark:text-green-400 text-xl">✅</span>
-                        <div>
-                          <p className="text-sm font-medium text-green-800 dark:text-green-300">WhatsApp Linked</p>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-green-800 dark:text-green-300">WhatsApp Account Linked</p>
                           <p className="text-xs text-green-600 dark:text-green-400">
-                            {proxradPhone || formData.proxrad_account_unique}
+                            {proxradPhone || formData.proxrad_phone || formData.proxrad_account_unique}
                           </p>
                         </div>
                         <button
-                          onClick={handleProxRadLink}
-                          disabled={proxradLinking}
-                          className="ml-auto px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+                          onClick={() => { handleChange('proxrad_account_unique', ''); handleChange('proxrad_phone', ''); setProxradPhone('') }}
+                          className="text-xs text-red-500 hover:text-red-700"
                         >
-                          Re-link
+                          Unlink
                         </button>
                       </div>
-                    ) : proxradQrUrl ? (
-                      /* QR code inline */
-                      <div className="p-4 border-2 border-dashed border-green-400 dark:border-green-600 rounded-lg text-center space-y-3">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Scan with WhatsApp on your phone</p>
-                        <img
-                          src={proxradQrUrl}
-                          alt="WhatsApp QR Code"
-                          className="mx-auto w-52 h-52 object-contain bg-white p-2 rounded-lg border border-gray-200"
-                        />
-                        <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                          <span className="animate-spin inline-block w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full"></span>
-                          Waiting for scan...
-                        </div>
-                        <button onClick={handleProxRadCancelLink} className="text-xs text-gray-500 hover:text-gray-700 underline">Cancel</button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleProxRadLink}
-                        disabled={proxradLinking}
-                        className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {proxradLinking ? (
-                          <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>Generating QR...</>
-                        ) : '📱 Link WhatsApp Account'}
-                      </button>
                     )}
 
-                    {/* Test after linked */}
-                    {formData.proxrad_account_unique && !proxradQrUrl && (
+                    {/* QR Code display */}
+                    {proxradLinking && (
+                      <div className="flex flex-col items-center gap-3 p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                        <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                          📱 Scan with WhatsApp to link your number
+                        </p>
+                        {proxradQrUrl ? (
+                          <img
+                            src={proxradQrUrl}
+                            alt="WhatsApp QR Code"
+                            className="w-48 h-48 border border-gray-200 rounded-lg bg-white p-1"
+                            onError={(e) => { e.target.style.display='none' }}
+                          />
+                        ) : (
+                          <div className="w-48 h-48 flex items-center justify-center">
+                            <span className="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></span>
+                          </div>
+                        )}
+                        <p className="text-xs text-blue-600 dark:text-blue-400 text-center">
+                          Open WhatsApp → Linked Devices → Link a Device → Scan this QR
+                        </p>
+                        <p className="text-xs text-gray-400 animate-pulse">Waiting for connection...</p>
+                        <button
+                          onClick={handleProxRadCancelLink}
+                          className="text-xs text-red-500 hover:text-red-700 underline"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    {!proxradLinking && (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={handleProxRadCreateLink}
+                          className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+                        >
+                          📱 Link via QR Code
+                        </button>
+                        <button
+                          onClick={handleProxRadLoadAccounts}
+                          disabled={proxradLoading}
+                          className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {proxradLoading ? (
+                            <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>Loading...</>
+                          ) : '📋 Load Existing Accounts'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Account list */}
+                    {proxradAccounts.length > 0 && (
+                      <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Phone</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                            {proxradAccounts.map((acct) => (
+                              <tr key={acct.unique} className="bg-white dark:bg-gray-800">
+                                <td className="px-4 py-2 text-gray-900 dark:text-white">{acct.phone}</td>
+                                <td className="px-4 py-2">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${acct.status === 'connected' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'}`}>
+                                    {acct.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2">
+                                  <button
+                                    onClick={() => handleProxRadSelectAccount(acct.unique, acct.phone)}
+                                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                                  >
+                                    {formData.proxrad_account_unique === acct.unique ? 'Selected ✓' : 'Select'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Test after selected */}
+                    {formData.proxrad_account_unique && !proxradLinking && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
                         <div className="flex gap-2">

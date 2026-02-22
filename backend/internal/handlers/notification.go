@@ -295,52 +295,108 @@ func (h *NotificationHandler) SendNotification(c *fiber.Ctx) error {
 	})
 }
 
-// ProxRadCreateLink calls proxsms.com to create a WhatsApp QR link
+// ProxRadCreateLink creates a new WhatsApp link and returns QR code
 func (h *NotificationHandler) ProxRadCreateLink(c *fiber.Ctx) error {
 	wa := h.manager.GetWhatsAppService()
-	qrImageURL, token, err := wa.CreateProxRadLink()
+	result, err := wa.CreateProxRadLink()
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
-			"message": "Failed to create QR link: " + err.Error(),
+			"message": "Failed to create WhatsApp link: " + err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{
 		"success":      true,
-		"qr_image_url": qrImageURL,
-		"token":        token,
+		"qr_image_url": result.QRImageLink,
+		"info_url":     result.InfoLink,
+		"qrstring":     result.QRString,
 	})
 }
 
-// ProxRadLinkStatus polls proxsms.com to check if WhatsApp is linked
+// ProxRadLinkStatus checks connection status via the info URL
 func (h *NotificationHandler) ProxRadLinkStatus(c *fiber.Ctx) error {
-	token := c.Query("token")
-	if token == "" {
+	infoURL := c.Query("info_url")
+	if infoURL == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
-			"message": "token is required",
+			"message": "info_url is required",
 		})
 	}
-
 	wa := h.manager.GetWhatsAppService()
-	unique, phone, err := wa.GetProxRadLinkStatus(token)
+	info, err := wa.GetProxRadLinkStatus(infoURL)
 	if err != nil {
-		return c.JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
-			"linked":  false,
-			"message": "Not linked yet",
+			"message": "Failed to get link status: " + err.Error(),
 		})
 	}
 
-	// Save the unique ID to DB
+	connected := info.Status == "connected" || info.Unique != ""
+
+	// If newly connected, auto-save the account unique and phone
+	if connected && info.Unique != "" {
+		database.DB.Where(models.SystemPreference{Key: "proxrad_account_unique"}).
+			Assign(models.SystemPreference{Value: info.Unique}).
+			FirstOrCreate(&models.SystemPreference{})
+		if info.Phone != "" {
+			database.DB.Where(models.SystemPreference{Key: "proxrad_phone"}).
+				Assign(models.SystemPreference{Value: info.Phone}).
+				FirstOrCreate(&models.SystemPreference{})
+		}
+		database.InvalidateSettingsCache()
+	}
+
+	return c.JSON(fiber.Map{
+		"success":   true,
+		"connected": connected,
+		"unique":    info.Unique,
+		"phone":     info.Phone,
+		"status":    info.Status,
+	})
+}
+
+// GetProxRadAccounts lists WhatsApp accounts from proxsms.com
+func (h *NotificationHandler) GetProxRadAccounts(c *fiber.Ctx) error {
+	wa := h.manager.GetWhatsAppService()
+	accounts, err := wa.GetProxRadAccounts()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to fetch accounts: " + err.Error(),
+		})
+	}
+	return c.JSON(fiber.Map{
+		"success":  true,
+		"accounts": accounts,
+	})
+}
+
+// SelectProxRadAccount saves the chosen account unique ID to DB
+func (h *NotificationHandler) SelectProxRadAccount(c *fiber.Ctx) error {
+	var body struct {
+		Unique string `json:"unique"`
+		Phone  string `json:"phone"`
+	}
+	if err := c.BodyParser(&body); err != nil || body.Unique == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "unique is required",
+		})
+	}
+
 	database.DB.Where(models.SystemPreference{Key: "proxrad_account_unique"}).
-		Assign(models.SystemPreference{Value: unique}).
+		Assign(models.SystemPreference{Value: body.Unique}).
 		FirstOrCreate(&models.SystemPreference{})
+	if body.Phone != "" {
+		database.DB.Where(models.SystemPreference{Key: "proxrad_phone"}).
+			Assign(models.SystemPreference{Value: body.Phone}).
+			FirstOrCreate(&models.SystemPreference{})
+	}
+	database.InvalidateSettingsCache()
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"linked":  true,
-		"unique":  unique,
-		"phone":   phone,
+		"unique":  body.Unique,
+		"phone":   body.Phone,
 	})
 }
