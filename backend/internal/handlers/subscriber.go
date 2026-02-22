@@ -499,6 +499,19 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		}
 	}
 
+	// Override today's bar with the real-time counter from subscribers table.
+	// radacct query misses usage from sessions that started before midnight (acctstarttime = yesterday)
+	// but QuotaSync correctly accumulates all deltas into daily_download_used regardless.
+	todayDay := now.Day()
+	if todayDay >= 1 && todayDay <= daysInMonth {
+		if subscriber.DailyDownloadUsed > dailyDownload[todayDay-1] {
+			dailyDownload[todayDay-1] = subscriber.DailyDownloadUsed
+		}
+		if subscriber.DailyUploadUsed > dailyUpload[todayDay-1] {
+			dailyUpload[todayDay-1] = subscriber.DailyUploadUsed
+		}
+	}
+
 	// Get quota limits from service
 	var downloadLimit, uploadLimit, monthlyDownloadLimit, monthlyUploadLimit int64
 	if subscriber.ServiceID > 0 {
