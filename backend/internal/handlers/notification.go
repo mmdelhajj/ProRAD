@@ -437,6 +437,32 @@ func (h *NotificationHandler) UnlinkProxRadAccount(c *fiber.Ctx) error {
 	})
 }
 
+// TestProxRadSend sends a test message using the currently configured WhatsApp provider (ProxRad or Ultramsg)
+func (h *NotificationHandler) TestProxRadSend(c *fiber.Ctx) error {
+	var req struct {
+		TestPhone string `json:"test_phone"`
+	}
+	if err := c.BodyParser(&req); err != nil || req.TestPhone == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "test_phone is required",
+		})
+	}
+
+	wa := h.manager.GetWhatsAppService()
+	msg := "✅ *ProxPanel Test*\n\nYour WhatsApp configuration is working correctly!\n\nYou can now receive automated notifications."
+	if err := wa.SendMessage(req.TestPhone, msg); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to send test message: " + err.Error(),
+		})
+	}
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Test message sent to " + req.TestPhone,
+	})
+}
+
 // GetProxRadAccess returns the current ProxRad subscription/trial status for the UI
 func (h *NotificationHandler) GetProxRadAccess(c *fiber.Ctx) error {
 	wa := h.manager.GetWhatsAppService()

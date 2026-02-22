@@ -383,6 +383,21 @@ export default function Settings() {
     }
   }
 
+  // Test ProxRad WhatsApp (uses the configured provider — proxrad or ultramsg)
+  const handleTestProxRad = async () => {
+    setTestingWhatsapp(true)
+    try {
+      const res = await api.post('/notifications/proxrad/test-send', {
+        test_phone: testPhone
+      })
+      toast.success(res.data.message || 'Test message sent!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Test send failed')
+    } finally {
+      setTestingWhatsapp(false)
+    }
+  }
+
   // Test WhatsApp configuration
   const handleTestWhatsapp = async () => {
     setTestingWhatsapp(true)
@@ -1703,8 +1718,8 @@ export default function Settings() {
                             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
                           />
                           <button
-                            onClick={handleTestWhatsapp}
-                            disabled={testingWhatsapp}
+                            onClick={handleTestProxRad}
+                            disabled={testingWhatsapp || !testPhone}
                             className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
                           >
                             {testingWhatsapp ? 'Testing...' : 'Test Send'}
