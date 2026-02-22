@@ -65,6 +65,8 @@ type CDNPortRule struct {
 	SpeedMbps   int64          `gorm:"column:speed_mbps;not null;default:5" json:"speed_mbps"` // Speed limit in Mbps
 	NASID       *uint          `gorm:"column:nas_id" json:"nas_id"`
 	IsActive    bool           `gorm:"column:is_active;default:true" json:"is_active"`
+	ShowInGraph bool           `gorm:"column:show_in_graph;default:false" json:"show_in_graph"` // Show in subscriber live graph
+	Color       string         `gorm:"column:color;size:20;default:#8B5CF6" json:"color"`       // Hex color for live graph (default purple)
 	CreatedAt   time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt   time.Time      `gorm:"column:updated_at" json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`

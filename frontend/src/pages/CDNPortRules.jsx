@@ -8,6 +8,7 @@ import {
   XMarkIcon,
   ArrowPathIcon,
   BoltIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -19,6 +20,8 @@ const DIRECTIONS = [
   { value: 'dscp', label: 'DSCP Only (no port)' },
 ]
 
+const GRAPH_COLORS = ['#8B5CF6', '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#06B6D4', '#84CC16']
+
 const defaultForm = {
   name: '',
   port: '',
@@ -27,6 +30,8 @@ const defaultForm = {
   speed_mbps: 5,
   nas_id: null,
   is_active: true,
+  show_in_graph: false,
+  color: '#8B5CF6',
 }
 
 export default function CDNPortRules() {
@@ -88,6 +93,8 @@ export default function CDNPortRules() {
         speed_mbps: rule.speed_mbps || 5,
         nas_id: rule.nas_id || null,
         is_active: rule.is_active ?? true,
+        show_in_graph: rule.show_in_graph ?? false,
+        color: rule.color || '#8B5CF6',
       })
     } else {
       setEditingRule(null)
@@ -107,10 +114,13 @@ export default function CDNPortRules() {
       ...formData,
       speed_mbps: parseInt(formData.speed_mbps) || 5,
       nas_id: formData.nas_id ? parseInt(formData.nas_id) : null,
+      show_in_graph: formData.show_in_graph,
+      color: formData.color || '#8B5CF6',
     }
     if (formData.direction === 'dscp') {
       payload.dscp_value = parseInt(formData.dscp_value) || 0
       payload.port = ''
+      payload.show_in_graph = false // DSCP can't be matched by port in Torch
     } else {
       payload.dscp_value = null
     }
@@ -190,13 +200,14 @@ export default function CDNPortRules() {
                 <th>Speed</th>
                 <th>NAS</th>
                 <th>Status</th>
+                <th>Graph</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8">
+                  <td colSpan={8} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
                     </div>
@@ -204,7 +215,7 @@ export default function CDNPortRules() {
                 </tr>
               ) : !rules || rules.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
                     No port rules found. Click "Add Port Rule" to create one.
                   </td>
                 </tr>
@@ -249,6 +260,16 @@ export default function CDNPortRules() {
                       <span className={clsx('badge', rule.is_active ? 'badge-success' : 'badge-gray')}>
                         {rule.is_active ? 'Active' : 'Inactive'}
                       </span>
+                    </td>
+                    <td>
+                      {rule.show_in_graph && rule.direction !== 'dscp' ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: rule.color || '#8B5CF6' }} />
+                          <ChartBarIcon className="w-4 h-4" style={{ color: rule.color || '#8B5CF6' }} title="Shows in live graph" />
+                        </div>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                      )}
                     </td>
                     <td>
                       <div className="flex items-center gap-2">
@@ -412,6 +433,55 @@ export default function CDNPortRules() {
                     <span className="dark:text-white">Active</span>
                   </label>
                 </div>
+
+                {/* Show in Live Graph toggle — only for port-based rules */}
+                {formData.direction !== 'dscp' && (
+                  <div className="border-t dark:border-gray-700 pt-4 space-y-3">
+                    <div>
+                      <label className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          name="show_in_graph"
+                          checked={formData.show_in_graph}
+                          onChange={handleChange}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <div>
+                          <span className="dark:text-white font-medium">Show in Live Graph</span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">When enabled, traffic matching this port will appear as a colored bar in the subscriber live bandwidth graph</p>
+                        </div>
+                      </label>
+                    </div>
+                    {formData.show_in_graph && (
+                      <div>
+                        <label className="label">Graph Color</label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {GRAPH_COLORS.map(color => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, color }))}
+                              className={clsx(
+                                'w-7 h-7 rounded-full border-2 transition-transform',
+                                formData.color === color ? 'border-gray-800 dark:border-white scale-110' : 'border-transparent hover:scale-105'
+                              )}
+                              style={{ backgroundColor: color }}
+                              title={color}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={formData.color}
+                            onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                            className="w-7 h-7 rounded cursor-pointer border border-gray-300 dark:border-gray-600"
+                            title="Custom color"
+                          />
+                          <span className="text-xs text-gray-500 font-mono">{formData.color}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Preview */}
                 {formData.name && (formData.direction === 'dscp' ? true : formData.port) && (

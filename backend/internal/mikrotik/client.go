@@ -1953,6 +1953,212 @@ func (c *Client) GetCDNTrafficViaTorch(subscriberIP string, cdns []CDNSubnetConf
 	return results, nil
 }
 
+// PortRuleTrafficConfig holds the config for port-rule traffic matching in Torch
+type PortRuleTrafficConfig struct {
+	ID        uint
+	Name      string
+	Port      string // Port number as string e.g. "8080"
+	Direction string // src, dst, both
+}
+
+// PortRuleTrafficCounter holds per-port-rule bytes/sec from Torch
+type PortRuleTrafficCounter struct {
+	RuleID   uint
+	RuleName string
+	Bytes    int64 // bytes/sec rate
+}
+
+// GetCombinedTrafficViaTorch runs ONE Torch session on the subscriber's PPPoE interface
+// and matches traffic against both CDN subnets and port-based rules in a single pass.
+// Returns CDN counters and port-rule counters. CDNIsRate=true (bytes/sec from Torch).
+func (c *Client) GetCombinedTrafficViaTorch(subscriberIP string, cdns []CDNSubnetConfig, portRules []PortRuleTrafficConfig) ([]CDNTrafficCounter, []PortRuleTrafficCounter, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// Step 1: Find the PPPoE interface for this subscriber
+	c.conn.SetDeadline(time.Now().Add(15 * time.Second))
+	c.sendWord("/ppp/active/print")
+	c.sendWord("?address=" + subscriberIP)
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find PPPoE session: %v", err)
+	}
+
+	var ifaceName string
+	for _, word := range response {
+		if strings.HasPrefix(word, "=name=") {
+			username := strings.TrimPrefix(word, "=name=")
+			ifaceName = "<pppoe-" + username + ">"
+			break
+		}
+	}
+
+	if ifaceName == "" {
+		return nil, nil, fmt.Errorf("subscriber not connected or interface not found")
+	}
+
+	// Step 2: Pre-parse CDN subnets for fast matching
+	type cdnEntry struct {
+		config  CDNSubnetConfig
+		subnets []string
+	}
+	cdnEntries := make([]cdnEntry, 0, len(cdns))
+	cdnRates := make(map[uint]int64)
+	for _, cdn := range cdns {
+		cdnEntries = append(cdnEntries, cdnEntry{
+			config:  cdn,
+			subnets: parseSubnetList(cdn.Subnets),
+		})
+		cdnRates[cdn.ID] = 0
+	}
+
+	matchCDN := func(ip string) *CDNSubnetConfig {
+		for i := range cdnEntries {
+			for _, subnet := range cdnEntries[i].subnets {
+				if isIPInCIDR(ip, subnet) {
+					return &cdnEntries[i].config
+				}
+			}
+		}
+		return nil
+	}
+
+	// Step 3: Pre-parse port rules for fast matching
+	portRuleRates := make(map[uint]int64)
+	for _, pr := range portRules {
+		portRuleRates[pr.ID] = 0
+	}
+
+	matchPortRule := func(srcPort, dstPort string) *PortRuleTrafficConfig {
+		for i := range portRules {
+			pr := &portRules[i]
+			switch pr.Direction {
+			case "src":
+				if srcPort == pr.Port {
+					return pr
+				}
+			case "dst":
+				if dstPort == pr.Port {
+					return pr
+				}
+			default: // "both"
+				if srcPort == pr.Port || dstPort == pr.Port {
+					return pr
+				}
+			}
+		}
+		return nil
+	}
+
+	// Step 4: Run torch for 2 seconds on the subscriber's PPPoE interface
+	c.conn.SetDeadline(time.Now().Add(20 * time.Second))
+	c.sendWord("/tool/torch")
+	c.sendWord("=interface=" + ifaceName)
+	c.sendWord("=src-address=0.0.0.0/0")
+	c.sendWord("=dst-address=0.0.0.0/0")
+	c.sendWord("=port=any")
+	c.sendWord("=ip-protocol=any")
+	c.sendWord("=duration=2")
+	c.sendWord("")
+
+	// Step 5: Parse torch output and match against CDN subnets and port rules
+	for {
+		word, err := c.readWord()
+		if err != nil || word == "!done" {
+			break
+		}
+
+		if word == "!trap" {
+			errMsg := ""
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				if strings.HasPrefix(attr, "=message=") {
+					errMsg = strings.TrimPrefix(attr, "=message=")
+				}
+			}
+			return nil, nil, fmt.Errorf("torch error: %s", errMsg)
+		}
+
+		if word == "!re" {
+			var srcAddr, dstAddr, srcPort, dstPort string
+			var txRate int64
+
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				switch {
+				case strings.HasPrefix(attr, "=src-address="):
+					srcAddr = strings.TrimPrefix(attr, "=src-address=")
+				case strings.HasPrefix(attr, "=dst-address="):
+					dstAddr = strings.TrimPrefix(attr, "=dst-address=")
+				case strings.HasPrefix(attr, "=src-port="):
+					srcPort = strings.TrimPrefix(attr, "=src-port=")
+				case strings.HasPrefix(attr, "=dst-port="):
+					dstPort = strings.TrimPrefix(attr, "=dst-port=")
+				case strings.HasPrefix(attr, "=tx="):
+					bits, _ := strconv.ParseInt(strings.TrimPrefix(attr, "=tx="), 10, 64)
+					txRate = bits / 8 // bps → bytes/sec
+				}
+			}
+
+			if srcAddr == "" || dstAddr == "" {
+				continue
+			}
+
+			// Match CDN by remote IP
+			if len(cdns) > 0 {
+				remoteIP := dstAddr
+				if srcAddr != subscriberIP {
+					remoteIP = srcAddr
+				}
+				if cdn := matchCDN(remoteIP); cdn != nil {
+					cdnRates[cdn.ID] += txRate
+				}
+			}
+
+			// Match port rules by src-port or dst-port
+			if len(portRules) > 0 {
+				if pr := matchPortRule(srcPort, dstPort); pr != nil {
+					portRuleRates[pr.ID] += txRate
+				}
+			}
+		}
+	}
+
+	// Step 6: Build CDN results
+	var cdnResults []CDNTrafficCounter
+	for _, cdn := range cdns {
+		cdnResults = append(cdnResults, CDNTrafficCounter{
+			CDNID:   cdn.ID,
+			CDNName: cdn.Name,
+			Bytes:   cdnRates[cdn.ID],
+		})
+	}
+
+	// Step 7: Build port rule results
+	var portRuleResults []PortRuleTrafficCounter
+	for _, pr := range portRules {
+		portRuleResults = append(portRuleResults, PortRuleTrafficCounter{
+			RuleID:   pr.ID,
+			RuleName: pr.Name,
+			Bytes:    portRuleRates[pr.ID],
+		})
+	}
+
+	log.Printf("CombinedTorch: Completed for %s: CDNs=%v PortRules=%v", subscriberIP, cdnRates, portRuleRates)
+	return cdnResults, portRuleResults, nil
+}
+
 // parseSubnetList splits subnet string into slice
 func parseSubnetList(subnets string) []string {
 	var result []string

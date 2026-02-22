@@ -59,6 +59,7 @@ export default function SubscriberEdit() {
     uptime: '',
     ipAddress: '',
     cdnTraffic: [], // Array of { cdn_id, cdn_name, bytes, color }
+    portRuleTraffic: [], // Array of { rule_id, rule_name, bytes, color }
   })
   const chartRef = useRef(null) // Reference to ECharts instance
   const downloadDataRef = useRef(Array(30).fill(0))
@@ -66,6 +67,9 @@ export default function SubscriberEdit() {
   const cdnDataRefs = useRef({}) // { cdn_id: [30 data points] }
   const cdnPrevBytesRef = useRef({}) // { cdn_id: previous_bytes } - for calculating delta
   const [cdnList, setCdnList] = useState([]) // List of CDNs with their colors
+  const portRuleDataRefs = useRef({}) // { rule_id: [30 data points] }
+  const portRulePrevBytesRef = useRef({}) // { rule_id: previous_bytes }
+  const [portRuleList, setPortRuleList] = useState([]) // List of port rules with their colors
 
   const [formData, setFormData] = useState({
     username: '',
@@ -299,13 +303,13 @@ export default function SubscriberEdit() {
           const uploadValue = data.upload || 0
           const cdnTraffic = data.cdn_traffic || []
           const cdnIsRate = data.cdn_is_rate || false // true = Torch (bytes/sec), false = connection tracking (cumulative)
+          const portRuleTraffic = data.port_rule_traffic || []
 
           // Update CDN data arrays first to calculate total CDN rate
           const updatedCdnList = []
           let totalCdnMbps = 0
 
           cdnTraffic.forEach(cdn => {
-            // Initialize array if this is a new CDN
             if (!cdnDataRefs.current[cdn.cdn_id]) {
               cdnDataRefs.current[cdn.cdn_id] = Array(30).fill(0)
             }
@@ -314,67 +318,57 @@ export default function SubscriberEdit() {
             let cdnMbps = 0
 
             if (cdnIsRate) {
-              // Torch mode: bytes field is already bytes/sec rate — convert directly to Mbps
               cdnMbps = (currentBytes * 8 / 1000000) || 0
             } else {
-              // Connection tracking mode: bytes is cumulative — calculate delta
               const prevBytes = cdnPrevBytesRef.current[cdn.cdn_id]
               if (prevBytes !== undefined && currentBytes >= prevBytes) {
                 const deltaBytes = currentBytes - prevBytes
-                // Convert delta bytes to Mbps (deltaBytes * 8 / 1,000,000 / 2 seconds interval)
                 cdnMbps = (deltaBytes * 8 / 1000000 / 2) || 0
               }
-              // Store current bytes for next delta calculation
               cdnPrevBytesRef.current[cdn.cdn_id] = currentBytes
             }
 
             cdnDataRefs.current[cdn.cdn_id] = [...cdnDataRefs.current[cdn.cdn_id].slice(1), cdnMbps]
-
-            // Add to total CDN rate
             totalCdnMbps += cdnMbps
-
-            updatedCdnList.push({
-              id: cdn.cdn_id,
-              name: cdn.cdn_name,
-              color: cdn.color,
-            })
+            updatedCdnList.push({ id: cdn.cdn_id, name: cdn.cdn_name, color: cdn.color })
           })
           setCdnList(updatedCdnList)
 
+          // Update Port Rule data arrays
+          const updatedPortRuleList = []
+          portRuleTraffic.forEach(pr => {
+            if (!portRuleDataRefs.current[pr.rule_id]) {
+              portRuleDataRefs.current[pr.rule_id] = Array(30).fill(0)
+            }
+            const currentBytes = pr.bytes || 0
+            // Port rules always use Torch (bytes/sec rate)
+            const prMbps = (currentBytes * 8 / 1000000) || 0
+            portRuleDataRefs.current[pr.rule_id] = [...portRuleDataRefs.current[pr.rule_id].slice(1), prMbps]
+            updatedPortRuleList.push({ id: pr.rule_id, name: pr.rule_name, color: pr.color })
+          })
+          setPortRuleList(updatedPortRuleList)
+
           // Subtract CDN traffic from download to show only regular internet
-          // Download (green) = Total download - CDN traffic = Regular internet only
           const regularDownload = Math.max(0, downloadValue - totalCdnMbps)
 
-          // Update current bandwidth display with adjusted download
           setCurrentBandwidth({
             download: regularDownload.toFixed(2),
             upload: uploadValue.toFixed(2),
             uptime: data.uptime || '',
             ipAddress: data.ip_address || '',
             cdnTraffic: cdnTraffic,
+            portRuleTraffic: portRuleTraffic,
           })
 
-          // Update data arrays (shift left, add new value on right)
+          // Update data arrays
           downloadDataRef.current = [...downloadDataRef.current.slice(1), regularDownload]
           uploadDataRef.current = [...uploadDataRef.current.slice(1), uploadValue]
-
-          // Build series array for chart update
-          const seriesData = [
-            { data: downloadDataRef.current },
-            { data: uploadDataRef.current }
-          ]
-
-          // Add CDN series data
-          updatedCdnList.forEach(cdn => {
-            seriesData.push({ data: cdnDataRefs.current[cdn.id] || Array(30).fill(0) })
-          })
 
           // Directly update the chart instance for smooth animation
           if (chartRef.current) {
             const chartInstance = chartRef.current.getEchartsInstance()
             if (chartInstance) {
-              // Build legend and series config if CDN list changed
-              const legendData = ['Download', 'Upload', ...updatedCdnList.map(c => c.name)]
+              const legendData = ['Download', 'Upload', ...updatedCdnList.map(c => c.name), ...updatedPortRuleList.map(pr => pr.name)]
               const seriesConfig = [
                 { name: 'Download', data: downloadDataRef.current },
                 { name: 'Upload', data: uploadDataRef.current },
@@ -392,6 +386,25 @@ export default function SubscriberEdit() {
                       colorStops: [
                         { offset: 0, color: cdn.color + '66' },
                         { offset: 1, color: cdn.color + '0D' }
+                      ]
+                    }
+                  },
+                  showSymbol: false,
+                })),
+                ...updatedPortRuleList.map(pr => ({
+                  name: pr.name,
+                  type: 'line',
+                  smooth: true,
+                  data: portRuleDataRefs.current[pr.id] || Array(30).fill(0),
+                  lineStyle: { color: pr.color, width: 2, type: 'dashed' },
+                  itemStyle: { color: pr.color },
+                  areaStyle: {
+                    color: {
+                      type: 'linear',
+                      x: 0, y: 0, x2: 0, y2: 1,
+                      colorStops: [
+                        { offset: 0, color: pr.color + '55' },
+                        { offset: 1, color: pr.color + '0D' }
                       ]
                     }
                   },
@@ -1461,13 +1474,28 @@ export default function SubscriberEdit() {
               {cdnList.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {cdnList.map(cdn => {
-                    // Get current rate from the data array (last value)
                     const cdnRateData = cdnDataRefs.current[cdn.id] || []
                     const currentRate = cdnRateData.length > 0 ? cdnRateData[cdnRateData.length - 1] : 0
                     return (
                       <div key={cdn.id} className="card p-3 text-center" style={{ borderTop: `3px solid ${cdn.color}` }}>
                         <div className="text-xl font-bold" style={{ color: cdn.color }}>{currentRate.toFixed(2)} Mbps</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{cdn.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{cdn.name}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Port Rule Traffic Stats - Show live rate in Mbps */}
+              {portRuleList.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {portRuleList.map(pr => {
+                    const prRateData = portRuleDataRefs.current[pr.id] || []
+                    const currentRate = prRateData.length > 0 ? prRateData[prRateData.length - 1] : 0
+                    return (
+                      <div key={pr.id} className="card p-3 text-center" style={{ borderTop: `3px dashed ${pr.color}` }}>
+                        <div className="text-xl font-bold" style={{ color: pr.color }}>{currentRate.toFixed(2)} Mbps</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Port: {pr.name}</div>
                       </div>
                     )
                   })}

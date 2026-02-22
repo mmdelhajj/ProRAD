@@ -4127,18 +4127,27 @@ type CDNBandwidth struct {
 	Color   string  `json:"color"`
 }
 
+// PortRuleBandwidth represents bandwidth for a specific CDN Port Rule
+type PortRuleBandwidth struct {
+	RuleID   uint   `json:"rule_id"`
+	RuleName string `json:"rule_name"`
+	Bytes    int64  `json:"bytes"`
+	Color    string `json:"color"`
+}
+
 // BandwidthResponse represents real-time bandwidth data
 type BandwidthResponse struct {
-	Timestamp    int64          `json:"timestamp"`
-	Download     float64        `json:"download"`   // Mbps
-	Upload       float64        `json:"upload"`     // Mbps
-	RxBytes      int64          `json:"rx_bytes"`
-	TxBytes      int64          `json:"tx_bytes"`
-	Uptime       string         `json:"uptime"`
-	IPAddress    string         `json:"ip_address"`
-	CallerID     string         `json:"caller_id"`
-	CDNTraffic   []CDNBandwidth `json:"cdn_traffic,omitempty"`
-	CDNIsRate    bool           `json:"cdn_is_rate"` // true = Bytes field is bytes/sec rate (Torch), false = cumulative (delta needed)
+	Timestamp      int64               `json:"timestamp"`
+	Download       float64             `json:"download"`   // Mbps
+	Upload         float64             `json:"upload"`     // Mbps
+	RxBytes        int64               `json:"rx_bytes"`
+	TxBytes        int64               `json:"tx_bytes"`
+	Uptime         string              `json:"uptime"`
+	IPAddress      string              `json:"ip_address"`
+	CallerID       string              `json:"caller_id"`
+	CDNTraffic     []CDNBandwidth      `json:"cdn_traffic,omitempty"`
+	CDNIsRate      bool                `json:"cdn_is_rate"` // true = Bytes field is bytes/sec rate (Torch), false = cumulative (delta needed)
+	PortRuleTraffic []PortRuleBandwidth `json:"port_rule_traffic,omitempty"`
 }
 
 // GetBandwidth returns real-time bandwidth data for a subscriber
@@ -4215,20 +4224,16 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 		CallerID:   session.CallerID,
 	}
 
-	// Get CDN traffic breakdown if subscriber has an IP address and service with CDNs
-	if session.Address != "" && subscriber.ServiceID > 0 {
-		// Get service CDN configurations
-		var serviceCDNs []models.ServiceCDN
-		database.DB.Preload("CDN").Where("service_id = ? AND is_active = ?", subscriber.ServiceID, true).Find(&serviceCDNs)
+	// Get CDN and Port Rule traffic breakdown using a single Torch run
+	if session.Address != "" {
+		// Build CDN configs (from service CDNs with is_active=true)
+		var cdnConfigs []mikrotik.CDNSubnetConfig
+		cdnColorMap := make(map[uint]string)
+		defaultCDNColor := "#EF4444"
 
-		if len(serviceCDNs) > 0 {
-
-			// Build map of CDNID to color from database
-			cdnColorMap := make(map[uint]string)
-			defaultColor := "#EF4444" // Fallback red if no color set
-
-			// Build CDN config list with subnets from database
-			var cdnConfigs []mikrotik.CDNSubnetConfig
+		if subscriber.ServiceID > 0 {
+			var serviceCDNs []models.ServiceCDN
+			database.DB.Preload("CDN").Where("service_id = ? AND is_active = ?", subscriber.ServiceID, true).Find(&serviceCDNs)
 			for _, cdn := range serviceCDNs {
 				if cdn.CDN != nil && cdn.CDN.ID > 0 && cdn.CDN.Subnets != "" {
 					cdnConfigs = append(cdnConfigs, mikrotik.CDNSubnetConfig{
@@ -4236,27 +4241,48 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 						Name:    cdn.CDN.Name,
 						Subnets: cdn.CDN.Subnets,
 					})
-					// Store color from database
-					if cdn.CDN.Color != "" {
-						cdnColorMap[cdn.CDNID] = cdn.CDN.Color
-					} else {
-						cdnColorMap[cdn.CDNID] = defaultColor
+					color := cdn.CDN.Color
+					if color == "" {
+						color = defaultCDNColor
 					}
-					}
+					cdnColorMap[cdn.CDNID] = color
+				}
 			}
+		}
 
-			// Get CDN traffic using Torch on subscriber's PPPoE interface
-			// Works even when connection tracking is disabled or NAT is on a different MikroTik
-			cdnCounters, err := client.GetCDNTrafficViaTorch(session.Address, cdnConfigs)
-			log.Printf("CDN Torch: GetCDNTrafficViaTorch for %s returned %d entries, err=%v", session.Address, len(cdnCounters), err)
+		// Build Port Rule configs (rules with show_in_graph=true, port-based only)
+		var portRuleConfigs []mikrotik.PortRuleTrafficConfig
+		portRuleColorMap := make(map[uint]string)
+		defaultPortRuleColor := "#8B5CF6"
 
-			// Build CDN traffic response — include all CDNs so frontend can show/hide bars
+		var activePortRules []models.CDNPortRule
+		database.DB.Where("deleted_at IS NULL AND is_active = ? AND show_in_graph = ? AND direction != 'dscp' AND port != ''", true, true).Find(&activePortRules)
+		for _, pr := range activePortRules {
+			portRuleConfigs = append(portRuleConfigs, mikrotik.PortRuleTrafficConfig{
+				ID:        pr.ID,
+				Name:      pr.Name,
+				Port:      pr.Port,
+				Direction: pr.Direction,
+			})
+			color := pr.Color
+			if color == "" {
+				color = defaultPortRuleColor
+			}
+			portRuleColorMap[pr.ID] = color
+		}
+
+		// Only run Torch if there's something to measure
+		if len(cdnConfigs) > 0 || len(portRuleConfigs) > 0 {
+			cdnCounters, portRuleCounters, err := client.GetCombinedTrafficViaTorch(session.Address, cdnConfigs, portRuleConfigs)
+			log.Printf("CombinedTorch for %s: CDNs=%d PortRules=%d err=%v", session.Address, len(cdnCounters), len(portRuleCounters), err)
+
 			if err == nil {
-				response.CDNIsRate = true // Bytes = bytes/sec rate from Torch (frontend uses directly, no delta needed)
+				response.CDNIsRate = true // Bytes = bytes/sec rate from Torch (no delta needed)
+
 				for _, counter := range cdnCounters {
 					color := cdnColorMap[counter.CDNID]
 					if color == "" {
-						color = defaultColor
+						color = defaultCDNColor
 					}
 					response.CDNTraffic = append(response.CDNTraffic, CDNBandwidth{
 						CDNID:   counter.CDNID,
@@ -4265,8 +4291,20 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 						Color:   color,
 					})
 				}
+
+				for _, counter := range portRuleCounters {
+					color := portRuleColorMap[counter.RuleID]
+					if color == "" {
+						color = defaultPortRuleColor
+					}
+					response.PortRuleTraffic = append(response.PortRuleTraffic, PortRuleBandwidth{
+						RuleID:   counter.RuleID,
+						RuleName: counter.RuleName,
+						Bytes:    counter.Bytes,
+						Color:    color,
+					})
+				}
 			}
-			// If error, CDNTraffic stays empty — no CDN bars shown
 		}
 	}
 

@@ -25,13 +25,15 @@ func (h *CDNHandler) ListPortRules(c *fiber.Ctx) error {
 // CreatePortRule creates a new CDN port rule
 func (h *CDNHandler) CreatePortRule(c *fiber.Ctx) error {
 	var body struct {
-		Name      string `json:"name"`
-		Port      string `json:"port"`
-		Direction string `json:"direction"`
-		DSCPValue *int   `json:"dscp_value"`
-		SpeedMbps int64  `json:"speed_mbps"`
-		NASID     *uint  `json:"nas_id"`
-		IsActive  bool   `json:"is_active"`
+		Name        string `json:"name"`
+		Port        string `json:"port"`
+		Direction   string `json:"direction"`
+		DSCPValue   *int   `json:"dscp_value"`
+		SpeedMbps   int64  `json:"speed_mbps"`
+		NASID       *uint  `json:"nas_id"`
+		IsActive    bool   `json:"is_active"`
+		ShowInGraph bool   `json:"show_in_graph"`
+		Color       string `json:"color"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request"})
@@ -49,15 +51,20 @@ func (h *CDNHandler) CreatePortRule(c *fiber.Ctx) error {
 	} else if body.Port == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Port is required for non-DSCP direction"})
 	}
+	if body.Color == "" {
+		body.Color = "#8B5CF6"
+	}
 
 	rule := models.CDNPortRule{
-		Name:      body.Name,
-		Port:      body.Port,
-		Direction: body.Direction,
-		DSCPValue: body.DSCPValue,
-		SpeedMbps: body.SpeedMbps,
-		NASID:     body.NASID,
-		IsActive:  body.IsActive,
+		Name:        body.Name,
+		Port:        body.Port,
+		Direction:   body.Direction,
+		DSCPValue:   body.DSCPValue,
+		SpeedMbps:   body.SpeedMbps,
+		NASID:       body.NASID,
+		IsActive:    body.IsActive,
+		ShowInGraph: body.ShowInGraph,
+		Color:       body.Color,
 	}
 	if err := database.DB.Create(&rule).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to create port rule"})
@@ -74,16 +81,21 @@ func (h *CDNHandler) UpdatePortRule(c *fiber.Ctx) error {
 	}
 
 	var body struct {
-		Name      string `json:"name"`
-		Port      string `json:"port"`
-		Direction string `json:"direction"`
-		DSCPValue *int   `json:"dscp_value"`
-		SpeedMbps int64  `json:"speed_mbps"`
-		NASID     *uint  `json:"nas_id"`
-		IsActive  bool   `json:"is_active"`
+		Name        string `json:"name"`
+		Port        string `json:"port"`
+		Direction   string `json:"direction"`
+		DSCPValue   *int   `json:"dscp_value"`
+		SpeedMbps   int64  `json:"speed_mbps"`
+		NASID       *uint  `json:"nas_id"`
+		IsActive    bool   `json:"is_active"`
+		ShowInGraph bool   `json:"show_in_graph"`
+		Color       string `json:"color"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request"})
+	}
+	if body.Color == "" {
+		body.Color = "#8B5CF6"
 	}
 
 	rule.Name = body.Name
@@ -93,6 +105,8 @@ func (h *CDNHandler) UpdatePortRule(c *fiber.Ctx) error {
 	rule.SpeedMbps = body.SpeedMbps
 	rule.NASID = body.NASID
 	rule.IsActive = body.IsActive
+	rule.ShowInGraph = body.ShowInGraph
+	rule.Color = body.Color
 
 	if err := database.DB.Save(&rule).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to update port rule"})

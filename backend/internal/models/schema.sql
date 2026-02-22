@@ -864,6 +864,8 @@ CREATE TABLE IF NOT EXISTS cdn_port_rules (
 );
 ALTER TABLE cdn_port_rules ADD COLUMN IF NOT EXISTS dscp_value INTEGER;
 ALTER TABLE cdn_port_rules ALTER COLUMN port DROP NOT NULL;
+ALTER TABLE cdn_port_rules ADD COLUMN IF NOT EXISTS show_in_graph BOOLEAN DEFAULT false;
+ALTER TABLE cdn_port_rules ADD COLUMN IF NOT EXISTS color VARCHAR(20) DEFAULT '#8B5CF6';
 
 -- Bandwidth Rules
 CREATE TABLE IF NOT EXISTS bandwidth_rules (
