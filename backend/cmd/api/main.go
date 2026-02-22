@@ -139,6 +139,10 @@ func main() {
 	staleSessionCleanupService := services.NewStaleSessionCleanupService(30) // 30 min threshold
 	staleSessionCleanupService.Start()
 
+	// Start daily notification service (fires expiry_warning and expired communication rules)
+	dailyNotificationService := services.NewDailyNotificationService()
+	dailyNotificationService.Start()
+
 	// Warmup subscriber cache for online users (improves RADIUS performance)
 	go database.WarmupSubscriberCache()
 

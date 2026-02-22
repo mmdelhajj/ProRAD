@@ -527,6 +527,11 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 		freshSub.Service = sub.Service // Copy service from original (not preloaded in fresh)
 		s.checkAndEnforceFUP(client, nas, &freshSub, session.Address, session.SessionID, newTotalDaily, newTotalMonthly)
 
+		// Fire quota_warning rules if monthly quota threshold reached (only when data was used this cycle)
+		if (deltaDownload > 0 || deltaUpload > 0) && freshSub.Service != nil {
+			go fireQuotaWarningRules(freshSub, newTotalMonthly)
+		}
+
 		// Check and apply time-based speed control from Service settings
 		// Re-read fresh FUP levels to check if FUP was applied
 		var latestSub models.Subscriber
@@ -1713,8 +1718,16 @@ func fireFUPAppliedRules(sub *models.Subscriber, fupLevel int, quotaUsed, quotaT
 	quotaUsedStr := formatFUPQuota(quotaUsed)
 	quotaTotalStr := formatFUPQuota(quotaTotal)
 
+	levelStr := strconv.Itoa(fupLevel)
+
 	for _, rule := range rules {
 		if rule.Template == "" {
+			continue
+		}
+
+		// Filter by configured FUP levels (e.g. "2" means only fire on FUP2)
+		if rule.FUPLevels != "" && !strings.Contains(rule.FUPLevels, levelStr) {
+			log.Printf("FUPRule[%s]: Skipping for FUP%d (rule configured for levels: %s)", rule.Name, fupLevel, rule.FUPLevels)
 			continue
 		}
 
@@ -1759,6 +1772,133 @@ func fireFUPAppliedRules(sub *models.Subscriber, fupLevel int, quotaUsed, quotaT
 			}
 		}
 	}
+}
+
+// fireQuotaWarningRules sends notifications when a subscriber's monthly quota reaches a threshold.
+// The rule's days_before field is repurposed as the threshold percentage (e.g. 80 = fire at 80% used).
+// Deduplication: only fires once per rule per subscriber per month.
+func fireQuotaWarningRules(sub models.Subscriber, monthlyUsed int64) {
+	if sub.Service == nil {
+		return
+	}
+
+	// Find the total monthly quota: use the highest non-zero monthly FUP threshold
+	var quotaTotal int64
+	for _, t := range []int64{sub.Service.MonthlyFUP3Threshold, sub.Service.MonthlyFUP2Threshold, sub.Service.MonthlyFUP1Threshold} {
+		if t > 0 {
+			quotaTotal = t
+			break
+		}
+	}
+	if quotaTotal == 0 || monthlyUsed == 0 {
+		return // No monthly quota defined or no usage yet
+	}
+
+	usedPercent := monthlyUsed * 100 / quotaTotal
+
+	var rules []models.CommunicationRule
+	if err := database.DB.Where("trigger_event = ? AND enabled = ?", "quota_warning", true).Find(&rules).Error; err != nil {
+		return
+	}
+	if len(rules) == 0 {
+		return
+	}
+
+	now := getNow()
+	for _, rule := range rules {
+		if rule.Template == "" {
+			continue
+		}
+		threshold := int64(rule.DaysBefore) // days_before repurposed as threshold %
+		if threshold <= 0 || threshold > 99 {
+			threshold = 80
+		}
+		if usedPercent < threshold {
+			continue
+		}
+		// Per-month dedup: only send once per rule per subscriber this month
+		if quotaWarningAlreadySentThisMonth(sub.ID, rule.ID, now) {
+			continue
+		}
+		log.Printf("QuotaWarning[%s]: %s used %d%% of monthly quota (threshold=%d%%), sending notification",
+			rule.Name, sub.Username, usedPercent, threshold)
+
+		serviceName := sub.Service.Name
+		balance := fmt.Sprintf("%.2f", sub.Price)
+		usedStr := formatFUPQuota(monthlyUsed)
+		totalStr := formatFUPQuota(quotaTotal)
+
+		msg := rule.Template
+		msg = strings.ReplaceAll(msg, "{username}", sub.Username)
+		msg = strings.ReplaceAll(msg, "{full_name}", sub.FullName)
+		msg = strings.ReplaceAll(msg, "{service_name}", serviceName)
+		msg = strings.ReplaceAll(msg, "{balance}", balance)
+		msg = strings.ReplaceAll(msg, "{quota_used}", usedStr)
+		msg = strings.ReplaceAll(msg, "{quota_total}", totalStr)
+		msg = strings.ReplaceAll(msg, "{quota_percent}", fmt.Sprintf("%d", usedPercent))
+
+		sent := false
+		errMsg := ""
+
+		phone := sub.Phone
+		if rule.SendToReseller && sub.Reseller != nil && sub.Reseller.User != nil && sub.Reseller.User.Phone != "" {
+			phone = sub.Reseller.User.Phone
+		}
+		email := sub.Email
+		if rule.SendToReseller && sub.Reseller != nil && sub.Reseller.User != nil && sub.Reseller.User.Email != "" {
+			email = sub.Reseller.User.Email
+		}
+
+		switch rule.Channel {
+		case "whatsapp":
+			if phone != "" {
+				wa := NewWhatsAppService()
+				if err := wa.SendMessage(phone, msg); err != nil {
+					log.Printf("QuotaWarning[%s]: WhatsApp failed for %s: %v", rule.Name, sub.Username, err)
+					errMsg = err.Error()
+				} else {
+					log.Printf("QuotaWarning[%s]: WhatsApp sent to %s", rule.Name, sub.Username)
+					sent = true
+				}
+			}
+		case "sms":
+			if phone != "" {
+				sms := NewSMSService()
+				if err := sms.SendSMS(phone, msg); err != nil {
+					log.Printf("QuotaWarning[%s]: SMS failed for %s: %v", rule.Name, sub.Username, err)
+					errMsg = err.Error()
+				} else {
+					log.Printf("QuotaWarning[%s]: SMS sent to %s", rule.Name, sub.Username)
+					sent = true
+				}
+			}
+		case "email":
+			if email != "" {
+				emailSvc := NewEmailService()
+				subject := fmt.Sprintf("Quota Warning (%d%% used) - %s", usedPercent, sub.Username)
+				if err := emailSvc.SendEmail(email, subject, msg, false); err != nil {
+					log.Printf("QuotaWarning[%s]: Email failed for %s: %v", rule.Name, sub.Username, err)
+					errMsg = err.Error()
+				} else {
+					log.Printf("QuotaWarning[%s]: Email sent to %s", rule.Name, sub.Username)
+					sent = true
+				}
+			}
+		}
+
+		// Log for per-month dedup
+		logDailyNotif(rule, sub, msg, sent, errMsg)
+	}
+}
+
+// quotaWarningAlreadySentThisMonth returns true if quota_warning was already sent for this subscriber+rule this month.
+func quotaWarningAlreadySentThisMonth(subscriberID, ruleID uint, now time.Time) bool {
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	var count int64
+	database.DB.Model(&models.CommunicationLog{}).
+		Where("subscriber_id = ? AND rule_id = ? AND created_at >= ?", subscriberID, ruleID, startOfMonth).
+		Count(&count)
+	return count > 0
 }
 
 // formatFUPQuota formats a byte count as a human-readable string.

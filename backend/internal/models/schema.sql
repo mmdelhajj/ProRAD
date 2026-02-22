@@ -736,9 +736,11 @@ CREATE TABLE IF NOT EXISTS communication_rules (
     send_to_reseller BOOLEAN DEFAULT false,
     reseller_id INTEGER,
     permission_group INTEGER,
+    fup_levels VARCHAR(20) DEFAULT '1,2,3',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE communication_rules ADD COLUMN IF NOT EXISTS fup_levels VARCHAR(20) DEFAULT '1,2,3';
 
 -- Communication Logs
 CREATE TABLE IF NOT EXISTS communication_logs (

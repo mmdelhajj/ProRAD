@@ -14,6 +14,7 @@ export default function CommunicationRules() {
     template: '',
     enabled: true,
     send_to_reseller: false,
+    fup_levels: ['1', '2', '3'],
   })
 
   const { data, isLoading } = useQuery({
@@ -82,6 +83,7 @@ export default function CommunicationRules() {
       template: '',
       enabled: true,
       send_to_reseller: false,
+      fup_levels: ['1', '2', '3'],
     })
   }
 
@@ -95,16 +97,21 @@ export default function CommunicationRules() {
       template: rule.template,
       enabled: rule.enabled,
       send_to_reseller: rule.send_to_reseller || false,
+      fup_levels: rule.fup_levels ? rule.fup_levels.split(',') : ['1', '2', '3'],
     })
     setShowModal(true)
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    const data = {
+      ...formData,
+      fup_levels: Array.isArray(formData.fup_levels) ? formData.fup_levels.join(',') : formData.fup_levels,
+    }
     if (editingRule) {
-      updateMutation.mutate({ id: editingRule.id, ...formData })
+      updateMutation.mutate({ id: editingRule.id, ...data })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(data)
     }
   }
 
@@ -195,6 +202,11 @@ export default function CommunicationRules() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900 dark:text-white">{getTriggerLabel(rule.trigger_event)}</div>
+                  {rule.trigger_event === 'fup_applied' && rule.fup_levels && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Levels: {rule.fup_levels.split(',').map(l => `FUP ${l}`).join(', ')}
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs rounded-full capitalize ${getChannelBadge(rule.channel)}`}>
@@ -202,7 +214,10 @@ export default function CommunicationRules() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  {rule.days_before > 0 ? `${rule.days_before} days` : '-'}
+                  {rule.trigger_event === 'quota_warning'
+                    ? (rule.days_before > 0 ? `${rule.days_before}%` : '-')
+                    : (rule.days_before > 0 ? `${rule.days_before} days` : '-')
+                  }
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
@@ -273,7 +288,13 @@ export default function CommunicationRules() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Trigger Event</label>
                   <select
                     value={formData.trigger_event}
-                    onChange={(e) => setFormData({ ...formData, trigger_event: e.target.value })}
+                    onChange={(e) => {
+                      const newTrigger = e.target.value
+                      const updates = { trigger_event: newTrigger }
+                      if (newTrigger === 'quota_warning') updates.days_before = 80
+                      else if (newTrigger === 'expiry_warning') updates.days_before = 3
+                      setFormData({ ...formData, ...updates })
+                    }}
                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                   >
                     {triggerEvents.map(event => (
@@ -297,9 +318,9 @@ export default function CommunicationRules() {
                   </select>
                 </div>
 
-                {['expiry_warning', 'quota_warning'].includes(formData.trigger_event) && (
+                {formData.trigger_event === 'expiry_warning' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Days Before</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Days Before Expiry</label>
                     <input
                       type="number"
                       min="1"
@@ -308,6 +329,55 @@ export default function CommunicationRules() {
                       onChange={(e) => setFormData({ ...formData, days_before: parseInt(e.target.value) })}
                       className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Send notification this many days before expiry</p>
+                  </div>
+                )}
+
+                {formData.trigger_event === 'quota_warning' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Quota Threshold (%)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={formData.days_before}
+                      onChange={(e) => setFormData({ ...formData, days_before: parseInt(e.target.value) })}
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Send when monthly quota usage reaches this % (e.g. 80 = notify at 80% used)</p>
+                  </div>
+                )}
+
+                {formData.trigger_event === 'fup_applied' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Trigger on FUP Level
+                    </label>
+                    <div className="mt-2 flex space-x-6">
+                      {[
+                        { value: '1', label: 'FUP 1' },
+                        { value: '2', label: 'FUP 2' },
+                        { value: '3', label: 'FUP 3' },
+                      ].map(({ value, label }) => (
+                        <label key={value} className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.fup_levels.includes(value)}
+                            onChange={(e) => {
+                              const newLevels = e.target.checked
+                                ? [...formData.fup_levels, value].sort()
+                                : formData.fup_levels.filter(l => l !== value)
+                              setFormData({ ...formData, fup_levels: newLevels })
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                          />
+                          <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Select which FUP levels trigger this rule. You can create separate rules for each level.
+                    </p>
                   </div>
                 )}
 
@@ -321,7 +391,10 @@ export default function CommunicationRules() {
                     placeholder="Use variables: {username}, {full_name}, {expiry_date}, {service_name}, {balance}"
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    Available variables: {'{username}'}, {'{full_name}'}, {'{expiry_date}'}, {'{service_name}'}, {'{balance}'}, {'{quota_used}'}, {'{quota_total}'}
+                    Available variables: {'{username}'}, {'{full_name}'}, {'{service_name}'}, {'{balance}'}
+                    {['expiry_warning', 'expired'].includes(formData.trigger_event) && <>, {'{expiry_date}'}, <strong>{'{days_before}'}</strong> (days until expiry)</>}
+                    {formData.trigger_event === 'fup_applied' && <>, {'{quota_used}'}, {'{quota_total}'}, <strong>{'{fup_level}'}</strong> (1, 2, or 3)</>}
+                    {formData.trigger_event === 'quota_warning' && <>, <strong>{'{quota_used}'}</strong> (GB used), <strong>{'{quota_total}'}</strong> (GB total), <strong>{'{quota_percent}'}</strong> (% used)</>}
                   </p>
                 </div>
 

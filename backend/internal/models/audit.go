@@ -119,7 +119,8 @@ type CommunicationRule struct {
 	Template       string    `gorm:"column:template;type:text" json:"template"` // Message template with variables
 	Enabled        bool      `gorm:"column:enabled;default:true" json:"enabled"`
 	SendToReseller bool      `gorm:"column:send_to_reseller;default:false" json:"send_to_reseller"`
-	ResellerID     *uint     `gorm:"column:reseller_id" json:"reseller_id"` // nil = global
+	ResellerID     *uint     `gorm:"column:reseller_id" json:"reseller_id"`    // nil = global
+	FUPLevels      string    `gorm:"column:fup_levels;size:20;default:'1,2,3'" json:"fup_levels"` // comma-separated: "1", "2", "3", "1,2", etc.
 	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
