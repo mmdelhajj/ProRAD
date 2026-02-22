@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
 	"github.com/proisp/backend/internal/services"
@@ -332,11 +334,17 @@ func (h *NotificationHandler) ProxRadLinkStatus(c *fiber.Ctx) error {
 
 	connected := info.Status == "connected" || info.Unique != ""
 
-	// If newly connected, auto-save the account unique and phone
+	// If newly connected, auto-save the account unique, phone, and trial start
 	if connected && info.Unique != "" {
 		savePreference("proxrad_account_unique", info.Unique)
 		if info.Phone != "" {
 			savePreference("proxrad_phone", info.Phone)
+		}
+		// Save trial start only on first-ever connection
+		var count int64
+		database.DB.Raw("SELECT COUNT(*) FROM system_preferences WHERE key = 'proxrad_trial_start'").Scan(&count)
+		if count == 0 {
+			savePreference("proxrad_trial_start", time.Now().UTC().Format(time.RFC3339))
 		}
 		database.InvalidateSettingsCache()
 	}
@@ -398,4 +406,52 @@ func (h *NotificationHandler) SelectProxRadAccount(c *fiber.Ctx) error {
 		"unique":  body.Unique,
 		"phone":   body.Phone,
 	})
+}
+
+// UnlinkProxRadAccount disconnects the account from proxsms AND clears local DB
+func (h *NotificationHandler) UnlinkProxRadAccount(c *fiber.Ctx) error {
+	wa := h.manager.GetWhatsAppService()
+
+	// Get the current unique before clearing
+	var unique string
+	database.DB.Raw("SELECT value FROM system_preferences WHERE key = 'proxrad_account_unique'").Scan(&unique)
+
+	// Try to disconnect from proxsms (best-effort)
+	if unique != "" {
+		if err := wa.DisconnectProxRadAccount(unique); err != nil {
+			// Log but don't fail — still clear locally
+			_ = err
+		}
+	}
+
+	// Clear local DB entries
+	database.DB.Exec("DELETE FROM system_preferences WHERE key IN ('proxrad_account_unique', 'proxrad_phone')")
+	database.InvalidateSettingsCache()
+
+	// Invalidate the access cache so trial check re-runs
+	wa.InvalidateProxRadAccessCache()
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "WhatsApp account unlinked",
+	})
+}
+
+// GetProxRadAccess returns the current ProxRad subscription/trial status for the UI
+func (h *NotificationHandler) GetProxRadAccess(c *fiber.Ctx) error {
+	wa := h.manager.GetWhatsAppService()
+	access := wa.CheckProxRadAccess()
+
+	resp := fiber.Map{
+		"allowed": access.Allowed,
+		"type":    access.Type,
+	}
+	if access.ExpiresAt != nil {
+		resp["expires_at"] = access.ExpiresAt.Format(time.RFC3339)
+	}
+	if access.TrialEnds != nil {
+		resp["trial_ends"] = access.TrialEnds.Format(time.RFC3339)
+		resp["trial_hours_left"] = int(time.Until(*access.TrialEnds).Hours())
+	}
+	return c.JSON(resp)
 }

@@ -408,6 +408,8 @@ func main() {
 	notifications.Post("/proxrad/select-account", notificationHandler.SelectProxRadAccount)
 	notifications.Get("/proxrad/create-link", notificationHandler.ProxRadCreateLink)
 	notifications.Get("/proxrad/link-status", notificationHandler.ProxRadLinkStatus)
+	notifications.Delete("/proxrad/unlink", notificationHandler.UnlinkProxRadAccount)
+	notifications.Get("/proxrad/access", notificationHandler.GetProxRadAccess)
 
 	// Customer update notification routes (accessible to all authenticated users)
 	notificationRoutes := protected.Group("/notifications/updates")

@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/proisp/backend/internal/database"
@@ -206,8 +209,138 @@ func (s *WhatsAppService) GetProxRadAccounts() ([]ProxRadWAAccount, error) {
 	return accounts, nil
 }
 
+// proxRadAccessCache caches the license server subscription check result
+var proxRadAccessCache struct {
+	sync.Mutex
+	result    *ProxRadAccessResult
+	fetchedAt time.Time
+}
+
+// ProxRadAccessResult holds the result of a ProxRad access check
+type ProxRadAccessResult struct {
+	Allowed    bool
+	Type       string // "subscribed", "trial", "expired"
+	ExpiresAt  *time.Time
+	TrialEnds  *time.Time
+}
+
+// CheckProxRadAccess checks if ProxRad WhatsApp is allowed for this installation.
+// Order of checks:
+//  1. License server says "subscribed" → allow
+//  2. License server says "expired" (subscription was set but lapsed) → block
+//  3. License server says "trial" (no subscription) → check local 2-day trial
+func (s *WhatsAppService) CheckProxRadAccess() *ProxRadAccessResult {
+	proxRadAccessCache.Lock()
+	defer proxRadAccessCache.Unlock()
+
+	// Use cached result for 5 minutes
+	if proxRadAccessCache.result != nil && time.Since(proxRadAccessCache.fetchedAt) < 5*time.Minute {
+		return proxRadAccessCache.result
+	}
+
+	result := s.fetchProxRadAccess()
+	proxRadAccessCache.result = result
+	proxRadAccessCache.fetchedAt = time.Now()
+	return result
+}
+
+func (s *WhatsAppService) fetchProxRadAccess() *ProxRadAccessResult {
+	licenseKey := os.Getenv("LICENSE_KEY")
+	licenseServer := os.Getenv("LICENSE_SERVER")
+	if licenseServer == "" {
+		licenseServer = "https://license.proxrad.com"
+	}
+
+	// Call license server
+	req, err := http.NewRequest("GET", licenseServer+"/api/v1/license/proxrad-status", nil)
+	if err == nil {
+		req.Header.Set("X-License-Key", licenseKey)
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil && resp.StatusCode == 200 {
+			defer resp.Body.Close()
+			var lsResult struct {
+				Success   bool       `json:"success"`
+				Type      string     `json:"type"`
+				Active    bool       `json:"active"`
+				ExpiresAt *time.Time `json:"expires_at"`
+			}
+			if json.NewDecoder(resp.Body).Decode(&lsResult) == nil {
+				if lsResult.Type == "subscribed" {
+					return &ProxRadAccessResult{Allowed: true, Type: "subscribed", ExpiresAt: lsResult.ExpiresAt}
+				}
+				if lsResult.Type == "expired" {
+					return &ProxRadAccessResult{Allowed: false, Type: "expired", ExpiresAt: lsResult.ExpiresAt}
+				}
+			}
+		}
+	}
+
+	// License server unavailable or "trial" → check local 2-day trial
+	return s.checkLocalTrial()
+}
+
+func (s *WhatsAppService) checkLocalTrial() *ProxRadAccessResult {
+	var setting models.SystemPreference
+	if err := database.DB.Where("key = ?", "proxrad_trial_start").First(&setting).Error; err != nil {
+		// No trial started yet — not connected → allow (trial starts on first connect)
+		return &ProxRadAccessResult{Allowed: true, Type: "trial"}
+	}
+
+	trialStart, err := time.Parse(time.RFC3339, setting.Value)
+	if err != nil {
+		return &ProxRadAccessResult{Allowed: true, Type: "trial"}
+	}
+
+	trialEnd := trialStart.Add(48 * time.Hour)
+	if time.Now().Before(trialEnd) {
+		return &ProxRadAccessResult{Allowed: true, Type: "trial", TrialEnds: &trialEnd}
+	}
+	return &ProxRadAccessResult{Allowed: false, Type: "expired", TrialEnds: &trialEnd}
+}
+
+// InvalidateProxRadAccessCache clears the cached access result
+func (s *WhatsAppService) InvalidateProxRadAccessCache() {
+	proxRadAccessCache.Lock()
+	proxRadAccessCache.result = nil
+	proxRadAccessCache.Unlock()
+}
+
+// DisconnectProxRadAccount calls proxsms.com to logout the given account unique ID
+func (s *WhatsAppService) DisconnectProxRadAccount(unique string) error {
+	reqURL := fmt.Sprintf("%s/logout/wa.account?secret=%s&unique=%s",
+		proxRadAPIBase, url.QueryEscape(proxRadAPISecret), url.QueryEscape(unique))
+
+	resp, err := s.client.Get(reqURL)
+	if err != nil {
+		log.Printf("DisconnectProxRad: HTTP error: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	log.Printf("DisconnectProxRad: response for %s: %s", unique, string(body))
+
+	var result struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(body, &result) == nil && result.Status != 200 {
+		return fmt.Errorf("proxsms disconnect error: %s", result.Message)
+	}
+	return nil
+}
+
 // SendMessageViaProxRad sends a WhatsApp message using proxsms.com API
 func (s *WhatsAppService) SendMessageViaProxRad(config *ProxRadConfig, to, message string) error {
+	// Check subscription / trial access
+	access := s.CheckProxRadAccess()
+	if !access.Allowed {
+		if access.Type == "expired" && access.ExpiresAt != nil {
+			return fmt.Errorf("ProxRad subscription expired on %s — contact your provider to renew", access.ExpiresAt.Format("2006-01-02"))
+		}
+		return fmt.Errorf("ProxRad 2-day trial has expired — contact your provider to subscribe")
+	}
+
 	reqURL := fmt.Sprintf("%s/send/whatsapp", config.APIBase)
 
 	formData := url.Values{}

@@ -61,12 +61,11 @@ export default function Settings() {
   const [testPhone, setTestPhone] = useState('')
 
   // ProxRad WhatsApp state
-  const [proxradAccounts, setProxradAccounts] = useState([])
-  const [proxradLoading, setProxradLoading] = useState(false)
   const [proxradPhone, setProxradPhone] = useState('')
   const [proxradQrUrl, setProxradQrUrl] = useState('')
   const [proxradInfoUrl, setProxradInfoUrl] = useState('')
   const [proxradLinking, setProxradLinking] = useState(false)
+  const [proxradAccess, setProxradAccess] = useState(null) // { allowed, type, expires_at, trial_ends, trial_hours_left }
   const proxradPollRef = useRef(null)
 
   // SSL state
@@ -98,6 +97,13 @@ export default function Settings() {
       setHasChanges(false)
     }
   }, [data])
+
+  // Fetch ProxRad access status when Notifications tab is active
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      fetchProxRadAccess()
+    }
+  }, [activeTab])
 
   const updateMutation = useMutation({
     mutationFn: (settings) => api.put('/settings/bulk', { settings }),
@@ -414,6 +420,7 @@ export default function Settings() {
             setProxradInfoUrl('')
             handleChange('proxrad_account_unique', status.data.unique)
             setProxradPhone(status.data.phone || status.data.unique)
+            fetchProxRadAccess()
             toast.success('WhatsApp account linked successfully!')
           }
         } catch {}
@@ -431,29 +438,25 @@ export default function Settings() {
     setProxradInfoUrl('')
   }
 
-  // ProxRad: Load WhatsApp accounts from proxsms.com
-  const handleProxRadLoadAccounts = async () => {
-    setProxradLoading(true)
+  // ProxRad: Fetch access status (trial/subscribed/expired)
+  const fetchProxRadAccess = async () => {
     try {
-      const res = await api.get('/notifications/proxrad/accounts')
-      setProxradAccounts(res.data.accounts || [])
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to fetch accounts')
-    } finally {
-      setProxradLoading(false)
-    }
+      const res = await api.get('/notifications/proxrad/access')
+      setProxradAccess(res.data)
+    } catch {}
   }
 
-  // ProxRad: Select an account
-  const handleProxRadSelectAccount = async (unique, phone) => {
+  // ProxRad: Unlink account (disconnects from proxsms + clears DB)
+  const handleProxRadUnlink = async () => {
     try {
-      await api.post('/notifications/proxrad/select-account', { unique, phone })
-      handleChange('proxrad_account_unique', unique)
-      setProxradPhone(phone)
-      setProxradAccounts([])
-      toast.success('WhatsApp account selected!')
+      await api.delete('/notifications/proxrad/unlink')
+      handleChange('proxrad_account_unique', '')
+      handleChange('proxrad_phone', '')
+      setProxradPhone('')
+      setProxradAccess(null)
+      toast.success('WhatsApp account unlinked')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to select account')
+      toast.error(err.response?.data?.message || 'Failed to unlink account')
     }
   }
 
@@ -1571,10 +1574,61 @@ export default function Settings() {
                   /* ProxRad provider */
                   <div className="space-y-4">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Link your WhatsApp number via ProxRad (proxsms.com). Scan the QR code to connect a new number, or load existing accounts.
+                      Link your WhatsApp number via ProxRad (proxsms.com). Scan the QR code below to connect your number.
                     </p>
 
-                    {/* Currently selected account */}
+                    {/* Subscription / Trial status banner */}
+                    {proxradAccess && (
+                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${
+                        proxradAccess.type === 'subscribed'
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                          : proxradAccess.type === 'expired'
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                          : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'
+                      }`}>
+                        <span className="text-lg mt-0.5">
+                          {proxradAccess.type === 'subscribed' ? '✅' : proxradAccess.type === 'expired' ? '🔒' : '⏳'}
+                        </span>
+                        <div>
+                          {proxradAccess.type === 'subscribed' && (
+                            <>
+                              <p className="text-sm font-medium text-green-800 dark:text-green-300">Subscribed</p>
+                              <p className="text-xs text-green-600 dark:text-green-400">
+                                Active until {new Date(proxradAccess.expires_at).toLocaleDateString()}
+                              </p>
+                            </>
+                          )}
+                          {proxradAccess.type === 'trial' && proxradAccess.trial_ends && (
+                            <>
+                              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Trial Mode</p>
+                              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                                {proxradAccess.trial_hours_left > 0
+                                  ? `${proxradAccess.trial_hours_left} hour${proxradAccess.trial_hours_left !== 1 ? 's' : ''} remaining — contact your provider to subscribe`
+                                  : 'Trial ending soon'}
+                              </p>
+                            </>
+                          )}
+                          {proxradAccess.type === 'trial' && !proxradAccess.trial_ends && (
+                            <>
+                              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Trial Mode</p>
+                              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                                2-day trial starts when you link your number
+                              </p>
+                            </>
+                          )}
+                          {proxradAccess.type === 'expired' && (
+                            <>
+                              <p className="text-sm font-medium text-red-800 dark:text-red-300">Trial / Subscription Expired</p>
+                              <p className="text-xs text-red-600 dark:text-red-400">
+                                Sending is blocked. Contact your provider to subscribe.
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Currently linked account */}
                     {formData.proxrad_account_unique && !proxradLinking && (
                       <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
                         <span className="text-green-600 dark:text-green-400 text-xl">✅</span>
@@ -1585,8 +1639,8 @@ export default function Settings() {
                           </p>
                         </div>
                         <button
-                          onClick={() => { handleChangeAndSave('proxrad_account_unique', ''); handleChangeAndSave('proxrad_phone', ''); setProxradPhone('') }}
-                          className="text-xs text-red-500 hover:text-red-700"
+                          onClick={handleProxRadUnlink}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium"
                         >
                           Unlink
                         </button>
@@ -1624,8 +1678,8 @@ export default function Settings() {
                       </div>
                     )}
 
-                    {/* Action buttons */}
-                    {!proxradLinking && (
+                    {/* Link via QR button */}
+                    {!proxradLinking && !formData.proxrad_account_unique && (
                       <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={handleProxRadCreateLink}
@@ -1633,50 +1687,6 @@ export default function Settings() {
                         >
                           📱 Link via QR Code
                         </button>
-                        <button
-                          onClick={handleProxRadLoadAccounts}
-                          disabled={proxradLoading}
-                          className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {proxradLoading ? (
-                            <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>Loading...</>
-                          ) : '📋 Load Existing Accounts'}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Account list */}
-                    {proxradAccounts.length > 0 && (
-                      <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 dark:bg-gray-700">
-                            <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Phone</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                            {proxradAccounts.map((acct) => (
-                              <tr key={acct.unique} className="bg-white dark:bg-gray-800">
-                                <td className="px-4 py-2 text-gray-900 dark:text-white">{acct.phone}</td>
-                                <td className="px-4 py-2">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${acct.status === 'connected' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'}`}>
-                                    {acct.status}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-2">
-                                  <button
-                                    onClick={() => handleProxRadSelectAccount(acct.unique, acct.phone)}
-                                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
-                                  >
-                                    {formData.proxrad_account_unique === acct.unique ? 'Selected ✓' : 'Select'}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
                       </div>
                     )}
 
