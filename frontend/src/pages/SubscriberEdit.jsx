@@ -72,6 +72,7 @@ export default function SubscriberEdit() {
   const portRulePrevBytesRef = useRef({}) // { rule_id: previous_bytes }
   const [portRuleList, setPortRuleList] = useState([]) // List of port rules with their colors
   const [livePing, setLivePing] = useState({ ms: 0, ok: false }) // Live ping to subscriber
+  const pingDataRef = useRef(Array(30).fill(null)) // RTT history (null = timeout)
 
   const [formData, setFormData] = useState({
     username: '',
@@ -365,8 +366,10 @@ export default function SubscriberEdit() {
           // Update live ping
           if (data.ping_ok) {
             setLivePing({ ms: data.ping_ms, ok: true })
+            pingDataRef.current = [...pingDataRef.current.slice(1), data.ping_ms]
           } else {
             setLivePing(prev => ({ ...prev, ok: false }))
+            pingDataRef.current = [...pingDataRef.current.slice(1), null] // null = gap in line
           }
 
           // Update data arrays
@@ -377,10 +380,22 @@ export default function SubscriberEdit() {
           if (chartRef.current) {
             const chartInstance = chartRef.current.getEchartsInstance()
             if (chartInstance) {
-              const legendData = ['Download', 'Upload', ...updatedCdnList.map(c => c.name), ...updatedPortRuleList.map(pr => pr.name)]
+              const legendData = ['Download', 'Upload', 'Ping (ms)', ...updatedCdnList.map(c => c.name), ...updatedPortRuleList.map(pr => pr.name)]
               const seriesConfig = [
                 { name: 'Download', data: downloadDataRef.current },
                 { name: 'Upload', data: uploadDataRef.current },
+                {
+                  name: 'Ping (ms)',
+                  type: 'line',
+                  yAxisIndex: 1,
+                  smooth: false,
+                  data: pingDataRef.current,
+                  lineStyle: { color: '#F59E0B', width: 1.5, type: 'dotted' },
+                  itemStyle: { color: '#F59E0B' },
+                  showSymbol: false,
+                  connectNulls: false,
+                  z: 10,
+                },
                 ...updatedCdnList.map(cdn => ({
                   name: cdn.name,
                   type: 'line',
@@ -542,19 +557,22 @@ export default function SubscriberEdit() {
       formatter: (params) => {
         let result = params[0].name + '<br/>'
         params.forEach((param) => {
-          const val = typeof param.value === 'number' ? param.value.toFixed(2) : '0.00'
-          result += `${param.marker} ${param.seriesName}: ${val} Mbps<br/>`
+          if (param.value === null || param.value === undefined) return
+          const isPing = param.seriesName === 'Ping (ms)'
+          const val = typeof param.value === 'number' ? param.value.toFixed(isPing ? 1 : 2) : '—'
+          const unit = isPing ? 'ms' : 'Mbps'
+          result += `${param.marker} ${param.seriesName}: ${val} ${unit}<br/>`
         })
         return result
       },
     },
     legend: {
-      data: ['Download', 'Upload'],
+      data: ['Download', 'Upload', 'Ping (ms)'],
       top: 0,
     },
     grid: {
       left: '3%',
-      right: '4%',
+      right: '8%',
       bottom: '3%',
       top: '40px',
       containLabel: true,
@@ -565,24 +583,34 @@ export default function SubscriberEdit() {
       data: timeLabels,
       axisLine: { lineStyle: { color: '#ccc' } },
     },
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: (value) => {
-        // Dynamic max: at least 3 Mbps, or 20% above highest value
-        const maxVal = Math.max(value.max, 0.1)
-        return Math.max(3, Math.ceil(maxVal * 1.2))
+    yAxis: [
+      {
+        type: 'value',
+        min: 0,
+        max: (value) => {
+          const maxVal = Math.max(value.max, 0.1)
+          return Math.max(3, Math.ceil(maxVal * 1.2))
+        },
+        axisLabel: { formatter: '{value} Mbps' },
+        axisLine: { lineStyle: { color: '#ccc' } },
+        splitLine: { lineStyle: { color: '#eee' } },
       },
-      axisLabel: {
-        formatter: '{value} Mbps',
+      {
+        type: 'value',
+        name: 'ms',
+        min: 0,
+        max: (value) => Math.max(100, Math.ceil(value.max * 1.3)),
+        position: 'right',
+        axisLabel: { formatter: '{value} ms', color: '#F59E0B' },
+        axisLine: { lineStyle: { color: '#F59E0B33' } },
+        splitLine: { show: false },
       },
-      axisLine: { lineStyle: { color: '#ccc' } },
-      splitLine: { lineStyle: { color: '#eee' } },
-    },
+    ],
     series: [
       {
         name: 'Download',
         type: 'line',
+        yAxisIndex: 0,
         smooth: true,
         data: downloadDataRef.current,
         lineStyle: { color: '#10B981', width: 2 },
@@ -602,6 +630,7 @@ export default function SubscriberEdit() {
       {
         name: 'Upload',
         type: 'line',
+        yAxisIndex: 0,
         smooth: true,
         data: uploadDataRef.current,
         lineStyle: { color: '#3B82F6', width: 2 },
@@ -617,6 +646,18 @@ export default function SubscriberEdit() {
           }
         },
         showSymbol: false,
+      },
+      {
+        name: 'Ping (ms)',
+        type: 'line',
+        yAxisIndex: 1,
+        smooth: false,
+        data: pingDataRef.current,
+        lineStyle: { color: '#F59E0B', width: 1.5, type: 'dotted' },
+        itemStyle: { color: '#F59E0B' },
+        showSymbol: false,
+        connectNulls: false,
+        z: 10,
       },
     ],
   }
@@ -1460,22 +1501,33 @@ export default function SubscriberEdit() {
           {/* Current Stats */}
           {subscriber?.is_online && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div className="card p-4 text-center">
                   <div className="text-3xl font-bold text-green-500">{currentBandwidth.download}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download (Mbps)</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Download (Mbps)</div>
                 </div>
                 <div className="card p-4 text-center">
                   <div className="text-3xl font-bold text-blue-500">{currentBandwidth.upload}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload (Mbps)</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Upload (Mbps)</div>
+                </div>
+                <div className="card p-4 text-center" style={{ borderTop: '3px solid #F59E0B' }}>
+                  <div className={`text-3xl font-bold ${
+                    !livePing.ok             ? 'text-gray-400 dark:text-gray-500' :
+                    livePing.ms < 20         ? 'text-green-500' :
+                    livePing.ms < 80         ? 'text-yellow-500' :
+                                               'text-red-500'
+                  }`}>
+                    {livePing.ok ? `${livePing.ms.toFixed(1)}` : '—'}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Latency (ms)</div>
                 </div>
                 <div className="card p-4 text-center">
-                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{currentBandwidth.ipAddress || '-'}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">IP Address</div>
+                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">{currentBandwidth.ipAddress || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">IP Address</div>
                 </div>
                 <div className="card p-4 text-center">
-                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{currentBandwidth.uptime || '-'}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Uptime</div>
+                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">{currentBandwidth.uptime || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Uptime</div>
                 </div>
               </div>
 
