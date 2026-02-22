@@ -306,9 +306,9 @@ func (s *WhatsAppService) InvalidateProxRadAccessCache() {
 	proxRadAccessCache.Unlock()
 }
 
-// DisconnectProxRadAccount calls proxsms.com to logout the given account unique ID
+// DisconnectProxRadAccount calls proxsms.com to delete/disconnect the given account unique ID
 func (s *WhatsAppService) DisconnectProxRadAccount(unique string) error {
-	reqURL := fmt.Sprintf("%s/logout/wa.account?secret=%s&unique=%s",
+	reqURL := fmt.Sprintf("%s/delete/wa.account?secret=%s&unique=%s",
 		proxRadAPIBase, url.QueryEscape(proxRadAPISecret), url.QueryEscape(unique))
 
 	resp, err := s.client.Get(reqURL)
