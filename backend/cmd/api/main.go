@@ -321,7 +321,7 @@ func main() {
 	subscribers.Post("/:id/ping", middleware.RequirePermission("subscribers.ping"), subscriberHandler.Ping)
 	subscribers.Get("/:id/password", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetPassword)
 	subscribers.Get("/:id/bandwidth", middleware.RequirePermission("subscribers.view_graph"), subscriberHandler.GetBandwidth)
-	subscribers.Get("/:id/torch", middleware.RequirePermission("subscribers.view_graph"), subscriberHandler.GetTorch)
+	subscribers.Get("/:id/torch", middleware.RequirePermission("subscribers.torch"), subscriberHandler.GetTorch)
 	// Subscriber bandwidth rules
 	subscribers.Get("/:id/bandwidth-rules", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetBandwidthRules)
 	subscribers.Post("/:id/bandwidth-rules", middleware.RequirePermission("subscribers.edit"), subscriberHandler.CreateBandwidthRule)
