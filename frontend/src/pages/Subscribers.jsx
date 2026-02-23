@@ -771,9 +771,13 @@ export default function Subscribers() {
         accessorKey: 'service.name',
         header: 'Service',
         cell: ({ row }) => {
+          const serviceName = row.original.service?.name || '-'
+          // If daily_quota column is visible, show only service name (progress bar is in daily_quota column)
+          if (visibleColumns.daily_quota) {
+            return <div className="text-center font-medium">{serviceName}</div>
+          }
           const used = row.original.daily_quota_used || 0
           const limit = row.original.service?.daily_quota || 0
-          const serviceName = row.original.service?.name || '-'
 
           if (limit === 0) {
             return <div className="text-center font-medium">{serviceName}</div>
@@ -796,6 +800,42 @@ export default function Subscribers() {
                   {usedFormatted}
                 </span>
               </div>
+            </div>
+          )
+        },
+      }] : []),
+      ...(visibleColumns.daily_quota ? [{
+        id: 'daily_quota',
+        header: () => (
+          <button
+            onClick={() => {
+              setSortBy(sortBy === 'daily_usage' ? '' : 'daily_usage')
+              setSorting([])
+              setMonthlyFup(false)
+              setFupLevel('')
+              setPage(1)
+            }}
+            className={`flex items-center gap-1 font-medium whitespace-nowrap ${sortBy === 'daily_usage' ? 'text-cyan-600 dark:text-cyan-400' : 'hover:text-cyan-600 dark:hover:text-cyan-400'}`}
+          >
+            Top Daily {sortBy === 'daily_usage' ? '▼' : '↕'}
+          </button>
+        ),
+        cell: ({ row }) => {
+          const used = (row.original.daily_download_used || 0) + (row.original.daily_upload_used || 0)
+          const limit = row.original.service?.daily_quota || 0
+          if (used === 0 && limit === 0) return <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>
+          const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
+          return (
+            <div className="min-w-[80px]">
+              <div className="text-xs font-medium text-center mb-0.5 text-cyan-700 dark:text-cyan-300">{formatBytes(used)}</div>
+              {limit > 0 && (
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className={`h-full rounded-full ${percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'}`}
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+              )}
             </div>
           )
         },

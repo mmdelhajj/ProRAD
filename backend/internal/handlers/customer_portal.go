@@ -79,6 +79,10 @@ type CustomerDashboard struct {
 	DailyQuota   int64 `json:"daily_quota"`   // bytes (0 = unlimited)
 	MonthlyQuota int64 `json:"monthly_quota"` // bytes (0 = unlimited)
 
+	// Pricing
+	Price         float64 `json:"price"`
+	OverridePrice bool    `json:"override_price"`
+
 	// Connection status
 	IsOnline   bool       `json:"is_online"`
 	LastSeen   *time.Time `json:"last_seen"`
@@ -237,6 +241,12 @@ func (h *CustomerPortalHandler) Dashboard(c *fiber.Ctx) error {
 		}
 	}
 
+	// Determine effective price (override_price takes precedence over service price)
+	effectivePrice := subscriber.Service.Price
+	if subscriber.OverridePrice && subscriber.Price > 0 {
+		effectivePrice = subscriber.Price
+	}
+
 	// Get IP from active session
 	ipAddress := subscriber.IPAddress
 	var activeSession models.RadAcct
@@ -267,6 +277,8 @@ func (h *CustomerPortalHandler) Dashboard(c *fiber.Ctx) error {
 		MonthlyUploadUsed:    subscriber.MonthlyUploadUsed,
 		DailyQuota:           subscriber.Service.DailyQuota,
 		MonthlyQuota:         subscriber.Service.MonthlyQuota,
+		Price:                effectivePrice,
+		OverridePrice:        subscriber.OverridePrice,
 		IsOnline:             subscriber.IsOnline,
 		LastSeen:             subscriber.LastSeen,
 		IPAddress:            ipAddress,
