@@ -377,6 +377,17 @@ func (s *WhatsAppService) SendMessageViaProxRad(config *ProxRadConfig, to, messa
 	return nil
 }
 
+// SendMessageWithAccountUnique sends a WhatsApp message using a specific reseller account_unique
+// Used by per-reseller WhatsApp feature
+func (s *WhatsAppService) SendMessageWithAccountUnique(accountUnique, to, message string) error {
+	config := &ProxRadConfig{
+		APISecret:     proxRadAPISecret,
+		AccountUnique: accountUnique,
+		APIBase:       proxRadAPIBase,
+	}
+	return s.SendMessageViaProxRad(config, to, message)
+}
+
 // SendMessage sends a WhatsApp text message (routes to correct provider)
 func (s *WhatsAppService) SendMessage(to, message string) error {
 	provider := s.getProvider()

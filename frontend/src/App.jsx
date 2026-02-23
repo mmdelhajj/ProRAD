@@ -38,6 +38,7 @@ const CDNBandwidthRules = lazy(() => import('./pages/CDNBandwidthRules'))
 const CDNPortRules = lazy(() => import('./pages/CDNPortRules'))
 const Profile = lazy(() => import('./pages/Profile'))
 const DiagnosticTools = lazy(() => import('./pages/DiagnosticTools'))
+const WhatsAppSettings = lazy(() => import('./pages/WhatsAppSettings'))
 
 // Loading fallback component
 function PageLoader() {
@@ -152,6 +153,7 @@ function App() {
                   <Route path="/cdn-bandwidth-rules" element={<PermissionRoute adminOnly><CDNBandwidthRules /></PermissionRoute>} />
                   <Route path="/cdn-port-rules" element={<PermissionRoute adminOnly><CDNPortRules /></PermissionRoute>} />
                   <Route path="/diagnostic-tools" element={<PermissionRoute adminOnly><DiagnosticTools /></PermissionRoute>} />
+                  <Route path="/whatsapp" element={<PermissionRoute permission="notifications.whatsapp"><WhatsAppSettings /></PermissionRoute>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>

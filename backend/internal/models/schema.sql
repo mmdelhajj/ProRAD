@@ -1136,3 +1136,21 @@ BEGIN
         ALTER TABLE services ADD COLUMN nas_id INTEGER;
     END IF;
 END $$;
+
+-- Reseller WhatsApp (per-reseller WhatsApp notifications)
+INSERT INTO permissions (name, description) VALUES ('notifications.whatsapp', 'Send WhatsApp notifications to own subscribers') ON CONFLICT (name) DO NOTHING;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resellers' AND column_name = 'whatsapp_account_unique') THEN
+        ALTER TABLE resellers ADD COLUMN whatsapp_account_unique VARCHAR(100);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resellers' AND column_name = 'whatsapp_phone') THEN
+        ALTER TABLE resellers ADD COLUMN whatsapp_phone VARCHAR(50);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resellers' AND column_name = 'whatsapp_enabled') THEN
+        ALTER TABLE resellers ADD COLUMN whatsapp_enabled BOOLEAN DEFAULT false;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resellers' AND column_name = 'whatsapp_trial_start') THEN
+        ALTER TABLE resellers ADD COLUMN whatsapp_trial_start TIMESTAMPTZ;
+    END IF;
+END $$;

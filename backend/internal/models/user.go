@@ -122,6 +122,12 @@ type Reseller struct {
 	UpdatedAt       time.Time      `gorm:"column:updated_at" json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`
 
+	// WhatsApp (per-reseller)
+	WhatsAppAccountUnique string         `gorm:"column:whatsapp_account_unique;size:100" json:"whatsapp_account_unique,omitempty"`
+	WhatsAppPhone         string         `gorm:"column:whatsapp_phone;size:50" json:"whatsapp_phone,omitempty"`
+	WhatsAppEnabled       bool           `gorm:"column:whatsapp_enabled;default:false" json:"whatsapp_enabled"`
+	WhatsAppTrialStart    *time.Time     `gorm:"column:whatsapp_trial_start" json:"-"`
+
 	// Assigned NAS (many-to-many)
 	NASList         []ResellerNAS  `gorm:"-" json:"nas_list,omitempty"`
 }

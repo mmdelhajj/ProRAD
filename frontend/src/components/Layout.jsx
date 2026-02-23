@@ -43,6 +43,7 @@ import {
   WrenchScrewdriverIcon,
   BoltIcon,
   BanknotesIcon,
+  DevicePhoneMobileIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
@@ -64,6 +65,7 @@ const allNavigation = [
   { name: 'Prepaid Cards', href: '/prepaid', icon: TicketIcon, permission: 'prepaid.view' },
   { name: 'Reports', href: '/reports', icon: ChartBarIcon, permission: 'reports.view' },
   { name: 'Tickets', href: '/tickets', icon: ChatBubbleLeftRightIcon, permission: 'tickets.view' },
+  { name: 'WhatsApp', href: '/whatsapp', icon: DevicePhoneMobileIcon, permission: 'notifications.whatsapp' },
   { name: 'Users', href: '/users', icon: UserGroupIcon, permission: 'users.view' },
   { name: 'Permissions', href: '/permissions', icon: ShieldCheckIcon, permission: 'permissions.view' },
   { name: 'Audit Logs', href: '/audit', icon: ClipboardDocumentListIcon, permission: 'audit.view' },
