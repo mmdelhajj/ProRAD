@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ProxPanel Installer v1.0.297
+# ProxPanel Installer v1.0.298
 # Enterprise ISP Management System
 # 48-Hour FREE Trial
 #
@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.297"
+VERSION="1.0.298"
 
 step_count=8
 current_step=0
@@ -625,7 +625,6 @@ services:
       - ./certs:/etc/ssl/proxpanel:ro
     ports:
       - "80:80"
-      - "443:443"
     depends_on:
       - api
     networks:
