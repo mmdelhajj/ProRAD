@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ProxPanel Installer v1.0.171
+# ProxPanel Installer v1.0.297
 # Enterprise ISP Management System
 # 48-Hour FREE Trial
 #
@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.295"
+VERSION="1.0.297"
 
 step_count=8
 current_step=0
@@ -177,8 +177,6 @@ else
     echo ""
     show_info "Registering your license..."
 
-    # DEBUG: Show hardware_id being sent during registration
-    echo "DEBUG: Registration Hardware ID: ${HARDWARE_ID}"
     echo ""
 
     REGISTER_RESPONSE=$(curl -s -X POST "${LICENSE_SERVER}/api/v1/license/register" \
@@ -796,11 +794,6 @@ show_ok "License configuration saved"
 
 HARDWARE_ID=$(get_hardware_id)
 
-# DEBUG: Show what we're sending
-echo ""
-echo "DEBUG: License Key: ${LICENSE_KEY}"
-echo "DEBUG: Hardware ID: ${HARDWARE_ID}"
-echo ""
 
 # Fetch LUKS key from license server
 # Update hardware binding before fetching LUKS key
