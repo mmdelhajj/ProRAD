@@ -817,9 +817,6 @@ LUKS_RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
     -H "Content-Type: application/json" \
     -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\"}" 2>/dev/null)
 
-# DEBUG: Show response
-echo "DEBUG: API Response: ${LUKS_RESPONSE}"
-echo ""
 
 LUKS_SUCCESS=$(echo "$LUKS_RESPONSE" | jq -r '.success' 2>/dev/null)
 if [ "$LUKS_SUCCESS" = "true" ]; then
