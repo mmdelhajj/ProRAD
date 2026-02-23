@@ -152,6 +152,7 @@ export default function Subscribers() {
       balance: false,
       address: false,
       region: false,
+      building: false,
       notes: false,
       created_at: false,
     }
@@ -981,6 +982,10 @@ export default function Subscribers() {
       ...(visibleColumns.region ? [{
         accessorKey: 'region',
         header: 'Region',
+      }] : []),
+      ...(visibleColumns.building ? [{
+        accessorKey: 'building',
+        header: 'Building',
       }] : []),
       ...(visibleColumns.notes ? [{
         accessorKey: 'note',
