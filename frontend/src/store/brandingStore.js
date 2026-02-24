@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import axios from 'axios'
+import api from '../services/api'
 
 // Apply primary color as CSS variable
 const applyPrimaryColor = (color) => {
@@ -50,7 +51,7 @@ export const useBrandingStore = create((set, get) => ({
     if (get().loading) return
     set({ loading: true })
     try {
-      const response = await axios.get('/api/branding')
+      const response = await api.get('/branding').catch(() => axios.get('/api/branding'))
       if (response.data.success) {
         const data = response.data.data
         const name = data.company_name || ''

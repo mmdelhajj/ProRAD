@@ -961,3 +961,77 @@ func StartAsyncHeartbeat(getStats func() (int, int, float64, float64, float64)) 
 		}
 	}()
 }
+
+// WASubscriptionStatus holds the result of a WhatsApp subscription check
+type WASubscriptionStatus struct {
+	CanUse    bool       `json:"can_use"`
+	Type      string     `json:"type"`      // trial, active, expired, cancelled
+	TrialEnd  *time.Time `json:"trial_end"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	DaysLeft  int        `json:"days_left"`
+}
+
+// CheckWhatsAppSubscription checks (or creates) the WhatsApp subscription for the given reseller.
+// resellerDBID=0 means the admin account.
+// On any network/license error, returns CanUse=true (fail-open) so users aren't blocked by outages.
+func CheckWhatsAppSubscription(resellerDBID int, resellerName, accountUnique string) (*WASubscriptionStatus, error) {
+	if defaultClient == nil || devMode {
+		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
+	}
+
+	serverURL := defaultClient.config.ServerURL
+	licenseKey := defaultClient.config.LicenseKey
+
+	type reqBody struct {
+		ResellerDBID  *int   `json:"reseller_db_id"`
+		ResellerName  string `json:"reseller_name"`
+		AccountUnique string `json:"account_unique"`
+	}
+
+	var rdbID *int
+	if resellerDBID > 0 {
+		rdbID = &resellerDBID
+	}
+
+	bodyData, _ := json.Marshal(reqBody{
+		ResellerDBID:  rdbID,
+		ResellerName:  resellerName,
+		AccountUnique: accountUnique,
+	})
+
+	req, err := http.NewRequest("POST", serverURL+"/api/v1/license/whatsapp/check", bytes.NewBuffer(bodyData))
+	if err != nil {
+		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-License-Key", licenseKey)
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("WhatsApp subscription check failed (network error): %v — fail-open", err)
+		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success   bool       `json:"success"`
+		CanUse    bool       `json:"can_use"`
+		Type      string     `json:"type"`
+		TrialEnd  *time.Time `json:"trial_end"`
+		ExpiresAt *time.Time `json:"expires_at"`
+		DaysLeft  int        `json:"days_left"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Printf("WhatsApp subscription check: bad response — fail-open")
+		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
+	}
+
+	return &WASubscriptionStatus{
+		CanUse:    result.CanUse,
+		Type:      result.Type,
+		TrialEnd:  result.TrialEnd,
+		ExpiresAt: result.ExpiresAt,
+		DaysLeft:  result.DaysLeft,
+	}, nil
+}

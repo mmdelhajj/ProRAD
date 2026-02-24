@@ -38,6 +38,47 @@ func GenerateToken(user *models.User, cfg *config.Config) (string, error) {
 	return token.SignedString([]byte(cfg.JWTSecret))
 }
 
+// OptionalAuth middleware - sets user context if valid token present, but allows unauthenticated access
+func OptionalAuth(cfg *config.Config) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
+			return c.Next()
+		}
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			return c.Next()
+		}
+		tokenString := parts[1]
+		if database.IsTokenBlacklisted(tokenString) {
+			return c.Next()
+		}
+		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+			return []byte(cfg.JWTSecret), nil
+		})
+		if err != nil || !token.Valid {
+			return c.Next()
+		}
+		claims, ok := token.Claims.(*JWTClaims)
+		if !ok {
+			return c.Next()
+		}
+		var user models.User
+		if err := database.DB.First(&user, claims.UserID).Error; err != nil {
+			return c.Next()
+		}
+		if !user.IsActive {
+			return c.Next()
+		}
+		c.Locals("user", &user)
+		c.Locals("userID", claims.UserID)
+		c.Locals("username", claims.Username)
+		c.Locals("userType", claims.UserType)
+		c.Locals("resellerID", claims.ResellerID)
+		return c.Next()
+	}
+}
+
 // AuthRequired middleware to protect routes
 func AuthRequired(cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {

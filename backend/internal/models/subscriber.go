@@ -89,6 +89,9 @@ type Subscriber struct {
 	AutoRecharge    bool `gorm:"column:auto_recharge;default:false" json:"auto_recharge"`
 	AutoRechargeDays int `gorm:"column:auto_recharge_days;default:0" json:"auto_recharge_days"`
 
+	// Notifications
+	WhatsAppNotifications bool `gorm:"column:whatsapp_notifications;default:false" json:"whatsapp_notifications"`
+
 	// Timestamps
 	CreatedAt       time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"column:updated_at" json:"updated_at"`

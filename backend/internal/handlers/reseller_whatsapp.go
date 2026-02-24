@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/license"
 	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/services"
@@ -35,7 +36,7 @@ func (h *ResellerWhatsAppHandler) getReseller(c *fiber.Ctx) (*models.Reseller, e
 	return &reseller, nil
 }
 
-// GetSettings returns the reseller's current WhatsApp connection status
+// GetSettings returns the reseller's current WhatsApp connection status including subscription from license server
 func (h *ResellerWhatsAppHandler) GetSettings(c *fiber.Ctx) error {
 	reseller, err := h.getReseller(c)
 	if err != nil {
@@ -44,14 +45,12 @@ func (h *ResellerWhatsAppHandler) GetSettings(c *fiber.Ctx) error {
 
 	connected := reseller.WhatsAppAccountUnique != ""
 
-	// Calculate trial info
-	var trialEnds *time.Time
-	var trialExpired bool
-	if reseller.WhatsAppTrialStart != nil {
-		ends := reseller.WhatsAppTrialStart.Add(48 * time.Hour)
-		trialEnds = &ends
-		trialExpired = time.Now().After(ends)
-	}
+	// Check subscription status from license server
+	sub, _ := license.CheckWhatsAppSubscription(
+		int(reseller.ID),
+		reseller.Name,
+		reseller.WhatsAppAccountUnique,
+	)
 
 	return c.JSON(fiber.Map{
 		"success":        true,
@@ -59,18 +58,39 @@ func (h *ResellerWhatsAppHandler) GetSettings(c *fiber.Ctx) error {
 		"phone":          reseller.WhatsAppPhone,
 		"account_unique": reseller.WhatsAppAccountUnique,
 		"enabled":        reseller.WhatsAppEnabled,
-		"trial_ends":     trialEnds,
-		"trial_expired":  trialExpired,
+		// Subscription info from license server
+		"sub_can_use":    sub.CanUse,
+		"sub_type":       sub.Type,
+		"sub_trial_end":  sub.TrialEnd,
+		"sub_expires_at": sub.ExpiresAt,
+		"sub_days_left":  sub.DaysLeft,
 	})
 }
 
 // ProxRadCreateLink creates a new WhatsApp QR link for the reseller to scan
 func (h *ResellerWhatsAppHandler) ProxRadCreateLink(c *fiber.Ctx) error {
-	if _, err := h.getReseller(c); err != nil {
+	reseller, err := h.getReseller(c)
+	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"success": false, "message": err.Error()})
 	}
 
-	result, err := h.waService.CreateProxRadLink()
+	// Check subscription from license server
+	sub, _ := license.CheckWhatsAppSubscription(int(reseller.ID), reseller.Name, reseller.WhatsAppAccountUnique)
+	if !sub.CanUse {
+		msg := "Your WhatsApp subscription has expired. Please contact your service provider to activate."
+		if sub.Type == "cancelled" {
+			msg = "Your WhatsApp subscription has been cancelled. Please contact your service provider."
+		}
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success":   false,
+			"message":   msg,
+			"sub_type":  sub.Type,
+			"can_use":   false,
+		})
+	}
+
+	// sid=1 is the only available slot on proxsms.com with the current plan
+	result, err := h.waService.CreateProxRadLink(1)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
@@ -106,6 +126,34 @@ func (h *ResellerWhatsAppHandler) ProxRadLinkStatus(c *fiber.Ctx) error {
 	}
 
 	connected := info.Status == "connected" || info.Unique != ""
+
+	// Fallback: check accounts list when wa.info doesn't return unique
+	// acc.ID is proxsms.com's own DB ID (not related to sid or reseller ID)
+	if accounts, err := h.waService.GetProxRadAccounts(); err == nil {
+		for _, acc := range accounts {
+			if acc.Status == "connected" && acc.Unique != "" {
+				// If reseller already has a unique stored, only match that specific account
+				if reseller.WhatsAppAccountUnique != "" {
+					if acc.Unique == reseller.WhatsAppAccountUnique {
+						connected = true
+						info.Unique = acc.Unique
+						if acc.Phone != "" {
+							info.Phone = acc.Phone
+						}
+						break
+					}
+				} else {
+					// First-time connection: take the first connected account
+					connected = true
+					info.Unique = acc.Unique
+					if acc.Phone != "" {
+						info.Phone = acc.Phone
+					}
+					break
+				}
+			}
+		}
+	}
 
 	// Save to reseller record when connected
 	if connected && info.Unique != "" {
@@ -194,18 +242,19 @@ func (h *ResellerWhatsAppHandler) GetSubscribers(c *fiber.Ctx) error {
 	}
 
 	search := c.Query("search")
-	limit := 100
+	limit := 10000
 
 	type SubRow struct {
-		ID       uint   `json:"id"`
-		Username string `json:"username"`
-		FullName string `json:"full_name"`
-		Phone    string `json:"phone"`
+		ID                    uint   `gorm:"column:id" json:"id"`
+		Username              string `gorm:"column:username" json:"username"`
+		FullName              string `gorm:"column:full_name" json:"full_name"`
+		Phone                 string `gorm:"column:phone" json:"phone"`
+		WhatsAppNotifications bool   `gorm:"column:whatsapp_notifications" json:"whatsapp_notifications"`
 	}
 
 	var subs []SubRow
 	q := database.DB.Model(&models.Subscriber{}).
-		Select("id, username, full_name, phone").
+		Select("id, username, full_name, phone, whatsapp_notifications").
 		Where("reseller_id = ? AND deleted_at IS NULL AND phone != '' AND phone IS NOT NULL", reseller.ID)
 
 	if search != "" {
@@ -335,4 +384,52 @@ func indexOf(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// ToggleSubscriberWhatsApp toggles whether a subscriber receives WhatsApp from Communication rules
+func (h *ResellerWhatsAppHandler) ToggleSubscriberWhatsApp(c *fiber.Ctx) error {
+	reseller, err := h.getReseller(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"success": false, "message": err.Error()})
+	}
+
+	subscriberID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "invalid subscriber id"})
+	}
+
+	var sub models.Subscriber
+	if err := database.DB.Where("id = ? AND reseller_id = ? AND deleted_at IS NULL", subscriberID, reseller.ID).First(&sub).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "subscriber not found"})
+	}
+
+	newVal := !sub.WhatsAppNotifications
+	database.DB.Model(&sub).Update("whatsapp_notifications", newVal)
+
+	return c.JSON(fiber.Map{"success": true, "whatsapp_notifications": newVal})
+}
+
+// SetAllNotifications enables or disables WhatsApp notifications for all reseller subscribers at once
+func (h *ResellerWhatsAppHandler) SetAllNotifications(c *fiber.Ctx) error {
+	reseller, err := h.getReseller(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"success": false, "message": err.Error()})
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "invalid request"})
+	}
+
+	result := database.DB.Model(&models.Subscriber{}).
+		Where("reseller_id = ? AND deleted_at IS NULL", reseller.ID).
+		Update("whatsapp_notifications", req.Enabled)
+
+	return c.JSON(fiber.Map{
+		"success":  true,
+		"enabled":  req.Enabled,
+		"affected": result.RowsAffected,
+	})
 }

@@ -39,6 +39,8 @@ export default function WhatsAppSettings() {
   const [testPhone, setTestPhone] = useState('')
   const [testSending, setTestSending] = useState(false)
 
+  const [togglingId, setTogglingId] = useState(null)
+
   // Load settings on mount
   useEffect(() => {
     fetchSettings()
@@ -138,6 +140,41 @@ export default function WhatsAppSettings() {
     setTestSending(false)
   }
 
+  // ── Notification toggle ──────────────────────────────────────
+  const toggleNotifications = async (sub) => {
+    setTogglingId(sub.id)
+    try {
+      const res = await api.post(`/reseller/whatsapp/subscribers/${sub.id}/toggle-notifications`)
+      if (res.data.success) {
+        setSubscribers(prev => prev.map(s =>
+          s.id === sub.id ? { ...s, whatsapp_notifications: res.data.whatsapp_notifications } : s
+        ))
+      }
+    } catch (e) {
+      console.error('Toggle failed', e)
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
+  const enableAllNotifications = async () => {
+    try {
+      await api.post('/reseller/whatsapp/notifications/set-all', { enabled: true })
+      setSubscribers(prev => prev.map(s => ({ ...s, whatsapp_notifications: true })))
+    } catch (e) {
+      console.error('Enable all failed', e)
+    }
+  }
+
+  const disableAllNotifications = async () => {
+    try {
+      await api.post('/reseller/whatsapp/notifications/set-all', { enabled: false })
+      setSubscribers(prev => prev.map(s => ({ ...s, whatsapp_notifications: false })))
+    } catch (e) {
+      console.error('Disable all failed', e)
+    }
+  }
+
   // ── Subscriber selection ─────────────────────────────────────
   const toggleSubscriber = (id) => {
     setSelectedIDs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -182,6 +219,34 @@ export default function WhatsAppSettings() {
   // ── Render ───────────────────────────────────────────────────
   const connected = settings?.connected
   const phone = settings?.phone
+  const subCanUse = settings?.sub_can_use !== false // fail-open default
+  const subType = settings?.sub_type || 'trial'
+  const subDaysLeft = settings?.sub_days_left || 0
+  const subTrialEnd = settings?.sub_trial_end
+  const subExpiresAt = settings?.sub_expires_at
+
+  const SubStatusBadge = () => {
+    if (!settings) return null
+    if (subType === 'active') {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+          <CheckCircleIcon className="w-3.5 h-3.5" /> Active · {subDaysLeft}d left
+        </span>
+      )
+    }
+    if (subType === 'trial' && subCanUse) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+          <ArrowPathIcon className="w-3.5 h-3.5" /> Trial · {subDaysLeft}d left
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+        <XCircleIcon className="w-3.5 h-3.5" /> {subType === 'cancelled' ? 'Cancelled' : 'Expired'}
+      </span>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -195,6 +260,40 @@ export default function WhatsAppSettings() {
           Connect your WhatsApp number and send messages to your subscribers
         </p>
       </div>
+
+      {/* Subscription Status Banner */}
+      {settings && (
+        <div className={`flex items-center justify-between p-3 rounded-lg border ${
+          !subCanUse
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            : subType === 'trial'
+            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div>
+              <p className={`text-sm font-medium ${!subCanUse ? 'text-red-800 dark:text-red-200' : subType === 'trial' ? 'text-blue-800 dark:text-blue-200' : 'text-green-800 dark:text-green-200'}`}>
+                {!subCanUse
+                  ? 'WhatsApp subscription expired — contact your provider to activate'
+                  : subType === 'trial'
+                  ? `Free trial — ${subDaysLeft} day${subDaysLeft !== 1 ? 's' : ''} remaining`
+                  : `Subscription active — ${subDaysLeft} day${subDaysLeft !== 1 ? 's' : ''} remaining`}
+              </p>
+              {subType === 'trial' && subTrialEnd && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                  Trial ends: {new Date(subTrialEnd).toLocaleDateString()}
+                </p>
+              )}
+              {subType === 'active' && subExpiresAt && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                  Expires: {new Date(subExpiresAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          </div>
+          <SubStatusBadge />
+        </div>
+      )}
 
       {/* Connection Card */}
       <div className="card p-6">
@@ -270,13 +369,26 @@ export default function WhatsAppSettings() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Link your WhatsApp number via <strong>ProxRad</strong> (proxsms.com). Scan the QR code to connect your number.
-            </p>
-            <button onClick={handleCreateLink} className="btn-primary flex items-center gap-2">
-              <QrCodeIcon className="w-4 h-4" />
-              Connect WhatsApp
-            </button>
+            {!subCanUse ? (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                  Subscription {subType === 'cancelled' ? 'cancelled' : 'expired'}
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  Please contact your service provider to activate your WhatsApp subscription.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Link your WhatsApp number via <strong>ProxRad</strong> (proxsms.com). Scan the QR code to connect your number.
+                </p>
+                <button onClick={handleCreateLink} className="btn-primary flex items-center gap-2">
+                  <QrCodeIcon className="w-4 h-4" />
+                  Connect WhatsApp
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -291,8 +403,13 @@ export default function WhatsAppSettings() {
                 <UserGroupIcon className="w-5 h-5 text-blue-500" />
                 Select Subscribers
               </h3>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                 {subscribers.length} with phone
+                {subscribers.filter(s => s.whatsapp_notifications).length > 0 && (
+                  <span className="ml-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                    🔔 {subscribers.filter(s => s.whatsapp_notifications).length} notifications on
+                  </span>
+                )}
               </span>
             </div>
 
@@ -324,10 +441,24 @@ export default function WhatsAppSettings() {
                 </div>
 
                 {/* Select/Deselect all visible */}
-                <div className="flex gap-2 mb-2">
+                <div className="flex gap-2 mb-2 flex-wrap items-center">
                   <button onClick={() => setSelectedIDs(subscribers.map(s => s.id))} className="text-xs text-blue-600 hover:underline">Select all</button>
-                  <span className="text-gray-300">|</span>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
                   <button onClick={() => setSelectedIDs([])} className="text-xs text-gray-500 hover:underline">Clear</button>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <button
+                    onClick={enableAllNotifications}
+                    className="text-xs text-green-600 dark:text-green-400 hover:underline font-medium"
+                  >
+                    🔔 All notif ON
+                  </button>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <button
+                    onClick={disableAllNotifications}
+                    className="text-xs text-gray-500 dark:text-gray-400 hover:underline font-medium"
+                  >
+                    🔕 All notif OFF
+                  </button>
                   {selectedIDs.length > 0 && <span className="text-xs text-green-600 font-medium">{selectedIDs.length} selected</span>}
                 </div>
 
@@ -350,6 +481,31 @@ export default function WhatsAppSettings() {
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{sub.username}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{sub.phone}</p>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleNotifications(sub); }}
+                          disabled={togglingId === sub.id}
+                          title={sub.whatsapp_notifications ? 'Auto-notifications ON — click to disable' : 'Auto-notifications OFF — click to enable'}
+                          className={`ml-auto shrink-0 p-1 rounded-full transition-colors ${
+                            sub.whatsapp_notifications
+                              ? 'text-green-500 hover:bg-green-100 dark:hover:bg-green-900/30'
+                              : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          } ${togglingId === sub.id ? 'opacity-50 cursor-wait' : ''}`}
+                        >
+                          {togglingId === sub.id ? (
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                          ) : sub.whatsapp_notifications ? (
+                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                            </svg>
+                          ) : (
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9M3 3l18 18"/>
+                            </svg>
+                          )}
+                        </button>
                       </label>
                     ))
                   )}

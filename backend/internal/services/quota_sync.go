@@ -1745,7 +1745,7 @@ func fireFUPAppliedRules(sub *models.Subscriber, fupLevel int, quotaUsed, quotaT
 		case "whatsapp":
 			if sub.Phone != "" {
 				wa := NewWhatsAppService()
-				if err := wa.SendMessage(sub.Phone, msg); err != nil {
+				if err := wa.SendMessageForSubscriber(*sub, sub.Phone, msg); err != nil {
 					log.Printf("FUPRule[%s]: WhatsApp send failed for %s: %v", rule.Name, sub.Username, err)
 				} else {
 					log.Printf("FUPRule[%s]: WhatsApp sent to %s", rule.Name, sub.Username)
@@ -1853,7 +1853,7 @@ func fireQuotaWarningRules(sub models.Subscriber, monthlyUsed int64) {
 		case "whatsapp":
 			if phone != "" {
 				wa := NewWhatsAppService()
-				if err := wa.SendMessage(phone, msg); err != nil {
+				if err := wa.SendMessageForSubscriber(sub, phone, msg); err != nil {
 					log.Printf("QuotaWarning[%s]: WhatsApp failed for %s: %v", rule.Name, sub.Username, err)
 					errMsg = err.Error()
 				} else {

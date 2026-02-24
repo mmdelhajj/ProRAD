@@ -18,6 +18,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/models"
 )
 
@@ -365,6 +366,77 @@ func GetConfiguredTimezoneString() string {
 
 // GetBranding returns public branding info (no auth required)
 func (h *SettingsHandler) GetBranding(c *fiber.Ctx) error {
+	// Check if request comes from a custom reseller domain (works even before login)
+	host := c.Hostname() // Gets Host header without port
+	if host != "" && host != "localhost" && host != "127.0.0.1" {
+		var reseller models.Reseller
+		if err := database.DB.Where("custom_domain = ? AND rebrand_enabled = true AND deleted_at IS NULL", host).First(&reseller).Error; err == nil {
+			var rb models.ResellerBranding
+			database.DB.Where("reseller_id = ?", reseller.ID).First(&rb)
+			companyName := reseller.Name
+			if rb.CompanyName != "" {
+				companyName = rb.CompanyName
+			}
+			primaryColor := "#2563eb"
+			if rb.PrimaryColor != "" {
+				primaryColor = rb.PrimaryColor
+			}
+			logoURL := ""
+			if rb.LogoPath != "" {
+				logoURL = "/uploads/" + filepath.Base(rb.LogoPath)
+			}
+			return c.JSON(fiber.Map{
+				"success": true,
+				"data": fiber.Map{
+					"company_name":        companyName,
+					"company_logo":        logoURL,
+					"primary_color":       primaryColor,
+					"login_background":    "",
+					"favicon":             "",
+					"footer_text":         rb.FooterText,
+					"login_tagline":       rb.Tagline,
+					"show_login_features": "false",
+					"reseller_domain":     true,
+				},
+			})
+		}
+	}
+
+	// Check if authenticated reseller with rebranding enabled
+	user := middleware.GetCurrentUser(c)
+	if user != nil && user.ResellerID != nil {
+		var reseller models.Reseller
+		if err := database.DB.First(&reseller, *user.ResellerID).Error; err == nil && reseller.RebrandEnabled {
+			var rb models.ResellerBranding
+			database.DB.Where("reseller_id = ?", reseller.ID).First(&rb)
+			companyName := reseller.Name
+			if rb.CompanyName != "" {
+				companyName = rb.CompanyName
+			}
+			primaryColor := "#2563eb"
+			if rb.PrimaryColor != "" {
+				primaryColor = rb.PrimaryColor
+			}
+			logoURL := ""
+			if rb.LogoPath != "" {
+				logoURL = "/uploads/" + filepath.Base(rb.LogoPath)
+			}
+			return c.JSON(fiber.Map{
+				"success": true,
+				"data": fiber.Map{
+					"company_name":        companyName,
+					"company_logo":        logoURL,
+					"primary_color":       primaryColor,
+					"login_background":    "",
+					"favicon":             "",
+					"footer_text":         rb.FooterText,
+					"login_tagline":       rb.Tagline,
+					"show_login_features": "false",
+				},
+			})
+		}
+	}
+
 	branding := map[string]string{
 		"company_name":          "", // Empty by default - customer sets their own
 		"company_logo":          "",

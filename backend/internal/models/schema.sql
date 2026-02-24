@@ -417,6 +417,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
     simultaneous_sessions INTEGER DEFAULT 1,
     auto_recharge BOOLEAN DEFAULT false,
     auto_recharge_days INTEGER DEFAULT 0,
+    whatsapp_notifications BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
@@ -1139,6 +1140,7 @@ END $$;
 
 -- Reseller WhatsApp (per-reseller WhatsApp notifications)
 INSERT INTO permissions (name, description) VALUES ('notifications.whatsapp', 'Send WhatsApp notifications to own subscribers') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('communication.access_module', 'Access Communication Rules module') ON CONFLICT (name) DO NOTHING;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resellers' AND column_name = 'whatsapp_account_unique') THEN
@@ -1154,3 +1156,18 @@ DO $$ BEGIN
         ALTER TABLE resellers ADD COLUMN whatsapp_trial_start TIMESTAMPTZ;
     END IF;
 END $$;
+
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS rebrand_enabled BOOLEAN DEFAULT false;
+
+-- Reseller branding customization
+CREATE TABLE IF NOT EXISTS reseller_brandings (
+    id SERIAL PRIMARY KEY,
+    reseller_id INTEGER NOT NULL UNIQUE REFERENCES resellers(id) ON DELETE CASCADE,
+    company_name VARCHAR(255),
+    logo_path VARCHAR(500),
+    primary_color VARCHAR(20) DEFAULT '#2563eb',
+    footer_text VARCHAR(500),
+    tagline VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

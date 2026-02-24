@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/services"
 )
 
@@ -299,7 +302,7 @@ func (h *NotificationHandler) SendNotification(c *fiber.Ctx) error {
 // ProxRadCreateLink creates a new WhatsApp link and returns QR code
 func (h *NotificationHandler) ProxRadCreateLink(c *fiber.Ctx) error {
 	wa := h.manager.GetWhatsAppService()
-	result, err := wa.CreateProxRadLink()
+	result, err := wa.CreateProxRadLink(1)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
@@ -480,4 +483,139 @@ func (h *NotificationHandler) GetProxRadAccess(c *fiber.Ctx) error {
 		resp["trial_hours_left"] = int(time.Until(*access.TrialEnds).Hours())
 	}
 	return c.JSON(resp)
+}
+
+// AdminGetSubscribers returns all subscribers with phone numbers for admin WhatsApp sending
+func (h *NotificationHandler) AdminGetSubscribers(c *fiber.Ctx) error {
+	search := c.Query("search")
+
+	type SubRow struct {
+		ID                    uint   `gorm:"column:id" json:"id"`
+		Username              string `gorm:"column:username" json:"username"`
+		FullName              string `gorm:"column:full_name" json:"full_name"`
+		Phone                 string `gorm:"column:phone" json:"phone"`
+		WhatsAppNotifications bool   `gorm:"column:whatsapp_notifications" json:"whatsapp_notifications"`
+	}
+
+	var subs []SubRow
+	q := database.DB.Model(&models.Subscriber{}).
+		Select("id, username, full_name, phone, whatsapp_notifications").
+		Where("deleted_at IS NULL AND phone != '' AND phone IS NOT NULL")
+
+	if search != "" {
+		like := "%" + search + "%"
+		q = q.Where("username ILIKE ? OR full_name ILIKE ? OR phone ILIKE ?", like, like, like)
+	}
+
+	q.Order("username ASC").Limit(10000).Scan(&subs)
+
+	return c.JSON(fiber.Map{"success": true, "subscribers": subs, "total": len(subs)})
+}
+
+// AdminSendToSubscribers sends a WhatsApp message to selected subscribers using the admin's configured account
+func (h *NotificationHandler) AdminSendToSubscribers(c *fiber.Ctx) error {
+	var req struct {
+		SubscriberIDs []uint `json:"subscriber_ids"`
+		Message       string `json:"message"`
+		SendAll       bool   `json:"send_all"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request body"})
+	}
+	if req.Message == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Message is required"})
+	}
+
+	type SubPhone struct {
+		ID       uint   `json:"id"`
+		Username string `json:"username"`
+		Phone    string `json:"phone"`
+		FullName string `json:"full_name"`
+	}
+	var targets []SubPhone
+
+	q := database.DB.Model(&models.Subscriber{}).
+		Select("id, username, phone, full_name").
+		Where("deleted_at IS NULL AND phone != '' AND phone IS NOT NULL")
+
+	if !req.SendAll && len(req.SubscriberIDs) > 0 {
+		q = q.Where("id IN ?", req.SubscriberIDs)
+	} else if !req.SendAll {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "No subscribers selected"})
+	}
+
+	q.Scan(&targets)
+
+	if len(targets) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "No subscribers with phone numbers found"})
+	}
+
+	wa := h.manager.GetWhatsAppService()
+	sent := 0
+	failed := 0
+	var errors []string
+
+	for _, sub := range targets {
+		msg := req.Message
+		msg = strings.ReplaceAll(msg, "{username}", sub.Username)
+		msg = strings.ReplaceAll(msg, "{full_name}", sub.FullName)
+		msg = strings.ReplaceAll(msg, "{{username}}", sub.Username)
+		msg = strings.ReplaceAll(msg, "{{full_name}}", sub.FullName)
+
+		if err := wa.SendMessage(sub.Phone, msg); err != nil {
+			failed++
+			if len(errors) < 5 {
+				errors = append(errors, fmt.Sprintf("%s: %v", sub.Username, err))
+			}
+		} else {
+			sent++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"sent":    sent,
+		"failed":  failed,
+		"total":   len(targets),
+		"errors":  errors,
+		"message": fmt.Sprintf("Sent to %d subscribers", sent),
+	})
+}
+
+// AdminToggleSubscriberWhatsApp toggles WhatsApp notifications for a specific subscriber
+func (h *NotificationHandler) AdminToggleSubscriberWhatsApp(c *fiber.Ctx) error {
+	subscriberID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "invalid subscriber id"})
+	}
+
+	var sub models.Subscriber
+	if err := database.DB.Where("id = ? AND deleted_at IS NULL", subscriberID).First(&sub).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "subscriber not found"})
+	}
+
+	newVal := !sub.WhatsAppNotifications
+	database.DB.Model(&sub).Update("whatsapp_notifications", newVal)
+
+	return c.JSON(fiber.Map{"success": true, "whatsapp_notifications": newVal})
+}
+
+// AdminSetAllNotifications enables or disables WhatsApp notifications for all subscribers
+func (h *NotificationHandler) AdminSetAllNotifications(c *fiber.Ctx) error {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "invalid request"})
+	}
+
+	result := database.DB.Model(&models.Subscriber{}).
+		Where("deleted_at IS NULL").
+		Update("whatsapp_notifications", req.Enabled)
+
+	return c.JSON(fiber.Map{
+		"success":  true,
+		"enabled":  req.Enabled,
+		"affected": result.RowsAffected,
+	})
 }

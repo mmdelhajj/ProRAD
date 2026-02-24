@@ -209,6 +209,7 @@ func main() {
 	notificationHandler := handlers.NewNotificationHandler()
 	customerNotificationHandler := handlers.NewCustomerNotificationHandler()
 	resellerWAHandler := handlers.NewResellerWhatsAppHandler()
+	resellerBrandingHandler := handlers.NewResellerBrandingHandler()
 	cdnHandler := handlers.NewCDNHandler()
 	cdnBandwidthHandler := handlers.NewCDNBandwidthHandler(cdnBandwidthRuleService)
 	licenseHandler := handlers.NewLicenseHandler()
@@ -226,7 +227,7 @@ func main() {
 	// Public routes
 	api.Post("/auth/login", authHandler.Login)
 	api.Post("/auth/impersonate-exchange", authHandler.ExchangeImpersonateToken) // Exchange temp token for session (no auth - uses one-time token)
-	api.Get("/branding", settingsHandler.GetBranding)
+	api.Get("/branding", middleware.OptionalAuth(cfg), settingsHandler.GetBranding)
 	api.Get("/server-time", settingsHandler.GetServerTime) // Public - needed for timezone before auth
 	api.Get("/backups/public-download/:token", backupHandler.PublicDownload)
 
@@ -416,6 +417,10 @@ func main() {
 	notifications.Delete("/proxrad/unlink", notificationHandler.UnlinkProxRadAccount)
 	notifications.Get("/proxrad/access", notificationHandler.GetProxRadAccess)
 	notifications.Post("/proxrad/test-send", notificationHandler.TestProxRadSend)
+	notifications.Get("/whatsapp/subscribers", notificationHandler.AdminGetSubscribers)
+	notifications.Post("/whatsapp/send", notificationHandler.AdminSendToSubscribers)
+	notifications.Post("/whatsapp/subscribers/:id/toggle-notifications", notificationHandler.AdminToggleSubscriberWhatsApp)
+	notifications.Post("/whatsapp/notifications/set-all", notificationHandler.AdminSetAllNotifications)
 
 	// Reseller WhatsApp routes (per-reseller, requires notifications.whatsapp permission)
 	resellerWA := protected.Group("/reseller/whatsapp", middleware.RequirePermission("notifications.whatsapp"))
@@ -426,6 +431,17 @@ func main() {
 	resellerWA.Post("/proxrad/test-send", resellerWAHandler.ProxRadTestSend)
 	resellerWA.Get("/subscribers", resellerWAHandler.GetSubscribers)
 	resellerWA.Post("/send", resellerWAHandler.SendToSubscribers)
+	resellerWA.Post("/subscribers/:id/toggle-notifications", resellerWAHandler.ToggleSubscriberWhatsApp)
+	resellerWA.Post("/notifications/set-all", resellerWAHandler.SetAllNotifications)
+
+	// Reseller branding routes
+	resellerBranding := protected.Group("/reseller/branding")
+	resellerBranding.Get("/", resellerBrandingHandler.GetBranding)
+	resellerBranding.Put("/", resellerBrandingHandler.UpdateBranding)
+	resellerBranding.Post("/logo", resellerBrandingHandler.UploadLogo)
+	resellerBranding.Delete("/logo", resellerBrandingHandler.DeleteLogo)
+	resellerBranding.Post("/ssl", resellerBrandingHandler.RequestSSL)
+	resellerBranding.Put("/domain", resellerBrandingHandler.UpdateDomain)
 
 	// Customer update notification routes (accessible to all authenticated users)
 	notificationRoutes := protected.Group("/notifications/updates")

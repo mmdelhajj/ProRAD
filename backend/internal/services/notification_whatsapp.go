@@ -124,8 +124,11 @@ type ProxRadLinkInfo struct {
 }
 
 // CreateProxRadLink creates a new WhatsApp link and returns QR code data
-func (s *WhatsAppService) CreateProxRadLink() (*ProxRadLinkResult, error) {
-	reqURL := fmt.Sprintf("%s/create/wa.link?secret=%s&sid=1", proxRadAPIBase, url.QueryEscape(proxRadAPISecret))
+func (s *WhatsAppService) CreateProxRadLink(sid int) (*ProxRadLinkResult, error) {
+	if sid <= 0 {
+		sid = 1
+	}
+	reqURL := fmt.Sprintf("%s/create/wa.link?secret=%s&sid=%d", proxRadAPIBase, url.QueryEscape(proxRadAPISecret), sid)
 	resp, err := s.client.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %v", err)
@@ -404,6 +407,35 @@ func (s *WhatsAppService) SendMessage(to, message string) error {
 		return err
 	}
 	return s.SendMessageWithConfig(config, to, message)
+}
+
+// SendMessageForSubscriber sends WhatsApp using the subscriber's reseller account if connected,
+// otherwise falls back to the admin's configured WhatsApp account.
+func (s *WhatsAppService) SendMessageForSubscriber(sub models.Subscriber, to, message string) error {
+	// Only send if subscriber has WhatsApp notifications opted in
+	if !sub.WhatsAppNotifications {
+		return nil // subscriber not opted in for WhatsApp notifications
+	}
+	// Try reseller's WhatsApp account first
+	if sub.ResellerID > 0 {
+		reseller := sub.Reseller
+		if reseller == nil || reseller.ID == 0 {
+			// Load reseller from DB if not preloaded
+			var r models.Reseller
+			if err := database.DB.First(&r, sub.ResellerID).Error; err == nil {
+				reseller = &r
+			}
+		}
+		if reseller != nil && reseller.WhatsAppEnabled && reseller.WhatsAppAccountUnique != "" {
+			log.Printf("CommRule: Sending WhatsApp via reseller '%s' account for subscriber %s", reseller.Name, sub.Username)
+			return s.SendMessageWithAccountUnique(reseller.WhatsAppAccountUnique, to, message)
+		}
+		// Reseller has no WhatsApp configured - skip notification (don't use admin's account)
+		log.Printf("CommRule: Reseller has no WhatsApp configured - skipping for %s", sub.Username)
+		return nil
+	}
+	// No reseller (admin's own subscriber) - use admin's configured WhatsApp account
+	return s.SendMessage(to, message)
 }
 
 // SendMessageWithConfig sends a WhatsApp message with specific config

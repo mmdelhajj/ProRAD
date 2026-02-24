@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/config"
@@ -368,6 +369,16 @@ func (h *ResellerHandler) Update(c *fiber.Ctx) error {
 			resellerUpdates["permission_group"] = int(floatVal)
 		} else {
 			resellerUpdates["permission_group"] = val
+		}
+	}
+	if val, ok := req["rebrand_enabled"]; ok {
+		if v, ok := val.(bool); ok {
+			resellerUpdates["rebrand_enabled"] = v
+		}
+	}
+	if val, ok := req["custom_domain"]; ok {
+		if v, ok := val.(string); ok {
+			resellerUpdates["custom_domain"] = strings.TrimSpace(strings.ToLower(v))
 		}
 	}
 	if len(resellerUpdates) > 0 {

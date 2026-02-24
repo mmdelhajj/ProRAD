@@ -95,6 +95,12 @@ func Close() {
 // This should be called after AutoMigrate
 func EnsureIndexes() {
 	indexes := []string{
+		// Schema migrations
+		"ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS whatsapp_notifications BOOLEAN DEFAULT false",
+		"ALTER TABLE resellers ADD COLUMN IF NOT EXISTS rebrand_enabled BOOLEAN DEFAULT false",
+		"ALTER TABLE resellers ADD COLUMN IF NOT EXISTS custom_domain VARCHAR(255)",
+		"CREATE TABLE IF NOT EXISTS reseller_brandings (id SERIAL PRIMARY KEY, reseller_id INTEGER NOT NULL UNIQUE REFERENCES resellers(id) ON DELETE CASCADE, company_name VARCHAR(255), logo_path VARCHAR(500), primary_color VARCHAR(20) DEFAULT '#2563eb', footer_text VARCHAR(500), tagline VARCHAR(500), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+
 		// Fix: Replace UNIQUE constraint with partial unique index (allow soft-deleted duplicates)
 		"ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_username_key",
 		"CREATE UNIQUE INDEX IF NOT EXISTS subscribers_username_key ON subscribers (username) WHERE deleted_at IS NULL",

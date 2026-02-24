@@ -237,7 +237,7 @@ func dailySendNotification(rule models.CommunicationRule, sub models.Subscriber,
 		phone := getNotifPhone(rule, sub)
 		if phone != "" {
 			wa := NewWhatsAppService()
-			if err := wa.SendMessage(phone, msg); err != nil {
+			if err := wa.SendMessageForSubscriber(sub, phone, msg); err != nil {
 				log.Printf("DailyNotif[%s]: WhatsApp failed for %s: %v", rule.Name, sub.Username, err)
 				errMsg = err.Error()
 			} else {

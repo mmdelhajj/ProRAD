@@ -335,6 +335,17 @@ export const settingsApi = {
   getSSLStatus: () => api.get('/settings/ssl-status'),
 }
 
+export const resellerBrandingApi = {
+  get: () => api.get('/reseller/branding'),
+  update: (data) => api.put('/reseller/branding', data),
+  uploadLogo: (formData) => api.post('/reseller/branding/logo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteLogo: () => api.delete('/reseller/branding/logo'),
+  updateDomain: (domain) => api.put('/reseller/branding/domain', { custom_domain: domain }),
+  requestSSL: (email) => api.post('/reseller/branding/ssl', { email }),
+}
+
 export const clusterApi = {
   getConfig: () => api.get('/cluster/config'),
   getStatus: () => api.get('/cluster/status'),

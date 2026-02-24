@@ -68,6 +68,16 @@ export default function Settings() {
   const [proxradAccess, setProxradAccess] = useState(null) // { allowed, type, expires_at, trial_ends, trial_hours_left }
   const proxradPollRef = useRef(null)
 
+  // Admin WhatsApp subscriber management
+  const [waSubscribers, setWaSubscribers] = useState([])
+  const [waSubsLoading, setWaSubsLoading] = useState(false)
+  const [waSubSearch, setWaSubSearch] = useState('')
+  const [waSelectedIDs, setWaSelectedIDs] = useState([])
+  const [waSendAll, setWaSendAll] = useState(false)
+  const [waMessage, setWaMessage] = useState('')
+  const [waSending, setWaSending] = useState(false)
+  const [waTogglingId, setWaTogglingId] = useState(null)
+
   // SSL state
   const [sslDomain, setSslDomain] = useState('')
   const [sslEmail, setSslEmail] = useState('')
@@ -102,6 +112,7 @@ export default function Settings() {
   useEffect(() => {
     if (activeTab === 'notifications') {
       fetchProxRadAccess()
+      fetchWaSubscribers()
     }
   }, [activeTab])
 
@@ -473,6 +484,75 @@ export default function Settings() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to unlink account')
     }
+  }
+
+  const fetchWaSubscribers = async (search = '') => {
+    setWaSubsLoading(true)
+    try {
+      const res = await api.get('/notifications/whatsapp/subscribers', { params: { search } })
+      if (res.data.success) setWaSubscribers(res.data.subscribers || [])
+    } catch (e) {
+      console.error(e)
+    }
+    setWaSubsLoading(false)
+  }
+
+  const waToggleNotifications = async (sub) => {
+    setWaTogglingId(sub.id)
+    try {
+      const res = await api.post(`/notifications/whatsapp/subscribers/${sub.id}/toggle-notifications`)
+      if (res.data.success) {
+        setWaSubscribers(prev => prev.map(s =>
+          s.id === sub.id ? { ...s, whatsapp_notifications: res.data.whatsapp_notifications } : s
+        ))
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setWaTogglingId(null)
+    }
+  }
+
+  const waEnableAll = async () => {
+    try {
+      await api.post('/notifications/whatsapp/notifications/set-all', { enabled: true })
+      setWaSubscribers(prev => prev.map(s => ({ ...s, whatsapp_notifications: true })))
+    } catch (e) { console.error(e) }
+  }
+
+  const waDisableAll = async () => {
+    try {
+      await api.post('/notifications/whatsapp/notifications/set-all', { enabled: false })
+      setWaSubscribers(prev => prev.map(s => ({ ...s, whatsapp_notifications: false })))
+    } catch (e) { console.error(e) }
+  }
+
+  const waHandleSend = async () => {
+    if (!waMessage.trim()) { toast.error('Enter a message'); return }
+    if (!waSendAll && waSelectedIDs.length === 0) { toast.error('Select at least one subscriber'); return }
+    const count = waSendAll ? waSubscribers.length : waSelectedIDs.length
+    if (!confirm(`Send message to ${count} subscriber${count !== 1 ? 's' : ''}?`)) return
+    setWaSending(true)
+    try {
+      const res = await api.post('/notifications/whatsapp/send', {
+        message: waMessage.trim(),
+        send_all: waSendAll,
+        subscriber_ids: waSendAll ? [] : waSelectedIDs,
+      })
+      if (res.data.success) {
+        toast.success(`✅ Sent to ${res.data.sent} subscribers${res.data.failed > 0 ? `, ${res.data.failed} failed` : ''}`)
+        if (res.data.failed === 0) {
+          setWaMessage('')
+          setWaSelectedIDs([])
+          setWaSendAll(false)
+        }
+      } else {
+        toast.error(res.data.message || 'Send failed')
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to send')
+    }
+    setWaSending(false)
   }
 
   const tabs = [
@@ -1730,6 +1810,141 @@ export default function Settings() {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* WhatsApp Subscriber Management */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                  📱 Send WhatsApp to Subscribers
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Select subscribers and send a WhatsApp message directly, or manage auto-notification settings.
+                </p>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Subscriber Selector */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                        Select Subscribers
+                      </h4>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {waSubscribers.length} with phone
+                        {waSubscribers.filter(s => s.whatsapp_notifications).length > 0 && (
+                          <span className="ml-2 text-green-600 dark:text-green-400 font-medium">
+                            🔔 {waSubscribers.filter(s => s.whatsapp_notifications).length} notif ON
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Send All toggle */}
+                    <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                      <div
+                        onClick={() => { setWaSendAll(!waSendAll); setWaSelectedIDs([]) }}
+                        className={`relative w-10 h-5 rounded-full transition-colors ${waSendAll ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                      >
+                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${waSendAll ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                      </div>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Send to all subscribers ({waSubscribers.length})
+                      </span>
+                    </label>
+
+                    {!waSendAll && (
+                      <>
+                        <div className="relative mb-2">
+                          <input
+                            type="text"
+                            value={waSubSearch}
+                            onChange={e => { setWaSubSearch(e.target.value); fetchWaSubscribers(e.target.value) }}
+                            placeholder="Search subscribers..."
+                            className="w-full px-3 py-2 pl-8 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white text-sm"
+                          />
+                          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+
+                        <div className="flex gap-2 mb-2 flex-wrap items-center text-xs">
+                          <button onClick={() => setWaSelectedIDs(waSubscribers.map(s => s.id))} className="text-blue-600 hover:underline">Select all</button>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <button onClick={() => setWaSelectedIDs([])} className="text-gray-500 hover:underline">Clear</button>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <button onClick={waEnableAll} className="text-green-600 dark:text-green-400 hover:underline font-medium">🔔 All notif ON</button>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <button onClick={waDisableAll} className="text-gray-500 dark:text-gray-400 hover:underline font-medium">🔕 All notif OFF</button>
+                          {waSelectedIDs.length > 0 && <span className="text-green-600 font-medium">{waSelectedIDs.length} selected</span>}
+                        </div>
+
+                        <div className="max-h-64 overflow-y-auto space-y-1 border border-gray-200 dark:border-gray-600 rounded-lg p-2">
+                          {waSubsLoading ? (
+                            <div className="text-center py-4 text-gray-400 text-sm">Loading...</div>
+                          ) : waSubscribers.length === 0 ? (
+                            <p className="text-center py-4 text-gray-400 text-sm">No subscribers with phone numbers</p>
+                          ) : (
+                            waSubscribers.map(sub => (
+                              <label key={sub.id} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${waSelectedIDs.includes(sub.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={waSelectedIDs.includes(sub.id)}
+                                  onChange={() => setWaSelectedIDs(prev => prev.includes(sub.id) ? prev.filter(x => x !== sub.id) : [...prev, sub.id])}
+                                  className="rounded border-gray-300"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{sub.username}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{sub.phone}</p>
+                                </div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); waToggleNotifications(sub) }}
+                                  disabled={waTogglingId === sub.id}
+                                  title={sub.whatsapp_notifications ? 'Auto-notif ON — click to disable' : 'Auto-notif OFF — click to enable'}
+                                  className={`shrink-0 p-1 rounded-full transition-colors ${sub.whatsapp_notifications ? 'text-green-500 hover:bg-green-100 dark:hover:bg-green-900/30' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'} ${waTogglingId === sub.id ? 'opacity-50 cursor-wait' : ''}`}
+                                >
+                                  {sub.whatsapp_notifications ? (
+                                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                                  ) : (
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9M3 3l18 18"/></svg>
+                                  )}
+                                </button>
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Message Composer */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+                      ✉️ Compose Message
+                    </h4>
+                    <textarea
+                      value={waMessage}
+                      onChange={e => setWaMessage(e.target.value)}
+                      rows={8}
+                      placeholder={"Type your message here...\n\nYou can use:\n{username} — subscriber username\n{full_name} — subscriber full name"}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white resize-none text-sm mb-2"
+                    />
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs text-gray-400">{waMessage.length} characters</p>
+                      <p className="text-xs text-gray-400">Recipients: {waSendAll ? `All (${waSubscribers.length})` : waSelectedIDs.length}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {['{username}', '{full_name}'].map(v => (
+                        <button key={v} onClick={() => setWaMessage(m => m + v)} className="text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-500">
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={waHandleSend}
+                      disabled={waSending || !waMessage.trim() || (!waSendAll && waSelectedIDs.length === 0)}
+                      className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {waSending ? 'Sending...' : '📤 Send WhatsApp Message'}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Save Button */}

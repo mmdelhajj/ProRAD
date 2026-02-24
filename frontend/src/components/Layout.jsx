@@ -44,6 +44,7 @@ import {
   BoltIcon,
   BanknotesIcon,
   DevicePhoneMobileIcon,
+  PaintBrushIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
@@ -65,7 +66,8 @@ const allNavigation = [
   { name: 'Prepaid Cards', href: '/prepaid', icon: TicketIcon, permission: 'prepaid.view' },
   { name: 'Reports', href: '/reports', icon: ChartBarIcon, permission: 'reports.view' },
   { name: 'Tickets', href: '/tickets', icon: ChatBubbleLeftRightIcon, permission: 'tickets.view' },
-  { name: 'WhatsApp', href: '/whatsapp', icon: DevicePhoneMobileIcon, permission: 'notifications.whatsapp' },
+  { name: 'WhatsApp', href: '/whatsapp', icon: DevicePhoneMobileIcon, permission: 'notifications.whatsapp', resellerOnly: true },
+  { name: 'Branding', href: '/reseller-branding', icon: PaintBrushIcon, permission: null, resellerOnly: true, rebrandOnly: true },
   { name: 'Users', href: '/users', icon: UserGroupIcon, permission: 'users.view' },
   { name: 'Permissions', href: '/permissions', icon: ShieldCheckIcon, permission: 'permissions.view' },
   { name: 'Audit Logs', href: '/audit', icon: ClipboardDocumentListIcon, permission: 'audit.view' },
@@ -164,14 +166,16 @@ export default function Layout({ children }) {
   // Filter and order navigation
   useEffect(() => {
     const filtered = allNavigation.filter((item) => {
+      if (item.rebrandOnly) return isReseller() && user?.reseller?.rebrand_enabled
       if (item.permission === null) return true
       if (item.permission === 'admin') return isAdmin()
+      if (item.resellerOnly) return isReseller() && hasPermission(item.permission)
       return hasPermission(item.permission)
     })
     const savedOrder = getSavedMenuOrder()
     const ordered = applyMenuOrder(filtered, savedOrder)
     setOrderedNav(ordered)
-  }, [hasPermission, isAdmin])
+  }, [hasPermission, isAdmin, isReseller, user])
 
   const handleLogout = () => {
     logout()
@@ -234,8 +238,10 @@ export default function Layout({ children }) {
     setHiddenItems(new Set())
     // Re-filter and use default order
     const filtered = allNavigation.filter((item) => {
+      if (item.rebrandOnly) return isReseller() && user?.reseller?.rebrand_enabled
       if (item.permission === null) return true
       if (item.permission === 'admin') return isAdmin()
+      if (item.resellerOnly) return isReseller() && hasPermission(item.permission)
       return hasPermission(item.permission)
     })
     setOrderedNav(filtered)

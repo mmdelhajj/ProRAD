@@ -57,6 +57,8 @@ export default function Resellers() {
     parent_id: '',
     permission_group: '',
     notes: '',
+    rebrand_enabled: false,
+    custom_domain: '',
   })
 
   const { data: resellers, isLoading } = useQuery({
@@ -223,6 +225,8 @@ export default function Resellers() {
         parent_id: reseller.parent_id || '',
         permission_group: reseller.permission_group || '',
         notes: reseller.notes || '',
+        rebrand_enabled: reseller.rebrand_enabled || false,
+        custom_domain: reseller.custom_domain || '',
       })
     } else {
       setEditingReseller(null)
@@ -241,6 +245,8 @@ export default function Resellers() {
         parent_id: '',
         permission_group: '',
         notes: '',
+        rebrand_enabled: false,
+        custom_domain: '',
       })
     }
     setShowModal(true)
@@ -406,9 +412,21 @@ export default function Resellers() {
         accessorKey: 'is_active',
         header: 'Status',
         cell: ({ row }) => (
-          <span className={clsx('badge', row.original.is_active ? 'badge-success' : 'badge-gray')}>
-            {row.original.is_active ? 'Active' : 'Inactive'}
-          </span>
+          <div className="flex flex-wrap items-center gap-1">
+            <span className={clsx('badge', row.original.is_active ? 'badge-success' : 'badge-gray')}>
+              {row.original.is_active ? 'Active' : 'Inactive'}
+            </span>
+            {row.original.rebrand_enabled && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                Rebrand
+              </span>
+            )}
+            {row.original.custom_domain && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 ml-1" title={row.original.custom_domain}>
+                🌐 {row.original.custom_domain}
+              </span>
+            )}
+          </div>
         ),
       },
       {
@@ -808,7 +826,7 @@ export default function Resellers() {
                     />
                   </div>
 
-                  <div className="border-t pt-4">
+                  <div className="border-t pt-4 space-y-3">
                     <label className="flex items-center gap-3">
                       <input
                         type="checkbox"
@@ -819,6 +837,34 @@ export default function Resellers() {
                       />
                       <span>Active Reseller</span>
                     </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="rebrand_enabled"
+                        checked={formData.rebrand_enabled || false}
+                        onChange={e => setFormData(p => ({ ...p, rebrand_enabled: e.target.checked }))}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                      />
+                      <label htmlFor="rebrand_enabled" className="text-sm text-gray-700 dark:text-gray-300">
+                        Enable Rebranding (allow reseller to customize their panel appearance)
+                      </label>
+                    </div>
+                    {/* Custom Domain */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Custom Domain
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.custom_domain}
+                        onChange={e => setFormData(p => ({ ...p, custom_domain: e.target.value.toLowerCase().trim() }))}
+                        placeholder="portal.myisp.com"
+                        className="input w-full font-mono text-sm"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Reseller's custom portal domain. They must point an A record to this server's IP.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex justify-end gap-3 pt-4 border-t">

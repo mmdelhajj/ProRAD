@@ -127,6 +127,8 @@ type Reseller struct {
 	WhatsAppPhone         string         `gorm:"column:whatsapp_phone;size:50" json:"whatsapp_phone,omitempty"`
 	WhatsAppEnabled       bool           `gorm:"column:whatsapp_enabled;default:false" json:"whatsapp_enabled"`
 	WhatsAppTrialStart    *time.Time     `gorm:"column:whatsapp_trial_start" json:"-"`
+	RebrandEnabled        bool           `gorm:"column:rebrand_enabled;default:false" json:"rebrand_enabled"`
+	CustomDomain          string         `gorm:"column:custom_domain;size:255" json:"custom_domain"`
 
 	// Assigned NAS (many-to-many)
 	NASList         []ResellerNAS  `gorm:"-" json:"nas_list,omitempty"`

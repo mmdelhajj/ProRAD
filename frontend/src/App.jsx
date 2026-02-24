@@ -39,6 +39,7 @@ const CDNPortRules = lazy(() => import('./pages/CDNPortRules'))
 const Profile = lazy(() => import('./pages/Profile'))
 const DiagnosticTools = lazy(() => import('./pages/DiagnosticTools'))
 const WhatsAppSettings = lazy(() => import('./pages/WhatsAppSettings'))
+const ResellerBranding = lazy(() => import('./pages/ResellerBranding'))
 
 // Loading fallback component
 function PageLoader() {
@@ -141,8 +142,8 @@ function App() {
                   <Route path="/prepaid" element={<PermissionRoute permission="prepaid.view"><Prepaid /></PermissionRoute>} />
                   <Route path="/reports" element={<PermissionRoute permission="reports.view"><Reports /></PermissionRoute>} />
                   <Route path="/audit" element={<PermissionRoute adminOnly><AuditLogs /></PermissionRoute>} />
-                  <Route path="/communication" element={<PermissionRoute adminOnly><CommunicationRules /></PermissionRoute>} />
-                  <Route path="/bandwidth" element={<PermissionRoute adminOnly><BandwidthRules /></PermissionRoute>} />
+                  <Route path="/communication" element={<PermissionRoute permission="communication.access_module"><CommunicationRules /></PermissionRoute>} />
+                  <Route path="/bandwidth" element={<PermissionRoute permission="bandwidth.view"><BandwidthRules /></PermissionRoute>} />
                   <Route path="/fup" element={<PermissionRoute adminOnly><FUPCounters /></PermissionRoute>} />
                   <Route path="/tickets" element={<PermissionRoute permission="tickets.view"><Tickets /></PermissionRoute>} />
                   <Route path="/backups" element={<PermissionRoute adminOnly><Backups /></PermissionRoute>} />
@@ -154,6 +155,7 @@ function App() {
                   <Route path="/cdn-port-rules" element={<PermissionRoute adminOnly><CDNPortRules /></PermissionRoute>} />
                   <Route path="/diagnostic-tools" element={<PermissionRoute adminOnly><DiagnosticTools /></PermissionRoute>} />
                   <Route path="/whatsapp" element={<PermissionRoute permission="notifications.whatsapp"><WhatsAppSettings /></PermissionRoute>} />
+                  <Route path="/reseller-branding" element={<ResellerBranding />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>
