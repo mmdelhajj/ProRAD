@@ -481,7 +481,7 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 	dailyDownload := make([]int64, daysInMonth)
 	dailyUpload := make([]int64, daysInMonth)
 
-	// Query daily usage for each day of the month
+	// Step 1: Seed from radacct as a baseline (for days without history records)
 	var dailyBreakdown []struct {
 		Day         int
 		TotalInput  int64
@@ -500,9 +500,30 @@ func (h *SubscriberHandler) Get(c *fiber.Ctx) error {
 		}
 	}
 
-	// Override today's bar with the real-time counter from subscribers table.
-	// radacct query misses usage from sessions that started before midnight (acctstarttime = yesterday)
-	// but QuotaSync correctly accumulates all deltas into daily_download_used regardless.
+	// Step 2: Override past days with daily_usage_history (accurate: saved before daily reset,
+	// so sessions spanning midnight are correctly attributed to the actual usage day).
+	// radacct groups by session START time → sessions started on day N-1 but used on day N
+	// would show on the wrong bar. History records what QuotaSync actually accumulated each day.
+	var historyRows []struct {
+		Date          time.Time
+		DownloadBytes int64
+		UploadBytes   int64
+	}
+	database.DB.Raw(`
+		SELECT date, download_bytes, upload_bytes
+		FROM daily_usage_history
+		WHERE subscriber_id = ? AND date >= ? AND date < ?
+	`, subscriber.ID, startOfMonth.Format("2006-01-02"), now.Format("2006-01-02")).Scan(&historyRows)
+
+	for _, row := range historyRows {
+		day := row.Date.Day()
+		if day >= 1 && day <= daysInMonth {
+			dailyDownload[day-1] = row.DownloadBytes
+			dailyUpload[day-1] = row.UploadBytes
+		}
+	}
+
+	// Step 3: Override today's bar with the real-time counter (not yet saved to history).
 	todayDay := now.Day()
 	if todayDay >= 1 && todayDay <= daysInMonth {
 		if subscriber.DailyDownloadUsed > dailyDownload[todayDay-1] {

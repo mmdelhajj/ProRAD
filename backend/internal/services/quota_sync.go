@@ -167,6 +167,25 @@ func (s *DailyQuotaResetService) checkAndReset() {
 
 	log.Printf("DailyQuotaResetService: Running scheduled reset at %02d:%02d", resetHour, resetMinute)
 
+	// Save daily usage to history BEFORE resetting counters.
+	// This is the source of truth for the per-day chart — radacct groups by session
+	// start time so sessions spanning midnight get attributed to the wrong day.
+	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
+	saveResult := database.DB.Exec(`
+		INSERT INTO daily_usage_history (subscriber_id, date, download_bytes, upload_bytes)
+		SELECT id, ?::date, daily_download_used, daily_upload_used
+		FROM subscribers
+		WHERE deleted_at IS NULL AND (daily_download_used > 0 OR daily_upload_used > 0)
+		ON CONFLICT (subscriber_id, date) DO UPDATE SET
+			download_bytes = GREATEST(daily_usage_history.download_bytes, EXCLUDED.download_bytes),
+			upload_bytes   = GREATEST(daily_usage_history.upload_bytes,   EXCLUDED.upload_bytes)
+	`, yesterday)
+	if saveResult.Error != nil {
+		log.Printf("DailyQuotaResetService: Failed to save usage history: %v", saveResult.Error)
+	} else {
+		log.Printf("DailyQuotaResetService: Saved daily usage history for %d subscribers (date: %s)", saveResult.RowsAffected, yesterday)
+	}
+
 	// Reset daily quotas for ALL subscribers (online and offline)
 	result := database.DB.Model(&models.Subscriber{}).
 		Where("deleted_at IS NULL").

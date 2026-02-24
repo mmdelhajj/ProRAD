@@ -100,6 +100,9 @@ func EnsureIndexes() {
 		"ALTER TABLE resellers ADD COLUMN IF NOT EXISTS rebrand_enabled BOOLEAN DEFAULT false",
 		"ALTER TABLE resellers ADD COLUMN IF NOT EXISTS custom_domain VARCHAR(255)",
 		"CREATE TABLE IF NOT EXISTS reseller_brandings (id SERIAL PRIMARY KEY, reseller_id INTEGER NOT NULL UNIQUE REFERENCES resellers(id) ON DELETE CASCADE, company_name VARCHAR(255), logo_path VARCHAR(500), primary_color VARCHAR(20) DEFAULT '#2563eb', footer_text VARCHAR(500), tagline VARCHAR(500), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+		// Daily usage history - saved before daily reset so chart shows correct per-day values
+		"CREATE TABLE IF NOT EXISTS daily_usage_history (id BIGSERIAL PRIMARY KEY, subscriber_id INTEGER NOT NULL, date DATE NOT NULL, download_bytes BIGINT DEFAULT 0, upload_bytes BIGINT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(subscriber_id, date))",
+		"CREATE INDEX IF NOT EXISTS idx_daily_usage_history_sub_date ON daily_usage_history(subscriber_id, date)",
 
 		// Fix: Replace UNIQUE constraint with partial unique index (allow soft-deleted duplicates)
 		"ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_username_key",
