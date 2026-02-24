@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -4248,25 +4247,14 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 		CallerID:   session.CallerID,
 	}
 
-	// Run live ping in parallel with Torch (separate MikroTik connection)
+	// Run live ping using existing connection (reuse avoids second concurrent login which MikroTik may reject)
 	var pingMs float64
 	var pingOk bool
-	var pingWg sync.WaitGroup
 	if session.Address != "" {
-		pingWg.Add(1)
-		go func() {
-			defer pingWg.Done()
-			pingClient := mikrotik.NewClient(
-				fmt.Sprintf("%s:%d", subscriber.Nas.IPAddress, subscriber.Nas.APIPort),
-				subscriber.Nas.APIUsername,
-				subscriber.Nas.APIPassword,
-			)
-			defer pingClient.Close()
-			if result, err := pingClient.Ping(session.Address, 1, 0); err == nil && result.Received > 0 {
-				pingMs = result.AvgRTT
-				pingOk = true
-			}
-		}()
+		if result, err := client.Ping(session.Address, 1, 0); err == nil && result.Received > 0 {
+			pingMs = result.AvgRTT
+			pingOk = true
+		}
 	}
 
 	// Get CDN and Port Rule traffic breakdown using a single Torch run
@@ -4353,8 +4341,6 @@ func (h *SubscriberHandler) GetBandwidth(c *fiber.Ctx) error {
 		}
 	}
 
-	// Wait for ping goroutine and add result
-	pingWg.Wait()
 	response.PingMs = pingMs
 	response.PingOk = pingOk
 
