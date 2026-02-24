@@ -16,9 +16,17 @@ import (
 	"github.com/proisp/backend/internal/models"
 )
 
-// proxRadAPISecret is the owner's proxsms.com API key — shared by all customers
-const proxRadAPISecret = "ad893b18ecad5d1fb751523420a2aaf04ac7b05e"
+// proxRadAPIBase is the base URL for the proxsms.com API
 const proxRadAPIBase = "http://proxsms.com/api"
+
+// getProxRadAPISecret returns the proxsms.com API key from env (PROXRAD_API_SECRET).
+// Falls back to the legacy hardcoded value if the env var is not set.
+func getProxRadAPISecret() string {
+	if v := os.Getenv("PROXRAD_API_SECRET"); v != "" {
+		return v
+	}
+	return "ad893b18ecad5d1fb751523420a2aaf04ac7b05e"
+}
 
 // WhatsAppService handles sending WhatsApp messages via Ultramsg or ProxRad
 type WhatsAppService struct {
@@ -67,7 +75,7 @@ func (s *WhatsAppService) GetProxRadConfig() (*ProxRadConfig, error) {
 		return nil, fmt.Errorf("ProxRad WhatsApp account not linked yet")
 	}
 	return &ProxRadConfig{
-		APISecret:     proxRadAPISecret,
+		APISecret:     getProxRadAPISecret(),
 		AccountUnique: accountUnique,
 		APIBase:       proxRadAPIBase,
 	}, nil
@@ -128,7 +136,7 @@ func (s *WhatsAppService) CreateProxRadLink(sid int) (*ProxRadLinkResult, error)
 	if sid <= 0 {
 		sid = 1
 	}
-	reqURL := fmt.Sprintf("%s/create/wa.link?secret=%s&sid=%d", proxRadAPIBase, url.QueryEscape(proxRadAPISecret), sid)
+	reqURL := fmt.Sprintf("%s/create/wa.link?secret=%s&sid=%d", proxRadAPIBase, url.QueryEscape(getProxRadAPISecret()), sid)
 	resp, err := s.client.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %v", err)
@@ -186,7 +194,7 @@ func (s *WhatsAppService) GetProxRadLinkStatus(infoURL string) (*ProxRadLinkInfo
 
 // GetProxRadAccounts lists all WhatsApp accounts from proxsms.com
 func (s *WhatsAppService) GetProxRadAccounts() ([]ProxRadWAAccount, error) {
-	reqURL := fmt.Sprintf("%s/get/wa.accounts?secret=%s", proxRadAPIBase, url.QueryEscape(proxRadAPISecret))
+	reqURL := fmt.Sprintf("%s/get/wa.accounts?secret=%s", proxRadAPIBase, url.QueryEscape(getProxRadAPISecret()))
 	resp, err := s.client.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %v", err)
@@ -312,7 +320,7 @@ func (s *WhatsAppService) InvalidateProxRadAccessCache() {
 // DisconnectProxRadAccount calls proxsms.com to delete/disconnect the given account unique ID
 func (s *WhatsAppService) DisconnectProxRadAccount(unique string) error {
 	reqURL := fmt.Sprintf("%s/delete/wa.account?secret=%s&unique=%s",
-		proxRadAPIBase, url.QueryEscape(proxRadAPISecret), url.QueryEscape(unique))
+		proxRadAPIBase, url.QueryEscape(getProxRadAPISecret()), url.QueryEscape(unique))
 
 	resp, err := s.client.Get(reqURL)
 	if err != nil {
@@ -384,7 +392,7 @@ func (s *WhatsAppService) SendMessageViaProxRad(config *ProxRadConfig, to, messa
 // Used by per-reseller WhatsApp feature
 func (s *WhatsAppService) SendMessageWithAccountUnique(accountUnique, to, message string) error {
 	config := &ProxRadConfig{
-		APISecret:     proxRadAPISecret,
+		APISecret:     getProxRadAPISecret(),
 		AccountUnique: accountUnique,
 		APIBase:       proxRadAPIBase,
 	}
@@ -658,8 +666,8 @@ func (s *WhatsAppService) BulkSendMessage(recipients []string, message string) (
 	errors := make([]error, len(recipients))
 	for i, to := range recipients {
 		errors[i] = s.SendMessageWithConfig(config, to, message)
-		// Add small delay to avoid rate limiting
-		time.Sleep(500 * time.Millisecond)
+		// Add delay to stay within WhatsApp rate limit (1 message/second minimum)
+		time.Sleep(1000 * time.Millisecond)
 	}
 
 	return errors, nil

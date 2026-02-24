@@ -200,6 +200,7 @@ type QuotaSyncService struct {
 	wg                    sync.WaitGroup
 	timeBasedSpeedState   map[string]*TimeSpeedState // username -> time-based speed state
 	mu                    sync.RWMutex
+	syncMu                sync.Mutex // prevents concurrent syncAllQuotas runs
 }
 
 // NewQuotaSyncService creates a new quota sync service
@@ -244,6 +245,13 @@ func (s *QuotaSyncService) Stop() {
 
 // syncAllQuotas syncs quota for all online subscribers
 func (s *QuotaSyncService) syncAllQuotas() {
+	// Prevent concurrent runs: if previous cycle is still running, skip this one
+	if !s.syncMu.TryLock() {
+		log.Println("QuotaSync: previous cycle still running, skipping this tick")
+		return
+	}
+	defer s.syncMu.Unlock()
+
 	// Detect and resolve static IP conflicts first
 	// This kicks dynamic users who got a static IP from the pool
 	s.detectAndResolveStaticIPConflicts()

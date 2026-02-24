@@ -176,6 +176,15 @@ func main() {
 	app.Use(middleware.CORS())
 	app.Use(license.LicenseStatusMiddleware()) // Add license status headers to all responses
 
+	// Security headers
+	app.Use(func(c *fiber.Ctx) error {
+		c.Set("X-Content-Type-Options", "nosniff")
+		c.Set("X-Frame-Options", "SAMEORIGIN")
+		c.Set("X-XSS-Protection", "1; mode=block")
+		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		return c.Next()
+	})
+
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{

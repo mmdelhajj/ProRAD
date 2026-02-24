@@ -1394,6 +1394,9 @@ func (h *BackupHandler) decryptBackupWithPassword(inputPath, outputPath, passwor
 func (h *BackupHandler) ListBackupLogs(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	if limit < 1 || limit > 200 {
+		limit = 50
+	}
 	offset := (page - 1) * limit
 
 	var logs []models.BackupLog

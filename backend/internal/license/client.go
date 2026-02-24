@@ -971,9 +971,19 @@ type WASubscriptionStatus struct {
 	DaysLeft  int        `json:"days_left"`
 }
 
+// waSubCache is a local cache of the last known WhatsApp subscription status per reseller.
+// Key: resellerDBID (as string). Cached for 5 minutes to survive brief outages.
+var (
+	waSubCache   = make(map[int]*WASubscriptionStatus)
+	waSubCacheAt = make(map[int]time.Time)
+	waSubMu      sync.Mutex
+)
+
+const waSubCacheTTL = 5 * time.Minute
+
 // CheckWhatsAppSubscription checks (or creates) the WhatsApp subscription for the given reseller.
 // resellerDBID=0 means the admin account.
-// On any network/license error, returns CanUse=true (fail-open) so users aren't blocked by outages.
+// On network/license errors it returns the last cached result (fail-secure: deny if no cache).
 func CheckWhatsAppSubscription(resellerDBID int, resellerName, accountUnique string) (*WASubscriptionStatus, error) {
 	if defaultClient == nil || devMode {
 		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
@@ -1001,7 +1011,7 @@ func CheckWhatsAppSubscription(resellerDBID int, resellerName, accountUnique str
 
 	req, err := http.NewRequest("POST", serverURL+"/api/v1/license/whatsapp/check", bytes.NewBuffer(bodyData))
 	if err != nil {
-		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
+		return waSubCachedOrDeny(resellerDBID, fmt.Sprintf("failed to build request: %v", err))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-License-Key", licenseKey)
@@ -1009,8 +1019,8 @@ func CheckWhatsAppSubscription(resellerDBID int, resellerName, accountUnique str
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("WhatsApp subscription check failed (network error): %v — fail-open", err)
-		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
+		log.Printf("WhatsApp subscription check failed (network error): %v — using cache/deny", err)
+		return waSubCachedOrDeny(resellerDBID, err.Error())
 	}
 	defer resp.Body.Close()
 
@@ -1023,15 +1033,39 @@ func CheckWhatsAppSubscription(resellerDBID int, resellerName, accountUnique str
 		DaysLeft  int        `json:"days_left"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		log.Printf("WhatsApp subscription check: bad response — fail-open")
-		return &WASubscriptionStatus{CanUse: true, Type: "trial", DaysLeft: 2}, nil
+		log.Printf("WhatsApp subscription check: bad response — using cache/deny")
+		return waSubCachedOrDeny(resellerDBID, "bad response from license server")
 	}
 
-	return &WASubscriptionStatus{
+	status := &WASubscriptionStatus{
 		CanUse:    result.CanUse,
 		Type:      result.Type,
 		TrialEnd:  result.TrialEnd,
 		ExpiresAt: result.ExpiresAt,
 		DaysLeft:  result.DaysLeft,
-	}, nil
+	}
+
+	// Cache the successful response
+	waSubMu.Lock()
+	waSubCache[resellerDBID] = status
+	waSubCacheAt[resellerDBID] = time.Now()
+	waSubMu.Unlock()
+
+	return status, nil
+}
+
+// waSubCachedOrDeny returns the cached subscription status if still fresh, otherwise denies.
+func waSubCachedOrDeny(resellerDBID int, reason string) (*WASubscriptionStatus, error) {
+	waSubMu.Lock()
+	cached, ok := waSubCache[resellerDBID]
+	cachedAt := waSubCacheAt[resellerDBID]
+	waSubMu.Unlock()
+
+	if ok && time.Since(cachedAt) < waSubCacheTTL {
+		log.Printf("WhatsApp subscription: using cached result (CanUse=%v) due to: %s", cached.CanUse, reason)
+		return cached, nil
+	}
+
+	log.Printf("WhatsApp subscription: no valid cache, denying access due to: %s", reason)
+	return &WASubscriptionStatus{CanUse: false, Type: "error", DaysLeft: 0}, nil
 }
