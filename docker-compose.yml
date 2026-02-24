@@ -14,6 +14,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"
+    networks:
+      - proxpanel
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-proxpanel}"]
       interval: 10s
@@ -30,6 +32,8 @@ services:
       - redis_data:/data
     ports:
       - "127.0.0.1:6379:6379"
+    networks:
+      - proxpanel
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ProxPanel@Redis2024!}", "ping"]
       interval: 10s
@@ -89,6 +93,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - proxpanel
 
   # RADIUS Server
   radius:
@@ -138,6 +144,8 @@ services:
       - "80:80"
     depends_on:
       - api
+    networks:
+      - proxpanel
     healthcheck:
       test: ["CMD-SHELL", "[ -f /usr/share/nginx/html/index.html ] || exit 1"]
       interval: 10s
@@ -148,3 +156,14 @@ services:
 volumes:
   postgres_data:
   redis_data:
+
+# Fixed subnet prevents Docker from auto-assigning a bridge network that
+# might overlap with customer LAN routes (e.g. 172.16.x.x, 172.20.x.x).
+# 172.28.0.0/24 is reserved here and must never conflict with customer networks.
+networks:
+  proxpanel:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/24
