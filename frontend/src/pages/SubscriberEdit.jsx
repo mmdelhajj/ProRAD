@@ -534,10 +534,14 @@ export default function SubscriberEdit() {
   const saveMutation = useMutation({
     mutationFn: (data) =>
       isNew ? subscriberApi.create(data) : subscriberApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success(isNew ? 'Subscriber created' : 'Subscriber updated')
       queryClient.invalidateQueries(['subscribers'])
-      navigate('/subscribers')
+      if (isNew) {
+        navigate(`/subscribers/${res.data.data?.id || res.data.id}`)
+      } else {
+        queryClient.invalidateQueries(['subscriber', id])
+      }
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to save'),
   })
