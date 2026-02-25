@@ -738,9 +738,13 @@ func (s *BackupSchedulerService) EncryptFile(inputPath, outputPath string) error
 	// Encrypt and prepend nonce
 	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
 
-	// Write encrypted file with magic header
-	header := []byte("PROXPANEL_ENCRYPTED_BACKUP_V1\n")
-	output := append(header, ciphertext...)
+	// Write encrypted file with V2 header (embeds license key for cross-server restore)
+	licenseKey := os.Getenv("LICENSE_KEY")
+	if licenseKey == "" {
+		licenseKey = "UNKNOWN"
+	}
+	header := fmt.Sprintf("PROXPANEL_ENCRYPTED_BACKUP_V2\nLICENSE_KEY=%s\n", licenseKey)
+	output := append([]byte(header), ciphertext...)
 
 	if err := os.WriteFile(outputPath, output, 0600); err != nil {
 		return fmt.Errorf("failed to write encrypted file: %v", err)

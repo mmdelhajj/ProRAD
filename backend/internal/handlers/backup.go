@@ -531,13 +531,26 @@ func (h *BackupHandler) ValidateBackup(c *fiber.Ctx) error {
 
 	// Check if this is an encrypted backup (.proisp.bak)
 	if strings.HasSuffix(filename, ".proisp.bak") {
-		// Try to decrypt the backup
+		// Try to decrypt using local password first, then license server password
 		tempDecrypted = filepath.Join(h.backupDir, fmt.Sprintf(".validate_temp_%d.dump", time.Now().UnixNano()))
-		if err := h.decryptBackup(filePath, tempDecrypted); err != nil {
+		var validateDecryptErr error
+		passwordsToTry := []string{h.cfg.DBPassword}
+		if fetchedPwd, err := h.fetchDBPasswordFromLicenseServerWithKey(os.Getenv("LICENSE_KEY")); err == nil && fetchedPwd != "" && fetchedPwd != h.cfg.DBPassword {
+			passwordsToTry = append(passwordsToTry, fetchedPwd)
+		}
+		for _, pwd := range passwordsToTry {
+			if err := h.decryptBackupWithPassword(filePath, tempDecrypted, pwd); err == nil {
+				validateDecryptErr = nil
+				break
+			} else {
+				validateDecryptErr = err
+			}
+		}
+		if validateDecryptErr != nil {
 			return c.JSON(fiber.Map{
 				"success": true,
 				"valid":   false,
-				"message": fmt.Sprintf("Backup decryption failed: %v. This backup cannot be restored on this server.", err),
+				"message": fmt.Sprintf("Backup decryption failed: %v. This backup cannot be restored on this server.", validateDecryptErr),
 				"data":    validationResult,
 			})
 		}
@@ -646,10 +659,6 @@ func (h *BackupHandler) Restore(c *fiber.Ctx) error {
 
 	// Check if this is an encrypted backup (.proisp.bak)
 	if strings.HasSuffix(filename, ".proisp.bak") {
-		// Try to fetch DB password from license server for cross-server restores
-		// This is needed when restoring a backup from a different server
-		dbPassword := h.cfg.DBPassword // Default to current server's password
-
 		// Try to extract license key from backup file header (V2 format)
 		sourceLicenseKey := reqBody.SourceLicenseKey
 		if sourceLicenseKey == "" {
@@ -664,20 +673,44 @@ func (h *BackupHandler) Restore(c *fiber.Ctx) error {
 			}
 		}
 
-		// Attempt to fetch from license server
+		// Build list of passwords to try, in order of priority
+		var passwordsToTry []string
+
+		// 1. Try fetched password from license server first (for cross-server restores)
 		if fetchedPassword, err := h.fetchDBPasswordFromLicenseServerWithKey(sourceLicenseKey); err == nil && fetchedPassword != "" {
-			dbPassword = fetchedPassword
-			log.Printf("Restore: Using DB password from license server (license: %s) for decryption", sourceLicenseKey)
+			log.Printf("Restore: Got DB password from license server (license: %s)", sourceLicenseKey)
+			passwordsToTry = append(passwordsToTry, fetchedPassword)
 		} else {
-			log.Printf("Restore: Using current server's DB password (license server fetch failed: %v)", err)
+			log.Printf("Restore: License server fetch failed (%v), will try local password only", err)
 		}
 
-		// Decrypt the backup first
+		// 2. Always also try local DB password as fallback (backup may have been encrypted
+		//    before Option-2 secrets were configured, or license server password differs from .env)
+		if h.cfg.DBPassword != "" && (len(passwordsToTry) == 0 || passwordsToTry[0] != h.cfg.DBPassword) {
+			passwordsToTry = append(passwordsToTry, h.cfg.DBPassword)
+		}
+
+		// Decrypt the backup — try each password until one succeeds
 		tempDecrypted = filepath.Join(h.backupDir, fmt.Sprintf(".restore_temp_%d.dump", time.Now().UnixNano()))
-		if err := h.decryptBackupWithPassword(filePath, tempDecrypted, dbPassword); err != nil {
+		var decryptErr error
+		for i, pwd := range passwordsToTry {
+			if err := h.decryptBackupWithPassword(filePath, tempDecrypted, pwd); err == nil {
+				if i > 0 {
+					log.Printf("Restore: Decryption succeeded using fallback password #%d", i+1)
+				} else {
+					log.Printf("Restore: Decryption succeeded")
+				}
+				decryptErr = nil
+				break
+			} else {
+				log.Printf("Restore: Password #%d failed: %v", i+1, err)
+				decryptErr = err
+			}
+		}
+		if decryptErr != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"success": false,
-				"message": fmt.Sprintf("Failed to decrypt backup: %v. This backup cannot be restored on this server - it may be from a different installation.", err),
+				"message": fmt.Sprintf("Failed to decrypt backup: %v. This backup cannot be restored on this server - it may be from a different installation.", decryptErr),
 			})
 		}
 		defer os.Remove(tempDecrypted) // Clean up temp file after restore
@@ -861,14 +894,16 @@ func (h *BackupHandler) Upload(c *fiber.Ctx) error {
 
 	// Validate encrypted backup format if it's a .proisp.bak file
 	if isEncrypted {
-		// Read first 30 bytes to check header
+		// Read first 35 bytes to check header (V1=30 chars, V2=30 chars)
 		f, err := os.Open(destPath)
 		if err == nil {
-			header := make([]byte, 30)
+			header := make([]byte, 35)
 			n, _ := f.Read(header)
 			f.Close()
-			expectedHeader := "PROXPANEL_ENCRYPTED_BACKUP_V1\n"
-			if n < len(expectedHeader) || string(header[:len(expectedHeader)]) != expectedHeader {
+			headerStr := string(header[:n])
+			v1Header := "PROXPANEL_ENCRYPTED_BACKUP_V1\n"
+			v2Header := "PROXPANEL_ENCRYPTED_BACKUP_V2\n"
+			if !strings.HasPrefix(headerStr, v1Header) && !strings.HasPrefix(headerStr, v2Header) {
 				os.Remove(destPath)
 				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 					"success": false,

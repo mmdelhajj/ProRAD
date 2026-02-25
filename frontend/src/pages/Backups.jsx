@@ -36,11 +36,13 @@ const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'F
 export default function Backups() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef(null)
+  const uploadRestoreInputRef = useRef(null)
   const [activeTab, setActiveTab] = useState('manual')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(null)
   const [sourceLicenseKey, setSourceLicenseKey] = useState('')
   const [backupType, setBackupType] = useState('full')
+  const [uploadRestoreFile, setUploadRestoreFile] = useState(null)
 
   // Schedule modal state
   const [showScheduleModal, setShowScheduleModal] = useState(false)
@@ -132,16 +134,26 @@ export default function Backups() {
   })
 
   const uploadMutation = useMutation({
-    mutationFn: (file) => {
+    mutationFn: ({ file, restoreAfter }) => {
       const formData = new FormData()
       formData.append('file', file)
-      return backupApi.upload(formData)
+      return backupApi.upload(formData).then(res => ({ ...res, restoreAfter, filename: res.data?.data?.filename }))
     },
     onSuccess: (res) => {
-      toast.success(res.data.message)
       queryClient.invalidateQueries(['backups'])
+      if (res.restoreAfter && res.filename) {
+        toast.success('Backup uploaded — opening restore…')
+        setShowRestoreConfirm(res.filename)
+        setSourceLicenseKey('')
+      } else {
+        toast.success(res.data?.message || 'Backup uploaded')
+      }
+      setUploadRestoreFile(null)
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to upload'),
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to upload')
+      setUploadRestoreFile(null)
+    },
   })
 
   // Schedule mutations
@@ -247,8 +259,18 @@ export default function Backups() {
   const handleUpload = (e) => {
     const file = e.target.files?.[0]
     if (file) {
-      uploadMutation.mutate(file)
+      uploadMutation.mutate({ file, restoreAfter: false })
     }
+    e.target.value = ''
+  }
+
+  const handleUploadAndRestore = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setUploadRestoreFile(file.name)
+      uploadMutation.mutate({ file, restoreAfter: true })
+    }
+    e.target.value = ''
   }
 
   const resetScheduleForm = () => {
@@ -357,16 +379,34 @@ export default function Backups() {
           {activeTab === 'manual' && (
             <>
               <button
+                onClick={() => uploadRestoreInputRef.current?.click()}
+                disabled={uploadMutation.isPending}
+                className="btn-primary flex items-center gap-2"
+                title="Upload a backup file and immediately restore it"
+              >
+                <DocumentArrowUpIcon className="w-4 h-4" />
+                {uploadMutation.isPending && uploadRestoreFile ? 'Uploading…' : 'Upload & Restore'}
+              </button>
+              <input
+                ref={uploadRestoreInputRef}
+                type="file"
+                accept=".proisp.bak,.sql"
+                onChange={handleUploadAndRestore}
+                className="hidden"
+              />
+              <button
                 onClick={() => fileInputRef.current?.click()}
+                disabled={uploadMutation.isPending}
                 className="btn-secondary flex items-center gap-2"
+                title="Upload a backup file to the server list"
               >
                 <ArrowUpTrayIcon className="w-4 h-4" />
-                Upload Backup
+                Upload Only
               </button>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".sql"
+                accept=".proisp.bak,.sql"
                 onChange={handleUpload}
                 className="hidden"
               />

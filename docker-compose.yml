@@ -86,6 +86,7 @@ services:
       - /etc/machine-id:/etc/machine-id:ro
       - /var/lib/proxpanel:/var/lib/proxpanel
       - /etc/netplan:/etc/netplan
+      - ./uploads:/app/uploads
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
