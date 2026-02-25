@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import { useThemeStore } from '../store/themeStore'
@@ -146,6 +147,8 @@ export default function Layout({ children }) {
   const { user, logout, hasPermission, isAdmin, isReseller, refreshUser } = useAuthStore()
   const { companyName, companyLogo, fetchBranding, loaded } = useBrandingStore()
   const { theme, toggleTheme } = useThemeStore()
+  const queryClient = useQueryClient()
+  const inactivityTimer = useRef(null)
 
   // Fetch branding on mount
   useEffect(() => {
@@ -162,6 +165,46 @@ export default function Layout({ children }) {
     }, 60000)
     return () => clearInterval(interval)
   }, [])
+
+  // Auto-refresh all page data every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries()
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [queryClient])
+
+  // Inactivity logout after 10 minutes
+  useEffect(() => {
+    const TIMEOUT = 10 * 60 * 1000 // 10 minutes
+
+    const resetTimer = () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+      inactivityTimer.current = setTimeout(() => {
+        logout()
+        navigate('/login?reason=idle')
+      }, TIMEOUT)
+    }
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click']
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
+    resetTimer() // start the timer immediately
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer))
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+    }
+  }, [logout, navigate])
+
+  // Handle session expired (401 from API — token expired on server)
+  useEffect(() => {
+    const handleExpired = () => {
+      logout()
+      navigate('/login?reason=expired')
+    }
+    window.addEventListener('auth:session-expired', handleExpired)
+    return () => window.removeEventListener('auth:session-expired', handleExpired)
+  }, [logout, navigate])
 
   // Filter and order navigation
   useEffect(() => {

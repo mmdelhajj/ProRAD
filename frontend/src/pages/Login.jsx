@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import toast from 'react-hot-toast'
@@ -20,6 +20,8 @@ export default function Login() {
   const [requires2FA, setRequires2FA] = useState(false)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const sessionReason = searchParams.get('reason')
   const { login } = useAuthStore()
   const {
     companyName, companyLogo, loginBackground, footerText, primaryColor,
@@ -175,6 +177,17 @@ export default function Login() {
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h2>
                   <p className="text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
                 </div>
+
+                {sessionReason === 'idle' && (
+                  <div className="mb-5 px-4 py-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg text-sm text-yellow-800 dark:text-yellow-300">
+                    You were logged out due to inactivity. Please sign in again.
+                  </div>
+                )}
+                {sessionReason === 'expired' && (
+                  <div className="mb-5 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-sm text-red-800 dark:text-red-300">
+                    Your session has expired. Please sign in again.
+                  </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div>

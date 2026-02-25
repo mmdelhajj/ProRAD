@@ -61,8 +61,8 @@ api.interceptors.request.use(
     if (!authData) return config
 
     try {
-      const { state } = JSON.parse(authData)
-      const token = state?.token
+      const parsed = JSON.parse(authData)
+      const token = parsed?.token
 
       if (token && shouldRefreshToken(token)) {
         if (!isRefreshing) {
@@ -74,8 +74,8 @@ api.interceptors.request.use(
             if (response.data.success && response.data.token) {
               const newToken = response.data.token
               // Update stored token
-              state.token = newToken
-              localStorage.setItem('proisp-auth', JSON.stringify({ state }))
+              parsed.token = newToken
+              localStorage.setItem('proisp-auth', JSON.stringify(parsed))
               api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
               config.headers['Authorization'] = `Bearer ${newToken}`
               onRefreshed(newToken)
@@ -127,9 +127,20 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    // NOTE: We do NOT auto-logout on 401 here anymore
-    // The PrivateRoute component handles auth redirects after Zustand hydration
-    // Auto-logout was causing issues because requests could fire before hydration completed
+    // Handle 401 Unauthorized - token expired or invalid
+    if (error.response?.status === 401) {
+      const authData = localStorage.getItem('proisp-auth')
+      if (authData) {
+        try {
+          const data = JSON.parse(authData)
+          if (data.token) {
+            // Token exists but server rejected it → session expired
+            localStorage.removeItem('proisp-auth')
+            window.dispatchEvent(new CustomEvent('auth:session-expired'))
+          }
+        } catch (e) { /* ignore */ }
+      }
+    }
 
     // Handle license-related errors
     if (error.response?.status === 403) {
