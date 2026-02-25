@@ -1493,7 +1493,7 @@ After=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'if [ -f /opt/proxpanel/.update-complete ]; then cd /opt/proxpanel && (docker compose restart 2>/dev/null || docker-compose restart); rm -f /opt/proxpanel/.update-complete; fi'
+ExecStart=/bin/bash -c 'if [ -f /opt/proxpanel/.update-complete ]; then cd /opt/proxpanel && (docker compose restart proxpanel-api proxpanel-radius 2>/dev/null || docker-compose restart proxpanel-api proxpanel-radius) && (docker compose up -d proxpanel-frontend 2>/dev/null || docker-compose up -d proxpanel-frontend) && docker exec proxpanel-frontend nginx -s reload 2>/dev/null || true; rm -f /opt/proxpanel/.update-complete; fi'
 
 [Install]
 WantedBy=multi-user.target
