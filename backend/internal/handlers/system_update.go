@@ -545,16 +545,31 @@ func (h *SystemUpdateHandler) performUpdate(version string) {
 	exec.Command("sh", "-c", "cp -r '"+tmpDist+"/.' '"+currentDist+"/'").Run()
 	exec.Command("rm", "-rf", tmpDist).Run()
 
-	// Ensure nginx.conf exists for frontend
-	nginxConf := filepath.Join(h.installDir, "frontend", "nginx.conf")
-	if _, err := os.Stat(nginxConf); os.IsNotExist(err) {
-		nginxContent := `server {
+	// Update nginx.conf - but NEVER overwrite if SSL is configured
+	currentNginxConf := filepath.Join(h.installDir, "frontend", "nginx.conf")
+	newNginxConf := filepath.Join(packageRoot, "frontend", "nginx.conf")
+	if _, err := os.Stat(newNginxConf); err == nil {
+		// Update package contains a new nginx.conf
+		if h.hasSSLConfigured(currentNginxConf) {
+			// Server has SSL - skip overwrite, preserve existing SSL config
+			log.Println("Update: SSL detected in nginx.conf - skipping overwrite to preserve SSL configuration")
+		} else {
+			// No SSL configured - safe to apply new nginx.conf from package
+			if err := exec.Command("cp", "-f", newNginxConf, currentNginxConf).Run(); err != nil {
+				log.Printf("Update: Failed to update nginx.conf: %v", err)
+			} else {
+				log.Println("Update: nginx.conf updated from package")
+			}
+		}
+	} else if _, err := os.Stat(currentNginxConf); os.IsNotExist(err) {
+		// No nginx.conf anywhere - write a safe default
+		os.WriteFile(currentNginxConf, []byte(`server {
     listen 80;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
 
-    location /api {
+    location /api/ {
         proxy_pass http://proxpanel-api:8080;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -567,8 +582,7 @@ func (h *SystemUpdateHandler) performUpdate(version string) {
         try_files $uri $uri/ /index.html;
     }
 }
-`
-		os.WriteFile(nginxConf, []byte(nginxContent), 0644)
+`), 0644)
 	}
 
 	// Cleanup
@@ -608,6 +622,16 @@ func (h *SystemUpdateHandler) setError(message string) {
 	h.updateStatus.Error = message
 	h.updateStatus.Message = "Update failed"
 	h.updateStatus.Progress = 0
+}
+
+// hasSSLConfigured checks if the given nginx.conf has SSL configured
+func (h *SystemUpdateHandler) hasSSLConfigured(nginxConfPath string) bool {
+	data, err := os.ReadFile(nginxConfPath)
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(data, []byte("listen 443 ssl")) ||
+		bytes.Contains(data, []byte("ssl_certificate"))
 }
 
 func (h *SystemUpdateHandler) downloadFile(url, dest string) error {
