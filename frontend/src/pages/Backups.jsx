@@ -8,6 +8,7 @@ import {
   ArrowUpTrayIcon,
   TrashIcon,
   CloudArrowUpIcon,
+  CloudIcon,
   DocumentArrowUpIcon,
   ExclamationTriangleIcon,
   CalendarDaysIcon,
@@ -60,8 +61,13 @@ export default function Backups() {
     ftp_password: '',
     ftp_path: '/backups',
     is_enabled: true,
+    upload_to_cloud: false,
   })
   const [testingFTP, setTestingFTP] = useState(false)
+
+  // Cloud backup state
+  const [cloudDeleteConfirm, setCloudDeleteConfirm] = useState(null)
+  const [cloudUploadConfirm, setCloudUploadConfirm] = useState(null)
 
   // Manual backups query
   const { data, isLoading, refetch } = useQuery({
@@ -80,6 +86,19 @@ export default function Backups() {
     queryKey: ['backup-logs'],
     queryFn: () => backupApi.listLogs({ limit: 50 }).then((r) => r.data),
     enabled: activeTab === 'logs',
+  })
+
+  // Cloud backup queries
+  const { data: cloudBackupsData, isLoading: cloudLoading, refetch: refetchCloud } = useQuery({
+    queryKey: ['cloud-backups'],
+    queryFn: () => backupApi.cloudList().then((r) => r.data),
+    enabled: activeTab === 'cloud',
+  })
+
+  const { data: cloudUsageData } = useQuery({
+    queryKey: ['cloud-usage'],
+    queryFn: () => backupApi.cloudUsage().then((r) => r.data),
+    enabled: activeTab === 'cloud',
   })
 
   const createMutation = useMutation({
@@ -176,6 +195,42 @@ export default function Backups() {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to run backup'),
   })
 
+  // Cloud backup mutations
+  const cloudUploadMutation = useMutation({
+    mutationFn: (filename) => backupApi.cloudUpload(filename),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'Backup uploaded to cloud')
+      setCloudUploadConfirm(null)
+      queryClient.invalidateQueries(['cloud-backups'])
+      queryClient.invalidateQueries(['cloud-usage'])
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to upload to cloud'),
+  })
+
+  const cloudDeleteMutation = useMutation({
+    mutationFn: (backupId) => backupApi.cloudDelete(backupId),
+    onSuccess: () => {
+      toast.success('Cloud backup deleted')
+      setCloudDeleteConfirm(null)
+      queryClient.invalidateQueries(['cloud-backups'])
+      queryClient.invalidateQueries(['cloud-usage'])
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete cloud backup'),
+  })
+
+  const handleCloudDownload = async (backupId) => {
+    try {
+      const { data } = await backupApi.cloudDownloadToken(backupId)
+      if (data.success && data.url) {
+        window.open(data.url, '_blank')
+      } else {
+        toast.error('Failed to get download token')
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to download cloud backup')
+    }
+  }
+
   const handleDownload = async (filename) => {
     try {
       const { data } = await backupApi.getDownloadToken(filename)
@@ -213,6 +268,7 @@ export default function Backups() {
       ftp_password: '',
       ftp_path: '/backups',
       is_enabled: true,
+      upload_to_cloud: false,
     })
   }
 
@@ -235,6 +291,7 @@ export default function Backups() {
         ftp_password: schedule.ftp_password || '',
         ftp_path: schedule.ftp_path || '/backups',
         is_enabled: schedule.is_enabled !== false,
+        upload_to_cloud: schedule.upload_to_cloud || false,
       })
     } else {
       setEditingSchedule(null)
@@ -285,6 +342,9 @@ export default function Backups() {
   const backups = data?.data || []
   const schedules = schedulesData?.data || []
   const logs = logsData?.data || []
+  const cloudBackups = cloudBackupsData?.data || []
+  const cloudUsage = cloudUsageData?.data || null
+  const usagePercent = cloudUsage ? Math.round((cloudUsage.used_bytes / cloudUsage.quota_bytes) * 100) : 0
 
   return (
     <div className="space-y-6">
@@ -344,6 +404,15 @@ export default function Backups() {
               </button>
             </>
           )}
+          {activeTab === 'cloud' && (
+            <button
+              onClick={() => { refetchCloud(); queryClient.invalidateQueries(['cloud-usage']) }}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              Refresh
+            </button>
+          )}
         </div>
       </div>
 
@@ -354,6 +423,7 @@ export default function Backups() {
             { id: 'manual', label: 'Manual Backups', icon: CloudArrowUpIcon },
             { id: 'scheduled', label: 'Scheduled Backups', icon: CalendarDaysIcon },
             { id: 'logs', label: 'Backup Logs', icon: ClockIcon },
+            { id: 'cloud', label: 'Cloud Backup', icon: CloudIcon },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -466,6 +536,13 @@ export default function Backups() {
                               <ArrowPathIcon className="w-4 h-4" />
                             </button>
                             <button
+                              onClick={() => setCloudUploadConfirm(backup.filename)}
+                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
+                              title="Upload to Cloud"
+                            >
+                              <CloudArrowUpIcon className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => {
                                 if (confirm('Are you sure you want to delete this backup?')) {
                                   deleteMutation.mutate(backup.filename)
@@ -559,6 +636,10 @@ export default function Backups() {
                             ? 'Local + FTP'
                             : schedule.storage_type === 'ftp'
                             ? 'FTP Only'
+                            : schedule.storage_type === 'cloud'
+                            ? 'ProxPanel Cloud'
+                            : schedule.storage_type === 'local+cloud'
+                            ? 'Local + Cloud'
                             : 'Local Only'}
                           {schedule.ftp_enabled && schedule.ftp_host && (
                             <span className="ml-2 text-gray-400 dark:text-gray-500 dark:text-gray-400">({schedule.ftp_host})</span>
@@ -707,6 +788,252 @@ export default function Backups() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Cloud Backup Tab */}
+      {activeTab === 'cloud' && (
+        <div className="space-y-6">
+          {/* Storage Usage Bar */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CloudIcon className="w-5 h-5 text-blue-500" />
+                <span className="font-medium text-gray-900 dark:text-white">ProxPanel Cloud Storage</span>
+                <span className="badge badge-info text-xs">{cloudUsage?.tier?.toUpperCase() || 'FREE'}</span>
+              </div>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {formatBytes(cloudUsage?.used_bytes || 0)} / {formatBytes(cloudUsage?.quota_bytes || 524288000)}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div
+                className={clsx(
+                  'h-2 rounded-full transition-all',
+                  usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'
+                )}
+                style={{ width: `${Math.min(usagePercent, 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {cloudUsage?.backup_count || cloudBackups.length} backups stored &bull; Free tier: 500 MB &bull;{' '}
+              <button className="text-blue-500 hover:underline">Upgrade</button>
+            </p>
+          </div>
+
+          {/* Cloud Backups Table */}
+          <div className="card">
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Filename</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Uploaded</th>
+                    <th>Expires</th>
+                    <th>Downloads</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {cloudLoading ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8">
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : cloudBackups.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <CloudIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                        <p className="font-medium mb-1">No cloud backups yet</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500">
+                          Upload a local backup to get started. Click the{' '}
+                          <CloudArrowUpIcon className="w-4 h-4 inline" /> icon on any local backup.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    cloudBackups.map((backup) => (
+                      <tr key={backup.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <CloudIcon className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                            <span className="font-medium text-sm">{backup.filename}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            className={clsx(
+                              'badge',
+                              backup.type === 'full'
+                                ? 'badge-success'
+                                : backup.type === 'data'
+                                ? 'badge-info'
+                                : 'badge-warning'
+                            )}
+                          >
+                            {backup.type || 'full'}
+                          </span>
+                        </td>
+                        <td className="text-sm">{formatBytes(backup.size || 0)}</td>
+                        <td className="text-sm">{backup.uploaded_at ? formatDateTime(backup.uploaded_at) : formatDateTime(backup.created_at)}</td>
+                        <td className="text-sm">
+                          {backup.expires_at ? (
+                            <span className={clsx(
+                              new Date(backup.expires_at) < new Date() ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
+                            )}>
+                              {formatDate(backup.expires_at)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500">Never</span>
+                          )}
+                        </td>
+                        <td className="text-sm text-gray-500 dark:text-gray-400">
+                          {backup.download_count || 0}
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleCloudDownload(backup.id)}
+                              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
+                              title="Download from Cloud"
+                            >
+                              <ArrowDownTrayIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setCloudDeleteConfirm(backup)}
+                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                              title="Delete from Cloud"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Upload from Local Section */}
+          {backups.length > 0 && (
+            <div className="card p-4">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <CloudArrowUpIcon className="w-5 h-5 text-blue-500" />
+                Upload Local Backup to Cloud
+              </h3>
+              <div className="space-y-2">
+                {backups.map((backup) => (
+                  <div key={backup.filename} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <DocumentArrowUpIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{backup.filename}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{formatBytes(backup.size || 0)}</span>
+                    </div>
+                    <button
+                      onClick={() => setCloudUploadConfirm(backup.filename)}
+                      className="btn-secondary text-xs py-1 px-3 flex items-center gap-1 flex-shrink-0 ml-3"
+                    >
+                      <CloudArrowUpIcon className="w-3.5 h-3.5" />
+                      Upload
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cloud Upload Confirmation Modal */}
+      {cloudUploadConfirm && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50" onClick={() => setCloudUploadConfirm(null)} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                  <CloudArrowUpIcon className="w-6 h-6 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Upload to Cloud</h2>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 mb-2">
+                Upload this backup to ProxPanel Cloud Storage?
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 font-mono bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                {cloudUploadConfirm}
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setCloudUploadConfirm(null)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => cloudUploadMutation.mutate(cloudUploadConfirm)}
+                  disabled={cloudUploadMutation.isLoading}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  {cloudUploadMutation.isLoading ? (
+                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CloudArrowUpIcon className="w-4 h-4" />
+                  )}
+                  Upload to Cloud
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cloud Delete Confirmation Modal */}
+      {cloudDeleteConfirm && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50" onClick={() => setCloudDeleteConfirm(null)} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Delete Cloud Backup</h2>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 mb-2">
+                Are you sure you want to permanently delete this cloud backup?
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 font-mono bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                {cloudDeleteConfirm.filename}
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setCloudDeleteConfirm(null)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => cloudDeleteMutation.mutate(cloudDeleteConfirm.id)}
+                  disabled={cloudDeleteMutation.isLoading}
+                  className="btn-danger flex items-center gap-2"
+                >
+                  {cloudDeleteMutation.isLoading ? (
+                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <TrashIcon className="w-4 h-4" />
+                  )}
+                  Delete from Cloud
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -993,6 +1320,8 @@ export default function Backups() {
                       <option value="local">Local Only</option>
                       <option value="ftp">FTP Only</option>
                       <option value="both">Local + FTP</option>
+                      <option value="cloud">ProxPanel Cloud</option>
+                      <option value="local+cloud">Local + Cloud</option>
                     </select>
                   </div>
 
@@ -1100,6 +1429,34 @@ export default function Backups() {
                       className={clsx(
                         'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow ring-0 transition duration-200 ease-in-out',
                         scheduleForm.is_enabled ? 'translate-x-5' : 'translate-x-0'
+                      )}
+                    />
+                  </button>
+                </div>
+
+                {/* Upload to Cloud Toggle */}
+                <div className="flex items-center justify-between border-t pt-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                      <CloudArrowUpIcon className="w-4 h-4 text-blue-500" />
+                      Upload to ProxPanel Cloud
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Auto-upload backup to cloud storage after each scheduled run
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleForm({ ...scheduleForm, upload_to_cloud: !scheduleForm.upload_to_cloud })}
+                    className={clsx(
+                      'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+                      scheduleForm.upload_to_cloud ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-600'
+                    )}
+                  >
+                    <span
+                      className={clsx(
+                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow ring-0 transition duration-200 ease-in-out',
+                        scheduleForm.upload_to_cloud ? 'translate-x-5' : 'translate-x-0'
                       )}
                     />
                   </button>

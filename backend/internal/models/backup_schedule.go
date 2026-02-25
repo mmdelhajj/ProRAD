@@ -22,6 +22,9 @@ type BackupSchedule struct {
 	StorageType string `json:"storage_type" gorm:"column:storage_type;size:20;default:local"` // local, ftp, both
 	LocalPath   string `json:"local_path" gorm:"column:local_path;size:255"`
 
+	// Cloud backup fields (ProxPanel Cloud)
+	CloudEnabled bool `json:"cloud_enabled" gorm:"column:cloud_enabled;default:false"`
+
 	// FTP settings
 	FTPEnabled  bool   `json:"ftp_enabled" gorm:"column:ftp_enabled;default:false"`
 	FTPHost     string `json:"ftp_host" gorm:"column:ftp_host;size:255"`

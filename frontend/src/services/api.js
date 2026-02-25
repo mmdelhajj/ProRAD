@@ -301,6 +301,28 @@ export const backupApi = {
   runScheduleNow: (id) => api.post(`/backups/schedules/${id}/run`),
   testFTP: (data) => api.post('/backups/test-ftp', data),
   listLogs: (params) => api.get('/backups/logs', { params }),
+  // Cloud backup
+  cloudList: () => api.get('/backups/cloud/list'),
+  cloudUsage: () => api.get('/backups/cloud/usage'),
+  cloudUpload: (filename) => api.post(`/backups/${filename}/cloud-upload`),
+  cloudDownload: (backupId) => api.get(`/backups/cloud/download/${backupId}`, { responseType: 'blob' }),
+  cloudDelete: (backupId) => api.delete(`/backups/cloud/${backupId}`),
+  cloudDownloadToken: (backupId) => api.get(`/backups/cloud/${backupId}/token`),
+}
+
+// Cloud backup download helper (handles blob response + file save)
+export const downloadCloudBackup = async (backupId, filename) => {
+  const response = await api.get(`/backups/cloud/download/${backupId}`, {
+    responseType: 'blob',
+  })
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', filename || `cloud-backup-${backupId}.proisp.bak`)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }
 
 export const permissionApi = {

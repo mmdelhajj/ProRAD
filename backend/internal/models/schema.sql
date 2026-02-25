@@ -1018,6 +1018,14 @@ BEGIN
     END IF;
 END $$;
 
+-- Add cloud_enabled column to backup_schedules if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'backup_schedules' AND column_name = 'cloud_enabled') THEN
+        ALTER TABLE backup_schedules ADD COLUMN cloud_enabled BOOLEAN DEFAULT false;
+    END IF;
+END $$;
+
 -- HA Cluster Configuration
 CREATE TABLE IF NOT EXISTS cluster_config (
     id SERIAL PRIMARY KEY,

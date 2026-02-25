@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -9,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -182,6 +185,44 @@ func (s *BackupSchedulerService) runBackup(schedule *models.BackupSchedule) {
 		}
 	}
 
+	// Upload to ProxPanel Cloud if enabled (legacy CloudEnabled flag)
+	if schedule.CloudEnabled {
+		if err := s.uploadToProxPanelCloud(localPath, filename); err != nil {
+			log.Printf("BackupScheduler: Cloud upload failed for %s: %v", schedule.Name, err)
+			// Don't fail the whole backup if cloud fails - log and continue
+		} else {
+			log.Printf("BackupScheduler: Successfully uploaded %s to ProxPanel Cloud", filename)
+		}
+	}
+
+	// Upload to ProxPanel cloud if storage type includes cloud
+	if schedule.StorageType == "cloud" || schedule.StorageType == "local+cloud" {
+		if err := s.uploadToCloud(localPath, filename); err != nil {
+			log.Printf("BackupScheduler: Cloud upload failed for schedule '%s': %v", schedule.Name, err)
+			// If cloud-only, this is a failure
+			if schedule.StorageType == "cloud" {
+				// Mark as failed
+				backupLog.Status = "failed"
+				backupLog.ErrorMessage = fmt.Sprintf("Cloud upload failed: %v", err)
+				database.DB.Save(&backupLog)
+				return
+			}
+			// For local+cloud, log warning but don't fail
+		} else {
+			if backupLog.StorageType == "local" {
+				backupLog.StorageType = "local+cloud"
+			} else {
+				backupLog.StorageType = "cloud"
+			}
+		}
+	}
+
+	// If cloud-only storage, remove local file after successful upload to save disk space
+	if schedule.StorageType == "cloud" && backupLog.StorageType == "cloud" {
+		os.Remove(localPath)
+		log.Printf("BackupScheduler: Removed local copy of %s (cloud-only mode)", filename)
+	}
+
 	// Delete old backups based on retention policy
 	if schedule.Retention > 0 {
 		s.cleanOldBackups(schedule)
@@ -349,6 +390,57 @@ func (s *BackupSchedulerService) uploadToFTP(schedule *models.BackupSchedule, lo
 	}
 
 	log.Printf("BackupScheduler: Uploaded %s to FTP %s", filename, schedule.FTPHost)
+	return nil
+}
+
+// uploadToProxPanelCloud uploads a backup file to ProxPanel Cloud via the license server
+func (s *BackupSchedulerService) uploadToProxPanelCloud(filePath, filename string) error {
+	licenseServer := os.Getenv("LICENSE_SERVER")
+	if licenseServer == "" {
+		licenseServer = "https://license.proxrad.com"
+	}
+	licenseKey := os.Getenv("LICENSE_KEY")
+	if licenseKey == "" {
+		return fmt.Errorf("LICENSE_KEY not set")
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open backup file: %v", err)
+	}
+	defer file.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return err
+	}
+	writer.Close()
+
+	req, err := http.NewRequest("POST", licenseServer+"/api/v1/cloud-backup/upload", body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("X-License-Key", licenseKey)
+
+	client := &http.Client{Timeout: 10 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("upload request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(bodyBytes))
+	}
+
 	return nil
 }
 

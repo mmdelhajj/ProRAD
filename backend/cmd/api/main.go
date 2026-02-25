@@ -213,6 +213,7 @@ func main() {
 	bandwidthHandler := handlers.NewBandwidthHandler(bandwidthRuleService)
 	fupHandler := handlers.NewFUPHandler()
 	backupHandler := handlers.NewBackupHandler(cfg)
+	cloudBackupHandler := handlers.NewCloudBackupClientHandler(cfg)
 	twoFAHandler := handlers.NewTwoFAHandler()
 	sharingHandler := handlers.NewSharingDetectionHandler()
 	notificationHandler := handlers.NewNotificationHandler()
@@ -633,6 +634,12 @@ func main() {
 	backups.Post("/schedules/:id/run", middleware.RequirePermission("backups.create"), backupHandler.RunScheduleNow)
 	backups.Post("/test-ftp", middleware.RequirePermission("backups.view"), backupHandler.TestFTP)
 	backups.Get("/logs", middleware.RequirePermission("backups.view"), backupHandler.ListBackupLogs)
+	// Cloud Backup Routes (ProxPanel Cloud Storage)
+	backups.Get("/cloud/list", middleware.RequirePermission("backups.view"), cloudBackupHandler.List)
+	backups.Get("/cloud/usage", middleware.RequirePermission("backups.view"), cloudBackupHandler.GetUsage)
+	backups.Post("/:filename/cloud-upload", middleware.RequirePermission("backups.create"), cloudBackupHandler.Upload)
+	backups.Get("/cloud/download/:backup_id", middleware.RequirePermission("backups.view"), cloudBackupHandler.Download)
+	backups.Delete("/cloud/:backup_id", middleware.RequirePermission("backups.delete"), cloudBackupHandler.Delete)
 
 	// Sharing Detection routes
 	sharing := protected.Group("/sharing")
