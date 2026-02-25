@@ -207,6 +207,13 @@ func (h *SSLHandler) InstallSSL(c *fiber.Ctx) error {
 		h.writeSSLNginxConfTo(domain, "/opt/proxpanel/frontend/nginx.conf") //nolint
 		send("✓ nginx.conf updated for HTTPS")
 
+		// Update docker-compose.yml to expose port 443
+		if err := h.updateDockerComposeForSSL(); err != nil {
+			send(fmt.Sprintf("⚠️  Warning: Could not update docker-compose.yml for port 443: %v", err))
+		} else {
+			send("✓ docker-compose.yml updated with port 443")
+		}
+
 		// Restart frontend container (NOT docker compose up -d — that creates new networks
 		// which steal routes to MikroTik IPs in the same subnet)
 		send("🔄 Restarting nginx with SSL (brief downtime ~5 seconds)...")

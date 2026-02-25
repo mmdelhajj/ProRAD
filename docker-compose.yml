@@ -87,7 +87,7 @@ services:
       - /var/lib/proxpanel:/var/lib/proxpanel
       - /etc/netplan:/etc/netplan
     ports:
-      - "0.0.0.0:8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,7 +147,7 @@ services:
     networks:
       - proxpanel
     healthcheck:
-      test: ["CMD-SHELL", "[ -f /usr/share/nginx/html/index.html ] || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3

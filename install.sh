@@ -1095,7 +1095,7 @@ show_ok "Data migrated to encrypted volume"
 
 # Restart ProxPanel
 show_info "Restarting services on encrypted volume..."
-cd ${INSTALL_DIR} && (docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null)
+cd ${INSTALL_DIR} && if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "proxpanel-api"; then docker start proxpanel-db proxpanel-redis 2>/dev/null; sleep 3; docker start proxpanel-api proxpanel-radius proxpanel-frontend 2>/dev/null; else docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null; fi
 show_ok "Services restarted on encrypted volume"
 
 # Create unlock/lock scripts
@@ -1521,7 +1521,7 @@ cat > /usr/local/bin/proxpanel << 'MGMTEOF'
 #!/bin/bash
 cd /opt/proxpanel
 case "$1" in
-    start)   docker compose up -d 2>/dev/null || docker-compose up -d ;;
+    start)   if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "proxpanel-api"; then docker start proxpanel-db proxpanel-redis 2>/dev/null; sleep 3; docker start proxpanel-api proxpanel-radius proxpanel-frontend 2>/dev/null; else docker compose up -d 2>/dev/null || docker-compose up -d 2>/dev/null; fi ;;
     stop)    docker compose down 2>/dev/null || docker-compose down ;;
     restart) docker compose restart 2>/dev/null || docker-compose restart ;;
     status)  docker compose ps 2>/dev/null || docker-compose ps ;;
