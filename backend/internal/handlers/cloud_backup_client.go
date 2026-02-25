@@ -84,7 +84,8 @@ type CloudUsageData struct {
 	UsagePercent  float64 `json:"usage_percent"`
 }
 
-// GetUsage calls GET {LICENSE_SERVER}/api/v1/cloud-backup/usage and returns usage data
+// GetUsage calls GET {LICENSE_SERVER}/api/v1/cloud-backup/usage and returns usage data.
+// License server returns the usage under the "usage" key; we re-map it to "data" for the frontend.
 func (h *CloudBackupClientHandler) GetUsage(c *fiber.Ctx) error {
 	statusCode, body, err := h.doRequest("GET", "/api/v1/cloud-backup/usage", nil, "", 30*time.Second)
 	if err != nil {
@@ -101,9 +102,10 @@ func (h *CloudBackupClientHandler) GetUsage(c *fiber.Ctx) error {
 		})
 	}
 
+	// License server returns { "success": true, "usage": { ... } }
 	var result struct {
 		Success bool           `json:"success"`
-		Data    CloudUsageData `json:"data"`
+		Usage   CloudUsageData `json:"usage"`
 		Message string         `json:"message"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -120,13 +122,15 @@ func (h *CloudBackupClientHandler) GetUsage(c *fiber.Ctx) error {
 		})
 	}
 
+	// Frontend expects { "success": true, "data": { ... } }
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    result.Data,
+		"data":    result.Usage,
 	})
 }
 
-// List calls GET {LICENSE_SERVER}/api/v1/cloud-backup/list and returns the list of cloud backups
+// List calls GET {LICENSE_SERVER}/api/v1/cloud-backup/list and returns the list of cloud backups.
+// License server returns { "success": true, "backups": [...] }; we re-map to "data" for the frontend.
 func (h *CloudBackupClientHandler) List(c *fiber.Ctx) error {
 	statusCode, body, err := h.doRequest("GET", "/api/v1/cloud-backup/list", nil, "", 30*time.Second)
 	if err != nil {
@@ -143,8 +147,12 @@ func (h *CloudBackupClientHandler) List(c *fiber.Ctx) error {
 		})
 	}
 
-	// Forward the license server response directly to the frontend
-	var result map[string]interface{}
+	// License server returns { "success": true, "backups": [...] }
+	var result struct {
+		Success bool                     `json:"success"`
+		Backups []map[string]interface{} `json:"backups"`
+		Message string                   `json:"message"`
+	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -152,7 +160,22 @@ func (h *CloudBackupClientHandler) List(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(result)
+	if !result.Success {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"success": false,
+			"message": result.Message,
+		})
+	}
+
+	// Frontend expects { "success": true, "data": [...] }
+	backups := result.Backups
+	if backups == nil {
+		backups = []map[string]interface{}{}
+	}
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    backups,
+	})
 }
 
 // Upload reads a local backup file and streams it to the license server as raw
