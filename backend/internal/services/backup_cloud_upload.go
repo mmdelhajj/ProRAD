@@ -61,7 +61,7 @@ func (s *BackupSchedulerService) uploadToCloud(localFilePath, filename string) e
 	if resp.StatusCode == 402 {
 		return fmt.Errorf("cloud storage quota exceeded: %s", string(body))
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return fmt.Errorf("cloud upload failed (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
