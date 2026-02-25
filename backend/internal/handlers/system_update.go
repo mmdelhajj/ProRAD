@@ -537,13 +537,13 @@ func (h *SystemUpdateHandler) performUpdate(version string) {
 	}
 	exec.Command("mv", "-f", tmpRadius, radiusDest).Run()
 
-	// Move frontend
-	oldDist := filepath.Join(h.installDir, "frontend", "dist.old")
+	// Update frontend in-place (preserve directory inode so bind mounts stay valid)
 	currentDist := filepath.Join(h.installDir, "frontend", "dist")
-	exec.Command("rm", "-rf", oldDist).Run()
-	exec.Command("mv", currentDist, oldDist).Run()
-	exec.Command("mv", tmpDist, currentDist).Run()
-	exec.Command("rm", "-rf", oldDist).Run()
+	os.MkdirAll(currentDist, 0755)
+	// Clear existing files then copy new ones in (inode of currentDist unchanged)
+	exec.Command("sh", "-c", "rm -rf '"+currentDist+"/'* '"+currentDist+"/'.[!.]* 2>/dev/null || true").Run()
+	exec.Command("sh", "-c", "cp -r '"+tmpDist+"/.' '"+currentDist+"/'").Run()
+	exec.Command("rm", "-rf", tmpDist).Run()
 
 	// Ensure nginx.conf exists for frontend
 	nginxConf := filepath.Join(h.installDir, "frontend", "nginx.conf")
@@ -674,21 +674,34 @@ func (h *SystemUpdateHandler) restartServices() {
 	// Use Docker API via socket to restart containers
 	// This works even without docker CLI installed in container
 
-	// Restart frontend to pick up new dist files
-	log.Println("Update: Restarting proxpanel-frontend...")
-	if err := h.restartContainerViaSocket("proxpanel-frontend"); err != nil {
-		log.Printf("Update: Failed to restart frontend via socket: %v, trying CLI fallback", err)
-		if err := exec.Command("docker", "restart", "proxpanel-frontend").Run(); err != nil {
-			log.Printf("Update: CLI fallback also failed: %v", err)
-			allSuccess = false
+	// Reload nginx to pick up new dist files (in-place update, no restart needed)
+	// But also do a restart to ensure clean state, then a reload to fix any stale mounts
+	log.Println("Update: Reloading proxpanel-frontend nginx...")
+	if err := exec.Command("docker", "exec", "proxpanel-frontend", "nginx", "-s", "reload").Run(); err != nil {
+		log.Printf("Update: nginx reload failed (%v), doing full restart...", err)
+		if err := h.restartContainerViaSocket("proxpanel-frontend"); err != nil {
+			exec.Command("docker", "restart", "proxpanel-frontend").Run()
 		}
+		time.Sleep(3 * time.Second)
+		// Extra reload after restart to clear any stale mount cache
+		exec.Command("docker", "exec", "proxpanel-frontend", "nginx", "-s", "reload").Run()
 	}
 	time.Sleep(2 * time.Second)
 
 	// Verify frontend is serving content
 	if err := h.verifyFrontendHealth(); err != nil {
-		log.Printf("Update: Frontend health check failed: %v", err)
-		allSuccess = false
+		log.Printf("Update: Frontend health check failed (%v), doing restart + reload...", err)
+		h.restartContainerViaSocket("proxpanel-frontend")
+		time.Sleep(3 * time.Second)
+		exec.Command("docker", "exec", "proxpanel-frontend", "nginx", "-s", "reload").Run()
+		time.Sleep(1 * time.Second)
+		// Check again
+		if err2 := h.verifyFrontendHealth(); err2 != nil {
+			log.Printf("Update: Frontend still unhealthy after retry: %v", err2)
+			allSuccess = false
+		} else {
+			log.Println("Update: Frontend health check passed after retry")
+		}
 	} else {
 		log.Println("Update: Frontend health check passed")
 	}
