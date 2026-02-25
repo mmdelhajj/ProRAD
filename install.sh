@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.298"
+VERSION="1.0.327"
 
 step_count=8
 current_step=0
@@ -565,7 +565,7 @@ services:
       - /var/lib/proxpanel:/var/lib/proxpanel
       - /etc/netplan:/etc/netplan
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       db:
         condition: service_healthy
@@ -629,6 +629,12 @@ services:
       - api
     networks:
       - proxpanel
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
 
 networks:
