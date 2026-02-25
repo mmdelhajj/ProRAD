@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -156,8 +155,12 @@ func (h *CloudBackupClientHandler) List(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// Upload reads a local backup file and sends it to the license server via multipart POST.
-// The filename is taken from the :filename URL parameter.
+// Upload reads a local backup file and streams it to the license server as raw
+// application/octet-stream. The license server expects:
+//   - X-License-Key header
+//   - X-Filename header  (basename of the file)
+//   - Content-Length header
+//   - Raw binary body
 func (h *CloudBackupClientHandler) Upload(c *fiber.Ctx) error {
 	filename := c.Params("filename")
 	if filename == "" {
@@ -191,28 +194,16 @@ func (h *CloudBackupClientHandler) Upload(c *fiber.Ctx) error {
 	}
 	defer f.Close()
 
-	// Build multipart body in memory using a pipe to avoid loading the whole
-	// file into RAM at once.
-	pr, pw := io.Pipe()
-	mw := multipart.NewWriter(pw)
-
-	go func() {
-		defer pw.Close()
-		defer mw.Close()
-
-		part, err := mw.CreateFormFile("file", filename)
-		if err != nil {
-			pw.CloseWithError(fmt.Errorf("failed to create form file: %w", err))
-			return
-		}
-		if _, err := io.Copy(part, f); err != nil {
-			pw.CloseWithError(fmt.Errorf("failed to write file to multipart: %w", err))
-			return
-		}
-	}()
+	info, err := f.Stat()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": fmt.Sprintf("Failed to stat backup file: %v", err),
+		})
+	}
 
 	url := h.licenseServerURL() + "/api/v1/cloud-backup/upload"
-	req, err := http.NewRequest("POST", url, pr)
+	req, err := http.NewRequest("POST", url, f)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -221,10 +212,12 @@ func (h *CloudBackupClientHandler) Upload(c *fiber.Ctx) error {
 	}
 
 	req.Header.Set("X-License-Key", h.licenseKey())
-	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("X-Filename", filename)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.ContentLength = info.Size()
 
-	// Use a longer timeout for uploads (5 minutes)
-	client := h.newHTTPClient(5 * time.Minute)
+	// 30-minute timeout for large backup uploads
+	client := h.newHTTPClient(30 * time.Minute)
 	resp, err := client.Do(req)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
@@ -243,6 +236,16 @@ func (h *CloudBackupClientHandler) Upload(c *fiber.Ctx) error {
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		// Try to extract message from license server response
+		var errResult struct {
+			Message string `json:"message"`
+		}
+		if jsonErr := json.Unmarshal(respBody, &errResult); jsonErr == nil && errResult.Message != "" {
+			return c.Status(resp.StatusCode).JSON(fiber.Map{
+				"success": false,
+				"message": errResult.Message,
+			})
+		}
 		return c.Status(resp.StatusCode).JSON(fiber.Map{
 			"success": false,
 			"message": fmt.Sprintf("Cloud backup service returned status %d", resp.StatusCode),
