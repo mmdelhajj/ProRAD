@@ -812,7 +812,15 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 
 		// If no existing session record (e.g., after server restart where only interim-updates arrive),
 		// insert a new radacct row so StaleSessionCleanup and billing queries work correctly.
+		// Security: verify username belongs to a real subscriber before inserting,
+		// to prevent fake session injection from a compromised NAS device.
 		if updateResult.RowsAffected == 0 {
+			var subCount int64
+			database.DB.Model(&models.Subscriber{}).Where("username = ? AND deleted_at IS NULL", username).Count(&subCount)
+			if subCount == 0 {
+				log.Printf("Acct: InterimUpdate - ignoring unknown username %s (no subscriber record)", username)
+				break
+			}
 			estimatedStart := now.Add(-time.Duration(sessionTime) * time.Second)
 			uniqueID := fmt.Sprintf("%s-i%x", sessionID, now.Unix())
 			if len(uniqueID) > 32 {
