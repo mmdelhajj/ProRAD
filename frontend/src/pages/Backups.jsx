@@ -899,7 +899,7 @@ export default function Backups() {
                         <td>
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleCloudDownload(backup.id)}
+                              onClick={() => handleCloudDownload(backup.backup_id)}
                               className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
                               title="Download from Cloud"
                             >
@@ -1021,7 +1021,7 @@ export default function Backups() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => cloudDeleteMutation.mutate(cloudDeleteConfirm.id)}
+                  onClick={() => cloudDeleteMutation.mutate(cloudDeleteConfirm.backup_id)}
                   disabled={cloudDeleteMutation.isLoading}
                   className="btn-danger flex items-center gap-2"
                 >
