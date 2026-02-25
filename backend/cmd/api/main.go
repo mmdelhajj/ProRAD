@@ -153,9 +153,9 @@ func main() {
 		ProxyHeader:             "X-Real-IP", // Trust nginx X-Real-IP header for real client IP
 		EnableTrustedProxyCheck: true,
 		TrustedProxies:          []string{"172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"}, // Docker networks
-		BodyLimit:               50 * 1024 * 1024, // 50MB
-		ReadTimeout:             30 * time.Second, // Request read timeout - prevents slow client attacks
-		WriteTimeout:            30 * time.Second, // Response write timeout - prevents resource exhaustion
+		BodyLimit:               600 * 1024 * 1024, // 600MB (large backup uploads)
+		ReadTimeout:             30 * time.Second,  // Request read timeout - prevents slow client attacks
+		WriteTimeout:            30 * time.Second,  // Response write timeout - prevents resource exhaustion
 		IdleTimeout:             60 * time.Second, // Keep-alive connection timeout
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
