@@ -803,12 +803,40 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 
 	case rfc2866.AcctStatusType_Value_InterimUpdate:
 		// Interim update
-		database.DB.Model(&models.RadAcct{}).Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL", sessionID, username).Updates(map[string]interface{}{
+		updateResult := database.DB.Model(&models.RadAcct{}).Where("acctsessionid = ? AND username = ? AND acctstoptime IS NULL", sessionID, username).Updates(map[string]interface{}{
 			"acctupdatetime":   now,
 			"acctsessiontime":  sessionTime,
 			"acctinputoctets":  inputOctets,
 			"acctoutputoctets": outputOctets,
 		})
+
+		// If no existing session record (e.g., after server restart where only interim-updates arrive),
+		// insert a new radacct row so StaleSessionCleanup and billing queries work correctly.
+		if updateResult.RowsAffected == 0 {
+			estimatedStart := now.Add(-time.Duration(sessionTime) * time.Second)
+			uniqueID := fmt.Sprintf("%s-i%x", sessionID, now.Unix())
+			if len(uniqueID) > 32 {
+				uniqueID = uniqueID[:32]
+			}
+			acct := models.RadAcct{
+				AcctSessionID:    sessionID,
+				AcctUniqueID:     uniqueID,
+				Username:         username,
+				NasIPAddress:     nasIP.String(),
+				AcctStartTime:    &estimatedStart,
+				AcctUpdateTime:   &now,
+				AcctSessionTime:  int(sessionTime),
+				AcctInputOctets:  int64(inputOctets),
+				AcctOutputOctets: int64(outputOctets),
+				CallingStationID: callingStationID,
+				FramedIPAddress:  framedIP.String(),
+			}
+			if err := database.DB.Create(&acct).Error; err != nil {
+				log.Printf("Acct: InterimUpdate - failed to insert missing session for %s: %v", username, err)
+			} else {
+				log.Printf("Acct: InterimUpdate - created missing radacct row for %s (session=%s, uptime=%ds)", username, sessionID, sessionTime)
+			}
+		}
 
 		// Update last seen AND ensure is_online is true
 		// This fixes the case where RADIUS restarts and misses the Start packet

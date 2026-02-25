@@ -115,11 +115,16 @@ func (s *StaleSessionCleanupService) cleanup() {
 		log.Printf("StaleSessionCleanup: Closed %d stale sessions (no update since %v)", closedCount, thresholdTime)
 	}
 
-	// Sync subscriber is_online status: mark offline if no active session
+	// Sync subscriber is_online status: mark offline if no active session.
+	// IMPORTANT: Skip subscribers that QuotaSync recently confirmed online via MikroTik API
+	// (last_seen updated within 5 minutes). This prevents StaleSessionCleanup from
+	// overriding QuotaSync when radacct is empty after a container restart but MikroTik
+	// sessions are still active and being tracked by QuotaSync every 30 seconds.
 	result = database.DB.Exec(`
 		UPDATE subscribers SET is_online = false
 		WHERE is_online = true
 		AND deleted_at IS NULL
+		AND (last_seen IS NULL OR last_seen < NOW() - INTERVAL '5 minutes')
 		AND username NOT IN (
 			SELECT DISTINCT username FROM radacct WHERE acctstoptime IS NULL
 		)
