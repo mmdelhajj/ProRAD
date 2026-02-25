@@ -639,6 +639,7 @@ func main() {
 	backups.Get("/cloud/usage", middleware.RequirePermission("backups.view"), cloudBackupHandler.GetUsage)
 	backups.Post("/:filename/cloud-upload", middleware.RequirePermission("backups.create"), cloudBackupHandler.Upload)
 	backups.Get("/cloud/download/:backup_id", middleware.RequirePermission("backups.view"), cloudBackupHandler.Download)
+	backups.Get("/cloud/:backup_id/token", middleware.RequirePermission("backups.view"), cloudBackupHandler.Download)
 	backups.Delete("/cloud/:backup_id", middleware.RequirePermission("backups.delete"), cloudBackupHandler.Delete)
 
 	// Sharing Detection routes

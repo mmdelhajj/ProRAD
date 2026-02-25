@@ -172,6 +172,14 @@ func (h *CloudBackupClientHandler) List(c *fiber.Ctx) error {
 	if backups == nil {
 		backups = []map[string]interface{}{}
 	}
+
+	// Remap size_bytes → size so the frontend formatBytes() function works
+	for i := range backups {
+		if sizeBytes, ok := backups[i]["size_bytes"]; ok {
+			backups[i]["size"] = sizeBytes
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    backups,
