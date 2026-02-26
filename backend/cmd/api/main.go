@@ -483,6 +483,7 @@ func main() {
 	tunnel.Get("/status", tunnelHandler.GetTunnelStatus)
 	tunnel.Post("/enable", tunnelHandler.EnableTunnel)
 	tunnel.Post("/disable", tunnelHandler.DisableTunnel)
+	tunnel.Post("/credentials", tunnelHandler.SaveCFCredentials)
 
 	// Network Configuration routes (Admin only)
 	networkConfig := protected.Group("/system/network", middleware.AdminOnly())

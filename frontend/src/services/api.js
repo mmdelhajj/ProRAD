@@ -458,4 +458,5 @@ export const tunnelApi = {
   getStatus: () => api.get('/system/tunnel/status'),
   enable: () => api.post('/system/tunnel/enable'),
   disable: () => api.post('/system/tunnel/disable'),
+  saveCredentials: (data) => api.post('/system/tunnel/credentials', data),
 }

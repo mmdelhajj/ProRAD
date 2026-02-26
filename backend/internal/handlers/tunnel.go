@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/models"
 )
 
 const tunnelStateFile = "/var/lib/proxpanel/.tunnel_state"
@@ -23,6 +25,66 @@ type TunnelHandler struct{}
 // NewTunnelHandler creates a new TunnelHandler instance
 func NewTunnelHandler() *TunnelHandler {
 	return &TunnelHandler{}
+}
+
+// getCFCredentials reads CF credentials from system_preferences DB first, then falls back to env vars.
+func getCFCredentials() (cfToken, cfZoneID, cfDomain string) {
+	getDBPref := func(key string) string {
+		var pref models.SystemPreference
+		if err := database.DB.Where("key = ?", key).First(&pref).Error; err == nil && pref.Value != "" {
+			return pref.Value
+		}
+		return ""
+	}
+	cfToken = getDBPref("cf_api_token")
+	if cfToken == "" {
+		cfToken = os.Getenv("CF_API_TOKEN")
+	}
+	cfZoneID = getDBPref("cf_zone_id")
+	if cfZoneID == "" {
+		cfZoneID = os.Getenv("CF_ZONE_ID")
+	}
+	cfDomain = getDBPref("cf_domain")
+	if cfDomain == "" {
+		cfDomain = os.Getenv("CF_DOMAIN")
+	}
+	if cfDomain == "" {
+		cfDomain = "proxrad.com"
+	}
+	return
+}
+
+// SaveCFCredentials saves Cloudflare credentials to system_preferences DB.
+func (h *TunnelHandler) SaveCFCredentials(c *fiber.Ctx) error {
+	var req struct {
+		CFAPIToken string `json:"cf_api_token"`
+		CFZoneID   string `json:"cf_zone_id"`
+		CFDomain   string `json:"cf_domain"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request"})
+	}
+
+	savePref := func(key, value string) {
+		var pref models.SystemPreference
+		if database.DB.Where("key = ?", key).First(&pref).Error != nil {
+			database.DB.Create(&models.SystemPreference{Key: key, Value: value})
+		} else {
+			database.DB.Model(&pref).Update("value", value)
+		}
+	}
+
+	if req.CFAPIToken != "" {
+		savePref("cf_api_token", req.CFAPIToken)
+	}
+	if req.CFZoneID != "" {
+		savePref("cf_zone_id", req.CFZoneID)
+	}
+	if req.CFDomain != "" {
+		savePref("cf_domain", req.CFDomain)
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Cloudflare credentials saved"})
 }
 
 // getTunnelSubdomain generates a subdomain from the server's hardware ID.
@@ -159,12 +221,17 @@ func (h *TunnelHandler) GetTunnelStatus(c *fiber.Ctx) error {
 		subdomain = getTunnelSubdomain()
 	}
 
+	cfToken, cfZoneID, cfDomain := getCFCredentials()
+	credentialsSet := cfToken != "" && cfZoneID != ""
+
 	return c.JSON(fiber.Map{
-		"success":   true,
-		"enabled":   enabled,
-		"running":   running,
-		"url":       tunnelURL,
-		"subdomain": subdomain,
+		"success":          true,
+		"enabled":          enabled,
+		"running":          running,
+		"url":              tunnelURL,
+		"subdomain":        subdomain,
+		"credentials_set":  credentialsSet,
+		"cf_domain":        cfDomain,
 	})
 }
 
@@ -183,18 +250,13 @@ func (h *TunnelHandler) GetTunnelStatus(c *fiber.Ctx) error {
 //  11. Wait 3s, verify running
 //  12. Save state
 func (h *TunnelHandler) EnableTunnel(c *fiber.Ctx) error {
-	cfToken := os.Getenv("CF_API_TOKEN")
-	cfZoneID := os.Getenv("CF_ZONE_ID")
-	cfDomain := os.Getenv("CF_DOMAIN")
-	if cfDomain == "" {
-		cfDomain = "proxrad.com"
-	}
+	cfToken, cfZoneID, cfDomain := getCFCredentials()
 
 	if cfToken == "" || cfZoneID == "" {
 		log.Println("TunnelHandler: CF_API_TOKEN or CF_ZONE_ID not set")
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
-			"message": "Cloudflare credentials not configured (CF_API_TOKEN and CF_ZONE_ID are required)",
+			"message": "Cloudflare credentials not configured. Please enter your CF API Token and Zone ID in the Remote Access settings.",
 		})
 	}
 
