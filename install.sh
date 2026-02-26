@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ProxPanel Installer v1.0.298
+# ProxPanel Installer v1.0.349
 # Enterprise ISP Management System
 # 48-Hour FREE Trial
 #
@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.348"
+VERSION="1.0.349"
 
 step_count=8
 current_step=0
@@ -851,8 +851,13 @@ if [ "$LUKS_SUCCESS" = "true" ]; then
     LUKS_KEY=$(echo "$LUKS_RESPONSE" | jq -r '.luks_key' 2>/dev/null)
     LUKS_EXPIRES=$(echo "$LUKS_RESPONSE" | jq -r '.expires_at' 2>/dev/null)
 
-    # Cache the key — encrypted with hardware ID (Fix 2: encrypted cache)
-    LUKS_KEY_ENC=$(echo -n "${LUKS_KEY}" | openssl enc -aes-256-cbc -pbkdf2 -pass pass:"${HARDWARE_ID}" -base64 2>/dev/null | tr -d '\n')
+    # Cache the key — encrypted with keyscript-compatible hardware ID
+    # CRITICAL: Must match the formula in proxpanel-luks-keyscript exactly:
+    #   - No MAC (MAC requires network, may be unavailable at boot)
+    #   - No "stable_" prefix in the passphrase (keyscript's get_hardware_id() returns raw sha256)
+    #   - Formula: sha256("stable|UUID|MID")
+    LUKS_CACHE_HWID=$(echo -n "stable|$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo '')|$(cat /etc/machine-id 2>/dev/null || echo '')" | sha256sum | awk '{print $1}')
+    LUKS_KEY_ENC=$(echo -n "${LUKS_KEY}" | openssl enc -aes-256-cbc -pbkdf2 -pass pass:"${LUKS_CACHE_HWID}" -base64 2>/dev/null | tr -d '\n')
     LUKS_FETCHED=$(date +%s)
     printf "KEY_ENC=%s\nFETCHED=%s\n" "${LUKS_KEY_ENC}" "${LUKS_FETCHED}" > /etc/proxpanel/luks-key-cache
     chmod 600 /etc/proxpanel/luks-key-cache
