@@ -87,8 +87,6 @@ export default function Settings() {
   const [tunnelStatus, setTunnelStatus] = useState(null)
   const [tunnelLoading, setTunnelLoading] = useState(false)
   const [tunnelError, setTunnelError] = useState(null)
-  const [cfCreds, setCfCreds] = useState({ cf_api_token: '', cf_zone_id: '', cf_domain: '' })
-  const [cfCredsSaving, setCfCredsSaving] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -2588,135 +2586,56 @@ export default function Settings() {
           <span className="text-sm text-gray-500 dark:text-gray-400">Loading tunnel status...</span>
         </div>
       ) : tunnelStatus && (
-        <>
-          {/* Credentials form — shown when not yet configured */}
-          {!tunnelStatus.credentials_set && (
-            <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl">
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-3">
-                Enter your Cloudflare credentials to enable remote access
-              </p>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">CF API Token</label>
-                  <input
-                    type="password"
-                    placeholder="Cloudflare API Token (with tunnel + DNS permissions)"
-                    value={cfCreds.cf_api_token}
-                    onChange={e => setCfCreds(p => ({ ...p, cf_api_token: e.target.value }))}
-                    className="input w-full text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">CF Zone ID</label>
-                  <input
-                    type="text"
-                    placeholder="Zone ID from Cloudflare dashboard → your domain → Overview"
-                    value={cfCreds.cf_zone_id}
-                    onChange={e => setCfCreds(p => ({ ...p, cf_zone_id: e.target.value }))}
-                    className="input w-full text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Domain <span className="text-gray-400">(optional, default: proxrad.com)</span></label>
-                  <input
-                    type="text"
-                    placeholder="proxrad.com"
-                    value={cfCreds.cf_domain}
-                    onChange={e => setCfCreds(p => ({ ...p, cf_domain: e.target.value }))}
-                    className="input w-full text-sm"
-                  />
-                </div>
-                <button
-                  onClick={async () => {
-                    if (!cfCreds.cf_api_token || !cfCreds.cf_zone_id) {
-                      toast.error('CF API Token and Zone ID are required')
-                      return
-                    }
-                    setCfCredsSaving(true)
-                    try {
-                      await tunnelApi.saveCredentials(cfCreds)
-                      toast.success('Credentials saved')
-                      const res = await tunnelApi.getStatus()
-                      setTunnelStatus(res.data)
-                    } catch {
-                      toast.error('Failed to save credentials')
-                    } finally {
-                      setCfCredsSaving(false)
-                    }
-                  }}
-                  disabled={cfCredsSaving}
-                  className="btn btn-primary text-sm disabled:opacity-50"
-                >
-                  {cfCredsSaving ? 'Saving...' : 'Save Credentials'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Tunnel status + enable/disable */}
-          <div className={`p-4 rounded-xl border ${tunnelStatus.running ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${tunnelStatus.running ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'}`} />
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white text-sm">
-                    {tunnelStatus.running ? 'Tunnel Active' : 'Tunnel Inactive'}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {tunnelStatus.running ? 'Remote access is enabled' : tunnelStatus.credentials_set ? 'Click Enable to start remote access' : 'Enter credentials above first'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={tunnelStatus.running ? handleDisableTunnel : handleEnableTunnel}
-                disabled={tunnelLoading || !tunnelStatus.credentials_set}
-                className={`btn text-sm disabled:opacity-50 disabled:cursor-not-allowed ${tunnelStatus.running ? 'btn-danger' : 'btn-primary'}`}
-              >
-                {tunnelLoading ? 'Please wait...' : tunnelStatus.running ? 'Disable' : 'Enable Remote Access'}
-              </button>
-            </div>
-
-            {tunnelStatus.running && tunnelStatus.url && (
-              <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Your Remote Access URL</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-700 dark:text-green-300 font-mono truncate">
-                    {tunnelStatus.url}
-                  </code>
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(tunnelStatus.url); toast.success('URL copied!') }}
-                    className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
-                  >
-                    Copy
-                  </button>
-                  <a
-                    href={tunnelStatus.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
-                  >
-                    Open
-                  </a>
-                </div>
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Share this URL with anyone who needs access. The connection is secured by Cloudflare.
+        <div className={`p-4 rounded-xl border ${tunnelStatus.running ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${tunnelStatus.running ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'}`} />
+              <div>
+                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                  {tunnelStatus.running ? 'Tunnel Active' : 'Tunnel Inactive'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {tunnelStatus.running ? 'Remote access is enabled' : 'Click Enable to start remote access'}
                 </p>
               </div>
-            )}
+            </div>
+            <button
+              onClick={tunnelStatus.running ? handleDisableTunnel : handleEnableTunnel}
+              disabled={tunnelLoading}
+              className={`btn text-sm disabled:opacity-50 disabled:cursor-not-allowed ${tunnelStatus.running ? 'btn-danger' : 'btn-primary'}`}
+            >
+              {tunnelLoading ? 'Please wait...' : tunnelStatus.running ? 'Disable' : 'Enable Remote Access'}
+            </button>
           </div>
 
-          {/* Change credentials link (when already configured) */}
-          {tunnelStatus.credentials_set && (
-            <div className="mt-3">
-              <button
-                onClick={() => setTunnelStatus(s => ({ ...s, credentials_set: false }))}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Update Cloudflare credentials
-              </button>
+          {tunnelStatus.running && tunnelStatus.url && (
+            <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Your Remote Access URL</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-700 dark:text-green-300 font-mono truncate">
+                  {tunnelStatus.url}
+                </code>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(tunnelStatus.url); toast.success('URL copied!') }}
+                  className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
+                >
+                  Copy
+                </button>
+                <a
+                  href={tunnelStatus.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
+                >
+                  Open
+                </a>
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Share this URL with anyone who needs access. The connection is secured by Cloudflare.
+              </p>
             </div>
           )}
-        </>
+        </div>
       )}
 
     </div>
