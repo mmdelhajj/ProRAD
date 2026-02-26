@@ -311,6 +311,18 @@ if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/
 fi
 show_ok "Docker Compose ready"
 
+# Install cloudflared for Remote Access tunnel feature
+if [ ! -f /usr/local/bin/cloudflared ]; then
+    show_info "Installing cloudflared for Remote Access tunnel..."
+    curl -fsSL --max-time 30 -o /usr/local/bin/cloudflared \
+        https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 2>/dev/null && \
+        chmod +x /usr/local/bin/cloudflared && \
+        show_ok "cloudflared installed" || \
+        show_info "cloudflared install skipped (optional - needed only for Remote Access)"
+else
+    show_ok "cloudflared already installed"
+fi
+
 # ============================================
 # STEP 4: Download ProxPanel
 # ============================================
@@ -555,6 +567,9 @@ services:
       - SERVER_MAC=${SERVER_MAC}
       - HOST_HOSTNAME=${HOST_HOSTNAME}
       - PROISP_PASSWORD_KEY=${PASSWORD_KEY}
+      - CF_API_TOKEN=${CF_API_TOKEN}
+      - CF_ZONE_ID=${CF_ZONE_ID}
+      - CF_DOMAIN=${CF_DOMAIN:-proxrad.com}
     volumes:
       - ./backend/proisp-api/proisp-api:/app/proisp-api:ro
       - ./uploads:/app/uploads
@@ -672,6 +687,9 @@ DB_NAME=proxpanel
 REDIS_HOST=redis
 REDIS_PORT=6379
 API_PORT=8080
+CF_API_TOKEN=
+CF_ZONE_ID=
+CF_DOMAIN=proxrad.com
 ENVEOF
 chmod 600 .env
 
