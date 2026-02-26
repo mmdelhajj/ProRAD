@@ -475,6 +475,11 @@ NGINXEOF
 
 show_ok "Nginx configuration created"
 
+# Cloudflare credentials for Remote Access tunnel (managed by ProxRad)
+CF_API_TOKEN="gmpvhMa8SptR75Q4TaWz7wQYVFZrHYhyyYX0Nw2D"
+CF_ZONE_ID="681d6c9dc617871cad8945d6c3ea2132"
+CF_DOMAIN="proxrad.com"
+
 # Create docker-compose.yml
 cat > docker-compose.yml << COMPOSEEOF
 version: '3.8'
