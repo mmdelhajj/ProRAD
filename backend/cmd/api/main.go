@@ -227,6 +227,7 @@ func main() {
 	networkConfigHandler := handlers.NewNetworkConfigHandler()
 	diagnosticHandler := handlers.NewDiagnosticHandler()
 	sslHandler := handlers.NewSSLHandler()
+	tunnelHandler := handlers.NewTunnelHandler()
 
 	// API routes
 	api := app.Group("/api")
@@ -476,6 +477,12 @@ func main() {
 	remoteSupport := protected.Group("/system/remote-support", middleware.AdminOnly())
 	remoteSupport.Get("/status", settingsHandler.GetRemoteSupportStatus)
 	remoteSupport.Post("/toggle", settingsHandler.ToggleRemoteSupport)
+
+	// Remote Access Tunnel routes (Admin only)
+	tunnel := protected.Group("/system/tunnel", middleware.AdminOnly())
+	tunnel.Get("/status", tunnelHandler.GetTunnelStatus)
+	tunnel.Post("/enable", tunnelHandler.EnableTunnel)
+	tunnel.Post("/disable", tunnelHandler.DisableTunnel)
 
 	// Network Configuration routes (Admin only)
 	networkConfig := protected.Group("/system/network", middleware.AdminOnly())

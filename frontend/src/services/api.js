@@ -452,3 +452,10 @@ export const networkApi = {
   testConfig: (data) => api.post('/system/network/test', data),
   applyConfig: (data) => api.post('/system/network/apply', data),
 }
+
+// Remote Access Tunnel API
+export const tunnelApi = {
+  getStatus: () => api.get('/system/tunnel/status'),
+  enable: () => api.post('/system/tunnel/enable'),
+  disable: () => api.post('/system/tunnel/disable'),
+}

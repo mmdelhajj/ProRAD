@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import api, { settingsApi } from '../services/api'
+import api, { settingsApi, tunnelApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import { setTimezone } from '../utils/timezone'
 import toast from 'react-hot-toast'
-import { PhotoIcon, TrashIcon, SwatchIcon, CpuChipIcon, ServerIcon, ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline'
+import { PhotoIcon, TrashIcon, SwatchIcon, CpuChipIcon, ServerIcon, ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon, LockClosedIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 import ClusterTab from '../components/ClusterTab'
 import NetworkConfiguration from '../components/NetworkConfiguration'
 import { dashboardApi } from '../services/api'
@@ -84,6 +84,9 @@ export default function Settings() {
   const [sslLog, setSslLog] = useState([])
   const [sslStreaming, setSslStreaming] = useState(false)
   const sslAbortRef = useRef(null)
+  const [tunnelStatus, setTunnelStatus] = useState(null)
+  const [tunnelLoading, setTunnelLoading] = useState(false)
+  const [tunnelError, setTunnelError] = useState(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -263,6 +266,51 @@ export default function Settings() {
     }
   }
 
+  const fetchTunnelStatus = async () => {
+    try {
+      setTunnelLoading(true)
+      setTunnelError(null)
+      const res = await tunnelApi.getStatus()
+      setTunnelStatus(res.data)
+    } catch (err) {
+      setTunnelError('Failed to get tunnel status')
+    } finally {
+      setTunnelLoading(false)
+    }
+  }
+
+  const handleEnableTunnel = async () => {
+    try {
+      setTunnelLoading(true)
+      setTunnelError(null)
+      await tunnelApi.enable()
+      await fetchTunnelStatus()
+      toast.success('Remote access enabled')
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to enable remote access'
+      setTunnelError(msg)
+      toast.error(msg)
+    } finally {
+      setTunnelLoading(false)
+    }
+  }
+
+  const handleDisableTunnel = async () => {
+    try {
+      setTunnelLoading(true)
+      setTunnelError(null)
+      await tunnelApi.disable()
+      await fetchTunnelStatus()
+      toast.success('Remote access disabled')
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to disable remote access'
+      setTunnelError(msg)
+      toast.error(msg)
+    } finally {
+      setTunnelLoading(false)
+    }
+  }
+
   // License query
   const { data: licenseData, isLoading: licenseLoading, refetch: refetchLicense } = useQuery({
     queryKey: ['license', activeTab],
@@ -313,6 +361,12 @@ export default function Settings() {
       setSslDomain(sslStatus.domain)
     }
   }, [sslStatus])
+
+  useEffect(() => {
+    if (activeTab === 'ssl') {
+      fetchTunnelStatus()
+    }
+  }, [activeTab])
 
   // Check for updates query
   const { data: updateData, refetch: refetchUpdate, isLoading: updateLoading } = useQuery({
@@ -2503,6 +2557,93 @@ export default function Settings() {
                   </div>
                 )}
               </div>
+
+    {/* Remote Access Card */}
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+          <GlobeAltIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Remote Access</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Access your panel from anywhere via a secure Cloudflare tunnel — no port forwarding required</p>
+        </div>
+      </div>
+
+      {tunnelError && (
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2">
+          <ExclamationTriangleIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300">{tunnelError}</p>
+        </div>
+      )}
+
+      {tunnelLoading && !tunnelStatus ? (
+        <div className="flex items-center gap-3 py-4">
+          <svg className="animate-spin w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Loading tunnel status...</span>
+        </div>
+      ) : tunnelStatus && (
+        <div className={`p-4 rounded-xl border ${tunnelStatus.running ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${tunnelStatus.running ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'}`} />
+              <div>
+                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                  {tunnelStatus.running ? 'Tunnel Active' : 'Tunnel Inactive'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {tunnelStatus.running ? 'Remote access is enabled' : 'Click Enable to start remote access'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={tunnelStatus.running ? handleDisableTunnel : handleEnableTunnel}
+              disabled={tunnelLoading}
+              className={`btn text-sm disabled:opacity-50 disabled:cursor-not-allowed ${tunnelStatus.running ? 'btn-danger' : 'btn-primary'}`}
+            >
+              {tunnelLoading ? 'Please wait...' : tunnelStatus.running ? 'Disable' : 'Enable Remote Access'}
+            </button>
+          </div>
+
+          {tunnelStatus.running && tunnelStatus.url && (
+            <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Your Remote Access URL</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-700 dark:text-green-300 font-mono truncate">
+                  {tunnelStatus.url}
+                </code>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(tunnelStatus.url); toast.success('URL copied!') }}
+                  className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
+                >
+                  Copy
+                </button>
+                <a
+                  href={tunnelStatus.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
+                >
+                  Open
+                </a>
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Share this URL with anyone who needs access. The connection is secured by Cloudflare.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
+        <p className="text-xs text-blue-700 dark:text-blue-300">
+          <strong>Requirements:</strong> <code>cloudflared</code> must be installed on this server, and <code>CF_API_TOKEN</code>, <code>CF_ZONE_ID</code> env vars must be set.
+        </p>
+      </div>
+    </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
