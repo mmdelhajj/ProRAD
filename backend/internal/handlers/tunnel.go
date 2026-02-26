@@ -145,9 +145,9 @@ func (h *TunnelHandler) GetTunnelStatus(c *fiber.Ctx) error {
 	tunnelID := state["tunnel_id"]
 	enabled := tunnelID != ""
 
-	// Check if cloudflared service is running
-	out, err := exec.Command("systemctl", "is-active", "cloudflared").Output()
-	running := err == nil && string(out) == "active\n"
+	// Check if cloudflared service is running (use nsenter to check on host)
+	out, err := exec.Command("nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "systemctl", "is-active", "cloudflared").Output()
+	running := err == nil && strings.TrimSpace(string(out)) == "active"
 
 	var tunnelURL interface{}
 	if url, ok := state["tunnel_url"]; ok && url != "" {
@@ -209,8 +209,8 @@ func (h *TunnelHandler) EnableTunnel(c *fiber.Ctx) error {
 
 	// If already enabled and running, return success immediately
 	if tunnelID != "" {
-		out, err := exec.Command("systemctl", "is-active", "cloudflared").Output()
-		if err == nil && string(out) == "active\n" {
+		out, err := exec.Command("nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "systemctl", "is-active", "cloudflared").Output()
+		if err == nil && strings.TrimSpace(string(out)) == "active" {
 			return c.JSON(fiber.Map{
 				"success":   true,
 				"url":       tunnelURL,
@@ -396,7 +396,8 @@ func (h *TunnelHandler) EnableTunnel(c *fiber.Ctx) error {
 	}
 	log.Printf("TunnelHandler: DNS record configured for %s → %s.cfargotunnel.com", fqdn, tunnelID)
 
-	// Step 9: Write systemd service file
+	// Step 9: Write systemd service file (written to host via /proc/1/root path,
+	// since the API runs in a Docker container with pid=host and privileged mode)
 	serviceContent := fmt.Sprintf(`[Unit]
 Description=ProxPanel Remote Access Tunnel
 After=network-online.target
@@ -405,7 +406,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate run --token %s
+ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate run --token %s
 Restart=always
 RestartSec=5
 
@@ -413,36 +414,46 @@ RestartSec=5
 WantedBy=multi-user.target
 `, tunnelToken)
 
-	serviceFilePath := "/etc/systemd/system/cloudflared.service"
-	log.Printf("TunnelHandler: Writing systemd service to %s", serviceFilePath)
+	// Write service file to host filesystem via /proc/1/root (available in privileged+pid=host mode)
+	serviceFilePath := "/proc/1/root/etc/systemd/system/cloudflared.service"
+	log.Printf("TunnelHandler: Writing systemd service to host at %s", serviceFilePath)
 	if err := os.WriteFile(serviceFilePath, []byte(serviceContent), 0644); err != nil {
-		log.Printf("TunnelHandler: Failed to write service file: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"message": fmt.Sprintf("Failed to write cloudflared service file: %v", err),
-		})
+		// Fallback: try writing directly (works if running on host or in non-Docker env)
+		serviceFilePath = "/etc/systemd/system/cloudflared.service"
+		log.Printf("TunnelHandler: /proc/1/root write failed, trying %s: %v", serviceFilePath, err)
+		if err2 := os.WriteFile(serviceFilePath, []byte(serviceContent), 0644); err2 != nil {
+			log.Printf("TunnelHandler: Failed to write service file: %v", err2)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"message": fmt.Sprintf("Failed to write cloudflared service file: %v", err2),
+			})
+		}
 	}
 
-	// Step 10: daemon-reload, enable, restart
-	log.Println("TunnelHandler: Running systemctl daemon-reload")
-	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
-		log.Printf("TunnelHandler: daemon-reload failed: %v", err)
+	// Step 10: daemon-reload, enable, restart — use nsenter to run on host
+	// nsenter -t 1 -m -u -i -n -- systemctl ... runs inside host's namespaces
+	hostSystemctl := func(args ...string) error {
+		cmd := append([]string{"-t", "1", "-m", "-u", "-i", "-n", "--", "systemctl"}, args...)
+		out, err := exec.Command("nsenter", cmd...).CombinedOutput()
+		if err != nil {
+			log.Printf("TunnelHandler: nsenter systemctl %v failed: %v — %s", args, err, string(out))
+		}
+		return err
 	}
 
-	log.Println("TunnelHandler: Enabling cloudflared service")
-	if err := exec.Command("systemctl", "enable", "cloudflared").Run(); err != nil {
-		log.Printf("TunnelHandler: enable cloudflared failed: %v", err)
-	}
+	log.Println("TunnelHandler: Running systemctl daemon-reload on host")
+	hostSystemctl("daemon-reload")
 
-	log.Println("TunnelHandler: Restarting cloudflared service")
-	if err := exec.Command("systemctl", "restart", "cloudflared").Run(); err != nil {
-		log.Printf("TunnelHandler: restart cloudflared failed: %v", err)
-	}
+	log.Println("TunnelHandler: Enabling cloudflared on host")
+	hostSystemctl("enable", "cloudflared")
+
+	log.Println("TunnelHandler: Restarting cloudflared on host")
+	hostSystemctl("restart", "cloudflared")
 
 	// Step 11: Wait 3 seconds and check if running
 	time.Sleep(3 * time.Second)
-	out, err := exec.Command("systemctl", "is-active", "cloudflared").Output()
-	running := err == nil && string(out) == "active\n"
+	out, err := exec.Command("nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "systemctl", "is-active", "cloudflared").Output()
+	running := err == nil && strings.TrimSpace(string(out)) == "active"
 	log.Printf("TunnelHandler: cloudflared running after restart: %v", running)
 
 	// Step 12: Save state
@@ -467,14 +478,14 @@ WantedBy=multi-user.target
 // DisableTunnel stops and disables the Cloudflare tunnel service.
 // It keeps the tunnel_id and subdomain in the state file but clears the active status.
 func (h *TunnelHandler) DisableTunnel(c *fiber.Ctx) error {
-	log.Println("TunnelHandler: Stopping cloudflared service")
-	if err := exec.Command("systemctl", "stop", "cloudflared").Run(); err != nil {
-		log.Printf("TunnelHandler: stop cloudflared failed (may already be stopped): %v", err)
+	log.Println("TunnelHandler: Stopping cloudflared service on host")
+	if out, err := exec.Command("nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "systemctl", "stop", "cloudflared").CombinedOutput(); err != nil {
+		log.Printf("TunnelHandler: stop cloudflared failed (may already be stopped): %v — %s", err, string(out))
 	}
 
-	log.Println("TunnelHandler: Disabling cloudflared service")
-	if err := exec.Command("systemctl", "disable", "cloudflared").Run(); err != nil {
-		log.Printf("TunnelHandler: disable cloudflared failed: %v", err)
+	log.Println("TunnelHandler: Disabling cloudflared service on host")
+	if out, err := exec.Command("nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "systemctl", "disable", "cloudflared").CombinedOutput(); err != nil {
+		log.Printf("TunnelHandler: disable cloudflared failed: %v — %s", err, string(out))
 	}
 
 	// Update state file: keep tunnel_id/subdomain but mark disabled by clearing token

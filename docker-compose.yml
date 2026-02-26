@@ -78,6 +78,9 @@ services:
       - SERVER_IP=${SERVER_IP}
       - SERVER_MAC=${SERVER_MAC}
       - HOST_HOSTNAME=${HOST_HOSTNAME}
+      - CF_API_TOKEN=${CF_API_TOKEN}
+      - CF_ZONE_ID=${CF_ZONE_ID}
+      - CF_DOMAIN=${CF_DOMAIN:-proxrad.com}
     volumes:
       - ./backend/proisp-api/proisp-api:/app/proisp-api:ro
       - /opt:/opt
