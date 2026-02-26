@@ -880,10 +880,9 @@ LICENSE_SERVER="${LICENSE_SERVER:-https://license.proxrad.com}"
 SHADOW_CACHE="/etc/proxpanel/shadow_hash.enc"
 
 get_hardware_id() {
-    MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "00:00:00:00:00:00")
     UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
     MID=$(cat /etc/machine-id 2>/dev/null || echo "")
-    echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
+    echo -n "stable|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 
 if [ -z "$LICENSE_KEY" ]; then
@@ -959,11 +958,12 @@ CACHE_TTL=43200  # Fix 1: 12 hours max offline (was: no TTL check at all)
 [ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
 
 # Hardware ID — used as encryption passphrase for cache (Fix 2)
+# NOTE: No MAC — MAC requires network which may not be up during early boot.
+# UUID + machine-id are always available even in initramfs / early boot.
 get_hardware_id() {
-    MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "")
     UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
     MID=$(cat /etc/machine-id 2>/dev/null || echo "")
-    echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print $1}'
+    echo -n "stable|${UUID}|${MID}" | sha256sum | awk '{print $1}'
 }
 
 # Fix 2: Encrypt key before storing, decrypt before using
