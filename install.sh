@@ -851,14 +851,13 @@ if [ "$LUKS_SUCCESS" = "true" ]; then
     LUKS_KEY=$(echo "$LUKS_RESPONSE" | jq -r '.luks_key' 2>/dev/null)
     LUKS_EXPIRES=$(echo "$LUKS_RESPONSE" | jq -r '.expires_at' 2>/dev/null)
 
-    # Cache the key
-    cat > /etc/proxpanel/luks-key-cache << LUKSCACHE
-KEY=${LUKS_KEY}
-EXPIRES=${LUKS_EXPIRES}
-FETCHED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-LUKSCACHE
+    # Cache the key — encrypted with hardware ID (Fix 2: encrypted cache)
+    LUKS_KEY_ENC=$(echo -n "${LUKS_KEY}" | openssl enc -aes-256-cbc -pbkdf2 -pass pass:"${HARDWARE_ID}" -base64 2>/dev/null | tr -d '\n')
+    LUKS_FETCHED=$(date +%s)
+    printf "KEY_ENC=%s\nFETCHED=%s\n" "${LUKS_KEY_ENC}" "${LUKS_FETCHED}" > /etc/proxpanel/luks-key-cache
     chmod 600 /etc/proxpanel/luks-key-cache
-    show_ok "Encryption key cached"
+    chattr +i /etc/proxpanel/luks-key-cache 2>/dev/null || true  # Fix 3: immutable
+    show_ok "Encryption key cached (encrypted + immutable)"
 else
     show_fail "Could not fetch encryption key from license server"
     echo ""
@@ -955,10 +954,11 @@ cat > /usr/local/sbin/proxpanel-luks-keyscript << 'KEYSCRIPTEOF'
 #!/bin/sh
 CONFIG_FILE="/etc/proxpanel/license.conf"
 CACHE_FILE="/etc/proxpanel/luks-key-cache"
+CACHE_TTL=43200  # Fix 1: 12 hours max offline (was: no TTL check at all)
 
 [ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
 
-# Hardware ID function (must match API formula: stable|MAC|UUID|MID)
+# Hardware ID — used as encryption passphrase for cache (Fix 2)
 get_hardware_id() {
     MAC=$(cat /sys/class/net/$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)/address 2>/dev/null || echo "")
     UUID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
@@ -966,12 +966,24 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print $1}'
 }
 
+# Fix 2: Encrypt key before storing, decrypt before using
+encrypt_key() {
+    local key="$1"
+    local hwid=$(get_hardware_id)
+    echo -n "$key" | openssl enc -aes-256-cbc -pbkdf2 -pass pass:"$hwid" -base64 2>/dev/null | tr -d '\n'
+}
+
+decrypt_key() {
+    local enc="$1"
+    local hwid=$(get_hardware_id)
+    echo "$enc" | openssl enc -d -aes-256-cbc -pbkdf2 -pass pass:"$hwid" -base64 2>/dev/null
+}
+
 # SECURITY: Verify root password before allowing LUKS decryption
 if ! /usr/local/sbin/verify-root-password; then
     echo "Root password verification failed - LUKS decryption blocked" >&2
     exit 1
 fi
-
 
 fetch_key() {
     local server="${LICENSE_SERVER:-https://license.proxrad.com}"
@@ -986,10 +998,12 @@ fetch_key() {
     local success=$(echo "$response" | jq -r '.success' 2>/dev/null)
     if [ "$success" = "true" ]; then
         local key=$(echo "$response" | jq -r '.luks_key' 2>/dev/null)
-        local expires=$(echo "$response" | jq -r '.expires_at' 2>/dev/null)
-        echo "KEY=$key" > "$CACHE_FILE"
-        echo "EXPIRES=$expires" >> "$CACHE_FILE"
+        local enc=$(encrypt_key "$key")          # Fix 2: encrypt before storing
+        local fetched=$(date +%s)
+        chattr -i "$CACHE_FILE" 2>/dev/null || true   # Fix 3: remove immutable to rewrite
+        printf "KEY_ENC=%s\nFETCHED=%s\n" "$enc" "$fetched" > "$CACHE_FILE"
         chmod 600 "$CACHE_FILE"
+        chattr +i "$CACHE_FILE" 2>/dev/null || true   # Fix 3: lock again
         echo -n "$key"
         return 0
     fi
@@ -999,12 +1013,25 @@ fetch_key() {
 check_cache() {
     [ ! -f "$CACHE_FILE" ] && return 1
     . "$CACHE_FILE"
-    [ -z "$KEY" ] && return 1
-    echo -n "$KEY"
+    [ -z "$KEY_ENC" ] && return 1
+    [ -z "$FETCHED" ] && return 1
+
+    # Fix 1: Enforce 12-hour TTL
+    local now=$(date +%s)
+    local age=$((now - FETCHED))
+    if [ "$age" -gt "$CACHE_TTL" ]; then
+        echo "LUKS cache expired (${age}s > ${CACHE_TTL}s) — license server required" >&2
+        return 1
+    fi
+
+    # Fix 2: Decrypt with hardware ID — useless on any other machine
+    local key=$(decrypt_key "$KEY_ENC")
+    [ -z "$key" ] && return 1
+    echo -n "$key"
     return 0
 }
 
-# Main - try to fetch from server, fallback to cache
+# Main — fetch fresh key from license server, fall back to cache if offline
 if fetch_key; then
     exit 0
 fi
