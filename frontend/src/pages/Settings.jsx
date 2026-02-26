@@ -2566,7 +2566,7 @@ export default function Settings() {
         </div>
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Remote Access</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Access your panel from anywhere via a secure Cloudflare tunnel — no port forwarding required</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Access your panel from anywhere via a secure ProxRad tunnel — no port forwarding required</p>
         </div>
       </div>
 
@@ -2638,11 +2638,6 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
-        <p className="text-xs text-blue-700 dark:text-blue-300">
-          <strong>Requirements:</strong> <code>cloudflared</code> must be installed on this server, and <code>CF_API_TOKEN</code>, <code>CF_ZONE_ID</code> env vars must be set.
-        </p>
-      </div>
     </div>
             </div>
           ) : (
