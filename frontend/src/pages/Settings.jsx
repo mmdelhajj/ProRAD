@@ -10,6 +10,7 @@ import { PhotoIcon, TrashIcon, SwatchIcon, CpuChipIcon, ServerIcon, ExclamationT
 import ClusterTab from '../components/ClusterTab'
 import NetworkConfiguration from '../components/NetworkConfiguration'
 import { dashboardApi } from '../services/api'
+import { QRCodeSVG } from 'qrcode.react'
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -363,7 +364,7 @@ export default function Settings() {
   }, [sslStatus])
 
   useEffect(() => {
-    if (activeTab === 'ssl') {
+    if (activeTab === 'ssl' || activeTab === 'general') {
       fetchTunnelStatus()
     }
   }, [activeTab])
@@ -2641,6 +2642,7 @@ export default function Settings() {
     </div>
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {settingGroups[activeTab]?.map(field => (
                 <div key={field.key} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
@@ -2651,6 +2653,107 @@ export default function Settings() {
                 </div>
               ))}
             </div>
+
+            {/* Mobile App QR Code - General tab only */}
+            {activeTab === 'general' && (() => {
+              const companyName = formData.company_name || 'ProxPanel'
+              const localUrl = window.location.origin
+              const remoteUrl = tunnelStatus?.running && tunnelStatus?.url ? tunnelStatus.url : null
+              const downloadQr = (elId, filename) => {
+                const svg = document.querySelector(`#${elId} svg`)
+                if (!svg) return
+                const svgData = new XMLSerializer().serializeToString(svg)
+                const canvas = document.createElement('canvas')
+                canvas.width = 400; canvas.height = 400
+                const ctx = canvas.getContext('2d')
+                const img = new Image()
+                img.onload = () => {
+                  ctx.fillStyle = '#ffffff'
+                  ctx.fillRect(0, 0, 400, 400)
+                  ctx.drawImage(img, 0, 0, 400, 400)
+                  const link = document.createElement('a')
+                  link.download = filename
+                  link.href = canvas.toDataURL('image/png')
+                  link.click()
+                }
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)))
+              }
+              const printQr = (elId, label, url) => {
+                const printWin = window.open('', '_blank', 'width=400,height=500')
+                const svg = document.querySelector(`#${elId} svg`)
+                if (!printWin || !svg) return
+                printWin.document.write(`<html><head><title>${label}</title></head><body style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:sans-serif;"><div>${svg.outerHTML}</div><p style="margin-top:16px;font-size:14px;color:#666;">Scan with ProxPanel app</p><p style="font-size:12px;color:#999;">${url}</p></body></html>`)
+                printWin.document.close()
+                printWin.focus()
+                setTimeout(() => printWin.print(), 300)
+              }
+              return (
+              <div className="mt-8 border border-gray-200 dark:border-gray-600 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Mobile App QR Code</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                  Customers scan this QR code with the ProxPanel mobile app to connect to your panel.
+                </p>
+                <div className={`grid gap-6 ${remoteUrl ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                  {/* Local / Direct URL QR */}
+                  <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Local Network</h4>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 mb-3">
+                        <QRCodeSVG
+                          value={JSON.stringify({ server: localUrl, name: companyName })}
+                          size={180}
+                          level="M"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs text-gray-700 dark:text-gray-300 mb-3 max-w-full truncate">{localUrl}</code>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">For customers connected to your local network</p>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => downloadQr('qr-local', 'proxpanel-local-qr.png')} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">Download</button>
+                        <button type="button" onClick={() => printQr('qr-local', 'Local Network QR', localUrl)} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">Print</button>
+                      </div>
+                    </div>
+                    <div id="qr-local" className="hidden">
+                      <QRCodeSVG value={JSON.stringify({ server: localUrl, name: companyName })} size={400} level="M" includeMargin={true} />
+                    </div>
+                  </div>
+
+                  {/* Remote Access URL QR */}
+                  {remoteUrl && (
+                  <div className="border border-green-200 dark:border-green-700 rounded-lg p-5 bg-green-50/50 dark:bg-green-900/10">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Remote Access</h4>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="bg-white p-3 rounded-lg shadow-sm border border-green-100 mb-3">
+                        <QRCodeSVG
+                          value={JSON.stringify({ server: remoteUrl, name: companyName })}
+                          size={180}
+                          level="M"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <code className="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-xs text-green-800 dark:text-green-300 mb-3 max-w-full truncate">{remoteUrl}</code>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">For customers connecting from anywhere via internet</p>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => downloadQr('qr-remote', 'proxpanel-remote-qr.png')} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-white dark:bg-green-900/20 hover:bg-green-50 dark:hover:bg-green-900/30">Download</button>
+                        <button type="button" onClick={() => printQr('qr-remote', 'Remote Access QR', remoteUrl)} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-white dark:bg-green-900/20 hover:bg-green-50 dark:hover:bg-green-900/30">Print</button>
+                      </div>
+                    </div>
+                    <div id="qr-remote" className="hidden">
+                      <QRCodeSVG value={JSON.stringify({ server: remoteUrl, name: companyName })} size={400} level="M" includeMargin={true} />
+                    </div>
+                  </div>
+                  )}
+                </div>
+              </div>
+              )
+            })()}
+            </>
           )}
         </div>
       </div>
