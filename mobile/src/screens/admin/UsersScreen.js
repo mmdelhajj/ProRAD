@@ -350,7 +350,7 @@ const UserFormModal = ({ visible, user, onClose, onSubmit, onDelete }) => {
               </TouchableOpacity>
             )}
 
-            <View style={{ height: spacing.xxxl }} />
+            <View style={{ height: spacing.tabBar }} />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
   },
   countBadgeText: { ...typography.caption, color: colors.textInverse, fontWeight: '700' },
-  listContent: { paddingTop: spacing.md, paddingBottom: spacing.xxxl },
+  listContent: { paddingTop: spacing.md, paddingBottom: spacing.tabBar },
   listContentEmpty: { flex: 1, justifyContent: 'center' },
   fab: {
     position: 'absolute',

@@ -1019,7 +1019,7 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
           </View>
 
           {/* Bottom padding */}
-          <View style={{ height: spacing.xxxl }} />
+          <View style={{ height: spacing.tabBar }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -1088,7 +1088,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.tabBar,
   },
 
   // Error state

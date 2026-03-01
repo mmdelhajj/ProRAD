@@ -411,7 +411,7 @@ const CustomerAccountScreen = ({ navigation }) => {
       </View>
 
       {/* Bottom spacer */}
-      <View style={{ height: spacing.xxxl }} />
+      <View style={{ height: spacing.tabBar }} />
     </ScrollView>
   );
 };
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   contentContainer: {
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
 
   // Profile header

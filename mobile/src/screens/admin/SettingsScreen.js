@@ -720,7 +720,7 @@ const SettingsScreen = ({ navigation }) => {
       </CollapsibleSection>
 
       {/* Bottom spacer */}
-      <View style={{ height: spacing.xxxl }} />
+      <View style={{ height: spacing.tabBar }} />
     </ScrollView>
   );
 };
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingTop: spacing.base,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   subSectionTitle: {
     ...typography.label,

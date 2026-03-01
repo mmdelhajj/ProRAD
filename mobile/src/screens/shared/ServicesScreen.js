@@ -409,7 +409,7 @@ const ServiceDetailModal = ({ service, visible, onClose, onEdit, onDelete, isAdm
             </View>
           )}
 
-          <View style={{ height: spacing.xxxl }} />
+          <View style={{ height: spacing.tabBar }} />
         </ScrollView>
       </View>
     </Modal>
@@ -869,7 +869,7 @@ const ServicesScreen = () => {
 
             <ScrollView
               style={formModalStyles.body}
-              contentContainerStyle={{ paddingBottom: spacing.xxxl }}
+              contentContainerStyle={{ paddingBottom: spacing.tabBar }}
               showsVerticalScrollIndicator={false}
             >
               {/* Basic Info */}
@@ -1336,7 +1336,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   formRow: {
     flexDirection: 'row',

@@ -719,7 +719,7 @@ export default function SubscriberDetailScreen({ route, navigation }) {
         </Card>
 
         {/* Bottom padding */}
-        <View style={{ height: spacing.xxxl }} />
+        <View style={{ height: spacing.tabBar }} />
       </ScrollView>
 
       {/* ==================== ADD DAYS MODAL ==================== */}
@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.tabBar,
   },
 
   // Error state

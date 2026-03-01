@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
 });
 

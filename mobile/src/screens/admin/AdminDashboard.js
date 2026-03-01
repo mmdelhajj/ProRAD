@@ -431,8 +431,8 @@ const AdminDashboard = ({ navigation, route }) => {
         )}
       </Card>
 
-      {/* Bottom spacer */}
-      <View style={{ height: spacing.xxxl }} />
+      {/* Bottom spacer for tab bar */}
+      <View style={{ height: spacing.tabBar }} />
     </ScrollView>
   );
 };
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   contentContainer: {
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
 
   // Welcome Banner

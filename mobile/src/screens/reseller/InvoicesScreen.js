@@ -365,7 +365,7 @@ const detailStyles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.base,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   topSection: {
     flexDirection: 'row',
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   listContent: {
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   statsRow: {
     flexDirection: 'row',

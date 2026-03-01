@@ -7,6 +7,7 @@ export const spacing = {
   xl: 24,
   xxl: 32,
   xxxl: 48,
+  tabBar: 100,
 };
 
 export const borderRadius = {

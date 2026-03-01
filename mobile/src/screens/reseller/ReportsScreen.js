@@ -613,7 +613,7 @@ const ReportsScreen = ({ navigation }) => {
           />
         )}
 
-        <View style={{ height: spacing.xxxl }} />
+        <View style={{ height: spacing.tabBar }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.base,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   pageTitle: {
     ...typography.h2,

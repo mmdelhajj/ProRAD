@@ -243,7 +243,7 @@ const AuditDetailModal = ({ entry, visible, onClose }) => {
               );
             })}
           </View>
-          <View style={{ height: spacing.xxxl }} />
+          <View style={{ height: spacing.tabBar }} />
         </ScrollView>
       </View>
     </Modal>
@@ -709,6 +709,6 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     paddingLeft: spacing.sm,
   },
-  listContent: { paddingTop: spacing.md, paddingBottom: spacing.xxxl },
+  listContent: { paddingTop: spacing.md, paddingBottom: spacing.tabBar },
   listContentEmpty: { flex: 1, justifyContent: 'center' },
 });

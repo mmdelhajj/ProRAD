@@ -291,7 +291,7 @@ const AdminMoreScreen = ({ navigation }) => {
         <Text style={styles.logoutText}>Log Out</Text>
       </TouchableOpacity>
 
-      <View style={{ height: spacing.xxxl }} />
+      <View style={{ height: spacing.tabBar }} />
     </ScrollView>
   );
 };
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   contentContainer: {
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   header: {
     backgroundColor: colors.surface,

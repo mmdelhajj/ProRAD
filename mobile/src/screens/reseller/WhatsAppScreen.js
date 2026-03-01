@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   listHeader: {
     paddingHorizontal: spacing.base,

@@ -377,7 +377,7 @@ const genStyles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.base,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   label: {
     ...typography.label,
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   listContent: {
-    paddingBottom: spacing.xxxl + 60,
+    paddingBottom: spacing.tabBar + 60,
   },
   headerSection: {
     paddingHorizontal: spacing.base,

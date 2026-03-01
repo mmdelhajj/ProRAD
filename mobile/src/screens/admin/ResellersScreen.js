@@ -463,7 +463,7 @@ const ResellerDetailModal = ({ reseller, visible, onClose, onAction }) => {
             </TouchableOpacity>
           </View>
 
-          <View style={{ height: spacing.xxxl }} />
+          <View style={{ height: spacing.tabBar }} />
         </ScrollView>
       </View>
     </Modal>
@@ -575,7 +575,7 @@ const CreateResellerModal = ({ visible, onClose, onSubmit }) => {
                 <Text style={createModalStyles.submitText}>Create Reseller</Text>
               )}
             </TouchableOpacity>
-            <View style={{ height: spacing.xxxl }} />
+            <View style={{ height: spacing.tabBar }} />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -905,7 +905,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   clearSearch: { ...typography.body, color: colors.textLight, paddingLeft: spacing.sm },
-  listContent: { paddingTop: spacing.md, paddingBottom: spacing.xxxl },
+  listContent: { paddingTop: spacing.md, paddingBottom: spacing.tabBar },
   listContentEmpty: { flex: 1, justifyContent: 'center' },
   fab: {
     position: 'absolute',

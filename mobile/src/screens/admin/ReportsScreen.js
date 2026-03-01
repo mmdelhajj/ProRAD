@@ -516,7 +516,7 @@ const ReportsScreen = () => {
         </>
       )}
 
-      <View style={{ height: spacing.xxxl }} />
+      <View style={{ height: spacing.tabBar }} />
     </ScrollView>
   );
 };
@@ -527,7 +527,7 @@ const ReportsScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  contentContainer: { paddingTop: spacing.base, paddingBottom: spacing.xxxl },
+  contentContainer: { paddingTop: spacing.base, paddingBottom: spacing.tabBar },
   sectionTitle: {
     ...typography.h4,
     color: colors.text,

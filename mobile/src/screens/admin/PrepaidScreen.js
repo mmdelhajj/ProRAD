@@ -479,7 +479,7 @@ const GenerateForm = ({ services, onGenerate, generating }) => {
         )}
       </TouchableOpacity>
 
-      <View style={{ height: spacing.xxxl * 2 }} />
+      <View style={{ height: spacing.tabBar * 2 }} />
     </ScrollView>
   );
 };
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   loadingMore: {
     paddingVertical: spacing.lg,

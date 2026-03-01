@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.base,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl + spacing.xxxl,
+    paddingBottom: spacing.tabBar + spacing.xxxl,
   },
 
   // Ticket Row

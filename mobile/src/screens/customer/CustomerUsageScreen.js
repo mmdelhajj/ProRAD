@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   // List
   listContent: {
     paddingHorizontal: spacing.base,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   footerCard: {
     marginTop: spacing.xs,

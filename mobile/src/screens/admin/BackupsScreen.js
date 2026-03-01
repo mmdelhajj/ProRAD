@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: spacing.base,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   createButton: {
     backgroundColor: colors.primary,

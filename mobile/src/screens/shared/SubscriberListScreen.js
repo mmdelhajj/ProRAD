@@ -974,10 +974,12 @@ const styles = StyleSheet.create({
   // ---- List ----
   listContent: {
     flexGrow: 1,
+    paddingBottom: spacing.tabBar,
   },
   listContentEmpty: {
     flex: 1,
     justifyContent: 'center',
+    paddingBottom: spacing.tabBar,
   },
   separator: {
     height: 0,

@@ -605,7 +605,7 @@ const GroupModal = ({
             </TouchableOpacity>
           )}
 
-          <View style={{ height: spacing.xxxl * 2 }} />
+          <View style={{ height: spacing.tabBar * 2 }} />
         </ScrollView>
       </View>
     </Modal>
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
 });
 

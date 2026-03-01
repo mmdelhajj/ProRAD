@@ -492,7 +492,7 @@ const CDNScreen = ({ navigation }) => {
 
             <ScrollView
               style={modalStyles.body}
-              contentContainerStyle={{ paddingBottom: spacing.xxxl }}
+              contentContainerStyle={{ paddingBottom: spacing.tabBar }}
               showsVerticalScrollIndicator={false}
             >
               {isCDN ? (
@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
   // List
   listContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
     paddingHorizontal: spacing.base,
   },
 

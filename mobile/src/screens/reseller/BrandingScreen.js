@@ -577,7 +577,7 @@ const BrandingScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          <View style={{ height: spacing.xxxl }} />
+          <View style={{ height: spacing.tabBar }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.base,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   textInput: {
     ...typography.body,

@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   listContent: {
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.tabBar,
   },
   loadingMore: {
     paddingVertical: spacing.lg,
