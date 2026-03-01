@@ -11,3 +11,4 @@ backend/proisp-api/api
 backend/proisp-radius/radius
 backend/cmd/radius/proisp-radius
 backend/cmd/api/proisp-api
+store-assets/proxrad.aab

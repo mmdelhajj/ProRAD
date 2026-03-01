@@ -49,6 +49,11 @@
       "expo-asset",
       "expo-font"
     ],
-    "extra": {}
+    "extra": {
+      "eas": {
+        "projectId": "02c8b6c4-cbbf-48c2-8d59-2c7884691a27"
+      }
+    },
+    "owner": "mmdelhajj"
   }
 }
