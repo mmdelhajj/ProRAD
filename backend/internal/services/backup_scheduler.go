@@ -1,7 +1,8 @@
 package services
 
 import (
-	"bytes"
+	"archive/tar"
+	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -10,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -22,6 +22,7 @@ import (
 	"github.com/jlaffaye/ftp"
 	"github.com/proisp/backend/internal/config"
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/mikrotik"
 	"github.com/proisp/backend/internal/models"
 )
 
@@ -127,6 +128,12 @@ func (s *BackupSchedulerService) runBackup(schedule *models.BackupSchedule) {
 		"last_run_at": startTime,
 	})
 
+	// MikroTik-only scheduled backup
+	if schedule.BackupType == "mikrotik" {
+		s.runMikroTikBackup(schedule, startTime)
+		return
+	}
+
 	// Create backup log entry
 	backupLog := models.BackupLog{
 		ScheduleID:   &schedule.ID,
@@ -169,6 +176,18 @@ func (s *BackupSchedulerService) runBackup(schedule *models.BackupSchedule) {
 	backupLog.FileSize = fileInfo.Size()
 	backupLog.StoragePath = localPath
 
+	// Export MikroTik configs if enabled
+	var mikrotikExportPath string
+	if schedule.IncludeMikroTik {
+		mikrotikPath, err := s.ExportMikroTikConfigs(timestamp)
+		if err != nil {
+			log.Printf("BackupScheduler: MikroTik export failed for %s: %v (continuing with DB backup)", schedule.Name, err)
+		} else if mikrotikPath != "" {
+			mikrotikExportPath = mikrotikPath
+			log.Printf("BackupScheduler: MikroTik configs saved to %s", filepath.Base(mikrotikPath))
+		}
+	}
+
 	// Upload to FTP if enabled
 	if schedule.FTPEnabled && (schedule.StorageType == "ftp" || schedule.StorageType == "both") {
 		err = s.uploadToFTP(schedule, localPath, filename)
@@ -189,9 +208,17 @@ func (s *BackupSchedulerService) runBackup(schedule *models.BackupSchedule) {
 	if schedule.CloudEnabled {
 		if err := s.uploadToProxPanelCloud(localPath, filename); err != nil {
 			log.Printf("BackupScheduler: Cloud upload failed for %s: %v", schedule.Name, err)
-			// Don't fail the whole backup if cloud fails - log and continue
 		} else {
 			log.Printf("BackupScheduler: Successfully uploaded %s to ProxPanel Cloud", filename)
+		}
+		// Also upload MikroTik backup to cloud if it was exported
+		if mikrotikExportPath != "" {
+			mtFilename := filepath.Base(mikrotikExportPath)
+			if err := s.uploadToProxPanelCloud(mikrotikExportPath, mtFilename); err != nil {
+				log.Printf("BackupScheduler: Cloud upload failed for MikroTik %s: %v", mtFilename, err)
+			} else {
+				log.Printf("BackupScheduler: Successfully uploaded MikroTik %s to ProxPanel Cloud", mtFilename)
+			}
 		}
 	}
 
@@ -249,6 +276,138 @@ func (s *BackupSchedulerService) runBackup(schedule *models.BackupSchedule) {
 
 	log.Printf("BackupScheduler: Backup completed for %s (%s, %d bytes)",
 		schedule.Name, filename, fileInfo.Size())
+}
+
+// runMikroTikBackup executes a MikroTik-only scheduled backup
+func (s *BackupSchedulerService) runMikroTikBackup(schedule *models.BackupSchedule, startTime time.Time) {
+	timestamp := startTime.Format("20060102_150405")
+
+	backupLog := models.BackupLog{
+		ScheduleID:   &schedule.ID,
+		ScheduleName: schedule.Name,
+		BackupType:   "mikrotik",
+		Status:       "running",
+		StartedAt:    startTime,
+		StorageType:  "local",
+	}
+	database.DB.Create(&backupLog)
+
+	mikrotikPath, err := s.ExportMikroTikConfigs(timestamp)
+	if err != nil {
+		s.handleBackupError(schedule, &backupLog, fmt.Errorf("MikroTik export failed: %v", err), startTime)
+		return
+	}
+	if mikrotikPath == "" {
+		s.handleBackupError(schedule, &backupLog, fmt.Errorf("no NAS devices with API credentials found"), startTime)
+		return
+	}
+
+	fileInfo, err := os.Stat(mikrotikPath)
+	if err != nil {
+		s.handleBackupError(schedule, &backupLog, err, startTime)
+		return
+	}
+
+	filename := filepath.Base(mikrotikPath)
+	backupLog.Filename = filename
+	backupLog.FileSize = fileInfo.Size()
+	backupLog.StoragePath = mikrotikPath
+
+	// Upload to ProxPanel Cloud if enabled
+	if schedule.CloudEnabled {
+		if err := s.uploadToProxPanelCloud(mikrotikPath, filename); err != nil {
+			log.Printf("BackupScheduler: Cloud upload failed for MikroTik backup %s: %v", schedule.Name, err)
+		} else {
+			log.Printf("BackupScheduler: Successfully uploaded MikroTik backup %s to ProxPanel Cloud", filename)
+			backupLog.StorageType = "local+cloud"
+		}
+	}
+
+	// Update schedule status
+	nextRun := s.calculateNextRun(schedule)
+	database.DB.Model(schedule).Updates(map[string]interface{}{
+		"last_status":      "success",
+		"last_error":       "",
+		"last_backup_file": filename,
+		"next_run_at":      nextRun,
+	})
+
+	completedAt := time.Now()
+	backupLog.Status = "success"
+	backupLog.CompletedAt = completedAt
+	backupLog.Duration = int(completedAt.Sub(startTime).Seconds())
+	database.DB.Save(&backupLog)
+
+	log.Printf("BackupScheduler: MikroTik backup completed for %s (%s, %d bytes)",
+		schedule.Name, filename, fileInfo.Size())
+}
+
+// RunMikroTikBackupNow runs a MikroTik-only backup manually (called by RunScheduleNow handler)
+func (s *BackupSchedulerService) RunMikroTikBackupNow(schedule *models.BackupSchedule, userID uint, username string) (*models.BackupLog, error) {
+	startTime := time.Now()
+	timestamp := startTime.Format("20060102_150405")
+
+	backupLog := models.BackupLog{
+		ScheduleID:    &schedule.ID,
+		ScheduleName:  schedule.Name,
+		BackupType:    "mikrotik",
+		Status:        "running",
+		StartedAt:     startTime,
+		StorageType:   "local",
+		CreatedByID:   &userID,
+		CreatedByName: username,
+	}
+	database.DB.Create(&backupLog)
+
+	mikrotikPath, err := s.ExportMikroTikConfigs(timestamp)
+	if err != nil {
+		backupLog.Status = "failed"
+		backupLog.ErrorMessage = fmt.Sprintf("MikroTik export failed: %v", err)
+		backupLog.CompletedAt = time.Now()
+		database.DB.Save(&backupLog)
+		return &backupLog, err
+	}
+	if mikrotikPath == "" {
+		errMsg := "no NAS devices with API credentials found"
+		backupLog.Status = "failed"
+		backupLog.ErrorMessage = errMsg
+		backupLog.CompletedAt = time.Now()
+		database.DB.Save(&backupLog)
+		return &backupLog, fmt.Errorf(errMsg)
+	}
+
+	fileInfo, err := os.Stat(mikrotikPath)
+	if err != nil {
+		backupLog.Status = "failed"
+		backupLog.ErrorMessage = err.Error()
+		backupLog.CompletedAt = time.Now()
+		database.DB.Save(&backupLog)
+		return &backupLog, err
+	}
+
+	filename := filepath.Base(mikrotikPath)
+	backupLog.Filename = filename
+	backupLog.FileSize = fileInfo.Size()
+	backupLog.StoragePath = mikrotikPath
+
+	// Upload to ProxPanel Cloud if enabled
+	if schedule.CloudEnabled {
+		if err := s.uploadToProxPanelCloud(mikrotikPath, filename); err != nil {
+			log.Printf("BackupScheduler: Cloud upload failed for MikroTik manual backup: %v", err)
+		} else {
+			log.Printf("BackupScheduler: Successfully uploaded MikroTik backup %s to ProxPanel Cloud", filename)
+			backupLog.StorageType = "local+cloud"
+		}
+	}
+
+	completedAt := time.Now()
+	backupLog.Status = "success"
+	backupLog.CompletedAt = completedAt
+	backupLog.Duration = int(completedAt.Sub(startTime).Seconds())
+	database.DB.Save(&backupLog)
+
+	log.Printf("BackupScheduler: MikroTik manual backup completed (%s, %d bytes)", filename, fileInfo.Size())
+	return &backupLog, nil
 }
 
 // createDatabaseBackup creates a database backup (legacy SQL format)
@@ -394,6 +553,7 @@ func (s *BackupSchedulerService) uploadToFTP(schedule *models.BackupSchedule, lo
 }
 
 // uploadToProxPanelCloud uploads a backup file to ProxPanel Cloud via the license server
+// Uses raw streaming with X-Filename header (matches cloud_backup_client.go Upload handler)
 func (s *BackupSchedulerService) uploadToProxPanelCloud(filePath, filename string) error {
 	licenseServer := os.Getenv("LICENSE_SERVER")
 	if licenseServer == "" {
@@ -410,33 +570,28 @@ func (s *BackupSchedulerService) uploadToProxPanelCloud(filePath, filename strin
 	}
 	defer file.Close()
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to stat backup file: %v", err)
+	}
 
-	part, err := writer.CreateFormFile("file", filename)
+	req, err := http.NewRequest("POST", licenseServer+"/api/v1/cloud-backup/upload", file)
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(part, file); err != nil {
-		return err
-	}
-	writer.Close()
-
-	req, err := http.NewRequest("POST", licenseServer+"/api/v1/cloud-backup/upload", body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("X-License-Key", licenseKey)
+	req.Header.Set("X-Filename", filename)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.ContentLength = fileInfo.Size()
 
-	client := &http.Client{Timeout: 10 * time.Minute}
+	client := &http.Client{Timeout: 30 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("upload request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
@@ -464,9 +619,10 @@ func (s *BackupSchedulerService) cleanOldBackups(schedule *models.BackupSchedule
 			continue
 		}
 
-		// Only delete backup files (both encrypted .proisp.bak and legacy .sql)
+		// Only delete backup files (encrypted .proisp.bak, legacy .sql, and mikrotik .tar.gz)
 		name := file.Name()
-		isBackup := strings.HasSuffix(name, ".proisp.bak") || strings.HasSuffix(name, ".sql")
+		isBackup := strings.HasSuffix(name, ".proisp.bak") || strings.HasSuffix(name, ".sql") ||
+			(strings.HasPrefix(name, "mikrotik_") && strings.HasSuffix(name, ".tar.gz"))
 		if info.ModTime().Before(cutoff) && isBackup && len(name) > 10 {
 			os.Remove(filepath.Join(s.backupDir, name))
 			log.Printf("BackupScheduler: Deleted old backup %s", name)
@@ -543,7 +699,8 @@ func (s *BackupSchedulerService) calculateNextRun(schedule *models.BackupSchedul
 		}
 	}
 
-	return next
+	// Store as UTC so timestamp without time zone column works correctly
+	return next.UTC()
 }
 
 // CalculateNextRunForSchedule calculates and updates next_run_at for a schedule (exported for use by handlers)
@@ -577,7 +734,8 @@ func CalculateNextRunForSchedule(schedule *models.BackupSchedule) time.Time {
 		}
 	}
 
-	return next
+	// Store as UTC so timestamp without time zone column works correctly
+	return next.UTC()
 }
 
 // handleBackupError handles backup errors
@@ -628,9 +786,11 @@ func TestFTPConnection(host string, port int, username, password, path string) e
 	return nil
 }
 
-// RunManualBackup runs a manual backup with optional FTP upload
-func (s *BackupSchedulerService) RunManualBackup(backupType string, ftpConfig *models.BackupSchedule, userID uint, username string) (*models.BackupLog, error) {
+// RunManualBackup runs a manual backup with optional FTP upload and MikroTik config export
+func (s *BackupSchedulerService) RunManualBackup(backupType string, ftpConfig *models.BackupSchedule, userID uint, username string, includeMikroTik ...bool) (*models.BackupLog, error) {
 	startTime := time.Now()
+	doMikroTik := len(includeMikroTik) > 0 && includeMikroTik[0]
+	log.Printf("BackupScheduler: RunManualBackup started (type=%s, includeMikroTik=%v, cloudEnabled=%v)", backupType, doMikroTik, ftpConfig != nil && ftpConfig.CloudEnabled)
 
 	// Create backup log entry
 	backupLog := models.BackupLog{
@@ -676,6 +836,21 @@ func (s *BackupSchedulerService) RunManualBackup(backupType string, ftpConfig *m
 	backupLog.StoragePath = localPath
 	backupLog.StorageType = "local"
 
+	// Export MikroTik configs if requested
+	var mikrotikExportPath string
+	if doMikroTik {
+		log.Printf("BackupScheduler: Starting MikroTik config export...")
+		mikrotikPath, err := s.ExportMikroTikConfigs(timestamp)
+		if err != nil {
+			log.Printf("BackupScheduler: MikroTik export failed for manual backup: %v (continuing with DB backup)", err)
+		} else if mikrotikPath != "" {
+			mikrotikExportPath = mikrotikPath
+			log.Printf("BackupScheduler: MikroTik configs saved to %s", filepath.Base(mikrotikPath))
+		} else {
+			log.Printf("BackupScheduler: MikroTik export returned empty path (no NAS devices with API credentials)")
+		}
+	}
+
 	// Upload to FTP if configured
 	if ftpConfig != nil && ftpConfig.FTPEnabled {
 		err = s.uploadToFTP(ftpConfig, localPath, filename)
@@ -687,12 +862,52 @@ func (s *BackupSchedulerService) RunManualBackup(backupType string, ftpConfig *m
 		}
 	}
 
+	// Upload to ProxPanel Cloud if enabled
+	if ftpConfig != nil && ftpConfig.CloudEnabled {
+		if err := s.uploadToProxPanelCloud(localPath, filename); err != nil {
+			log.Printf("BackupScheduler: Cloud upload failed for manual backup: %v", err)
+		} else {
+			log.Printf("BackupScheduler: Successfully uploaded %s to ProxPanel Cloud", filename)
+			if backupLog.StorageType == "local" {
+				backupLog.StorageType = "local+cloud"
+			}
+		}
+		// Also upload MikroTik backup to cloud if it was exported
+		if mikrotikExportPath != "" {
+			mtFilename := filepath.Base(mikrotikExportPath)
+			if err := s.uploadToProxPanelCloud(mikrotikExportPath, mtFilename); err != nil {
+				log.Printf("BackupScheduler: Cloud upload failed for MikroTik %s: %v", mtFilename, err)
+			} else {
+				log.Printf("BackupScheduler: Successfully uploaded MikroTik %s to ProxPanel Cloud", mtFilename)
+			}
+		}
+	}
+
+	// Upload to ProxPanel cloud if storage type includes cloud
+	if ftpConfig != nil && (ftpConfig.StorageType == "cloud" || ftpConfig.StorageType == "local+cloud") {
+		if err := s.uploadToCloud(localPath, filename); err != nil {
+			log.Printf("BackupScheduler: Cloud upload failed for manual backup: %v", err)
+		} else {
+			if backupLog.StorageType == "local" {
+				backupLog.StorageType = "local+cloud"
+			}
+		}
+	}
+
 	completedAt := time.Now()
 	backupLog.Status = "success"
 	backupLog.CompletedAt = completedAt
 	backupLog.Duration = int(completedAt.Sub(startTime).Seconds())
 	database.DB.Save(&backupLog)
 
+	log.Printf("BackupScheduler: RunManualBackup completed (file=%s, size=%d, storage=%s, mikrotik=%s, duration=%ds)",
+		backupLog.Filename, backupLog.FileSize, backupLog.StorageType,
+		func() string {
+			if mikrotikExportPath != "" {
+				return filepath.Base(mikrotikExportPath)
+			}
+			return "none"
+		}(), backupLog.Duration)
 	return &backupLog, nil
 }
 
@@ -826,4 +1041,121 @@ func (s *BackupSchedulerService) GetEncryptionKeyHash() string {
 	key := s.deriveEncryptionKey()
 	hash := sha256.Sum256(key)
 	return hex.EncodeToString(hash[:8]) // Return first 8 bytes as hex
+}
+
+// ExportMikroTikConfigs exports config from NAS devices with API credentials
+// and bundles them into a tar.gz file. Returns the path to the tar.gz or empty string if none.
+// If nasIDs is provided and non-empty, only export from those specific NAS devices.
+func (s *BackupSchedulerService) ExportMikroTikConfigs(timestamp string, nasIDs ...[]uint) (string, error) {
+	// Find NAS devices with API credentials
+	var nasDevices []models.Nas
+	query := database.DB.Where("is_active = ? AND api_username != '' AND api_password != ''", true)
+	if len(nasIDs) > 0 && len(nasIDs[0]) > 0 {
+		query = query.Where("id IN ?", nasIDs[0])
+	}
+	if err := query.Find(&nasDevices).Error; err != nil {
+		return "", fmt.Errorf("failed to query NAS devices: %v", err)
+	}
+
+	if len(nasDevices) == 0 {
+		log.Println("BackupScheduler: No NAS devices with API credentials found, skipping MikroTik backup")
+		return "", nil
+	}
+
+	// Create temp directory for individual exports
+	tmpDir := filepath.Join(s.backupDir, fmt.Sprintf(".mikrotik_export_%s", timestamp))
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	var exportedFiles []string
+
+	for _, nas := range nasDevices {
+		apiAddr := fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort)
+		client := mikrotik.NewClient(apiAddr, nas.APIUsername, nas.APIPassword)
+
+		configText, err := client.ExportConfig()
+		client.Close()
+
+		if err != nil {
+			log.Printf("BackupScheduler: Failed to export config from NAS %s (%s): %v", nas.Name, nas.IPAddress, err)
+			// Write an error marker file so user knows this NAS failed
+			errContent := fmt.Sprintf("# Export failed for %s (%s) at %s\n# Error: %v\n", nas.Name, nas.IPAddress, time.Now().Format(time.RFC3339), err)
+			safeName := strings.ReplaceAll(strings.ReplaceAll(nas.Name, "/", "_"), " ", "_")
+			errFile := filepath.Join(tmpDir, fmt.Sprintf("nas_%s_%s.rsc.ERROR", safeName, nas.IPAddress))
+			os.WriteFile(errFile, []byte(errContent), 0600)
+			exportedFiles = append(exportedFiles, errFile)
+			continue
+		}
+
+		// Save config as .rsc file
+		safeName := strings.ReplaceAll(strings.ReplaceAll(nas.Name, "/", "_"), " ", "_")
+		rscFile := filepath.Join(tmpDir, fmt.Sprintf("nas_%s_%s.rsc", safeName, nas.IPAddress))
+		if err := os.WriteFile(rscFile, []byte(configText), 0600); err != nil {
+			log.Printf("BackupScheduler: Failed to write config file for NAS %s: %v", nas.Name, err)
+			continue
+		}
+
+		exportedFiles = append(exportedFiles, rscFile)
+		log.Printf("BackupScheduler: Exported config from NAS %s (%s), %d bytes", nas.Name, nas.IPAddress, len(configText))
+	}
+
+	if len(exportedFiles) == 0 {
+		return "", nil
+	}
+
+	// Bundle into tar.gz
+	tarGzPath := filepath.Join(s.backupDir, fmt.Sprintf("mikrotik_%s.tar.gz", timestamp))
+	if err := createTarGz(tarGzPath, exportedFiles); err != nil {
+		return "", fmt.Errorf("failed to create tar.gz: %v", err)
+	}
+
+	log.Printf("BackupScheduler: Created MikroTik backup %s with %d configs", filepath.Base(tarGzPath), len(exportedFiles))
+	return tarGzPath, nil
+}
+
+// createTarGz creates a tar.gz archive from a list of files
+func createTarGz(outputPath string, files []string) error {
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	gzWriter := gzip.NewWriter(outFile)
+	defer gzWriter.Close()
+
+	tarWriter := tar.NewWriter(gzWriter)
+	defer tarWriter.Close()
+
+	for _, filePath := range files {
+		info, err := os.Stat(filePath)
+		if err != nil {
+			continue
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			continue
+		}
+		// Use just the base filename in the archive
+		header.Name = filepath.Base(filePath)
+
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+
+		f, err := os.Open(filePath)
+		if err != nil {
+			continue
+		}
+		if _, err := io.Copy(tarWriter, f); err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+	}
+
+	return nil
 }

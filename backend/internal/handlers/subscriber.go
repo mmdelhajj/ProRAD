@@ -3818,6 +3818,9 @@ func (h *SubscriberHandler) Activate(c *fiber.Ctx) error {
 	subscriber.Status = models.SubscriberStatusActive
 	database.DB.Save(&subscriber)
 
+	// Remove Auth-Type := Reject to allow login
+	database.DB.Where("username = ? AND attribute = ? AND value = ?", subscriber.Username, "Auth-Type", "Reject").Delete(&models.RadCheck{})
+
 	// Create audit log
 	auditLog := models.AuditLog{
 		UserID:      user.ID,
@@ -3854,7 +3857,7 @@ func (h *SubscriberHandler) Deactivate(c *fiber.Ctx) error {
 	}
 
 	var subscriber models.Subscriber
-	if err := database.DB.First(&subscriber, id).Error; err != nil {
+	if err := database.DB.Preload("Nas").First(&subscriber, id).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Subscriber not found"})
 	}
 
@@ -3862,12 +3865,29 @@ func (h *SubscriberHandler) Deactivate(c *fiber.Ctx) error {
 	subscriber.Status = models.SubscriberStatusInactive
 	database.DB.Save(&subscriber)
 
-	// Disconnect if online
-	if subscriber.IsOnline {
+	// Add Auth-Type := Reject to block re-login
+	database.DB.Where("username = ? AND attribute = ?", subscriber.Username, "Auth-Type").Delete(&models.RadCheck{})
+	database.DB.Create(&models.RadCheck{
+		Username: subscriber.Username, Attribute: "Auth-Type", Op: ":=", Value: "Reject",
+	})
+
+	// Disconnect from MikroTik if online
+	if subscriber.IsOnline && subscriber.Nas != nil && subscriber.Nas.IPAddress != "" {
+		client := mikrotik.NewClient(
+			fmt.Sprintf("%s:%d", subscriber.Nas.IPAddress, subscriber.Nas.APIPort),
+			subscriber.Nas.APIUsername,
+			subscriber.Nas.APIPassword,
+		)
+		if err := client.DisconnectUser(subscriber.Username); err != nil {
+			log.Printf("Deactivate: MikroTik disconnect failed for %s: %v", subscriber.Username, err)
+		}
+		client.Close()
 		subscriber.IsOnline = false
 		subscriber.SessionID = ""
-		database.DB.Save(&subscriber)
-		// TODO: Send CoA disconnect to NAS
+		database.DB.Model(&subscriber).Updates(map[string]interface{}{
+			"is_online":  false,
+			"session_id": "",
+		})
 	}
 
 	// Create audit log

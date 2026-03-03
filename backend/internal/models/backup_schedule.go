@@ -25,6 +25,9 @@ type BackupSchedule struct {
 	// Cloud backup fields (ProxPanel Cloud)
 	CloudEnabled bool `json:"cloud_enabled" gorm:"column:cloud_enabled;default:false"`
 
+	// MikroTik config backup
+	IncludeMikroTik bool `json:"include_mikrotik" gorm:"column:include_mikrotik;default:false"`
+
 	// FTP settings
 	FTPEnabled  bool   `json:"ftp_enabled" gorm:"column:ftp_enabled;default:false"`
 	FTPHost     string `json:"ftp_host" gorm:"column:ftp_host;size:255"`

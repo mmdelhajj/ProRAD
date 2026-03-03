@@ -894,6 +894,11 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 // restoreOriginalSpeedIfNeeded checks if speed needs to be restored to original service speed
 // Now also considers active time-based bandwidth rules to avoid restoring during NIGHT hours etc.
 func (s *QuotaSyncService) restoreOriginalSpeedIfNeeded(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) {
+	// Don't restore if subscriber is in FUP - the reduced speed is intentional
+	if sub.FUPLevel > 0 || sub.MonthlyFUPLevel > 0 {
+		return
+	}
+
 	// Calculate expected original service speed
 	if sub.Service == nil {
 		return
@@ -1205,6 +1210,23 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 				log.Printf("FUP: Speed restore pending for %s - will apply on reconnect", sub.Username)
 			}
 			log.Printf("FUP: Restored speed for %s to %s", sub.Username, originalRateLimitK)
+		}
+	} else if targetFUPLevel > 0 && fupDownload > 0 && targetFUPLevel == oldEffectiveLevel {
+		// FUP level unchanged but verify radreply still has the correct FUP speed
+		expectedFUPRate := fmt.Sprintf("%dk/%dk", fupUpload, fupDownload)
+		var radReply models.RadReply
+		if err := database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").First(&radReply).Error; err == nil {
+			if radReply.Value != expectedFUPRate {
+				log.Printf("FUP: Re-enforcing %s for %s (radreply was %s)", expectedFUPRate, sub.Username, radReply.Value)
+				database.DB.Model(&models.RadReply{}).
+					Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").
+					Update("value", expectedFUPRate)
+				coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+				if err := client.UpdateUserRateLimitWithIP(sub.Username, sessionIP, int(fupDownload), int(fupUpload)); err != nil {
+					log.Printf("FUP: Re-enforce API failed for %s: %v, trying CoA", sub.Username, err)
+					coaClient.UpdateRateLimitViaRadclient(sub.Username, sessionID, expectedFUPRate)
+				}
+			}
 		}
 	}
 }

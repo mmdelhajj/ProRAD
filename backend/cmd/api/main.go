@@ -626,6 +626,7 @@ func main() {
 	backups := protected.Group("/backups")
 	backups.Get("/", middleware.RequirePermission("backups.view"), backupHandler.List)
 	backups.Post("/", middleware.RequirePermission("backups.create"), backupHandler.Create)
+	backups.Post("/mikrotik", middleware.RequirePermission("backups.create"), backupHandler.CreateMikroTikBackup)
 	backups.Post("/upload", middleware.RequirePermission("backups.create"), backupHandler.Upload)
 	backups.Get("/:filename/download", middleware.RequirePermission("backups.view"), backupHandler.Download)
 	backups.Get("/:filename/token", middleware.RequirePermission("backups.view"), backupHandler.GetDownloadToken)

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { backupApi } from '../services/api'
+import { backupApi, nasApi } from '../services/api'
 import { formatDate, formatDateTime } from '../utils/timezone'
 import {
   ArrowPathIcon,
@@ -43,6 +43,9 @@ export default function Backups() {
   const [sourceLicenseKey, setSourceLicenseKey] = useState('')
   const [backupType, setBackupType] = useState('full')
   const [uploadRestoreFile, setUploadRestoreFile] = useState(null)
+  // MikroTik backup state
+  const [selectedNasIds, setSelectedNasIds] = useState([])
+  const [mikrotikCreating, setMikrotikCreating] = useState(false)
 
   // Schedule modal state
   const [showScheduleModal, setShowScheduleModal] = useState(false)
@@ -63,7 +66,8 @@ export default function Backups() {
     ftp_password: '',
     ftp_path: '/backups',
     is_enabled: true,
-    upload_to_cloud: false,
+    cloud_enabled: false,
+    include_mikrotik: false,
   })
   const [testingFTP, setTestingFTP] = useState(false)
 
@@ -103,8 +107,15 @@ export default function Backups() {
     enabled: activeTab === 'cloud',
   })
 
+  // NAS list for MikroTik backup tab
+  const { data: nasData } = useQuery({
+    queryKey: ['nas-list'],
+    queryFn: () => nasApi.list().then((r) => r.data),
+    enabled: activeTab === 'mikrotik',
+  })
+
   const createMutation = useMutation({
-    mutationFn: (type) => backupApi.create({ type }),
+    mutationFn: ({ type }) => backupApi.create({ type }),
     onSuccess: (res) => {
       toast.success(res.data.message)
       setShowCreateModal(false)
@@ -290,7 +301,8 @@ export default function Backups() {
       ftp_password: '',
       ftp_path: '/backups',
       is_enabled: true,
-      upload_to_cloud: false,
+      cloud_enabled: false,
+      include_mikrotik: false,
     })
   }
 
@@ -313,7 +325,8 @@ export default function Backups() {
         ftp_password: schedule.ftp_password || '',
         ftp_path: schedule.ftp_path || '/backups',
         is_enabled: schedule.is_enabled !== false,
-        upload_to_cloud: schedule.upload_to_cloud || false,
+        cloud_enabled: schedule.cloud_enabled || false,
+        include_mikrotik: schedule.include_mikrotik || false,
       })
     } else {
       setEditingSchedule(null)
@@ -361,7 +374,8 @@ export default function Backups() {
     }
   }
 
-  const backups = data?.data || []
+  const allBackups = data?.data || []
+  const backups = allBackups.filter(b => b.type !== 'mikrotik')
   const schedules = schedulesData?.data || []
   const logs = logsData?.data || []
   const cloudBackups = cloudBackupsData?.data || []
@@ -373,6 +387,7 @@ export default function Backups() {
     { id: 'scheduled', label: 'Scheduled' },
     { id: 'logs', label: 'Logs' },
     { id: 'cloud', label: 'Cloud Backup' },
+    { id: 'mikrotik', label: 'MikroTik Backup' },
   ]
 
   return (
@@ -458,6 +473,15 @@ export default function Backups() {
               Refresh
             </button>
           )}
+          {activeTab === 'mikrotik' && (
+            <button
+              onClick={() => refetch()}
+              className="btn btn-sm flex items-center gap-1"
+            >
+              <ArrowPathIcon className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+          )}
         </div>
       </div>
 
@@ -534,8 +558,8 @@ export default function Backups() {
                       <tr key={backup.filename}>
                         <td className="font-semibold">{backup.filename}</td>
                         <td>
-                          <span className={clsx('badge', backup.type === 'full' ? 'badge-success' : backup.type === 'data' ? 'badge-info' : 'badge-warning')}>
-                            {backup.type || 'full'}
+                          <span className={clsx('badge', backup.type === 'full' ? 'badge-success' : backup.type === 'data' ? 'badge-info' : backup.type === 'mikrotik' ? 'badge-purple' : 'badge-warning')}>
+                            {backup.type === 'mikrotik' ? 'MikroTik' : (backup.type || 'full')}
                           </span>
                         </td>
                         <td>{formatBytes(backup.size)}</td>
@@ -545,12 +569,16 @@ export default function Backups() {
                             <button onClick={() => handleDownload(backup.filename)} className="btn btn-sm btn-primary" title="Download" style={{ padding: '1px 4px' }}>
                               <ArrowDownTrayIcon className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => setShowRestoreConfirm(backup.filename)} className="btn btn-sm btn-success" title="Restore" style={{ padding: '1px 4px' }}>
-                              <ArrowPathIcon className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setCloudUploadConfirm(backup.filename)} className="btn btn-sm" title="Upload to Cloud" style={{ padding: '1px 4px' }}>
-                              <CloudArrowUpIcon className="w-3.5 h-3.5" />
-                            </button>
+                            {backup.type !== 'mikrotik' && (
+                              <button onClick={() => setShowRestoreConfirm(backup.filename)} className="btn btn-sm btn-success" title="Restore" style={{ padding: '1px 4px' }}>
+                                <ArrowPathIcon className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {backup.type !== 'mikrotik' && (
+                              <button onClick={() => setCloudUploadConfirm(backup.filename)} className="btn btn-sm" title="Upload to Cloud" style={{ padding: '1px 4px' }}>
+                                <CloudArrowUpIcon className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 if (confirm('Are you sure you want to delete this backup?')) {
@@ -611,9 +639,17 @@ export default function Backups() {
                       <tr key={schedule.id}>
                         <td className="font-semibold">{schedule.name}</td>
                         <td>
-                          <span className={clsx('badge', schedule.backup_type === 'full' ? 'badge-info' : schedule.backup_type === 'data' ? 'badge-warning' : 'badge-secondary')}>
-                            {schedule.backup_type}
-                          </span>
+                          {schedule.backup_type === 'mikrotik' ? (
+                            <span className="badge badge-purple">MikroTik</span>
+                          ) : (
+                            <>
+                              <span className={clsx('badge', schedule.backup_type === 'full' ? 'badge-info' : schedule.backup_type === 'data' ? 'badge-warning' : 'badge-secondary')}>
+                                {schedule.backup_type}
+                              </span>
+                              {schedule.include_mikrotik && <span className="badge badge-purple ml-1">+MT</span>}
+                            </>
+                          )}
+                          {schedule.cloud_enabled && <span className="badge badge-cyan ml-1">Cloud</span>}
                         </td>
                         <td>
                           {schedule.frequency === 'daily'
@@ -798,8 +834,8 @@ export default function Backups() {
                       <tr key={backup.id}>
                         <td className="font-semibold">{backup.filename}</td>
                         <td>
-                          <span className={clsx('badge', backup.type === 'full' ? 'badge-success' : backup.type === 'data' ? 'badge-info' : 'badge-warning')}>
-                            {backup.type || 'full'}
+                          <span className={clsx('badge', backup.type === 'full' ? 'badge-success' : backup.type === 'data' ? 'badge-info' : backup.type === 'mikrotik' ? 'badge-purple' : 'badge-warning')}>
+                            {backup.type === 'mikrotik' ? 'MikroTik' : (backup.type || 'full')}
                           </span>
                         </td>
                         <td>{formatBytes(backup.size || 0)}</td>
@@ -852,6 +888,238 @@ export default function Backups() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* MikroTik Backup Tab */}
+        {activeTab === 'mikrotik' && (
+          <div className="space-y-3">
+            {/* NAS Selection */}
+            <div className="wb-group">
+              <div className="wb-group-title flex items-center justify-between">
+                <span>Select NAS Devices</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const allNas = (nasData?.data || []).filter(n => n.api_username || n.has_api_password)
+                      setSelectedNasIds(allNas.map(n => n.id))
+                    }}
+                    className="text-[10px] text-[#316AC5] hover:underline cursor-pointer"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setSelectedNasIds([])}
+                    className="text-[10px] text-[#316AC5] hover:underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="wb-group-body">
+                {(() => {
+                  const nasList = (nasData?.data || []).filter(n => n.api_username || n.has_api_password)
+                  if (nasList.length === 0) {
+                    return (
+                      <p className="text-[12px] text-gray-500 dark:text-[#aaa]">
+                        No NAS devices with API credentials found. Configure API credentials in NAS settings first.
+                      </p>
+                    )
+                  }
+                  return (
+                    <div className="space-y-1">
+                      {nasList.map((nas) => (
+                        <label
+                          key={nas.id}
+                          className={clsx(
+                            'flex items-center gap-2 p-1.5 border cursor-pointer text-[12px]',
+                            selectedNasIds.includes(nas.id)
+                              ? 'border-[#316AC5] bg-[#e8eef8] dark:bg-[#2a3a5a]'
+                              : 'border-[#ddd] dark:border-[#555] hover:bg-[#f5f5f5] dark:hover:bg-[#333]'
+                          )}
+                          style={{ borderRadius: '2px' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedNasIds.includes(nas.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedNasIds([...selectedNasIds, nas.id])
+                              } else {
+                                setSelectedNasIds(selectedNasIds.filter(id => id !== nas.id))
+                              }
+                            }}
+                            className="w-3.5 h-3.5 accent-[#316AC5]"
+                          />
+                          <ServerIcon className="w-3.5 h-3.5 text-gray-500 dark:text-[#aaa]" />
+                          <span className="font-semibold">{nas.name}</span>
+                          <span className="text-gray-400 dark:text-[#888]">({nas.ip_address})</span>
+                        </label>
+                      ))}
+                    </div>
+                  )
+                })()}
+                <button
+                  onClick={async () => {
+                    setMikrotikCreating(true)
+                    try {
+                      const res = await backupApi.createMikrotik(selectedNasIds.length > 0 ? selectedNasIds : undefined)
+                      toast.success(res.data.message || 'MikroTik backup created')
+                      queryClient.invalidateQueries(['backups'])
+                      setSelectedNasIds([])
+                    } catch (err) {
+                      toast.error(err.response?.data?.message || 'Failed to create MikroTik backup')
+                    } finally {
+                      setMikrotikCreating(false)
+                    }
+                  }}
+                  disabled={mikrotikCreating}
+                  className="btn btn-primary btn-sm mt-2 flex items-center gap-1"
+                >
+                  <ServerIcon className="w-3.5 h-3.5" />
+                  {mikrotikCreating ? 'Creating...' : 'Create MikroTik Backup'}
+                </button>
+              </div>
+            </div>
+
+            {/* MikroTik Schedules */}
+            {(() => {
+              const mtSchedules = (schedulesData?.data || []).filter(s => s.backup_type === 'mikrotik' || s.include_mikrotik)
+              return (
+                <div className="wb-group">
+                  <div className="wb-group-title flex items-center justify-between">
+                    <span>Scheduled MikroTik Backups</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          resetScheduleForm()
+                          setScheduleForm(prev => ({ ...prev, backup_type: 'mikrotik', name: 'MikroTik Backup' }))
+                          setEditingSchedule(null)
+                          setShowScheduleModal(true)
+                        }}
+                        className="text-[10px] text-[#316AC5] hover:underline cursor-pointer"
+                      >
+                        + Create Schedule
+                      </button>
+                      <button
+                        onClick={() => { setActiveTab('scheduled') }}
+                        className="text-[10px] text-[#316AC5] hover:underline cursor-pointer"
+                      >
+                        Manage Schedules
+                      </button>
+                    </div>
+                  </div>
+                  <div className="wb-group-body">
+                    {mtSchedules.length === 0 ? (
+                      <p className="text-[12px] text-gray-500 dark:text-[#aaa]">
+                        No MikroTik backup schedules yet. Click "+ Create Schedule" above to create one.
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {mtSchedules.map((schedule) => (
+                          <div
+                            key={schedule.id}
+                            className="flex items-center justify-between p-1.5 border border-[#ddd] dark:border-[#555] text-[12px]"
+                            style={{ borderRadius: '2px' }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <CalendarDaysIcon className="w-3.5 h-3.5 text-gray-500 dark:text-[#aaa]" />
+                              <span className="font-semibold">{schedule.name}</span>
+                              {schedule.backup_type === 'mikrotik' ? (
+                                <span className="badge badge-purple">MikroTik</span>
+                              ) : (
+                                <>
+                                  <span className="badge badge-info">{schedule.backup_type}</span>
+                                  <span className="badge badge-purple">+MT</span>
+                                </>
+                              )}
+                              {schedule.cloud_enabled && <span className="badge badge-cyan">Cloud</span>}
+                              <span className="text-gray-400 dark:text-[#888]">
+                                {schedule.frequency === 'daily' ? 'Daily' : schedule.frequency === 'weekly' ? `Weekly` : `Monthly`}
+                                {' '}{schedule.time_of_day || '02:00'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={clsx('badge', schedule.is_enabled ? 'badge-success' : 'badge-secondary')}>
+                                {schedule.is_enabled ? 'Active' : 'Disabled'}
+                              </span>
+                              {schedule.next_run_at && (
+                                <span className="text-gray-400 dark:text-[#888] text-[10px]">
+                                  Next: {formatDateTime(schedule.next_run_at)}
+                                </span>
+                              )}
+                              <button onClick={() => openScheduleModal(schedule)} className="btn btn-sm btn-primary" title="Edit" style={{ padding: '1px 4px' }}>
+                                <PencilIcon className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => runNowMutation.mutate(schedule.id)} disabled={runNowMutation.isLoading} className="btn btn-sm btn-success" title="Run Now" style={{ padding: '1px 4px' }}>
+                                <PlayIcon className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* MikroTik Backups Table */}
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Filename</th>
+                    <th>Size</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={4} className="text-center py-4">Loading...</td>
+                    </tr>
+                  ) : allBackups.filter(b => b.type === 'mikrotik').length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center py-4 text-gray-500 dark:text-[#aaa]">
+                        No MikroTik backups yet. Select NAS devices above and create a backup.
+                      </td>
+                    </tr>
+                  ) : (
+                    allBackups.filter(b => b.type === 'mikrotik').map((backup) => (
+                      <tr key={backup.filename}>
+                        <td className="font-semibold">{backup.filename}</td>
+                        <td>{formatBytes(backup.size)}</td>
+                        <td>{formatDateTime(backup.created_at)}</td>
+                        <td>
+                          <div className="flex items-center gap-0.5">
+                            <button onClick={() => handleDownload(backup.filename)} className="btn btn-sm btn-primary" title="Download" style={{ padding: '1px 4px' }}>
+                              <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setCloudUploadConfirm(backup.filename)} className="btn btn-sm" title="Upload to Cloud" style={{ padding: '1px 4px' }}>
+                              <CloudArrowUpIcon className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this MikroTik backup?')) {
+                                  deleteMutation.mutate(backup.filename)
+                                }
+                              }}
+                              className="btn btn-sm btn-danger"
+                              title="Delete"
+                              style={{ padding: '1px 4px' }}
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -944,7 +1212,7 @@ export default function Backups() {
             <div className="modal-footer">
               <button onClick={() => setShowCreateModal(false)} className="btn btn-sm">Cancel</button>
               <button
-                onClick={() => createMutation.mutate(backupType)}
+                onClick={() => createMutation.mutate({ type: backupType })}
                 disabled={createMutation.isLoading}
                 className="btn btn-primary btn-sm"
               >
@@ -1032,6 +1300,7 @@ export default function Backups() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
+                      {scheduleForm.backup_type !== 'mikrotik' ? (
                       <div>
                         <label className="block text-[12px] font-semibold text-gray-700 dark:text-[#ccc] mb-0.5">Backup Type</label>
                         <select
@@ -1044,6 +1313,15 @@ export default function Backups() {
                           <option value="config">Config Only</option>
                         </select>
                       </div>
+                      ) : (
+                      <div>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-[#ccc] mb-0.5">Backup Type</label>
+                        <div className="input w-full bg-[#f0f0f0] dark:bg-[#444] flex items-center gap-1">
+                          <ServerIcon className="w-3.5 h-3.5 text-purple-600" />
+                          <span className="font-semibold text-purple-700 dark:text-purple-300">MikroTik Only</span>
+                        </div>
+                      </div>
+                      )}
                       <div>
                         <label className="block text-[12px] font-semibold text-gray-700 dark:text-[#ccc] mb-0.5">Frequency</label>
                         <select
@@ -1229,12 +1507,23 @@ export default function Backups() {
                     <label className="flex items-center gap-2 text-[12px] cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={scheduleForm.upload_to_cloud}
-                        onChange={() => setScheduleForm({ ...scheduleForm, upload_to_cloud: !scheduleForm.upload_to_cloud })}
+                        checked={scheduleForm.cloud_enabled}
+                        onChange={() => setScheduleForm({ ...scheduleForm, cloud_enabled: !scheduleForm.cloud_enabled })}
                       />
                       <span className="font-semibold">Upload to ProxPanel Cloud</span>
                       <span className="text-gray-500 dark:text-[#aaa]">- Auto-upload after each scheduled run</span>
                     </label>
+                    {scheduleForm.backup_type !== 'mikrotik' && (
+                    <label className="flex items-center gap-2 text-[12px] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={scheduleForm.include_mikrotik}
+                        onChange={() => setScheduleForm({ ...scheduleForm, include_mikrotik: !scheduleForm.include_mikrotik })}
+                      />
+                      <span className="font-semibold">Include MikroTik Configs</span>
+                      <span className="text-gray-500 dark:text-[#aaa]">- Export router configs alongside DB backup</span>
+                    </label>
+                    )}
                   </div>
                 </div>
               </form>

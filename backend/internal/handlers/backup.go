@@ -79,8 +79,11 @@ func (h *BackupHandler) List(c *fiber.Ctx) error {
 			continue
 		}
 
-		// Only show .proisp.bak files (encrypted backups) and legacy .sql files
-		if !strings.HasSuffix(file.Name(), ".proisp.bak") && !strings.HasSuffix(file.Name(), ".sql") {
+		// Show .proisp.bak files (encrypted backups), legacy .sql files, and mikrotik .tar.gz files
+		name := file.Name()
+		isBak := strings.HasSuffix(name, ".proisp.bak") || strings.HasSuffix(name, ".sql")
+		isMikroTik := strings.HasPrefix(name, "mikrotik_") && strings.HasSuffix(name, ".tar.gz")
+		if !isBak && !isMikroTik {
 			continue
 		}
 
@@ -90,14 +93,16 @@ func (h *BackupHandler) List(c *fiber.Ctx) error {
 		}
 
 		backupType := "full"
-		if strings.Contains(file.Name(), "_config") {
+		if isMikroTik {
+			backupType = "mikrotik"
+		} else if strings.Contains(name, "_config") {
 			backupType = "config"
-		} else if strings.Contains(file.Name(), "_data") {
+		} else if strings.Contains(name, "_data") {
 			backupType = "data"
 		}
 
-		// Mark encrypted backups
-		encrypted := strings.HasSuffix(file.Name(), ".proisp.bak")
+		// Mark encrypted backups (mikrotik tar.gz files are not encrypted)
+		encrypted := strings.HasSuffix(name, ".proisp.bak")
 
 		backups = append(backups, BackupInfo{
 			ID:        strconv.Itoa(i + 1),
@@ -128,6 +133,11 @@ func (h *BackupHandler) List(c *fiber.Ctx) error {
 type CreateBackupRequest struct {
 	Type        string `json:"type"` // full, data, config
 	Description string `json:"description"`
+}
+
+// CreateMikroTikBackupRequest represents MikroTik backup request
+type CreateMikroTikBackupRequest struct {
+	NasIDs []uint `json:"nas_ids"`
 }
 
 // Create creates a new encrypted backup
@@ -244,6 +254,83 @@ func (h *BackupHandler) Create(c *fiber.Ctx) error {
 			CreatedAt: info.ModTime(),
 			Type:      req.Type,
 			Encrypted: true,
+		},
+	})
+}
+
+// CreateMikroTikBackup creates a MikroTik config backup for selected NAS devices
+func (h *BackupHandler) CreateMikroTikBackup(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	var req CreateMikroTikBackupRequest
+	if err := c.BodyParser(&req); err != nil {
+		// Allow empty body (export all NAS)
+		req.NasIDs = nil
+	}
+
+	timestamp := time.Now().Format("20060102_150405")
+
+	svc := services.NewBackupSchedulerService(h.cfg)
+
+	var mikrotikPath string
+	var err error
+	if len(req.NasIDs) > 0 {
+		mikrotikPath, err = svc.ExportMikroTikConfigs(timestamp, req.NasIDs)
+	} else {
+		mikrotikPath, err = svc.ExportMikroTikConfigs(timestamp)
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": fmt.Sprintf("MikroTik export failed: %v", err),
+		})
+	}
+
+	if mikrotikPath == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "No NAS devices with API credentials found",
+		})
+	}
+
+	info, err := os.Stat(mikrotikPath)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": fmt.Sprintf("Failed to stat backup file: %v", err),
+		})
+	}
+
+	filename := filepath.Base(mikrotikPath)
+
+	// Create audit log
+	auditLog := models.AuditLog{
+		UserID:      user.ID,
+		Username:    user.Username,
+		UserType:    user.UserType,
+		Action:      models.AuditActionCreate,
+		EntityType:  "backup",
+		EntityName:  filename,
+		Description: fmt.Sprintf("Created MikroTik config backup (%d NAS devices)", len(req.NasIDs)),
+		IPAddress:   c.IP(),
+		UserAgent:   c.Get("User-Agent"),
+	}
+	database.DB.Create(&auditLog)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "MikroTik config backup created successfully",
+		"data": BackupInfo{
+			ID:        filename,
+			Filename:  filename,
+			Size:      info.Size(),
+			CreatedAt: info.ModTime(),
+			Type:      "mikrotik",
+			Encrypted: false,
 		},
 	})
 }
@@ -1113,6 +1200,8 @@ func (h *BackupHandler) UpdateSchedule(c *fiber.Ctx) error {
 	existing.FTPPath = updates.FTPPath
 	existing.FTPPassive = updates.FTPPassive
 	existing.FTPTLS = updates.FTPTLS
+	existing.IncludeMikroTik = updates.IncludeMikroTik
+	existing.CloudEnabled = updates.CloudEnabled
 
 	// Recalculate next run time using configured timezone
 	nextRun := services.CalculateNextRunForSchedule(&existing)
@@ -1478,10 +1567,23 @@ func (h *BackupHandler) RunScheduleNow(c *fiber.Ctx) error {
 		})
 	}
 
-	// Run backup in background
+	// Run backup in background with panic recovery
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("BackupScheduler: PANIC in RunScheduleNow goroutine: %v", r)
+			}
+		}()
 		svc := services.NewBackupSchedulerService(h.cfg)
-		svc.RunManualBackup(schedule.BackupType, &schedule, user.ID, user.Username)
+		if schedule.BackupType == "mikrotik" {
+			// MikroTik-only backup
+			log.Printf("BackupScheduler: RunScheduleNow triggering MikroTik-only backup for schedule '%s'", schedule.Name)
+			svc.RunMikroTikBackupNow(&schedule, user.ID, user.Username)
+		} else {
+			// DB backup (with optional MikroTik include)
+			log.Printf("BackupScheduler: RunScheduleNow triggering %s backup for schedule '%s' (includeMikroTik=%v, cloudEnabled=%v)", schedule.BackupType, schedule.Name, schedule.IncludeMikroTik, schedule.CloudEnabled)
+			svc.RunManualBackup(schedule.BackupType, &schedule, user.ID, user.Username, schedule.IncludeMikroTik)
+		}
 	}()
 
 	return c.JSON(fiber.Map{

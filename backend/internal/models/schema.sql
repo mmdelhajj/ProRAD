@@ -922,6 +922,8 @@ CREATE TABLE IF NOT EXISTS backup_schedules (
     ftp_path VARCHAR(255) DEFAULT '/backups',
     ftp_passive BOOLEAN DEFAULT true,
     ftp_tls BOOLEAN DEFAULT false,
+    cloud_enabled BOOLEAN DEFAULT false,
+    include_mikrotik BOOLEAN DEFAULT false,
     last_run_at TIMESTAMP,
     last_status VARCHAR(20),
     last_error VARCHAR(500),
@@ -1023,6 +1025,14 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'backup_schedules' AND column_name = 'cloud_enabled') THEN
         ALTER TABLE backup_schedules ADD COLUMN cloud_enabled BOOLEAN DEFAULT false;
+    END IF;
+END $$;
+
+-- Add include_mikrotik column to backup_schedules if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'backup_schedules' AND column_name = 'include_mikrotik') THEN
+        ALTER TABLE backup_schedules ADD COLUMN include_mikrotik BOOLEAN DEFAULT false;
     END IF;
 END $$;
 

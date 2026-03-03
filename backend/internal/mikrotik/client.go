@@ -365,6 +365,192 @@ func (c *Client) RunCommand(command string) ([]map[string]string, error) {
 	return results, nil
 }
 
+// ExportConfig retrieves the full router configuration.
+// It saves the export to a temp file on the router, downloads it via FTP,
+// then cleans up. Returns the config as a string (RouterOS script format).
+func (c *Client) ExportConfig() (string, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return "", err
+		}
+	}
+
+	// The /export command doesn't return data via the API protocol.
+	// We must: 1) save to file on router, 2) download via FTP, 3) cleanup.
+	tempFileName := fmt.Sprintf("proisp_export_%d", time.Now().UnixNano())
+
+	// Step 1: Export config to file on router
+	c.conn.SetDeadline(time.Now().Add(30 * time.Second))
+	if err := c.sendWord("/export"); err != nil {
+		return "", fmt.Errorf("failed to send export command: %v", err)
+	}
+	if err := c.sendWord("=file=" + tempFileName); err != nil {
+		return "", fmt.Errorf("failed to send file param: %v", err)
+	}
+	if err := c.sendWord(""); err != nil {
+		return "", fmt.Errorf("failed to send end: %v", err)
+	}
+
+	response, err := c.readResponse()
+	if err != nil {
+		return "", fmt.Errorf("failed to read export response: %v", err)
+	}
+	for _, word := range response {
+		if strings.HasPrefix(word, "!trap") {
+			errMsg := "export command failed"
+			for _, w := range response {
+				if strings.HasPrefix(w, "=message=") {
+					errMsg = strings.TrimPrefix(w, "=message=")
+					break
+				}
+			}
+			return "", fmt.Errorf(errMsg)
+		}
+	}
+
+	// Wait for the file to be written
+	time.Sleep(2 * time.Second)
+
+	// Step 2: Download the file via FTP
+	host := c.Address
+	if idx := strings.LastIndex(host, ":"); idx > 0 {
+		host = host[:idx]
+	}
+
+	ftpAddr := fmt.Sprintf("%s:21", host)
+	ftpConn, err := net.DialTimeout("tcp", ftpAddr, 5*time.Second)
+	if err != nil {
+		// FTP not available - try to read via API /file/print contents (small files)
+		c.removeFile(tempFileName + ".rsc")
+		return "", fmt.Errorf("FTP connection failed (port 21): %v", err)
+	}
+	ftpConn.Close()
+
+	configText, err := c.downloadFileViaFTP(host, tempFileName+".rsc")
+
+	// Step 3: Cleanup - remove temp file from router
+	c.removeFile(tempFileName + ".rsc")
+
+	if err != nil {
+		return "", fmt.Errorf("FTP download failed: %v", err)
+	}
+
+	return configText, nil
+}
+
+// downloadFileViaFTP downloads a file from MikroTik using FTP with the same credentials.
+func (c *Client) downloadFileViaFTP(host, filename string) (string, error) {
+	ftpConn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:21", host), 5*time.Second)
+	if err != nil {
+		return "", err
+	}
+
+	// Simple FTP client - read welcome
+	ftpConn.SetDeadline(time.Now().Add(15 * time.Second))
+	buf := make([]byte, 1024)
+	n, _ := ftpConn.Read(buf)
+	welcome := string(buf[:n])
+	if !strings.HasPrefix(welcome, "220") {
+		ftpConn.Close()
+		return "", fmt.Errorf("unexpected FTP welcome: %s", welcome)
+	}
+
+	// Login
+	fmt.Fprintf(ftpConn, "USER %s\r\n", c.Username)
+	n, _ = ftpConn.Read(buf)
+	resp := string(buf[:n])
+	if !strings.HasPrefix(resp, "331") {
+		ftpConn.Close()
+		return "", fmt.Errorf("FTP USER failed: %s", resp)
+	}
+
+	fmt.Fprintf(ftpConn, "PASS %s\r\n", c.Password)
+	n, _ = ftpConn.Read(buf)
+	resp = string(buf[:n])
+	if !strings.HasPrefix(resp, "230") {
+		ftpConn.Close()
+		return "", fmt.Errorf("FTP login failed: %s", resp)
+	}
+
+	// Switch to passive mode
+	fmt.Fprintf(ftpConn, "PASV\r\n")
+	n, _ = ftpConn.Read(buf)
+	resp = string(buf[:n])
+	if !strings.HasPrefix(resp, "227") {
+		ftpConn.Close()
+		return "", fmt.Errorf("FTP PASV failed: %s", resp)
+	}
+
+	// Parse PASV response to get data port: 227 Entering Passive Mode (h1,h2,h3,h4,p1,p2)
+	pasvStart := strings.Index(resp, "(")
+	pasvEnd := strings.Index(resp, ")")
+	if pasvStart < 0 || pasvEnd < 0 {
+		ftpConn.Close()
+		return "", fmt.Errorf("cannot parse PASV response: %s", resp)
+	}
+	parts := strings.Split(resp[pasvStart+1:pasvEnd], ",")
+	if len(parts) != 6 {
+		ftpConn.Close()
+		return "", fmt.Errorf("invalid PASV parts: %s", resp)
+	}
+	p1, _ := strconv.Atoi(parts[4])
+	p2, _ := strconv.Atoi(parts[5])
+	dataPort := p1*256 + p2
+
+	// Connect to data port
+	dataConn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, dataPort), 5*time.Second)
+	if err != nil {
+		ftpConn.Close()
+		return "", fmt.Errorf("FTP data connection failed: %v", err)
+	}
+
+	// Request file
+	fmt.Fprintf(ftpConn, "RETR %s\r\n", filename)
+	n, _ = ftpConn.Read(buf)
+	resp = string(buf[:n])
+	if !strings.HasPrefix(resp, "150") && !strings.HasPrefix(resp, "125") {
+		dataConn.Close()
+		ftpConn.Close()
+		return "", fmt.Errorf("FTP RETR failed: %s", resp)
+	}
+
+	// Read file data
+	dataConn.SetDeadline(time.Now().Add(30 * time.Second))
+	var sb strings.Builder
+	readBuf := make([]byte, 32768)
+	for {
+		n, err := dataConn.Read(readBuf)
+		if n > 0 {
+			sb.Write(readBuf[:n])
+		}
+		if err != nil {
+			break
+		}
+	}
+	dataConn.Close()
+
+	// Read transfer complete response
+	ftpConn.SetDeadline(time.Now().Add(5 * time.Second))
+	n, _ = ftpConn.Read(buf)
+
+	fmt.Fprintf(ftpConn, "QUIT\r\n")
+	ftpConn.Close()
+
+	return sb.String(), nil
+}
+
+// removeFile removes a file from the MikroTik router via API.
+func (c *Client) removeFile(filename string) {
+	if c.conn == nil {
+		return
+	}
+	c.conn.SetDeadline(time.Now().Add(5 * time.Second))
+	c.sendWord("/file/remove")
+	c.sendWord("=.id=" + filename)
+	c.sendWord("")
+	c.readResponse()
+}
+
 // Connect establishes connection and authenticates
 func (c *Client) Connect() error {
 	conn, err := net.DialTimeout("tcp", c.Address, c.timeout)

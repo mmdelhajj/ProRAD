@@ -294,6 +294,7 @@ export const ticketApi = {
 export const backupApi = {
   list: () => api.get('/backups'),
   create: (data) => api.post('/backups', data),
+  createMikrotik: (nasIds) => api.post('/backups/mikrotik', { nas_ids: nasIds }),
   upload: (formData) => api.post('/backups/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
