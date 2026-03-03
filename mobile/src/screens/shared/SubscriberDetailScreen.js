@@ -810,11 +810,11 @@ export default function SubscriberDetailScreen({ route, navigation }) {
                       <View style={styles.serviceRadio}>
                         <View
                           style={[
-                            styles.radioOuter,
-                            isSelected && styles.radioOuterSelected,
+                            styles.checkBox,
+                            isSelected && styles.checkBoxSelected,
                           ]}
                         >
-                          {isSelected && <View style={styles.radioInner} />}
+                          {isSelected && <Text style={styles.checkMark}>✓</Text>}
                         </View>
                       </View>
                       <View style={styles.serviceInfo}>
@@ -1194,32 +1194,34 @@ const styles = StyleSheet.create({
   },
   serviceItemSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.primaryLight + '10',
+    backgroundColor: colors.primary + '15',
   },
   serviceItemCurrent: {
     borderColor: colors.success + '50',
     backgroundColor: colors.success + '08',
   },
   serviceRadio: {
-    marginRight: 6,
+    marginRight: 8,
   },
-  radioOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1,
+  checkBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.surface,
   },
-  radioOuterSelected: {
+  checkBoxSelected: {
     borderColor: colors.primary,
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
     backgroundColor: colors.primary,
+  },
+  checkMark: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: -1,
   },
   serviceInfo: {
     flex: 1,

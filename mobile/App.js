@@ -1,5 +1,7 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, LogBox } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -51,12 +53,14 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -68,15 +72,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   splashLogo: {
-    fontSize: 64,
-    marginBottom: spacing.base,
+    fontSize: 36,
+    marginBottom: spacing.sm,
   },
   splashTitle: {
-    ...typography.h1,
+    ...typography.h2,
     color: colors.text,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.base,
   },
   splashSpinner: {
-    marginTop: spacing.base,
+    marginTop: spacing.sm,
   },
 });

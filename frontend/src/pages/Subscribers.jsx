@@ -1200,16 +1200,16 @@ export default function Subscribers() {
 
           <span className="wb-toolbar-separator hide-mobile" />
 
-          {hasPermission('subscribers.rename') && (
-            <button onClick={() => executeAction('rename')} disabled={selectedCount !== 1} className="btn btn-sm" title="Rename">
-              <IdentificationIcon style={{ width: 14, height: 14, marginRight: 2 }} />
-              <span className="hide-mobile">Rename</span>
-            </button>
-          )}
           {hasPermission('subscribers.add_days') && (
             <button onClick={() => executeAction('add_days')} disabled={selectedCount !== 1} className="btn btn-sm" title="Add Days">
               <CalendarDaysIcon style={{ width: 14, height: 14, marginRight: 2 }} />
               <span className="hide-mobile">Add Days</span>
+            </button>
+          )}
+          {hasPermission('subscribers.change_service') && (
+            <button onClick={() => executeAction('change_service')} disabled={selectedCount !== 1} className="btn btn-sm" title="Change Service">
+              <ArrowsRightLeftIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Change Service</span>
             </button>
           )}
           {hasPermission('subscribers.ping') && (
@@ -1642,21 +1642,22 @@ export default function Subscribers() {
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
-                  <input type="checkbox" checked={changeServiceOptions.extend_expiry} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, extend_expiry: e.target.checked })} style={{ width: 13, height: 13 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }} className="dark:bg-gray-700 dark:border-gray-600">
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '2px' }} className="dark:text-gray-300">Options</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#374151' }} className="dark:text-gray-200">
+                  <input type="checkbox" checked={changeServiceOptions.extend_expiry} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, extend_expiry: e.target.checked })} style={{ width: 16, height: 16, accentColor: '#2563eb' }} />
                   Extend Expiry
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
-                  <input type="checkbox" checked={changeServiceOptions.reset_fup} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, reset_fup: e.target.checked })} style={{ width: 13, height: 13 }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#374151' }} className="dark:text-gray-200">
+                  <input type="checkbox" checked={changeServiceOptions.reset_fup} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, reset_fup: e.target.checked })} style={{ width: 16, height: 16, accentColor: '#2563eb' }} />
                   Reset FUP Quota
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
-                  <input type="checkbox" checked={changeServiceOptions.prorate_price} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, prorate_price: e.target.checked, charge_price: false })} style={{ width: 13, height: 13 }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#374151' }} className="dark:text-gray-200">
+                  <input type="checkbox" checked={changeServiceOptions.prorate_price} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, prorate_price: e.target.checked, charge_price: false })} style={{ width: 16, height: 16, accentColor: '#2563eb' }} />
                   Prorate Price (recommended)
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
-                  <input type="checkbox" checked={changeServiceOptions.charge_price} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, charge_price: e.target.checked, prorate_price: false })} style={{ width: 13, height: 13 }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#374151' }} className="dark:text-gray-200">
+                  <input type="checkbox" checked={changeServiceOptions.charge_price} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, charge_price: e.target.checked, prorate_price: false })} style={{ width: 16, height: 16, accentColor: '#2563eb' }} />
                   Charge Full Price
                 </label>
               </div>
