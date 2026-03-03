@@ -83,52 +83,47 @@ export default function LicenseBanner() {
   // No warning needed
   if (!bannerType) return null
 
-  const bgColor = bannerType === 'error'
-    ? 'bg-red-600'
-    : 'bg-yellow-500'
-
-  const textColor = bannerType === 'error'
-    ? 'text-white'
-    : 'text-yellow-900'
+  const isError = bannerType === 'error'
 
   return (
-    <div className={`${bgColor} ${textColor} px-4 py-2`}>
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {bannerType === 'error' ? (
+    <div className={`${isError ? 'border-l-4 border-l-[#f44336] bg-[#ffebee] dark:bg-[#3a1a1a]' : 'border-l-4 border-l-[#FF9800] bg-[#fff8e1] dark:bg-[#2a2a1a]'} px-3 py-2`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <svg className={`w-4 h-4 flex-shrink-0 ${isError ? 'text-[#f44336]' : 'text-[#FF9800]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {isError ? (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             ) : (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             )}
           </svg>
-          <div>
-            <span className="font-medium">{message}</span>
+          <div className="text-[12px] min-w-0">
+            <span className={`font-semibold ${isError ? 'text-[#c62828] dark:text-[#ef9a9a]' : 'text-[#e65100] dark:text-[#FFB74D]'}`}>
+              {message}
+            </span>
             {submessage && (
-              <span className="ml-2 text-sm opacity-90">
+              <span className={`ml-2 ${isError ? 'text-[#c62828] dark:text-[#ef9a9a]' : 'text-[#bf360c] dark:text-[#FFB74D]'}`}>
                 {submessage}
               </span>
             )}
             {readOnly && status !== 'blocked' && (
-              <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-black/20 rounded">
-                READ-ONLY
-              </span>
+              <span className="ml-2 badge-danger">READ-ONLY</span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
           <Link
             to="/settings?tab=license"
-            className={`text-sm font-medium underline hover:no-underline ${textColor}`}
+            className={`text-[12px] font-medium underline hover:no-underline ${isError ? 'text-[#c62828] dark:text-[#ef9a9a]' : 'text-[#e65100] dark:text-[#FFB74D]'}`}
           >
             View License
           </Link>
           {canDismiss && (
             <button
               onClick={() => setDismissed(true)}
-              className={`p-1 rounded hover:bg-black/10 ${textColor}`}
+              className={`p-0.5 hover:bg-black/10 ${isError ? 'text-[#c62828] dark:text-[#ef9a9a]' : 'text-[#e65100] dark:text-[#FFB74D]'}`}
+              style={{ borderRadius: '2px' }}
             >
-              <XMarkIcon className="w-4 h-4" />
+              <XMarkIcon className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

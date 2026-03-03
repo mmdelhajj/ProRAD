@@ -2,16 +2,17 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   RefreshControl,
   StyleSheet,
   Animated,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
 import { StatCard, Card, SectionHeader, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatCurrency } from '../../utils/format';
 import { dashboardApi } from '../../services/api';
 import useAuthStore from '../../store/authStore';
@@ -71,7 +72,7 @@ const SkeletonBlock = ({ width, height, style }) => {
 // System Health Ring
 // ---------------------------------------------------------------------------
 
-const HealthRing = ({ label, value, size = 72 }) => {
+const HealthRing = ({ label, value, size = 56 }) => {
   const pct = typeof value === 'number' ? Math.min(Math.max(value, 0), 100) : 0;
   const ringColor = getHealthColor(pct);
   const radius = (size - 8) / 2;
@@ -254,19 +255,22 @@ const AdminDashboard = ({ navigation, route }) => {
   // -----------------------------------------------------------------------
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
-        />
-      }
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
+        overScrollMode="always"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
       {/* ================================================================ */}
       {/* 1. Welcome Banner                                                */}
       {/* ================================================================ */}
@@ -386,54 +390,10 @@ const AdminDashboard = ({ navigation, route }) => {
 
 
 
-      {/* ================================================================ */}
-      {/* 5. Recent Activity                                               */}
-      {/* ================================================================ */}
-      <SectionHeader
-        title="Recent Activity"
-        actionLabel="View All"
-        onAction={() => navigation?.navigate?.('More', { screen: 'Audit' })}
-      />
-
-      <Card style={styles.activityCard}>
-        {recentActivity.length > 0 ? (
-          recentActivity.map((item, index) => {
-            const isLast = index === recentActivity.length - 1;
-            const description =
-              item.description ||
-              item.action ||
-              (item.username ? `Subscriber ${item.username}` : `Event #${index + 1}`);
-            const timestamp = item.created_at || item.timestamp || item.date || '';
-            const timeStr = timestamp ? formatRelativeTime(timestamp) : '';
-
-            return (
-              <View
-                key={item.id || index}
-                style={[
-                  styles.activityItem,
-                  !isLast && styles.activityItemBorder,
-                ]}
-              >
-                <View style={styles.activityDot} />
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityText} numberOfLines={2}>
-                    {description}
-                  </Text>
-                  {timeStr ? (
-                    <Text style={styles.activityTime}>{timeStr}</Text>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })
-        ) : (
-          <Text style={styles.emptyText}>No recent activity</Text>
-        )}
-      </Card>
-
       {/* Bottom spacer for tab bar */}
-      <View style={{ height: spacing.tabBar }} />
-    </ScrollView>
+      <View style={{ height: spacing.xxl }} />
+      </ScrollView>
+    </View>
   );
 };
 
@@ -469,26 +429,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollView: {
+    flex: 1,
+  },
   contentContainer: {
-    paddingBottom: spacing.tabBar,
+    paddingBottom: spacing.xl,
   },
 
   // Welcome Banner
   welcomeBanner: {
-    backgroundColor: colors.primary,
-    paddingTop: spacing.xxxl,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.base,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
+    backgroundColor: colors.surface,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderBottomLeftRadius: borderRadius.sm,
+    borderBottomRightRadius: borderRadius.sm,
+    ...shadows.sm,
   },
   welcomeContent: {
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
   greetingText: {
-    ...typography.h2,
-    color: colors.textInverse,
-    marginBottom: spacing.xs,
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: 1,
   },
   serverRow: {
     flexDirection: 'row',
@@ -503,16 +467,16 @@ const styles = StyleSheet.create({
   },
   serverName: {
     ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.textSecondary,
   },
 
   // Stats Grid
   statsGrid: {
-    paddingHorizontal: spacing.base,
+    paddingHorizontal: spacing.sm,
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   statHalf: {
     flex: 1,
@@ -521,35 +485,35 @@ const styles = StyleSheet.create({
 
   // System Health
   healthCard: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.sm,
   },
   healthRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.xs,
   },
 
   // Recent Activity
   activityCard: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.sm,
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   activityItemBorder: {
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
   activityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: colors.primary,
-    marginTop: 5,
-    marginRight: spacing.md,
+    marginTop: 4,
+    marginRight: spacing.sm,
   },
   activityContent: {
     flex: 1,
@@ -557,7 +521,7 @@ const styles = StyleSheet.create({
   activityText: {
     ...typography.bodySmall,
     color: colors.text,
-    lineHeight: 20,
+    lineHeight: 16,
   },
   activityTime: {
     ...typography.caption,
@@ -568,7 +532,7 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textLight,
     textAlign: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
 });
 

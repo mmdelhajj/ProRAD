@@ -43,36 +43,36 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxxl,
-    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryLight + '12',
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surfaceHover,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.base,
   },
   icon: {
-    fontSize: 36,
+    fontSize: 28,
   },
   title: {
-    ...typography.h3,
+    ...typography.h4,
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
   message: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
     maxWidth: 280,
   },
   actionWrapper: {
-    marginTop: spacing.xl,
+    marginTop: spacing.base,
   },
 });
 

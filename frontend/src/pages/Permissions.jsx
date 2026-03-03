@@ -158,7 +158,7 @@ export default function Permissions() {
   if (permissionsLoading || groupsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin h-5 w-5 border-2 border-[#316AC5] border-t-transparent" style={{ borderRadius: '50%' }}></div>
       </div>
     )
   }
@@ -166,39 +166,40 @@ export default function Permissions() {
   // Edit View
   if (view === 'edit') {
     return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-              {editingGroup ? 'EDIT PERMISSIONS' : 'ADD PERMISSION GROUP'}
-            </h1>
-          </div>
+      <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+        {/* Title */}
+        <div className="wb-toolbar">
+          <span className="text-[13px] font-semibold">
+            {editingGroup ? 'EDIT PERMISSIONS' : 'ADD PERMISSION GROUP'}
+          </span>
+        </div>
 
+        <div className="wb-group">
           <form onSubmit={handleSubmitGroup}>
-            <div className="p-6 space-y-6">
+            <div className="wb-group-body space-y-3">
               {/* Group Name and Search */}
-              <div className="flex items-end gap-6">
-                <div className="flex-1 max-w-md">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GroupName*</label>
+              <div className="flex items-end gap-3">
+                <div className="flex-1" style={{ maxWidth: 300 }}>
+                  <label className="label">GroupName*</label>
                   <input
                     type="text"
                     value={groupForm.name}
                     onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                     placeholder="Enter group name"
                     required
                   />
                 </div>
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Permissions</label>
+                <div>
+                  <label className="label">Search Permissions</label>
                   <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <MagnifyingGlassIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
                     <input
                       type="text"
                       value={permissionSearch}
                       onChange={(e) => setPermissionSearch(e.target.value)}
-                      className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 w-64"
+                      className="input pl-6"
+                      style={{ width: 220 }}
                       placeholder="Search permissions..."
                     />
                   </div>
@@ -207,47 +208,47 @@ export default function Permissions() {
 
               {/* Search Results Info */}
               {permissionSearch && (
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-[12px] text-gray-600">
                   Found {filteredPermissions.length} permission{filteredPermissions.length !== 1 ? 's' : ''} matching "{permissionSearch}"
                   {filteredPermissions.length === 0 && (
-                    <span className="text-red-500 ml-2">- No results found</span>
+                    <span className="text-[#c0392b] ml-2">- No results found</span>
                   )}
                 </div>
               )}
 
               {/* Permissions */}
-              <div className="space-y-4">
-                <div className="bg-teal-500 text-white px-4 py-2 rounded-t-md font-medium">
+              <div>
+                <div className="px-3 py-1.5 text-[12px] font-semibold text-white" style={{ background: 'linear-gradient(to bottom, #5a8abf, #3a6a9f)', borderRadius: '2px 2px 0 0' }}>
                   Permissions
                 </div>
-                <div className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded-b-md p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                <div className="border border-[#a0a0a0] border-t-0 p-3 space-y-3" style={{ maxHeight: 400, overflowY: 'auto', borderRadius: '0 0 2px 2px' }}>
                   {categories.length === 0 && (
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">No permissions found</p>
+                    <p className="text-[12px] text-gray-500">No permissions found</p>
                   )}
                   {categories.map(category => (
-                    <div key={category} className="space-y-2">
+                    <div key={category} className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900 dark:text-white capitalize text-sm">{category}</h4>
-                        <label className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-semibold text-[12px] capitalize">{category}</span>
+                        <label className="flex items-center text-[11px] text-gray-500 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={permissionsByCategory[category].every(p => groupForm.permissions.includes(p.id))}
                             onChange={(e) => handleSelectAllCategory(category, e.target.checked)}
-                            className="rounded border-gray-300 text-teal-600 mr-1"
+                            className="mr-1"
                           />
                           All
                         </label>
                       </div>
-                      <div className="space-y-1 pl-2">
+                      <div className="space-y-0.5 pl-2">
                         {permissionsByCategory[category].map(perm => (
                           <label key={perm.id} className="flex items-center cursor-pointer py-0.5">
                             <input
                               type="checkbox"
                               checked={groupForm.permissions.includes(perm.id)}
                               onChange={() => handlePermissionToggle(perm.id)}
-                              className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                              className="mr-1.5"
                             />
-                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span className="text-[12px]">
                               {perm.description || perm.name}
                             </span>
                           </label>
@@ -259,11 +260,11 @@ export default function Permissions() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
                   disabled={groupMutation.isPending}
-                  className="px-6 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50"
+                  className="btn btn-primary"
                 >
                   {groupMutation.isPending ? 'Saving...' : (editingGroup ? 'Update' : 'Create')}
                 </button>
@@ -273,9 +274,9 @@ export default function Permissions() {
                     setView('list')
                     setEditingGroup(null)
                   }}
-                  className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  className="btn"
                 >
-                  <ArrowLeftIcon className="h-4 w-4 inline mr-1" />
+                  <ArrowLeftIcon className="h-3 w-3 mr-1" />
                   Back to List
                 </button>
               </div>
@@ -288,36 +289,36 @@ export default function Permissions() {
 
   // List View
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PERMISSIONS</h1>
-        </div>
+    <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Title */}
+      <div className="wb-toolbar">
+        <span className="text-[13px] font-semibold">PERMISSIONS</span>
+      </div>
 
-        <div className="p-6">
+      <div className="wb-group">
+        <div className="wb-group-body">
           {/* Action Buttons */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex gap-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex gap-1">
               <button
                 onClick={handleRefresh}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
+                className="btn"
               >
-                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                <ArrowPathIcon className="h-3 w-3 mr-1" />
                 Refresh
               </button>
               <button
                 onClick={handleAddGroup}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
+                className="btn"
               >
-                <PlusIcon className="h-4 w-4 mr-2" />
+                <PlusIcon className="h-3 w-3 mr-1" />
                 Add
               </button>
               {permissions.length === 0 && (
                 <button
                   onClick={() => seedMutation.mutate()}
                   disabled={seedMutation.isPending}
-                  className="inline-flex items-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100"
+                  className="btn btn-primary"
                 >
                   {seedMutation.isPending ? 'Seeding...' : 'Seed Default Permissions'}
                 </button>
@@ -326,65 +327,50 @@ export default function Permissions() {
 
             {/* Search */}
             <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search groups..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm w-48"
+                className="input pl-6"
+                style={{ width: 180 }}
               />
             </div>
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto border border-gray-200 dark:border-gray-600 rounded-md">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+          <div className="table-container">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-20">
-                    ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-32">
-                    Permissions
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Resellers
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-32">
-                    Actions
-                  </th>
+                  <th style={{ width: 60 }}>ID</th>
+                  <th>Name</th>
+                  <th style={{ width: 100 }}>Permissions</th>
+                  <th>Resellers</th>
+                  <th style={{ width: 100 }}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody>
                 {filteredGroups.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan="5" className="text-center py-4 text-gray-500">
                       No permission groups found
                     </td>
                   </tr>
                 ) : (
-                  filteredGroups.map((group, index) => (
-                    <tr key={group.id} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {group.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {group.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {group.permissions?.length || 0}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
+                  filteredGroups.map((group) => (
+                    <tr key={group.id}>
+                      <td>{group.id}</td>
+                      <td className="font-semibold">{group.name}</td>
+                      <td>{group.permissions?.length || 0}</td>
+                      <td>
                         {group.resellers && group.resellers.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-0.5">
                             {group.resellers.map(reseller => (
                               <span
                                 key={reseller.id}
-                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                className="badge-info"
                                 title={reseller.full_name || reseller.username}
                               >
                                 {reseller.username}
@@ -392,17 +378,17 @@ export default function Permissions() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                          <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex gap-2">
+                      <td>
+                        <div className="flex gap-1">
                           <button
                             onClick={() => handleEditGroup(group)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="btn btn-xs"
                             title="Edit"
                           >
-                            <PencilIcon className="h-5 w-5" />
+                            <PencilIcon className="h-3 w-3" />
                           </button>
                           <button
                             onClick={() => {
@@ -410,10 +396,10 @@ export default function Permissions() {
                                 deleteGroupMutation.mutate(group.id)
                               }
                             }}
-                            className="text-red-600 hover:text-red-900"
+                            className="btn btn-danger btn-xs"
                             title="Delete"
                           >
-                            <TrashIcon className="h-5 w-5" />
+                            <TrashIcon className="h-3 w-3" />
                           </button>
                         </div>
                       </td>
@@ -425,11 +411,11 @@ export default function Permissions() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-gray-400">
+          <div className="wb-statusbar mt-2" style={{ border: '1px solid #a0a0a0', borderRadius: 2 }}>
             <span>total: {filteredGroups.length}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <span>Page size:</span>
-              <select className="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-2 py-1 text-sm">
+              <select className="input" style={{ width: 'auto', minWidth: 60, minHeight: 20, padding: '0 4px' }}>
                 <option>10</option>
                 <option>25</option>
                 <option>50</option>

@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   fullName: {
-    ...typography.caption,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     marginTop: 1,
   },
@@ -229,7 +229,6 @@ const styles = StyleSheet.create({
   quotaText: {
     ...typography.caption,
     color: colors.textLight,
-    fontSize: 10,
   },
   usageRow: {
     flexDirection: 'row',
@@ -239,7 +238,6 @@ const styles = StyleSheet.create({
   usageText: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontSize: 11,
   },
   expiryText: {
     ...typography.caption,
@@ -247,7 +245,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   chevron: {
-    fontSize: 22,
+    fontSize: 18,
     color: colors.textLight,
     marginLeft: spacing.sm,
     fontWeight: '300',

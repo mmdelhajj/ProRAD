@@ -20,6 +20,7 @@ import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { cdnApi, nasApi } from '../../services/api';
 import api from '../../services/api';
 
@@ -87,7 +88,7 @@ const FormField = ({ label, value, onChangeText, placeholder, keyboardType, mult
 );
 
 const formStyles = StyleSheet.create({
-  container: { marginBottom: spacing.base },
+  container: { marginBottom: spacing.sm },
   label: {
     ...typography.bodySmall,
     color: colors.textSecondary,
@@ -96,11 +97,11 @@ const formStyles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     ...typography.body,
     color: colors.text,
   },
@@ -754,8 +755,8 @@ const modalStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -769,7 +770,7 @@ const modalStyles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center',
-    marginHorizontal: spacing.md,
+    marginHorizontal: spacing.sm,
   },
   saveBtn: {
     ...typography.body,
@@ -778,8 +779,8 @@ const modalStyles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
   },
 });
 
@@ -796,20 +797,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   backBtn: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   backBtnText: {
-    fontSize: 28,
+    fontSize: 22,
     color: colors.primary,
     fontWeight: '300',
   },
@@ -820,16 +821,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addBtnText: {
-    fontSize: 22,
-    color: '#fff',
+    fontSize: 18,
+    color: colors.textInverse,
     fontWeight: '600',
     marginTop: -1,
   },
@@ -838,14 +839,14 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.base,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: spacing.xs,
   },
   tab: {
     flex: 1,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.background,
     alignItems: 'center',
   },
@@ -858,29 +859,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabTextActive: {
-    color: '#fff',
+    color: colors.textInverse,
   },
 
   // List
   listContent: {
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.tabBar,
-    paddingHorizontal: spacing.base,
+    paddingHorizontal: spacing.sm,
   },
 
   // Card
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -895,7 +890,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardIcon: {
-    fontSize: 24,
+    fontSize: 18,
   },
   cardTitle: {
     ...typography.body,
@@ -911,9 +906,9 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
   },
   badgeText: {
     ...typography.caption,
@@ -937,9 +932,9 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderLight,
   },
   actionBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   editBtn: {
     backgroundColor: colors.primary + '15',
@@ -960,14 +955,14 @@ const styles = StyleSheet.create({
 
   // Chips
   chipBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
-    marginRight: spacing.sm,
-    marginBottom: spacing.sm,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
   },
   chipBtnActive: {
     backgroundColor: colors.primary,
@@ -979,15 +974,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.textInverse,
   },
 
   // Direction row
   dirRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.base,
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
 
   // Switch row
@@ -995,8 +990,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
-    marginBottom: spacing.base,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
   },
 });
 

@@ -20,6 +20,7 @@ import { Card, EmptyState, LoadingScreen, StatCard } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatCurrency, formatDate } from '../../utils/format';
 import api from '../../services/api';
 
@@ -99,18 +100,17 @@ const PrepaidCardRow = ({ item, onCopy }) => {
 const cardRowStyles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.sm,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   code: {
     ...typography.h4,
@@ -118,19 +118,21 @@ const cardRowStyles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     letterSpacing: 1,
     flex: 1,
-    marginRight: spacing.sm,
+    marginRight: spacing.xs,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 1,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: borderRadius.sm,
     marginRight: spacing.xs,
   },
   badgeText: {
@@ -139,7 +141,7 @@ const cardRowStyles = StyleSheet.create({
   },
   details: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   detailItem: {
     flex: 1,
@@ -147,23 +149,23 @@ const cardRowStyles = StyleSheet.create({
   detailLabel: {
     ...typography.caption,
     color: colors.textLight,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   detailValue: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '500',
   },
   usedBy: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     fontStyle: 'italic',
   },
   tapHint: {
     ...typography.caption,
     color: colors.textLight,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     textAlign: 'right',
   },
 });
@@ -357,14 +359,14 @@ const genStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   closeBtn: {
-    fontSize: 18,
+    fontSize: 14,
     color: colors.textSecondary,
     fontWeight: '700',
   },
@@ -376,28 +378,28 @@ const genStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.base,
+    padding: spacing.sm,
     paddingBottom: spacing.tabBar,
   },
   label: {
     ...typography.label,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
-    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
   },
   serviceList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   serviceChip: {
     backgroundColor: colors.surfaceHover,
-    borderRadius: borderRadius.md,
-    borderWidth: 1.5,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    minWidth: 100,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minWidth: 80,
     alignItems: 'center',
   },
   serviceChipActive: {
@@ -405,7 +407,7 @@ const genStyles = StyleSheet.create({
     borderColor: colors.primary,
   },
   serviceChipText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     fontWeight: '600',
     color: colors.text,
   },
@@ -415,35 +417,36 @@ const genStyles = StyleSheet.create({
   serviceChipPrice: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   serviceChipPriceActive: {
     color: colors.primary,
   },
   noServices: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     fontStyle: 'italic',
   },
   input: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    height: 48,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    height: 44,
   },
   generateBtn: {
     backgroundColor: colors.primary,
-    paddingVertical: spacing.base,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.xxl,
-    minHeight: 52,
+    marginTop: spacing.md,
+    minHeight: 48,
+    ...shadows.sm,
   },
   generateBtnDisabled: {
     opacity: 0.6,
@@ -451,7 +454,6 @@ const genStyles = StyleSheet.create({
   generateText: {
     ...typography.button,
     color: colors.textInverse,
-    fontSize: 16,
   },
 });
 
@@ -679,27 +681,26 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.tabBar + 60,
   },
   headerSection: {
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
     overflow: 'hidden',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   statBox: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   statBorder: {
     borderLeftWidth: 1,
-    borderLeftColor: colors.borderLight,
+    borderLeftColor: colors.border,
   },
   statValue: {
     ...typography.h4,
@@ -708,33 +709,29 @@ const styles = StyleSheet.create({
   statLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   loadingMore: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   fab: {
     position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.xl + (Platform.OS === 'ios' ? 20 : 0),
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: spacing.md,
+    bottom: spacing.md + (Platform.OS === 'ios' ? 16 : 0),
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...shadows.md,
   },
   fabIcon: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '300',
     color: colors.textInverse,
-    lineHeight: 30,
+    lineHeight: 24,
   },
 });
 

@@ -54,9 +54,9 @@ export default function Transactions() {
         accessorKey: 'created_at',
         header: 'Date',
         cell: ({ row }) => (
-          <div className="text-sm">
+          <div className="text-[12px]">
             <div>{formatDate(row.original.created_at)}</div>
-            <div className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+            <div className="text-gray-500">
               {formatTime(row.original.created_at)}
             </div>
           </div>
@@ -98,9 +98,9 @@ export default function Transactions() {
         accessorKey: 'subscriber',
         header: 'User',
         cell: ({ row }) => (
-          <div>
+          <div className="text-[12px]">
             <div className="font-medium">{row.original.subscriber?.username || '-'}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+            <div className="text-gray-500">
               {row.original.subscriber?.fullname || row.original.reseller?.username || ''}
             </div>
           </div>
@@ -113,28 +113,28 @@ export default function Transactions() {
           const t = row.original
           if (t.type === 'change_service' && (t.old_service_name || t.new_service_name)) {
             return (
-              <div className="text-sm">
-                <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{t.old_service_name || '-'}</span>
-                <span className="mx-1 text-gray-400 dark:text-gray-500 dark:text-gray-400">→</span>
-                <span className="font-medium text-primary-600">{t.new_service_name || '-'}</span>
+              <div className="text-[12px]">
+                <span className="text-gray-500">{t.old_service_name || '-'}</span>
+                <span className="mx-1 text-gray-400">{'->'}</span>
+                <span className="font-medium text-blue-700">{t.new_service_name || '-'}</span>
               </div>
             )
           }
           if (t.service_name) {
-            return <span className="text-sm">{t.service_name}</span>
+            return <span className="text-[12px]">{t.service_name}</span>
           }
-          return <span className="text-sm text-gray-400 dark:text-gray-500 dark:text-gray-400">-</span>
+          return <span className="text-[12px] text-gray-400">-</span>
         },
       },
       {
         accessorKey: 'amount',
         header: 'Amount',
         cell: ({ row }) => (
-          <div className={clsx('flex items-center gap-1 font-semibold', row.original.amount >= 0 ? 'text-green-600' : 'text-red-600')}>
+          <div className={clsx('flex items-center gap-1 font-semibold text-[12px]', row.original.amount >= 0 ? 'text-green-700' : 'text-red-700')}>
             {row.original.amount >= 0 ? (
-              <ArrowTrendingUpIcon className="w-4 h-4" />
+              <ArrowTrendingUpIcon className="w-3.5 h-3.5" />
             ) : (
-              <ArrowTrendingDownIcon className="w-4 h-4" />
+              <ArrowTrendingDownIcon className="w-3.5 h-3.5" />
             )}
             ${Math.abs(row.original.amount).toFixed(2)}
           </div>
@@ -143,16 +143,19 @@ export default function Transactions() {
       {
         accessorKey: 'balance_after',
         header: 'Balance After',
-        cell: ({ row }) =>
-          row.original.balance_after !== undefined
-            ? `$${row.original.balance_after?.toFixed(2)}`
-            : '-',
+        cell: ({ row }) => (
+          <span className="text-[12px]">
+            {row.original.balance_after !== undefined
+              ? `$${row.original.balance_after?.toFixed(2)}`
+              : '-'}
+          </span>
+        ),
       },
       {
         accessorKey: 'description',
         header: 'Description',
         cell: ({ row }) => (
-          <div className="max-w-xs truncate text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+          <div className="max-w-[200px] truncate text-[12px] text-gray-600">
             {row.original.description || '-'}
           </div>
         ),
@@ -161,7 +164,7 @@ export default function Transactions() {
         accessorKey: 'reference',
         header: 'Reference',
         cell: ({ row }) => (
-          <code className="text-xs px-2 py-1 bg-gray-100 rounded">
+          <code className="text-[11px] px-1 py-0.5 bg-[#f0f0f0] border border-[#d0d0d0]" style={{ borderRadius: 2 }}>
             {row.original.reference || '-'}
           </code>
         ),
@@ -183,64 +186,55 @@ export default function Transactions() {
   const totalExpense = data?.data?.reduce((sum, t) => (t.amount < 0 ? sum + Math.abs(t.amount) : sum), 0) || 0
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Transactions</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Financial transaction history</p>
-        </div>
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Page Title + Toolbar */}
+      <div className="wb-toolbar" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span className="text-[13px] font-semibold">Transactions</span>
         <button
           onClick={() => refetch()}
-          className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+          className="btn btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
         >
-          <ArrowPathIcon className="w-4 h-4" />
+          <ArrowPathIcon className="w-3.5 h-3.5" />
           Refresh
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <BanknotesIcon className="w-5 h-5 text-blue-600" />
-            </div>
+      {/* Summary Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 4 }}>
+        <div className="wb-group" style={{ margin: 0 }}>
+          <div className="wb-group-body" style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BanknotesIcon className="w-4 h-4 text-blue-600" />
             <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Transactions</div>
-              <div className="text-2xl font-bold">{data?.meta?.total || 0}</div>
+              <div className="text-[11px] text-gray-600">Total Transactions</div>
+              <div className="text-[16px] font-bold">{data?.meta?.total || 0}</div>
             </div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <ArrowTrendingUpIcon className="w-5 h-5 text-green-600" />
-            </div>
+        <div className="wb-group" style={{ margin: 0 }}>
+          <div className="wb-group-body" style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ArrowTrendingUpIcon className="w-4 h-4 text-green-600" />
             <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Page Income</div>
-              <div className="text-2xl font-bold text-green-600">${totalIncome.toFixed(2)}</div>
+              <div className="text-[11px] text-gray-600">Page Income</div>
+              <div className="text-[16px] font-bold text-green-700">${totalIncome.toFixed(2)}</div>
             </div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
-            </div>
+        <div className="wb-group" style={{ margin: 0 }}>
+          <div className="wb-group-body" style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ArrowTrendingDownIcon className="w-4 h-4 text-red-600" />
             <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Page Expense</div>
-              <div className="text-2xl font-bold text-red-600">${totalExpense.toFixed(2)}</div>
+              <div className="text-[11px] text-gray-600">Page Expense</div>
+              <div className="text-[16px] font-bold text-red-700">${totalExpense.toFixed(2)}</div>
             </div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-              <BanknotesIcon className="w-5 h-5 text-purple-600" />
-            </div>
+        <div className="wb-group" style={{ margin: 0 }}>
+          <div className="wb-group-body" style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BanknotesIcon className="w-4 h-4 text-purple-600" />
             <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Page Net</div>
-              <div className={clsx('text-2xl font-bold', totalIncome - totalExpense >= 0 ? 'text-green-600' : 'text-red-600')}>
+              <div className="text-[11px] text-gray-600">Page Net</div>
+              <div className={clsx('text-[16px] font-bold', totalIncome - totalExpense >= 0 ? 'text-green-700' : 'text-red-700')}>
                 ${(totalIncome - totalExpense).toFixed(2)}
               </div>
             </div>
@@ -249,22 +243,23 @@ export default function Transactions() {
       </div>
 
       {/* Search and Filters */}
-      <div className="card p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by username, description, reference..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              className="input pl-10"
-            />
-          </div>
-          <div className="flex items-center gap-3">
+      <div className="wb-group" style={{ margin: 0, marginBottom: 4 }}>
+        <div className="wb-group-body" style={{ padding: '4px 8px' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, position: 'relative', minWidth: 200 }}>
+              <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-500" style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type="text"
+                placeholder="Search by username, description, reference..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                className="input"
+                style={{ paddingLeft: 24, fontSize: 11, height: 24, width: '100%' }}
+              />
+            </div>
             <select
               value={type}
               onChange={(e) => {
@@ -272,6 +267,7 @@ export default function Transactions() {
                 setPage(1)
               }}
               className="input"
+              style={{ fontSize: 11, height: 24 }}
             >
               {typeFilters.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -281,44 +277,42 @@ export default function Transactions() {
             </select>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={clsx(
-                'btn-secondary flex items-center gap-2',
-                showFilters && 'bg-primary-50 text-primary-600'
-              )}
+              className={clsx('btn btn-sm', showFilters && 'btn-primary')}
+              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              <FunnelIcon className="w-4 h-4" />
+              <FunnelIcon className="w-3.5 h-3.5" />
               Filters
             </button>
           </div>
-        </div>
 
-        {showFilters && (
-          <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="label">Date From</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => {
-                  setDateFrom(e.target.value)
-                  setPage(1)
-                }}
-                className="input"
-              />
-            </div>
-            <div>
-              <label className="label">Date To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => {
-                  setDateTo(e.target.value)
-                  setPage(1)
-                }}
-                className="input"
-              />
-            </div>
-            <div className="flex items-end">
+          {showFilters && (
+            <div className="mt-1.5 pt-1.5 border-t border-[#d0d0d0] dark:border-[#374151] grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+              <div>
+                <label className="label" style={{ fontSize: 11, marginBottom: 2 }}>Date From</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value)
+                    setPage(1)
+                  }}
+                  className="input"
+                  style={{ fontSize: 11, height: 24 }}
+                />
+              </div>
+              <div>
+                <label className="label" style={{ fontSize: 11, marginBottom: 2 }}>Date To</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value)
+                    setPage(1)
+                  }}
+                  className="input"
+                  style={{ fontSize: 11, height: 24 }}
+                />
+              </div>
               <button
                 onClick={() => {
                   setSearch('')
@@ -327,85 +321,83 @@ export default function Transactions() {
                   setDateTo('')
                   setPage(1)
                 }}
-                className="btn-secondary"
+                className="btn btn-sm"
               >
                 Clear Filters
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Table */}
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id}>
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id} style={{ fontSize: 11, padding: '4px 8px' }}>
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center" style={{ padding: 24 }}>
+                  Loading...
+                </td>
+              </tr>
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center text-gray-500" style={{ padding: 24 }}>
+                  No transactions found
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row, idx) => (
+                <tr key={row.id} className={idx % 2 === 0 ? 'bg-white dark:bg-[#1f2937]' : 'bg-[#f7f7f7] dark:bg-[#1a2332]'}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} style={{ padding: '3px 8px', fontSize: 11 }}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
                   ))}
                 </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    No transactions found
-                  </td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-6 py-4 border-t">
-          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-            Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, data?.meta?.total || 0)} of{' '}
-            {data?.meta?.total || 0} results
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="btn-secondary p-2 disabled:opacity-50"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </button>
-            <span className="px-4 py-2 text-sm">
-              Page {page} of {totalPages || 1}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="btn-secondary p-2 disabled:opacity-50"
-            >
-              <ChevronRightIcon className="w-5 h-5" />
-            </button>
-          </div>
+      {/* Pagination */}
+      <div className="flex items-center justify-between px-2 py-1.5 border-t border-[#d0d0d0] dark:border-[#374151] bg-[#f5f5f5] dark:bg-[#1f2937] text-[11px]">
+        <div className="text-gray-600 dark:text-gray-400">
+          Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, data?.meta?.total || 0)} of{' '}
+          {data?.meta?.total || 0} results
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="btn btn-sm"
+            style={{ padding: '2px 6px', opacity: page === 1 ? 0.5 : 1 }}
+          >
+            <ChevronLeftIcon className="w-3.5 h-3.5" />
+          </button>
+          <span className="px-2 dark:text-gray-300">
+            Page {page} of {totalPages || 1}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="btn btn-sm"
+            style={{ padding: '2px 6px', opacity: page >= totalPages ? 0.5 : 1 }}
+          >
+            <ChevronRightIcon className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

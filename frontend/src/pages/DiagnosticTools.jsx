@@ -4,22 +4,11 @@ import { useSearchParams } from 'react-router-dom'
 import { nasApi, diagnosticApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import {
-  WrenchScrewdriverIcon,
-  SignalIcon,
-  MapPinIcon,
-  GlobeAltIcon,
-  MagnifyingGlassIcon,
   PlayIcon,
   ArrowPathIcon,
   StopIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
-import clsx from 'clsx'
-
-const TABS = [
-  { id: 'ping', name: 'Ping', icon: SignalIcon },
-  { id: 'traceroute', name: 'Traceroute', icon: MapPinIcon },
-  { id: 'nslookup', name: 'NSLookup', icon: GlobeAltIcon },
-]
 
 const PACKET_SIZES = [64, 500, 1000, 1400, 1500, 8000, 16000, 32000, 64000]
 
@@ -279,35 +268,33 @@ export default function DiagnosticTools() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <WrenchScrewdriverIcon className="h-7 w-7 sm:h-8 sm:w-8 text-primary-600 dark:text-primary-400 flex-shrink-0" />
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Diagnostic Tools</h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 hidden sm:block">Network diagnostic tools via MikroTik routers</p>
-        </div>
+      <div className="wb-toolbar">
+        <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">Diagnostic Tools</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-2">Network diagnostic tools via MikroTik routers</span>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={clsx(
-                'group inline-flex items-center gap-1.5 sm:gap-2 py-3 sm:py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
-                activeTab === tab.id
-                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              )}
-            >
-              <tab.icon className="h-5 w-5" />
-              {tab.name}
-            </button>
-          ))}
-        </nav>
+      <div className="flex border-b border-[#a0a0a0]">
+        <button
+          onClick={() => setActiveTab('ping')}
+          className={`wb-tab ${activeTab === 'ping' ? 'active' : ''}`}
+        >
+          Ping
+        </button>
+        <button
+          onClick={() => setActiveTab('traceroute')}
+          className={`wb-tab ${activeTab === 'traceroute' ? 'active' : ''}`}
+        >
+          Traceroute
+        </button>
+        <button
+          onClick={() => setActiveTab('nslookup')}
+          className={`wb-tab ${activeTab === 'nslookup' ? 'active' : ''}`}
+        >
+          NSLookup
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -375,152 +362,137 @@ function PingTab({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Ping Configuration</h3>
+    <div className="space-y-3">
+      <div className="wb-group">
+        <div className="wb-group-title">Ping Configuration</div>
+        <div className="wb-group-body space-y-3">
+          {/* Row 1: NAS + Target */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* NAS Dropdown */}
+            <div>
+              <label className="label">NAS / Router</label>
+              <select
+                value={selectedNasId}
+                onChange={(e) => setSelectedNasId(e.target.value)}
+                className="input"
+              >
+                <option value="">-- Select NAS --</option>
+                {nasList.map((nas) => (
+                  <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
+                ))}
+              </select>
+            </div>
 
-        {/* Row 1: NAS + Target */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-          {/* NAS Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NAS / Router</label>
-            <select
-              value={selectedNasId}
-              onChange={(e) => setSelectedNasId(e.target.value)}
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600"
-            >
-              <option value="">-- Select NAS --</option>
-              {nasList.map((nas) => (
-                <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Target IP / User Search */}
-          <div className="relative" ref={dropdownRef}>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target (IP or Username)</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery || pingTarget}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                placeholder="IP or search user..."
-                className="input w-full pr-8 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                onKeyDown={(e) => e.key === 'Enter' && handlePing()}
-              />
-              {searchLoading && (
-                <ArrowPathIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
+            {/* Target IP / User Search */}
+            <div className="relative" ref={dropdownRef}>
+              <label className="label">Target (IP or Username)</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery || pingTarget}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                  placeholder="IP or search user..."
+                  className="input w-full pr-6"
+                  onKeyDown={(e) => e.key === 'Enter' && handlePing()}
+                />
+                {searchLoading && (
+                  <ArrowPathIcon className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 animate-spin" />
+                )}
+              </div>
+              {/* Autocomplete Dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute z-50 mt-0 w-full bg-white dark:bg-gray-800 border border-[#a0a0a0] dark:border-gray-600 max-h-48 overflow-y-auto" style={{ borderRadius: '2px' }}>
+                  {searchResults.map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => selectSubscriber(sub)}
+                      className="w-full text-left px-2 py-1 hover:bg-[#e8e8f0] dark:hover:bg-gray-700 flex items-center justify-between border-b border-[#eee] dark:border-gray-700 last:border-0 text-[12px]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{sub.username}</span>
+                        <span className={`ml-1 ${sub.is_online ? 'badge-success' : 'badge-gray'}`}>
+                          {sub.is_online ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      <span className="text-[12px] text-gray-500 dark:text-gray-400 font-mono flex-shrink-0 ml-2">
+                        {sub.static_ip || sub.ip_address || 'No IP'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-            {/* Autocomplete Dropdown */}
-            {showDropdown && searchResults.length > 0 && (
-              <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {searchResults.map((sub) => (
-                  <button
-                    key={sub.id}
-                    onClick={() => selectSubscriber(sub)}
-                    className="w-full text-left px-3 sm:px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between border-b border-gray-100 dark:border-gray-600 last:border-0 gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium text-gray-900 dark:text-white text-sm truncate">{sub.username}</span>
-                      <span className={clsx('ml-1.5 inline-flex items-center text-xs px-1.5 py-0.5 rounded-full',
-                        sub.is_online
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-500 dark:bg-gray-600 dark:text-gray-400'
-                      )}>
-                        {sub.is_online ? 'Online' : 'Offline'}
-                      </span>
-                    </div>
-                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-mono flex-shrink-0">
-                      {sub.static_ip || sub.ip_address || 'No IP'}
-                    </span>
-                  </button>
+          </div>
+
+          {/* Row 2: Size + Count + Button */}
+          <div className="grid grid-cols-3 gap-3">
+            {/* Packet Size */}
+            <div>
+              <label className="label">Packet Size</label>
+              <select
+                value={pingSize}
+                onChange={(e) => setPingSize(Number(e.target.value))}
+                className="input"
+              >
+                {PACKET_SIZES.map((size) => (
+                  <option key={size} value={size}>{size} bytes</option>
                 ))}
-              </div>
-            )}
-          </div>
-        </div>
+              </select>
+            </div>
 
-        {/* Row 2: Size + Count + Button */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-          {/* Packet Size */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Packet Size</label>
-            <select
-              value={pingSize}
-              onChange={(e) => setPingSize(Number(e.target.value))}
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600"
-            >
-              {PACKET_SIZES.map((size) => (
-                <option key={size} value={size}>{size} bytes</option>
-              ))}
-            </select>
-          </div>
+            {/* Count */}
+            <div>
+              <label className="label">Count</label>
+              <input
+                type="number"
+                value={pingCount}
+                onChange={(e) => setPingCount(Math.min(100, Math.max(1, Number(e.target.value))))}
+                min="1"
+                max="100"
+                className="input"
+              />
+            </div>
 
-          {/* Count */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Count</label>
-            <input
-              type="number"
-              value={pingCount}
-              onChange={(e) => setPingCount(Math.min(100, Math.max(1, Number(e.target.value))))}
-              min="1"
-              max="100"
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600"
-            />
-          </div>
-
-          {/* Run/Stop Ping Button */}
-          <div className="col-span-2 sm:col-span-1 flex items-end">
-            <button
-              onClick={handlePing}
-              disabled={!pingStreaming && (!selectedNasId || !pingTarget)}
-              className={clsx(
-                'flex items-center justify-center gap-2 w-full font-medium py-2 px-4 rounded-lg transition-colors',
-                pingStreaming
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'btn btn-primary'
-              )}
-            >
-              {pingStreaming ? (
-                <>
-                  <StopIcon className="h-4 w-4" />
-                  Stop
-                </>
-              ) : (
-                <>
-                  <PlayIcon className="h-4 w-4" />
-                  Run Ping
-                </>
-              )}
-            </button>
+            {/* Run/Stop Ping Button */}
+            <div className="flex items-end">
+              <button
+                onClick={handlePing}
+                disabled={!pingStreaming && (!selectedNasId || !pingTarget)}
+                className={pingStreaming ? 'btn btn-danger w-full' : 'btn btn-primary w-full'}
+              >
+                {pingStreaming ? (
+                  <>
+                    <StopIcon className="h-3.5 w-3.5 mr-1" />
+                    Stop
+                  </>
+                ) : (
+                  <>
+                    <PlayIcon className="h-3.5 w-3.5 mr-1" />
+                    Run Ping
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Live Terminal Output */}
       {(pingLines.length > 0 || pingStreaming) && (
-        <div className="bg-gray-900 rounded-lg shadow overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              </div>
-              <span className="text-xs text-gray-400 ml-2">Ping</span>
-            </div>
+        <div className="border border-[#a0a0a0]" style={{ borderRadius: '2px' }}>
+          <div className="flex items-center justify-between px-2 py-1 bg-[#2d2d2d] border-b border-[#555]">
+            <span className="text-[11px] text-gray-400">Ping Output</span>
             {pingStreaming && (
-              <div className="flex items-center gap-1.5 text-xs text-green-400">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+              <div className="flex items-center gap-1 text-[11px] text-green-400">
+                <div className="w-2 h-2 bg-green-400 animate-pulse" style={{ borderRadius: '1px' }}></div>
                 Live
               </div>
             )}
           </div>
           <div
             ref={scrollRef}
-            className="p-3 sm:p-4 font-mono text-xs sm:text-sm max-h-[500px] overflow-y-auto"
+            className="p-2 font-mono text-[11px] max-h-[500px] overflow-y-auto bg-[#1e1e1e]"
           >
             {pingLines.map((line, i) => (
               <div key={i} className={lineColors[line.color] || 'text-gray-300'}>
@@ -542,34 +514,32 @@ function TracerouteTab({
   traceResult, traceLoading, handleTraceroute,
 }) {
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Traceroute Configuration</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Runs from server. Public IPs and hostnames only.</p>
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
-          {/* Target */}
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target (Public IP or Hostname)</label>
-            <input
-              type="text"
-              value={traceTarget}
-              onChange={(e) => setTraceTarget(e.target.value)}
-              placeholder="e.g., 8.8.8.8 or google.com"
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              onKeyDown={(e) => e.key === 'Enter' && handleTraceroute()}
-            />
-          </div>
-
-          <div className="flex items-end">
+    <div className="space-y-3">
+      <div className="wb-group">
+        <div className="wb-group-title">Traceroute Configuration</div>
+        <div className="wb-group-body space-y-2">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">Runs from server. Public IPs and hostnames only.</p>
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <label className="label">Target (Public IP or Hostname)</label>
+              <input
+                type="text"
+                value={traceTarget}
+                onChange={(e) => setTraceTarget(e.target.value)}
+                placeholder="e.g., 8.8.8.8 or google.com"
+                className="input"
+                onKeyDown={(e) => e.key === 'Enter' && handleTraceroute()}
+              />
+            </div>
             <button
               onClick={handleTraceroute}
               disabled={traceLoading || !traceTarget}
-              className="btn btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
+              className="btn btn-primary"
             >
               {traceLoading ? (
-                <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                <ArrowPathIcon className="h-3.5 w-3.5 mr-1 animate-spin" />
               ) : (
-                <PlayIcon className="h-4 w-4" />
+                <PlayIcon className="h-3.5 w-3.5 mr-1" />
               )}
               Run Traceroute
             </button>
@@ -579,85 +549,58 @@ function TracerouteTab({
 
       {/* Loading */}
       {traceLoading && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
-          <ArrowPathIcon className="h-8 w-8 animate-spin mx-auto text-primary-500 mb-2" />
-          <p className="text-gray-500 dark:text-gray-400">Running traceroute... this may take up to 30 seconds</p>
+        <div className="wb-group">
+          <div className="wb-group-body text-center py-2">
+            <ArrowPathIcon className="h-6 w-6 animate-spin mx-auto text-[#316AC5] mb-2" />
+            <p className="text-[12px] text-gray-500 dark:text-gray-400">Running traceroute... this may take up to 30 seconds</p>
+          </div>
         </div>
       )}
 
       {/* Results */}
       {traceResult && !traceLoading && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">
+        <div className="wb-group">
+          <div className="wb-group-title">
             Traceroute to {traceResult.target} from {traceResult.source || 'Server'}
-          </h3>
+          </div>
+          <div className="wb-group-body">
+            {traceResult.error && (
+              <p className="text-[12px] text-red-600 dark:text-red-400 mb-2">{traceResult.error}</p>
+            )}
 
-          {traceResult.error && (
-            <p className="text-red-600 dark:text-red-400 mb-3">{traceResult.error}</p>
-          )}
-
-          {traceResult.hops && traceResult.hops.length > 0 ? (
-            <>
-              {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
+            {traceResult.hops && traceResult.hops.length > 0 ? (
+              <div className="table-container">
+                <table className="table">
+                  <thead>
                     <tr>
-                      {['Hop', 'Address', 'Loss', 'Last', 'Avg', 'Best', 'Worst'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{h}</th>
-                      ))}
+                      <th>Hop</th>
+                      <th>Address</th>
+                      <th>Loss</th>
+                      <th>Last</th>
+                      <th>Avg</th>
+                      <th>Best</th>
+                      <th>Worst</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  <tbody>
                     {traceResult.hops.map((hop) => (
-                      <tr key={hop.hop} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{hop.hop}</td>
-                        <td className="px-4 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">{hop.address || '*'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{hop.loss || '0%'}</td>
-                        <td className="px-4 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">{hop.last ? `${hop.last.toFixed(1)} ms` : '-'}</td>
-                        <td className="px-4 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">{hop.avg ? `${hop.avg.toFixed(1)} ms` : '-'}</td>
-                        <td className="px-4 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">{hop.best ? `${hop.best.toFixed(1)} ms` : '-'}</td>
-                        <td className="px-4 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">{hop.worst ? `${hop.worst.toFixed(1)} ms` : '-'}</td>
+                      <tr key={hop.hop}>
+                        <td className="font-medium">{hop.hop}</td>
+                        <td className="font-mono">{hop.address || '*'}</td>
+                        <td>{hop.loss || '0%'}</td>
+                        <td className="font-mono">{hop.last ? `${hop.last.toFixed(1)} ms` : '-'}</td>
+                        <td className="font-mono">{hop.avg ? `${hop.avg.toFixed(1)} ms` : '-'}</td>
+                        <td className="font-mono text-green-700 dark:text-green-400">{hop.best ? `${hop.best.toFixed(1)} ms` : '-'}</td>
+                        <td className="font-mono text-red-700 dark:text-red-400">{hop.worst ? `${hop.worst.toFixed(1)} ms` : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-
-              {/* Mobile cards */}
-              <div className="sm:hidden space-y-2">
-                {traceResult.hops.map((hop) => (
-                  <div key={hop.hop} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm font-bold text-gray-900 dark:text-white">Hop {hop.hop}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Loss: {hop.loss || '0%'}</span>
-                    </div>
-                    <div className="font-mono text-sm text-primary-600 dark:text-primary-400 mb-1.5">{hop.address || '* * *'}</div>
-                    <div className="grid grid-cols-4 gap-1 text-xs">
-                      <div className="text-center">
-                        <div className="text-gray-500 dark:text-gray-400">Last</div>
-                        <div className="font-mono text-gray-800 dark:text-gray-200">{hop.last ? `${hop.last.toFixed(1)}` : '-'}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500 dark:text-gray-400">Avg</div>
-                        <div className="font-mono text-gray-800 dark:text-gray-200">{hop.avg ? `${hop.avg.toFixed(1)}` : '-'}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500 dark:text-gray-400">Best</div>
-                        <div className="font-mono text-green-600 dark:text-green-400">{hop.best ? `${hop.best.toFixed(1)}` : '-'}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500 dark:text-gray-400">Worst</div>
-                        <div className="font-mono text-red-600 dark:text-red-400">{hop.worst ? `${hop.worst.toFixed(1)}` : '-'}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            !traceResult.error && <p className="text-gray-500 dark:text-gray-400">No hops returned</p>
-          )}
+            ) : (
+              !traceResult.error && <p className="text-[12px] text-gray-500 dark:text-gray-400">No hops returned</p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -669,31 +612,31 @@ function NslookupTab({
   nslookupResult, nslookupLoading, handleNslookup,
 }) {
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">DNS Lookup</h3>
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain Name</label>
-            <input
-              type="text"
-              value={nslookupDomain}
-              onChange={(e) => setNslookupDomain(e.target.value)}
-              placeholder="e.g., google.com"
-              className="input w-full dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              onKeyDown={(e) => e.key === 'Enter' && handleNslookup()}
-            />
-          </div>
-          <div className="flex items-end">
+    <div className="space-y-3">
+      <div className="wb-group">
+        <div className="wb-group-title">DNS Lookup</div>
+        <div className="wb-group-body">
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <label className="label">Domain Name</label>
+              <input
+                type="text"
+                value={nslookupDomain}
+                onChange={(e) => setNslookupDomain(e.target.value)}
+                placeholder="e.g., google.com"
+                className="input"
+                onKeyDown={(e) => e.key === 'Enter' && handleNslookup()}
+              />
+            </div>
             <button
               onClick={handleNslookup}
               disabled={nslookupLoading || !nslookupDomain}
-              className="btn btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
+              className="btn btn-primary"
             >
               {nslookupLoading ? (
-                <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                <ArrowPathIcon className="h-3.5 w-3.5 mr-1 animate-spin" />
               ) : (
-                <MagnifyingGlassIcon className="h-4 w-4" />
+                <MagnifyingGlassIcon className="h-3.5 w-3.5 mr-1" />
               )}
               Lookup
             </button>
@@ -702,56 +645,57 @@ function NslookupTab({
       </div>
 
       {nslookupResult && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
+        <div className="wb-group">
+          <div className="wb-group-title">
             DNS Records for {nslookupResult.domain}
-          </h3>
+          </div>
+          <div className="wb-group-body space-y-3">
+            {nslookupResult.error && (
+              <p className="text-[12px] text-red-600 dark:text-red-400">{nslookupResult.error}</p>
+            )}
 
-          {nslookupResult.error && (
-            <p className="text-red-600 dark:text-red-400 mb-3">{nslookupResult.error}</p>
-          )}
-
-          {nslookupResult.records && (
-            <div className="space-y-4">
-              {nslookupResult.records.a && nslookupResult.records.a.length > 0 && (
-                <RecordSection title="A Records (IPv4)" items={nslookupResult.records.a} />
-              )}
-              {nslookupResult.records.aaaa && nslookupResult.records.aaaa.length > 0 && (
-                <RecordSection title="AAAA Records (IPv6)" items={nslookupResult.records.aaaa} />
-              )}
-              {nslookupResult.records.cname && (
-                <RecordSection title="CNAME" items={[nslookupResult.records.cname]} />
-              )}
-              {nslookupResult.records.mx && nslookupResult.records.mx.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">MX Records (Mail)</h4>
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 space-y-1">
-                    {nslookupResult.records.mx.map((mx, i) => (
-                      <div key={i} className="font-mono text-xs sm:text-sm text-gray-800 dark:text-gray-200 break-all">
-                        Priority: {mx.priority} &mdash; {mx.host}
-                      </div>
-                    ))}
+            {nslookupResult.records && (
+              <>
+                {nslookupResult.records.a && nslookupResult.records.a.length > 0 && (
+                  <RecordSection title="A Records (IPv4)" items={nslookupResult.records.a} />
+                )}
+                {nslookupResult.records.aaaa && nslookupResult.records.aaaa.length > 0 && (
+                  <RecordSection title="AAAA Records (IPv6)" items={nslookupResult.records.aaaa} />
+                )}
+                {nslookupResult.records.cname && (
+                  <RecordSection title="CNAME" items={[nslookupResult.records.cname]} />
+                )}
+                {nslookupResult.records.mx && nslookupResult.records.mx.length > 0 && (
+                  <div>
+                    <div className="text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">MX Records (Mail)</div>
+                    <div className="border border-[#a0a0a0] bg-[#f7f7f7] dark:bg-gray-800 dark:border-gray-600 p-2 space-y-0.5" style={{ borderRadius: '2px' }}>
+                      {nslookupResult.records.mx.map((mx, i) => (
+                        <div key={i} className="font-mono text-[12px] text-gray-800 dark:text-gray-200 break-all">
+                          Priority: {mx.priority} &mdash; {mx.host}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {nslookupResult.records.ns && nslookupResult.records.ns.length > 0 && (
-                <RecordSection title="NS Records (Nameservers)" items={nslookupResult.records.ns} />
-              )}
-              {nslookupResult.records.txt && nslookupResult.records.txt.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">TXT Records</h4>
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 space-y-1">
-                    {nslookupResult.records.txt.map((txt, i) => (
-                      <div key={i} className="font-mono text-xs text-gray-800 dark:text-gray-200 break-all">{txt}</div>
-                    ))}
+                )}
+                {nslookupResult.records.ns && nslookupResult.records.ns.length > 0 && (
+                  <RecordSection title="NS Records (Nameservers)" items={nslookupResult.records.ns} />
+                )}
+                {nslookupResult.records.txt && nslookupResult.records.txt.length > 0 && (
+                  <div>
+                    <div className="text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">TXT Records</div>
+                    <div className="border border-[#a0a0a0] bg-[#f7f7f7] dark:bg-gray-800 dark:border-gray-600 p-2 space-y-0.5" style={{ borderRadius: '2px' }}>
+                      {nslookupResult.records.txt.map((txt, i) => (
+                        <div key={i} className="font-mono text-[11px] text-gray-800 dark:text-gray-200 break-all">{txt}</div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {!nslookupResult.records.a?.length && !nslookupResult.records.aaaa?.length && !nslookupResult.records.cname && !nslookupResult.records.mx?.length && !nslookupResult.records.ns?.length && !nslookupResult.records.txt?.length && (
-                <p className="text-gray-500 dark:text-gray-400">No DNS records found for this domain.</p>
-              )}
-            </div>
-          )}
+                )}
+                {!nslookupResult.records.a?.length && !nslookupResult.records.aaaa?.length && !nslookupResult.records.cname && !nslookupResult.records.mx?.length && !nslookupResult.records.ns?.length && !nslookupResult.records.txt?.length && (
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400">No DNS records found for this domain.</p>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -761,10 +705,10 @@ function NslookupTab({
 function RecordSection({ title, items }) {
   return (
     <div>
-      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{title}</h4>
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 space-y-1">
+      <div className="text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">{title}</div>
+      <div className="border border-[#a0a0a0] bg-[#f7f7f7] dark:bg-gray-800 dark:border-gray-600 p-2 space-y-0.5" style={{ borderRadius: '2px' }}>
         {items.map((item, i) => (
-          <div key={i} className="font-mono text-xs sm:text-sm text-gray-800 dark:text-gray-200 break-all">{item}</div>
+          <div key={i} className="font-mono text-[12px] text-gray-800 dark:text-gray-200 break-all">{item}</div>
         ))}
       </div>
     </div>

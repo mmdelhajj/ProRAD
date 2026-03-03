@@ -49,30 +49,24 @@ const NotificationBanner = () => {
     switch (priority) {
       case 'critical':
         return {
-          bg: 'bg-red-50 dark:bg-red-900/20',
-          border: 'border-red-200 dark:border-red-800',
-          text: 'text-red-800 dark:text-red-200',
-          icon: 'text-red-600 dark:text-red-400',
-          button: 'bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600',
-          badge: 'bg-red-600 dark:bg-red-700'
+          border: 'border-l-[#f44336]',
+          bg: 'bg-[#ffebee] dark:bg-[#3a1a1a]',
+          text: 'text-[#c62828] dark:text-[#ef9a9a]',
+          badgeClass: 'badge-danger',
         };
       case 'important':
         return {
-          bg: 'bg-orange-50 dark:bg-orange-900/20',
-          border: 'border-orange-200 dark:border-orange-800',
-          text: 'text-orange-800 dark:text-orange-200',
-          icon: 'text-orange-600 dark:text-orange-400',
-          button: 'bg-orange-600 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600',
-          badge: 'bg-orange-600 dark:bg-orange-700'
+          border: 'border-l-[#FF9800]',
+          bg: 'bg-[#fff8e1] dark:bg-[#2a2a1a]',
+          text: 'text-[#e65100] dark:text-[#FFB74D]',
+          badgeClass: 'badge-warning',
         };
       default:
         return {
-          bg: 'bg-blue-50 dark:bg-blue-900/20',
-          border: 'border-blue-200 dark:border-blue-800',
-          text: 'text-blue-800 dark:text-blue-200',
-          icon: 'text-blue-600 dark:text-blue-400',
-          button: 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600',
-          badge: 'bg-blue-600 dark:bg-blue-700'
+          border: 'border-l-[#2196F3]',
+          bg: 'bg-[#e3f2fd] dark:bg-[#1a2a3a]',
+          text: 'text-[#1565c0] dark:text-[#90caf9]',
+          badgeClass: 'badge-info',
         };
     }
   };
@@ -92,53 +86,48 @@ const NotificationBanner = () => {
         return (
           <div
             key={notification.id}
-            className={`${style.bg} ${style.border} border-b`}
+            className={`border-l-4 ${style.border} ${style.bg} border-b border-b-[#a0a0a0] dark:border-b-[#555]`}
           >
-            <div className="max-w-7xl mx-auto py-3 px-3 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between flex-wrap">
-                <div className="w-0 flex-1 flex items-center">
-                  <span className={`flex p-2 rounded-lg ${style.badge}`}>
-                    <BellIcon className="h-6 w-6 text-white" aria-hidden="true" />
-                  </span>
-                  <div className="ml-3 flex-1">
-                    <p className={`font-medium ${style.text}`}>
-                      <span className="inline">
-                        Update Available: {notification.version}
-                      </span>
+            <div className="max-w-7xl mx-auto py-2 px-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center min-w-0 flex-1">
+                  <BellIcon className={`h-4 w-4 flex-shrink-0 ${style.text}`} />
+                  <div className="ml-2 flex-1 min-w-0">
+                    <p className={`text-[12px] font-semibold ${style.text}`}>
+                      Update Available: {notification.version}
                       {notification.priority && (
-                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${style.badge} text-white uppercase`}>
-                          {notification.priority}
+                        <span className={`ml-2 ${style.badgeClass}`}>
+                          {notification.priority.toUpperCase()}
                         </span>
                       )}
                     </p>
-                    <p className={`mt-1 text-sm ${style.text} opacity-90`}>
+                    <p className={`text-[12px] ${style.text} opacity-80`}>
                       {notification.message}
                     </p>
                   </div>
                 </div>
-                <div className="order-3 mt-2 flex-shrink-0 w-full sm:order-2 sm:mt-0 sm:w-auto space-x-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={handleUpdateNow}
-                    className={`flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${style.button} focus:outline-none focus:ring-2 focus:ring-offset-2 ${style.button.replace('bg-', 'focus:ring-')}`}
+                    className="btn btn-primary btn-xs"
                   >
-                    <ArrowPathIcon className="h-5 w-5 mr-2" />
+                    <ArrowPathIcon className="h-3 w-3 mr-1" />
                     Update Now
                   </button>
                   <button
                     onClick={() => handleDismiss(notification.id)}
-                    className={`flex items-center justify-center px-4 py-2 border ${style.border} rounded-md shadow-sm text-sm font-medium ${style.text} bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 ${style.button.replace('bg-', 'focus:ring-')}`}
+                    className="btn btn-xs"
                   >
                     Dismiss
                   </button>
-                </div>
-                <div className="order-2 flex-shrink-0 sm:order-3 sm:ml-3">
                   <button
                     type="button"
                     onClick={() => handleDismiss(notification.id)}
-                    className={`-mr-1 flex p-2 rounded-md hover:bg-black/10 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2`}
+                    className={`p-0.5 hover:bg-black/10 dark:hover:bg-white/10 ${style.text}`}
+                    style={{ borderRadius: '2px' }}
                   >
                     <span className="sr-only">Dismiss</span>
-                    <XMarkIcon className={`h-6 w-6 ${style.icon}`} aria-hidden="true" />
+                    <XMarkIcon className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>

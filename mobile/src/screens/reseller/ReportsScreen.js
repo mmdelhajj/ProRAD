@@ -16,6 +16,7 @@ import { Card, EmptyState, LoadingScreen, StatCard } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatCurrency, formatDate } from '../../utils/format';
 import api from '../../services/api';
 
@@ -113,13 +114,13 @@ const DateRangePicker = ({ selected, onSelect }) => (
 
 const dateStyles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   chip: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    marginRight: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    marginRight: spacing.xs,
     backgroundColor: colors.surfaceHover,
     borderWidth: 1,
     borderColor: colors.border,
@@ -129,7 +130,7 @@ const dateStyles = StyleSheet.create({
     borderColor: colors.primary,
   },
   chipText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -360,59 +361,61 @@ const RevenueReport = ({ data, loading, dateLabel }) => {
 
 const reportStyles = StyleSheet.create({
   container: {
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
   loadingContainer: {
     alignItems: 'center',
-    paddingVertical: spacing.xxxl,
+    paddingVertical: spacing.md,
   },
   loadingText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   statsGrid: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   statHalf: {
     flex: 1,
   },
   sectionCard: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   serviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   serviceRowBorder: {
     borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    borderTopColor: colors.border,
   },
   serviceName: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   serviceCountBadge: {
     backgroundColor: colors.primary + '15',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    minWidth: 40,
+    borderRadius: borderRadius.sm,
+    minWidth: 32,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   serviceCount: {
-    ...typography.bodySmall,
+    ...typography.caption,
     fontWeight: '700',
     color: colors.primary,
   },
   revenueValue: {
-    ...typography.body,
+    ...typography.bodySmall,
     fontWeight: '700',
     color: colors.success,
   },
@@ -420,31 +423,31 @@ const reportStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   txnInfo: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   txnName: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     fontWeight: '500',
   },
   txnDate: {
     ...typography.caption,
     color: colors.textLight,
-    marginTop: 2,
+    marginTop: 1,
   },
   txnAmount: {
     ...typography.h4,
     fontWeight: '700',
   },
   noData: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     fontStyle: 'italic',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     textAlign: 'center',
   },
 });
@@ -632,45 +635,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.tabBar,
   },
   pageTitle: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.text,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   pageSubtitle: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   reportCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
   },
   reportIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: borderRadius.md,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   reportIcon: {
-    fontSize: 24,
+    fontSize: 18,
   },
   reportInfo: {
     flex: 1,
@@ -678,33 +675,35 @@ const styles = StyleSheet.create({
   reportLabel: {
     ...typography.h4,
     color: colors.text,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   reportDesc: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   reportChevron: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.textLight,
-    marginLeft: spacing.sm,
+    marginLeft: spacing.xs,
   },
   reportHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.surfaceHover,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   backIcon: {
-    fontSize: 20,
+    fontSize: 16,
     color: colors.text,
     fontWeight: '700',
   },
@@ -716,9 +715,9 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   reportDateLabel: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
 });
 

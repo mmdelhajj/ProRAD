@@ -32,18 +32,19 @@ export default function UpdateNotification() {
       {/* Notification Icon */}
       <button
         onClick={() => setShowPopup(!showPopup)}
-        className={`relative p-1.5 rounded-lg transition-colors ${
+        className={`relative p-1 transition-colors ${
           isCritical
-            ? 'text-orange-600 hover:bg-orange-50'
-            : 'text-blue-600 hover:bg-blue-50'
+            ? 'text-[#FF9800] hover:bg-[#fff8e1] dark:hover:bg-[#2a2a1a]'
+            : 'text-[#2196F3] hover:bg-[#e3f2fd] dark:hover:bg-[#1a2a3a]'
         }`}
+        style={{ borderRadius: '2px' }}
         title={`Update available: v${newVersion}`}
       >
-        <ArrowDownTrayIcon className="w-5 h-5" />
+        <ArrowDownTrayIcon className="w-4 h-4" />
         {/* Badge */}
-        <span className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${
-          isCritical ? 'bg-orange-500' : 'bg-blue-500'
-        } animate-pulse`} />
+        <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 ${
+          isCritical ? 'bg-[#FF9800]' : 'bg-[#2196F3]'
+        } animate-pulse`} style={{ borderRadius: '1px' }} />
       </button>
 
       {/* Popup */}
@@ -56,27 +57,27 @@ export default function UpdateNotification() {
           />
 
           {/* Popup content */}
-          <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border z-50">
-            <div className="p-3">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <ArrowDownTrayIcon className={`w-5 h-5 ${isCritical ? 'text-orange-500' : 'text-blue-500'}`} />
-                  <span className="font-medium text-sm text-gray-900 dark:text-white">
+          <div className="absolute right-0 mt-1 w-56 card border border-[#a0a0a0] dark:border-[#555] z-50" style={{ boxShadow: '2px 2px 6px rgba(0,0,0,0.2)' }}>
+            <div className="p-2">
+              <div className="flex items-start justify-between mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <ArrowDownTrayIcon className={`w-4 h-4 ${isCritical ? 'text-[#FF9800]' : 'text-[#2196F3]'}`} />
+                  <span className="font-semibold text-[12px] text-gray-900 dark:text-[#e0e0e0]">
                     {isCritical ? 'Critical Update' : 'Update Available'}
                   </span>
                 </div>
                 <button
                   onClick={() => setShowPopup(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 dark:text-[#888] hover:text-gray-600 dark:hover:text-[#ccc]"
                 >
-                  <XMarkIcon className="w-4 h-4" />
+                  <XMarkIcon className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <p className="text-xs text-gray-600 mb-3">
+              <p className="text-[11px] text-gray-600 dark:text-[#aaa] mb-2">
                 Version {newVersion} is available.
                 {isCritical && (
-                  <span className="block mt-1 text-orange-600 font-medium">
+                  <span className="block mt-0.5 text-[#e65100] dark:text-[#FF9800] font-semibold">
                     This is a critical security update.
                   </span>
                 )}
@@ -84,11 +85,7 @@ export default function UpdateNotification() {
 
               <button
                 onClick={scrollToUpdateBanner}
-                className={`w-full text-xs font-medium py-2 px-3 rounded ${
-                  isCritical
-                    ? 'bg-orange-500 text-white hover:bg-orange-600'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
+                className="btn btn-primary btn-xs w-full"
               >
                 View Update Details
               </button>

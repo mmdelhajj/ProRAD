@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   StatCard,
@@ -18,6 +18,7 @@ import {
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatCurrency } from '../../utils/format';
 import { dashboardApi, subscriberApi, authApi } from '../../services/api';
 import useAuthStore from '../../store/authStore';
@@ -288,62 +289,62 @@ const styles = StyleSheet.create({
 
   // Balance Banner
   balanceBanner: {
-    paddingTop: spacing.xxxl + spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.base,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderBottomLeftRadius: borderRadius.sm,
+    borderBottomRightRadius: borderRadius.sm,
     alignItems: 'center',
+    ...shadows.sm,
   },
   balanceLabel: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: 'rgba(255,255,255,0.85)',
     marginBottom: spacing.xs,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   balanceValue: {
-    ...typography.h1,
+    ...typography.h2,
     color: colors.textInverse,
-    fontWeight: '800',
-    letterSpacing: -1,
+    fontWeight: '700',
   },
   balanceWarning: {
     ...typography.caption,
     color: 'rgba(255,255,255,0.75)',
     textAlign: 'center',
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
 
   // Stats Grid
   statsGrid: {
-    paddingHorizontal: spacing.base,
+    paddingHorizontal: spacing.sm,
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   statHalf: {
     flex: 1,
-    marginHorizontal: spacing.xs,
+    marginHorizontal: 2,
   },
 
   // Quick Actions
   quickActionsScroll: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xs,
   },
 
   // Recent Subscribers
   recentCard: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.sm,
     overflow: 'hidden',
   },
   emptyText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textLight,
     textAlign: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
 });
 

@@ -78,13 +78,13 @@ export default function Sessions() {
         accessorKey: 'username',
         header: 'Username',
         cell: ({ row }) => (
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <SignalIcon className="w-4 h-4 text-green-500" />
-              <span className="font-medium">{row.original.username}</span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4CAF50' }}></span>
+              <span className="dark:text-white" style={{ fontWeight: 500, fontSize: 11 }}>{row.original.username}</span>
             </div>
             {row.original.full_name && (
-              <span className="text-xs text-gray-500 ml-6">{row.original.full_name}</span>
+              <span className="text-gray-500 dark:text-gray-400" style={{ fontSize: 10, marginLeft: 12 }}>{row.original.full_name}</span>
             )}
           </div>
         ),
@@ -93,7 +93,7 @@ export default function Sessions() {
         accessorKey: 'framed_ip_address',
         header: 'IP Address',
         cell: ({ row }) => (
-          <code className="px-2 py-1 bg-gray-100 rounded text-sm">
+          <code className="bg-[#f0f0f0] dark:bg-gray-700 border border-[#d0d0d0] dark:border-gray-600 dark:text-gray-200" style={{ borderRadius: 2, fontSize: 11, padding: '1px 4px' }}>
             {row.original.framed_ip_address || '-'}
           </code>
         ),
@@ -102,7 +102,7 @@ export default function Sessions() {
         accessorKey: 'calling_station_id',
         header: 'MAC Address',
         cell: ({ row }) => (
-          <code className="px-2 py-1 bg-gray-100 rounded text-sm text-xs">
+          <code className="bg-[#f0f0f0] dark:bg-gray-700 border border-[#d0d0d0] dark:border-gray-600 dark:text-gray-200" style={{ borderRadius: 2, fontSize: 10, padding: '1px 4px' }}>
             {row.original.calling_station_id || '-'}
           </code>
         ),
@@ -111,10 +111,10 @@ export default function Sessions() {
         accessorKey: 'nas_name',
         header: 'NAS',
         cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span>{row.original.nas_name || row.original.nas_ip_address || '-'}</span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span className="dark:text-gray-200" style={{ fontSize: 11 }}>{row.original.nas_name || row.original.nas_ip_address || '-'}</span>
             {row.original.nas_name && row.original.nas_ip_address && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.nas_ip_address}</span>
+              <span className="text-gray-500 dark:text-gray-400" style={{ fontSize: 10 }}>{row.original.nas_ip_address}</span>
             )}
           </div>
         ),
@@ -123,17 +123,17 @@ export default function Sessions() {
         accessorKey: 'acct_start_time',
         header: 'Started',
         cell: ({ row }) => (
-          <div className="text-sm">
+          <span className="dark:text-gray-200" style={{ fontSize: 11 }}>
             {formatDateTime(row.original.acct_start_time)}
-          </div>
+          </span>
         ),
       },
       {
         accessorKey: 'session_duration',
         header: 'Duration',
         cell: ({ row }) => (
-          <div className="flex items-center gap-1 text-sm">
-            <ClockIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+          <div className="dark:text-gray-200" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+            <ClockIcon className="w-3 h-3 text-gray-500 dark:text-gray-400" />
             {formatDuration(row.original.session_duration)}
           </div>
         ),
@@ -142,12 +142,12 @@ export default function Sessions() {
         accessorKey: 'traffic',
         header: 'Traffic',
         cell: ({ row }) => (
-          <div className="text-sm space-y-1">
-            <div className="flex items-center gap-1 text-green-600">
+          <div style={{ fontSize: 11 }}>
+            <div className="text-green-700 dark:text-green-400" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <ArrowDownTrayIcon className="w-3 h-3" />
               {formatBytes(row.original.acct_input_octets)}
             </div>
-            <div className="flex items-center gap-1 text-blue-600">
+            <div className="text-blue-700 dark:text-blue-400" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
               <ArrowUpTrayIcon className="w-3 h-3" />
               {formatBytes(row.original.acct_output_octets)}
             </div>
@@ -165,10 +165,12 @@ export default function Sessions() {
                   disconnectMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+              className="btn btn-sm btn-danger"
               title="Disconnect"
+              style={{ padding: '2px 6px', fontSize: 11 }}
             >
-              <XCircleIcon className="w-5 h-5" />
+              <XCircleIcon className="w-3.5 h-3.5 inline mr-1" />
+              Disconnect
             </button>
           ) : null
         ),
@@ -187,127 +189,107 @@ export default function Sessions() {
   const totalUpload = sessions?.reduce((sum, s) => sum + (s.acct_output_octets || 0), 0) || 0
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Active Sessions</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Monitor live PPPoE connections</p>
-        </div>
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Page Title + Toolbar */}
+      <div className="wb-toolbar" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span className="dark:text-gray-100" style={{ fontSize: 13, fontWeight: 600 }}>Active Sessions</span>
         <button
           onClick={() => refetch()}
-          className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+          className="btn btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
         >
-          <ArrowPathIcon className="w-4 h-4" />
+          <ArrowPathIcon className="w-3.5 h-3.5" />
           Refresh
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <SignalIcon className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Online Users</div>
-              <div className="text-2xl font-bold">{sessions?.length || 0}</div>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 4 }}>
+        <div className="stat-card dark:bg-gray-800 dark:border-gray-600" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4CAF50' }}></span>
+          <div>
+            <div className="label dark:text-gray-400" style={{ fontSize: 10 }}>Online Users</div>
+            <div className="dark:text-white" style={{ fontSize: 13, fontWeight: 700 }}>{sessions?.length || 0}</div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <ArrowDownTrayIcon className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Download</div>
-              <div className="text-2xl font-bold">{formatBytes(totalDownload)}</div>
-            </div>
+        <div className="stat-card dark:bg-gray-800 dark:border-gray-600" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ArrowDownTrayIcon className="w-3.5 h-3.5 text-blue-600" />
+          <div>
+            <div className="label dark:text-gray-400" style={{ fontSize: 10 }}>Total Download</div>
+            <div className="dark:text-white" style={{ fontSize: 13, fontWeight: 700 }}>{formatBytes(totalDownload)}</div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-              <ArrowUpTrayIcon className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Upload</div>
-              <div className="text-2xl font-bold">{formatBytes(totalUpload)}</div>
-            </div>
+        <div className="stat-card dark:bg-gray-800 dark:border-gray-600" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ArrowUpTrayIcon className="w-3.5 h-3.5 text-purple-600" />
+          <div>
+            <div className="label dark:text-gray-400" style={{ fontSize: 10 }}>Total Upload</div>
+            <div className="dark:text-white" style={{ fontSize: 13, fontWeight: 700 }}>{formatBytes(totalUpload)}</div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <ClockIcon className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Auto-refresh</div>
-              <div className="text-lg font-bold">Every 10s</div>
-            </div>
+        <div className="stat-card dark:bg-gray-800 dark:border-gray-600" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ClockIcon className="w-3.5 h-3.5 text-yellow-600" />
+          <div>
+            <div className="label dark:text-gray-400" style={{ fontSize: 10 }}>Auto-refresh</div>
+            <div className="dark:text-white" style={{ fontSize: 13, fontWeight: 700 }}>Every 10s</div>
           </div>
         </div>
       </div>
 
       {/* Search */}
-      <div className="card p-4">
-        <div className="relative max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+      <div className="card dark:bg-gray-800 dark:border-gray-600" style={{ padding: '4px 8px', marginBottom: 4 }}>
+        <div style={{ position: 'relative', maxWidth: 320 }}>
+          <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
             placeholder="Search by username, IP, MAC..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input pl-10"
+            className="input input-sm"
+            style={{ paddingLeft: 24, fontSize: 11, height: 24 }}
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id}>
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id} style={{ fontSize: 11, padding: '4px 8px' }}>
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center dark:text-gray-400" style={{ padding: 24, fontSize: 11 }}>
+                  Loading...
+                </td>
+              </tr>
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center text-gray-500 dark:text-gray-400" style={{ padding: 24, fontSize: 11 }}>
+                  No active sessions
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} style={{ padding: '3px 8px', fontSize: 11 }}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
                   ))}
                 </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    No active sessions
-                  </td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   )

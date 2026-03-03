@@ -11,6 +11,7 @@ import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatDate, getTimeAgo } from '../../utils/format';
 import { customerApi } from '../../services/api';
 
@@ -217,27 +218,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: spacing.xxxl + spacing.base,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: spacing.xxxl + spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   headerTitle: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.text,
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.sm,
   },
   addButtonText: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textInverse,
     marginTop: -1,
@@ -245,30 +247,24 @@ const styles = StyleSheet.create({
 
   // List
   listContent: {
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.tabBar + spacing.xxxl,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.tabBar + spacing.xxl,
   },
 
   // Ticket Row
   ticketRow: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   ticketHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   ticketTitleRow: {
     flexDirection: 'row',
@@ -276,30 +272,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.primary,
-    marginRight: spacing.sm,
+    marginRight: spacing.xs,
   },
   ticketNumber: {
     ...typography.h4,
     color: colors.text,
   },
   statusBadge: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.xs,
   },
   statusText: {
     ...typography.caption,
     fontWeight: '600',
   },
   ticketSubject: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   ticketFooter: {
     flexDirection: 'row',
@@ -307,8 +303,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   categoryChip: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 1,
     borderRadius: borderRadius.sm,
     backgroundColor: colors.surfaceHover,
   },
@@ -325,22 +321,18 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: spacing.md,
+    bottom: spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    ...shadows.md,
   },
   fabText: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '500',
     color: colors.textInverse,
     marginTop: -1,

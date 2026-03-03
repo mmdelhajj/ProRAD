@@ -8,6 +8,7 @@ import {
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
+import { shadows } from '../theme/shadows';
 
 const Card = ({
   title,
@@ -71,19 +72,13 @@ const Card = ({
 
 const styles = StyleSheet.create({
   touchable: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
   },
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: borderRadius.md,
     overflow: 'hidden',
+    ...shadows.sm,
   },
   header: {
     flexDirection: 'row',
@@ -116,7 +111,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
     marginLeft: spacing.sm,
   },
   badgeText: {

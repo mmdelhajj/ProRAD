@@ -18,6 +18,7 @@ import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import api, { permissionApi } from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -229,34 +230,28 @@ const GroupRow = ({ group, onPress }) => {
 
 const rowStyles = StyleSheet.create({
   container: {
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.sm,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+    width: 26,
+    height: 26,
+    borderRadius: borderRadius.sm,
     backgroundColor: '#7c3aed' + '12',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   icon: {
-    fontSize: 18,
+    fontSize: 14,
   },
   info: {
     flex: 1,
@@ -274,9 +269,9 @@ const rowStyles = StyleSheet.create({
   },
   tag: {
     backgroundColor: colors.primary + '12',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
   },
   tagText: {
     ...typography.caption,
@@ -385,18 +380,17 @@ const PermissionCategorySection = ({ category, permissions, selectedIds, onToggl
 
 const catStyles = StyleSheet.create({
   container: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.surfaceHover,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -411,9 +405,9 @@ const catStyles = StyleSheet.create({
     flex: 1,
   },
   selectAllBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.textSecondary + '12',
   },
   selectAllText: {
@@ -425,8 +419,8 @@ const catStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
@@ -621,9 +615,9 @@ const modalStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 56 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -648,14 +642,14 @@ const modalStyles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
   },
 });
 
 const formStyles = StyleSheet.create({
   fieldContainer: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
   },
   label: {
     ...typography.label,
@@ -664,20 +658,20 @@ const formStyles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
     ...typography.body,
     color: colors.text,
   },
   summaryRow: {
     backgroundColor: colors.primary + '08',
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.base,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
   },
   summaryText: {
     ...typography.bodySmall,
@@ -686,9 +680,9 @@ const formStyles = StyleSheet.create({
     textAlign: 'center',
   },
   deleteButton: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.danger + '40',
     backgroundColor: colors.danger + '08',
@@ -900,9 +894,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 56 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -917,16 +911,16 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   addButtonText: {
     ...typography.button,
     color: colors.textInverse,
   },
   listContent: {
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.tabBar,
   },
 });

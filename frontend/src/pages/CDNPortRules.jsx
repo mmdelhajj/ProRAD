@@ -142,218 +142,188 @@ export default function CDNPortRules() {
     return 'src + dst'
   }
 
-  const directionColor = (d) => {
-    if (d === 'src') return 'bg-blue-100 text-blue-800'
-    if (d === 'dst') return 'bg-purple-100 text-purple-800'
-    if (d === 'dscp') return 'bg-orange-100 text-orange-800'
-    return 'bg-green-100 text-green-800'
+  const directionBadge = (d) => {
+    if (d === 'src') return 'badge-info'
+    if (d === 'dst') return 'badge-purple'
+    if (d === 'dscp') return 'badge-orange'
+    return 'badge-success'
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CDN Port Rules</h1>
-          <p className="text-gray-500 dark:text-gray-400">Port-based PCQ speed rules applied on MikroTik</p>
-        </div>
-        <div className="flex gap-2">
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Header */}
+      <div className="wb-toolbar flex items-center justify-between mb-2">
+        <div className="text-[13px] font-semibold">CDN Port Rules</div>
+        <div className="flex gap-1">
           <button
             onClick={() => syncAllMutation.mutate()}
             disabled={syncAllMutation.isPending}
-            className="btn-secondary flex items-center gap-2"
+            className="btn btn-sm flex items-center gap-1"
           >
-            <ArrowPathIcon className={clsx('w-4 h-4', syncAllMutation.isPending && 'animate-spin')} />
+            <ArrowPathIcon className={clsx('w-3.5 h-3.5', syncAllMutation.isPending && 'animate-spin')} />
             {syncAllMutation.isPending ? 'Syncing...' : 'Sync All to MikroTik'}
           </button>
-          <button onClick={() => openModal()} className="btn-primary flex items-center gap-2">
-            <PlusIcon className="w-4 h-4" />
+          <button onClick={() => openModal()} className="btn btn-primary btn-sm flex items-center gap-1">
+            <PlusIcon className="w-3.5 h-3.5" />
             Add Port Rule
           </button>
         </div>
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
-        <div className="flex gap-3">
-          <BoltIcon className="w-6 h-6 text-blue-500 flex-shrink-0" />
-          <div>
-            <h3 className="font-medium text-blue-900 dark:text-blue-200">Port-Based Speed Control</h3>
-            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-              Create PCQ speed rules based on TCP port numbers. Each rule creates a queue type, mangle rules
-              (src-port, dst-port, or both), and a simple queue on MikroTik. No IP subnets needed — rules match by port only.
-            </p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">
-              Example: Port 8080 → mark-packet PORT-SP → PCQ queue 5Mbps
-            </p>
-          </div>
+      <div className="wb-group mb-2">
+        <div className="wb-group-title">Port-Based Speed Control</div>
+        <div className="wb-group-body text-[11px] text-gray-700 dark:text-[#ccc]">
+          <p>
+            Create PCQ speed rules based on TCP port numbers. Each rule creates a queue type, mangle rules
+            (src-port, dst-port, or both), and a simple queue on MikroTik. No IP subnets needed -- rules match by port only.
+          </p>
+          <p className="font-mono text-[10px] text-gray-500 dark:text-[#aaa] mt-1">
+            Example: Port 8080 -&gt; mark-packet PORT-SP -&gt; PCQ queue 5Mbps
+          </p>
         </div>
       </div>
 
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
+      {/* Table */}
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Port</th>
+              <th>Direction</th>
+              <th>Speed</th>
+              <th>NAS</th>
+              <th>Status</th>
+              <th>Graph</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
               <tr>
-                <th>Name</th>
-                <th>Port</th>
-                <th>Direction</th>
-                <th>Speed</th>
-                <th>NAS</th>
-                <th>Status</th>
-                <th>Graph</th>
-                <th>Actions</th>
+                <td colSpan={8} className="text-center py-4">Loading...</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            ) : !rules || rules.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="text-center py-4 text-gray-500 dark:text-[#aaa]">
+                  No port rules found. Click "Add Port Rule" to create one.
+                </td>
+              </tr>
+            ) : (
+              rules.map((rule) => (
+                <tr key={rule.id}>
+                  <td className="font-semibold">{rule.name}</td>
+                  <td>
+                    {rule.direction === 'dscp' ? (
+                      <span className="badge badge-orange">DSCP {rule.dscp_value}</span>
+                    ) : (
+                      <span className="font-mono">:{rule.port}</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={clsx('badge', directionBadge(rule.direction))}>
+                      {directionLabel(rule.direction, rule)}
+                    </span>
+                  </td>
+                  <td className="font-semibold">{rule.speed_mbps} Mbps</td>
+                  <td>
+                    {rule.nas_id
+                      ? nasList?.find((n) => n.id === rule.nas_id)?.name || `NAS #${rule.nas_id}`
+                      : 'All NAS'}
+                  </td>
+                  <td>
+                    <span className={clsx('badge', rule.is_active ? 'badge-success' : 'badge-gray')}>
+                      {rule.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td>
+                    {rule.show_in_graph && rule.direction !== 'dscp' ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 flex-shrink-0 border border-[#999]" style={{ backgroundColor: rule.color || '#8B5CF6', borderRadius: '1px' }} />
+                        <ChartBarIcon className="w-3.5 h-3.5" style={{ color: rule.color || '#8B5CF6' }} title="Shows in live graph" />
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 dark:text-[#666]">--</span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => syncMutation.mutate(rule.id)}
+                        disabled={!rule.is_active || syncMutation.isPending}
+                        className={clsx('btn btn-sm btn-success', !rule.is_active && 'opacity-40 cursor-not-allowed')}
+                        title={rule.is_active ? 'Sync to MikroTik' : 'Rule is inactive'}
+                        style={{ padding: '1px 4px' }}
+                      >
+                        <ArrowPathIcon className={clsx('w-3.5 h-3.5', syncMutation.isPending && 'animate-spin')} />
+                      </button>
+                      <button
+                        onClick={() => openModal(rule)}
+                        className="btn btn-sm btn-primary"
+                        title="Edit"
+                        style={{ padding: '1px 4px' }}
+                      >
+                        <PencilIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Delete this port rule?')) deleteMutation.mutate(rule.id)
+                        }}
+                        className="btn btn-sm btn-danger"
+                        title="Delete"
+                        style={{ padding: '1px 4px' }}
+                      >
+                        <TrashIcon className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </td>
                 </tr>
-              ) : !rules || rules.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    No port rules found. Click "Add Port Rule" to create one.
-                  </td>
-                </tr>
-              ) : (
-                rules.map((rule) => (
-                  <tr key={rule.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-orange-100 rounded-lg">
-                          <BoltIcon className="w-4 h-4 text-orange-600" />
-                        </div>
-                        <span className="font-semibold text-gray-900 dark:text-white">{rule.name}</span>
-                      </div>
-                    </td>
-                    <td>
-                      {rule.direction === 'dscp' ? (
-                        <span className="font-mono text-sm bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded">
-                          DSCP {rule.dscp_value}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                          :{rule.port}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={clsx('text-xs font-medium px-2 py-1 rounded-full', directionColor(rule.direction))}>
-                        {directionLabel(rule.direction, rule)}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="font-semibold text-gray-900 dark:text-white">{rule.speed_mbps} Mbps</span>
-                    </td>
-                    <td>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {rule.nas_id
-                          ? nasList?.find((n) => n.id === rule.nas_id)?.name || `NAS #${rule.nas_id}`
-                          : 'All NAS'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={clsx('badge', rule.is_active ? 'badge-success' : 'badge-gray')}>
-                        {rule.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td>
-                      {rule.show_in_graph && rule.direction !== 'dscp' ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: rule.color || '#8B5CF6' }} />
-                          <ChartBarIcon className="w-4 h-4" style={{ color: rule.color || '#8B5CF6' }} title="Shows in live graph" />
-                        </div>
-                      ) : (
-                        <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => syncMutation.mutate(rule.id)}
-                          disabled={!rule.is_active || syncMutation.isPending}
-                          className={clsx(
-                            'p-1.5 rounded',
-                            rule.is_active
-                              ? 'text-gray-500 hover:text-green-600 hover:bg-green-50'
-                              : 'text-gray-300 cursor-not-allowed'
-                          )}
-                          title={rule.is_active ? 'Sync to MikroTik' : 'Rule is inactive'}
-                        >
-                          <ArrowPathIcon className={clsx('w-4 h-4', syncMutation.isPending && 'animate-spin')} />
-                        </button>
-                        <button
-                          onClick={() => openModal(rule)}
-                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
-                          title="Edit"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm('Delete this port rule?')) deleteMutation.mutate(rule.id)
-                          }}
-                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
-                          title="Delete"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
-              <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
-                <h2 className="text-xl font-semibold dark:text-white">
-                  {editingRule ? 'Edit Port Rule' : 'Add Port Rule'}
-                </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: '460px', width: '100%' }}>
+            <div className="modal-header">
+              <span>{editingRule ? 'Edit Port Rule' : 'Add Port Rule'}</span>
+              <button onClick={closeModal} className="text-white hover:text-gray-200">
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body space-y-2" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                 <div>
-                  <label className="label">Rule Name</label>
+                  <label className="label block mb-0.5">Rule Name</label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="input"
+                    className="input input-sm w-full"
                     placeholder="e.g. SP, YouTube, Cache"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="label">Direction</label>
+                  <label className="label block mb-0.5">Direction</label>
                   <select
                     name="direction"
                     value={formData.direction}
                     onChange={handleChange}
-                    className="input"
+                    className="input input-sm w-full"
                   >
                     {DIRECTIONS.map((d) => (
                       <option key={d.value} value={d.value}>{d.label}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-[10px] text-gray-500 dark:text-[#aaa] mt-0.5">
                     {formData.direction === 'src' && 'Generates: src-port mangle rule (chain=forward)'}
                     {formData.direction === 'dst' && 'Generates: dst-port mangle rule (chain=forward)'}
                     {formData.direction === 'both' && 'Generates: src-port + dst-port mangle rules (chain=forward)'}
@@ -363,56 +333,56 @@ export default function CDNPortRules() {
 
                 {formData.direction !== 'dscp' ? (
                   <div>
-                    <label className="label">Port</label>
+                    <label className="label block mb-0.5">Port</label>
                     <input
                       type="text"
                       name="port"
                       value={formData.port}
                       onChange={handleChange}
-                      className="input font-mono"
+                      className="input input-sm w-full font-mono"
                       placeholder="e.g. 8080"
                       required
                     />
-                    <p className="text-xs text-gray-500 mt-1">TCP port number to match</p>
+                    <p className="text-[10px] text-gray-500 dark:text-[#aaa] mt-0.5">TCP port number to match</p>
                   </div>
                 ) : (
                   <div>
-                    <label className="label">DSCP Value (0–63)</label>
+                    <label className="label block mb-0.5">DSCP Value (0-63)</label>
                     <input
                       type="number"
                       name="dscp_value"
                       value={formData.dscp_value}
                       onChange={handleChange}
-                      className="input font-mono"
+                      className="input input-sm w-full font-mono"
                       placeholder="e.g. 63"
                       min="0"
                       max="63"
                       required
                     />
-                    <p className="text-xs text-gray-500 mt-1">DSCP value to match (0–63). Common values: 46=EF, 34=AF41, 63=custom</p>
+                    <p className="text-[10px] text-gray-500 dark:text-[#aaa] mt-0.5">DSCP value (0-63). Common: 46=EF, 34=AF41, 63=custom</p>
                   </div>
                 )}
 
                 <div>
-                  <label className="label">Speed Limit (Mbps)</label>
+                  <label className="label block mb-0.5">Speed Limit (Mbps)</label>
                   <input
                     type="number"
                     name="speed_mbps"
                     value={formData.speed_mbps}
                     onChange={handleChange}
-                    className="input"
+                    className="input input-sm w-full"
                     min="1"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="label">Apply to NAS</label>
+                  <label className="label block mb-0.5">Apply to NAS</label>
                   <select
                     name="nas_id"
                     value={formData.nas_id || ''}
                     onChange={(e) => setFormData((prev) => ({ ...prev, nas_id: e.target.value || null }))}
-                    className="input"
+                    className="input input-sm w-full"
                   >
                     <option value="">All NAS</option>
                     {nasList?.filter((n) => n.is_active).map((nas) => (
@@ -422,50 +392,47 @@ export default function CDNPortRules() {
                 </div>
 
                 <div>
-                  <label className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-[11px] cursor-pointer">
                     <input
                       type="checkbox"
                       name="is_active"
                       checked={formData.is_active}
                       onChange={handleChange}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
-                    <span className="dark:text-white">Active</span>
+                    <span className="font-semibold">Active</span>
                   </label>
                 </div>
 
-                {/* Show in Live Graph toggle — only for port-based rules */}
+                {/* Show in Live Graph toggle -- only for port-based rules */}
                 {formData.direction !== 'dscp' && (
-                  <div className="border-t dark:border-gray-700 pt-4 space-y-3">
-                    <div>
-                      <label className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          name="show_in_graph"
-                          checked={formData.show_in_graph}
-                          onChange={handleChange}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                        <div>
-                          <span className="dark:text-white font-medium">Show in Live Graph</span>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">When enabled, traffic matching this port will appear as a colored bar in the subscriber live bandwidth graph</p>
-                        </div>
-                      </label>
-                    </div>
+                  <div className="border-t border-[#a0a0a0] dark:border-[#555] pt-2 space-y-2">
+                    <label className="flex items-start gap-2 text-[11px] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="show_in_graph"
+                        checked={formData.show_in_graph}
+                        onChange={handleChange}
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <span className="font-semibold">Show in Live Graph</span>
+                        <p className="text-[10px] text-gray-500 dark:text-[#aaa]">When enabled, traffic matching this port will appear as a colored bar in the subscriber live bandwidth graph</p>
+                      </div>
+                    </label>
                     {formData.show_in_graph && (
                       <div>
-                        <label className="label">Graph Color</label>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <label className="label block mb-0.5">Graph Color</label>
+                        <div className="flex items-center gap-1 flex-wrap">
                           {GRAPH_COLORS.map(color => (
                             <button
                               key={color}
                               type="button"
                               onClick={() => setFormData(prev => ({ ...prev, color }))}
                               className={clsx(
-                                'w-7 h-7 rounded-full border-2 transition-transform',
-                                formData.color === color ? 'border-gray-800 dark:border-white scale-110' : 'border-transparent hover:scale-105'
+                                'w-6 h-6 border',
+                                formData.color === color ? 'border-[#316AC5] border-2 scale-110' : 'border-[#999] hover:scale-105'
                               )}
-                              style={{ backgroundColor: color }}
+                              style={{ backgroundColor: color, borderRadius: '2px' }}
                               title={color}
                             />
                           ))}
@@ -473,10 +440,11 @@ export default function CDNPortRules() {
                             type="color"
                             value={formData.color}
                             onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                            className="w-7 h-7 rounded cursor-pointer border border-gray-300 dark:border-gray-600"
+                            className="w-6 h-6 cursor-pointer border border-[#999]"
+                            style={{ borderRadius: '2px', padding: 0 }}
                             title="Custom color"
                           />
-                          <span className="text-xs text-gray-500 font-mono">{formData.color}</span>
+                          <span className="text-[10px] text-gray-500 dark:text-[#aaa] font-mono">{formData.color}</span>
                         </div>
                       </div>
                     )}
@@ -485,8 +453,8 @@ export default function CDNPortRules() {
 
                 {/* Preview */}
                 {formData.name && (formData.direction === 'dscp' ? true : formData.port) && (
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 font-mono text-xs text-gray-600 dark:text-gray-300 space-y-1">
-                    <div className="text-gray-400 mb-1">MikroTik preview:</div>
+                  <div className="bg-[#f0f0f0] dark:bg-[#333] border border-[#a0a0a0] dark:border-[#555] p-1.5 font-mono text-[10px] text-gray-600 dark:text-[#bbb] space-y-0.5" style={{ borderRadius: '2px' }}>
+                    <div className="text-gray-400 dark:text-[#888] mb-0.5">MikroTik preview:</div>
                     <div>queue type: PORT-{formData.name}-{formData.speed_mbps} ({formData.speed_mbps}M PCQ)</div>
                     {formData.direction === 'dscp' ? (
                       <div>mangle: chain=postrouting dscp={formData.dscp_value} new-packet-mark=PORT-{formData.name} passthrough=no</div>
@@ -503,15 +471,15 @@ export default function CDNPortRules() {
                     <div>queue: PORT-{formData.name}-{formData.speed_mbps}M (packet-mark=PORT-{formData.name})</div>
                   </div>
                 )}
+              </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
-                  <button type="button" onClick={closeModal} className="btn-secondary">Cancel</button>
-                  <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
-                    {saveMutation.isPending ? 'Saving...' : editingRule ? 'Update' : 'Create'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="modal-footer">
+                <button type="button" onClick={closeModal} className="btn btn-sm">Cancel</button>
+                <button type="submit" disabled={saveMutation.isPending} className="btn btn-primary btn-sm">
+                  {saveMutation.isPending ? 'Saving...' : editingRule ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

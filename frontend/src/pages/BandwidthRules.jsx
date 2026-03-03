@@ -140,189 +140,175 @@ export default function BandwidthRules() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center py-4">
+        <span className="text-[11px] text-gray-500 dark:text-[#aaa]">Loading...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Header */}
+      <div className="wb-toolbar flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Bandwidth Rules</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Configure time-based bandwidth adjustments</p>
+          <div className="text-[13px] font-semibold">Bandwidth Rules</div>
+          <div className="text-[10px] text-gray-500 dark:text-[#aaa]">Configure time-based bandwidth adjustments</div>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
+        <button onClick={() => setShowModal(true)} className="btn btn-primary btn-sm">
           Add Rule
         </button>
       </div>
 
-      {/* Info Card */}
-      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
-        <h3 className="font-medium text-blue-900">Time-Based Bandwidth Rules</h3>
-        <p className="text-sm text-blue-700 mt-1">
-          Create rules to adjust bandwidth during specific hours (e.g., night boost). Enable Auto Apply to have rules activate automatically on schedule.
-        </p>
+      {/* Info Box */}
+      <div className="wb-group">
+        <div className="wb-group-body">
+          <p className="text-[11px] text-gray-700 dark:text-[#ccc]">
+            <strong>Time-Based Bandwidth Rules:</strong> Create rules to adjust bandwidth during specific hours (e.g., night boost). Enable Auto Apply to have rules activate automatically on schedule.
+          </p>
+        </div>
       </div>
 
       {/* Rules Table */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
+      <div className="table-container">
+        <table className="table">
+          <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Schedule</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Speed Adjustment</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+              <th>Name</th>
+              <th>Schedule</th>
+              <th>Speed Adjustment</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody>
             {(rules || []).map(rule => (
-              <tr key={rule.id} className="hover:bg-gray-50 dark:bg-gray-700">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{rule.name}</div>
+              <tr key={rule.id}>
+                <td>
+                  <span className="font-medium">{rule.name}</span>
                   {rule.service_ids?.length > 0 && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                      {rule.service_ids.length} service(s)
-                    </div>
+                    <div className="text-[10px] text-gray-500 dark:text-[#aaa]">{rule.service_ids.length} service(s)</div>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  <div>
-                    <div>{rule.start_time} - {rule.end_time}</div>
-                    <div className="text-xs">{getDaysLabel(rule.days_of_week)}</div>
-                  </div>
+                <td>
+                  <div>{rule.start_time} - {rule.end_time}</div>
+                  <div className="text-[10px] text-gray-500 dark:text-[#aaa]">{getDaysLabel(rule.days_of_week)}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <div className="flex items-center space-x-2">
-                    <span className={rule.upload_multiplier > 100 ? 'text-green-600' : rule.upload_multiplier < 100 ? 'text-red-600' : 'text-gray-600'}>
-                      {rule.upload_multiplier > 100 ? '+' : ''}{rule.upload_multiplier - 100}% UP
-                    </span>
-                    <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">|</span>
-                    <span className={rule.download_multiplier > 100 ? 'text-green-600' : rule.download_multiplier < 100 ? 'text-red-600' : 'text-gray-600'}>
-                      {rule.download_multiplier > 100 ? '+' : ''}{rule.download_multiplier - 100}% DN
-                    </span>
-                  </div>
+                <td>
+                  <span className={rule.upload_multiplier > 100 ? 'text-green-700' : rule.upload_multiplier < 100 ? 'text-red-700' : ''}>
+                    {rule.upload_multiplier > 100 ? '+' : ''}{rule.upload_multiplier - 100}% UP
+                  </span>
+                  {' | '}
+                  <span className={rule.download_multiplier > 100 ? 'text-green-700' : rule.download_multiplier < 100 ? 'text-red-700' : ''}>
+                    {rule.download_multiplier > 100 ? '+' : ''}{rule.download_multiplier - 100}% DN
+                  </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleMutation.mutate({ id: rule.id, enabled: !rule.enabled })}
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
-                        rule.enabled ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow transition duration-200 ${
-                          rule.enabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled}
+                      onChange={() => toggleMutation.mutate({ id: rule.id, enabled: !rule.enabled })}
+                      className="border-[#a0a0a0]"
+                    />
+                    <span className="text-[10px]">{rule.enabled ? 'On' : 'Off'}</span>
                     {rule.auto_apply && (
-                      <span className="px-1.5 py-0.5 text-[10px] bg-green-100 text-green-700 rounded font-medium">AUTO</span>
+                      <span className="badge-success">AUTO</span>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <button
-                    onClick={() => applyNowMutation.mutate(rule.id)}
-                    disabled={applyNowMutation.isPending}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200 mr-2"
-                    title="Apply Now"
-                  >
-                    <PlayIcon className="w-3 h-3 mr-1" />
-                    Apply
-                  </button>
-                  <button
-                    onClick={() => openEdit(rule)}
-                    className="text-blue-600 hover:text-blue-900 mr-3"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm('Delete this rule?')) {
-                        deleteMutation.mutate(rule.id)
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
+                <td>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => applyNowMutation.mutate(rule.id)}
+                      disabled={applyNowMutation.isPending}
+                      className="btn btn-success btn-sm"
+                      title="Apply Now"
+                    >
+                      <PlayIcon className="w-3 h-3 mr-1" />
+                      Apply
+                    </button>
+                    <button onClick={() => openEdit(rule)} className="btn btn-sm">
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm('Delete this rule?')) {
+                          deleteMutation.mutate(rule.id)
+                        }
+                      }}
+                      className="btn btn-danger btn-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-
-        {(rules || []).length === 0 && (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-            No bandwidth rules configured. Click "Add Rule" to create one.
-          </div>
-        )}
       </div>
+
+      {(rules || []).length === 0 && (
+        <div className="text-center py-4 text-[11px] text-gray-500 dark:text-[#aaa]">
+          No bandwidth rules configured. Click "Add Rule" to create one.
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={closeModal}></div>
-            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                {editingRule ? 'Edit Rule' : 'Add Bandwidth Rule'}
-              </h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: '480px' }}>
+            <div className="modal-header">
+              <span>{editingRule ? 'Edit Rule' : 'Add Bandwidth Rule'}</span>
+              <button onClick={closeModal} className="text-white hover:text-gray-200 text-[16px] leading-none">&times;</button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body space-y-2">
+                {/* Rule Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Rule Name</label>
+                  <label className="label">Rule Name</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    className="input input-sm w-full"
                     placeholder="e.g., Night Boost, FUP Limit"
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Times */}
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Start Time</label>
+                    <label className="label">Start Time</label>
                     <input
                       type="time"
                       value={formData.start_time}
                       onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="input input-sm w-full"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">End Time</label>
+                    <label className="label">End Time</label>
                     <input
                       type="time"
                       value={formData.end_time}
                       onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="input input-sm w-full"
                     />
                   </div>
                 </div>
 
+                {/* Days of Week */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Days of Week</label>
-                  <div className="flex flex-wrap gap-2">
+                  <label className="label">Days of Week</label>
+                  <div className="flex flex-wrap gap-1">
                     {daysOfWeek.map(day => (
                       <button
                         key={day.value}
                         type="button"
                         onClick={() => toggleDay(day.value)}
-                        className={`px-3 py-1 text-sm rounded-md ${
-                          formData.days_of_week.includes(day.value)
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-700'
-                        }`}
+                        className={`btn btn-sm ${formData.days_of_week.includes(day.value) ? 'btn-primary' : ''}`}
                       >
                         {day.label}
                       </button>
@@ -330,13 +316,18 @@ export default function BandwidthRules() {
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 bg-blue-50 dark:bg-blue-900/30 p-2 rounded">
-                  Speed multiplier: 100% = same speed, 200% = double speed, 50% = half speed
-                </p>
-                <div className="grid grid-cols-2 gap-4">
+                {/* Speed info */}
+                <div className="wb-group">
+                  <div className="wb-group-body text-[10px] text-gray-600 dark:text-[#bbb]">
+                    Speed multiplier: 100% = same speed, 200% = double speed, 50% = half speed
+                  </div>
+                </div>
+
+                {/* Speed sliders */}
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
-                      Upload Speed: <span className={`font-bold ${formData.upload_multiplier > 100 ? 'text-green-600' : formData.upload_multiplier < 100 ? 'text-red-600' : 'text-gray-600'}`}>{formData.upload_multiplier}%</span>
+                    <label className="label">
+                      Upload Speed: <span className={`font-bold ${formData.upload_multiplier > 100 ? 'text-green-700' : formData.upload_multiplier < 100 ? 'text-red-700' : ''}`}>{formData.upload_multiplier}%</span>
                     </label>
                     <input
                       type="range"
@@ -345,19 +336,16 @@ export default function BandwidthRules() {
                       step="10"
                       value={formData.upload_multiplier}
                       onChange={(e) => setFormData({ ...formData, upload_multiplier: parseInt(e.target.value) })}
-                      className="mt-2 w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      className="w-full h-1.5 bg-[#e0e0e0] dark:bg-[#555] appearance-none cursor-pointer accent-[#316AC5]"
+                      style={{ borderRadius: '1px' }}
                     />
-                    <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      <span>10%</span>
-                      <span>50%</span>
-                      <span>100%</span>
-                      <span>200%</span>
-                      <span>300%</span>
+                    <div className="flex justify-between text-[9px] text-gray-400 dark:text-[#888] mt-0.5">
+                      <span>10%</span><span>100%</span><span>300%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">
-                      Download Speed: <span className={`font-bold ${formData.download_multiplier > 100 ? 'text-green-600' : formData.download_multiplier < 100 ? 'text-red-600' : 'text-gray-600'}`}>{formData.download_multiplier}%</span>
+                    <label className="label">
+                      Download Speed: <span className={`font-bold ${formData.download_multiplier > 100 ? 'text-green-700' : formData.download_multiplier < 100 ? 'text-red-700' : ''}`}>{formData.download_multiplier}%</span>
                     </label>
                     <input
                       type="range"
@@ -366,23 +354,21 @@ export default function BandwidthRules() {
                       step="10"
                       value={formData.download_multiplier}
                       onChange={(e) => setFormData({ ...formData, download_multiplier: parseInt(e.target.value) })}
-                      className="mt-2 w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      className="w-full h-1.5 bg-[#e0e0e0] dark:bg-[#555] appearance-none cursor-pointer accent-[#316AC5]"
+                      style={{ borderRadius: '1px' }}
                     />
-                    <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      <span>10%</span>
-                      <span>50%</span>
-                      <span>100%</span>
-                      <span>200%</span>
-                      <span>300%</span>
+                    <div className="flex justify-between text-[9px] text-gray-400 dark:text-[#888] mt-0.5">
+                      <span>10%</span><span>100%</span><span>300%</span>
                     </div>
                   </div>
                 </div>
 
+                {/* Apply to Services */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Apply to Services</label>
-                  <div className="max-h-32 overflow-y-auto border rounded-md p-2">
+                  <label className="label">Apply to Services</label>
+                  <div className="border border-[#a0a0a0] dark:border-[#555] bg-white dark:bg-[#333] max-h-24 overflow-y-auto p-1" style={{ borderRadius: '2px' }}>
                     {(services || []).map(service => (
-                      <label key={service.id} className="flex items-center py-1">
+                      <label key={service.id} className="flex items-center py-0.5 px-1 text-[11px] hover:bg-[#e8e8f0] dark:hover:bg-[#444] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formData.service_ids.includes(service.id)}
@@ -392,54 +378,49 @@ export default function BandwidthRules() {
                               : formData.service_ids.filter(id => id !== service.id)
                             setFormData({ ...formData, service_ids: ids })
                           }}
-                          className="rounded border-gray-300 text-blue-600"
+                          className="border-[#a0a0a0] mr-1.5"
                         />
-                        <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">{service.name}</span>
+                        {service.name}
                       </label>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Leave empty to apply to all services</p>
+                  <p className="text-[10px] text-gray-500 dark:text-[#aaa] mt-0.5">Leave empty to apply to all services</p>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="flex items-center">
+                {/* Checkboxes */}
+                <div className="space-y-0.5">
+                  <label className="flex items-center text-[11px] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formData.enabled}
                       onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="border-[#a0a0a0] mr-1.5"
                     />
-                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Enabled</span>
+                    Enabled
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center text-[11px] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formData.auto_apply}
                       onChange={(e) => setFormData({ ...formData, auto_apply: e.target.checked })}
-                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                      className="border-[#a0a0a0] mr-1.5"
                     />
-                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Auto Apply (apply automatically on schedule)</span>
+                    Auto Apply (apply automatically on schedule)
                   </label>
                 </div>
+              </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:bg-gray-600"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                    className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  >
-                    {editingRule ? 'Update' : 'Create'} Rule
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="modal-footer">
+                <button type="button" onClick={closeModal} className="btn btn-sm">Cancel</button>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="btn btn-primary btn-sm"
+                >
+                  {editingRule ? 'Update' : 'Create'} Rule
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

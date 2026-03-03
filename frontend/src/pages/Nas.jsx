@@ -98,21 +98,17 @@ export default function Nas() {
       const identity = data.router_info?.identity || ''
 
       // Build status message
-      const apiStatus = data.api_auth ? '✓ API' : '✗ API'
-      const radiusStatus = data.secret_valid ? '✓ RADIUS' : '✗ RADIUS'
+      const apiStatus = data.api_auth ? '+ API' : '- API'
+      const radiusStatus = data.secret_valid ? '+ RADIUS' : '- RADIUS'
 
       if (data.api_auth && data.secret_valid) {
-        // Both OK
         toast.success(`${identity ? identity + ' - ' : ''}${apiStatus} | ${radiusStatus}`)
       } else if (data.api_auth || data.secret_valid) {
-        // Partial success
         toast.error(`${apiStatus} | ${radiusStatus}\n${data.api_error || ''} ${data.radius_error || ''}`.trim())
       } else if (data.is_online) {
-        // Port reachable but both failed
         toast.error(`${apiStatus} | ${radiusStatus}\nAPI: ${data.api_error || 'Auth failed'}\nRADIUS: ${data.radius_error || 'Secret invalid'}`)
       } else {
-        // Cannot reach router
-        toast.error(`✗ Cannot reach router\n${data.api_error || 'Check IP address'}`)
+        toast.error(`Cannot reach router\n${data.api_error || 'Check IP address'}`)
       }
       queryClient.invalidateQueries(['nas'])
     },
@@ -230,13 +226,11 @@ export default function Nas() {
         accessorKey: 'name',
         header: 'Name',
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <ServerIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-            </div>
+          <div className="flex items-center gap-1.5">
+            <ServerIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
             <div>
-              <div className="font-medium text-gray-900 dark:text-white">{row.original.name || row.original.short_name}</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{row.original.description}</div>
+              <div className="text-[11px] font-medium text-gray-900 dark:text-white">{row.original.name || row.original.short_name}</div>
+              {row.original.description && <div className="text-[10px] text-gray-500 dark:text-gray-400">{row.original.description}</div>}
             </div>
           </div>
         ),
@@ -245,7 +239,7 @@ export default function Nas() {
         accessorKey: 'ip_address',
         header: 'IP Address',
         cell: ({ row }) => (
-          <code className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm text-gray-900 dark:text-gray-200">
+          <code className="text-[11px] text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 px-1 py-0.5 border border-[#a0a0a0] dark:border-gray-600" style={{ borderRadius: '2px' }}>
             {row.original.ip_address}
           </code>
         ),
@@ -261,7 +255,7 @@ export default function Nas() {
         accessorKey: 'auth_port',
         header: 'Ports',
         cell: ({ row }) => (
-          <div className="text-sm">
+          <div className="text-[11px] text-gray-900 dark:text-gray-100">
             <div>RADIUS: {row.original.auth_port}</div>
             {row.original.type === 'mikrotik' && (
               <div>API: {row.original.api_port}</div>
@@ -273,59 +267,23 @@ export default function Nas() {
         accessorKey: 'is_active',
         header: 'Status',
         cell: ({ row }) => (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              {row.original.is_active ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                  <span className="text-xs text-green-600">Active</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Inactive</span>
-                </>
-              )}
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1">
+              <span className={`wb-status-dot ${row.original.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+              <span className="text-[11px]">{row.original.is_active ? 'Active' : 'Inactive'}</span>
             </div>
-            <div className="flex items-center gap-2">
-              {row.original.is_online ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                  <span className="text-xs text-green-600">Online</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                  <span className="text-xs text-red-500">Offline</span>
-                </>
-              )}
+            <div className="flex items-center gap-1">
+              <span className={`wb-status-dot ${row.original.is_online ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              <span className="text-[11px]">{row.original.is_online ? 'Online' : 'Offline'}</span>
             </div>
-            <div className="flex items-center gap-2">
-              {row.original.has_secret ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                  <span className="text-xs text-green-600">Secret ✓</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                  <span className="text-xs text-yellow-600">No Secret</span>
-                </>
-              )}
+            <div className="flex items-center gap-1">
+              <span className={`wb-status-dot ${row.original.has_secret ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
+              <span className="text-[11px]">{row.original.has_secret ? 'Secret OK' : 'No Secret'}</span>
             </div>
             {row.original.type === 'mikrotik' && (
-              <div className="flex items-center gap-2">
-                {row.original.has_api_password ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                    <span className="text-xs text-green-600">API ✓</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                    <span className="text-xs text-yellow-600">No API</span>
-                  </>
-                )}
+              <div className="flex items-center gap-1">
+                <span className={`wb-status-dot ${row.original.has_api_password ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
+                <span className="text-[11px]">{row.original.has_api_password ? 'API OK' : 'No API'}</span>
               </div>
             )}
           </div>
@@ -335,36 +293,36 @@ export default function Nas() {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => testMutation.mutate(row.original.id)}
-              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
+              className="btn-xs btn-ghost"
               title="Test Connection"
             >
-              <WifiIcon className="w-4 h-4" />
+              <WifiIcon className="w-3.5 h-3.5" />
             </button>
             {row.original.type === 'mikrotik' && (
               <button
                 onClick={() => syncMutation.mutate(row.original.id)}
-                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
+                className="btn-xs btn-ghost"
                 title="Sync with router"
               >
-                <ArrowPathIcon className="w-4 h-4" />
+                <ArrowPathIcon className="w-3.5 h-3.5" />
               </button>
             )}
             <Link
               to={`/diagnostic-tools?nas_id=${row.original.id}`}
-              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded inline-flex"
+              className="btn-xs btn-ghost inline-flex"
               title="Diagnostic Tools"
             >
-              <WrenchScrewdriverIcon className="w-4 h-4" />
+              <WrenchScrewdriverIcon className="w-3.5 h-3.5" />
             </Link>
             <button
               onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
+              className="btn-xs btn-ghost"
               title="Edit"
             >
-              <PencilIcon className="w-4 h-4" />
+              <PencilIcon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => {
@@ -372,10 +330,10 @@ export default function Nas() {
                   deleteMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+              className="btn-xs btn-ghost text-red-600"
               title="Delete"
             >
-              <TrashIcon className="w-4 h-4" />
+              <TrashIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         ),
@@ -391,287 +349,208 @@ export default function Nas() {
   })
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      <div className="wb-toolbar justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">NAS / Routers</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Manage RADIUS clients and routers</p>
+          <span className="text-[13px] font-semibold text-gray-900 dark:text-white">NAS / Routers</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-2">Manage RADIUS clients and routers</span>
         </div>
-        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center">
-          <PlusIcon className="w-4 h-4" />
+        <button onClick={() => openModal()} className="btn btn-primary flex items-center gap-1">
+          <PlusIcon className="w-3.5 h-3.5" />
           Add NAS
         </button>
       </div>
 
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id}>
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id}>
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-6">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin h-5 w-5 border-b-2 border-[#316AC5]" style={{ borderRadius: '50%' }}></div>
+                  </div>
+                </td>
+              </tr>
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-6 text-gray-500 dark:text-gray-400">
+                  No NAS devices found
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
                   ))}
                 </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    No NAS devices found
-                  </td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {editingNas ? 'Edit NAS' : 'Add NAS'}
-                </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: '480px', width: '100%' }}>
+            <div className="modal-header">
+              <span>{editingNas ? 'Edit NAS' : 'Add NAS'}</span>
+              <button onClick={closeModal} className="text-white hover:text-gray-200">
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div>
-                  <label className="label">IP Address / Hostname</label>
-                  <input
-                    type="text"
-                    name="ip_address"
-                    value={formData.ip_address}
-                    onChange={handleChange}
-                    className="input"
-                    placeholder="192.168.1.1"
-                    required
-                  />
-                </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body space-y-2" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                {/* General Settings Group */}
+                <div className="wb-group">
+                  <div className="wb-group-title">General</div>
+                  <div className="wb-group-body space-y-2">
+                    <div>
+                      <label className="label">IP Address / Hostname</label>
+                      <input type="text" name="ip_address" value={formData.ip_address} onChange={handleChange} className="input" placeholder="192.168.1.1" required />
+                    </div>
 
-                <div>
-                  <label className="label">Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="input"
-                    placeholder="Main Router"
-                    required
-                  />
-                </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="label">Name</label>
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} className="input" placeholder="Main Router" required />
+                      </div>
+                      <div>
+                        <label className="label">Short Name</label>
+                        <input type="text" name="short_name" value={formData.short_name} onChange={handleChange} className="input" placeholder="Router1" />
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="label">Short Name</label>
-                  <input
-                    type="text"
-                    name="short_name"
-                    value={formData.short_name}
-                    onChange={handleChange}
-                    className="input"
-                    placeholder="Router1"
-                  />
-                </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="label">Type</label>
+                        <select name="type" value={formData.type} onChange={handleChange} className="input">
+                          {nasTypes.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">RADIUS Port</label>
+                        <input type="number" name="auth_port" value={formData.auth_port} onChange={handleChange} className="input" />
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="label">Type</label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleChange}
-                    className="input"
-                  >
-                    {nasTypes.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="label">RADIUS Secret</label>
-                  <div className="relative">
-                    <input
-                      type={showSecret ? 'text' : 'password'}
-                      name="secret"
-                      value={formData.secret}
-                      onChange={handleChange}
-                      className="input pr-10"
-                      placeholder={editingNas ? '••••••••' : 'Enter secret'}
-                      required={!editingNas}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowSecret(!showSecret)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                    >
-                      {showSecret ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-                    </button>
+                    <div>
+                      <label className="label">Description</label>
+                      <textarea name="description" value={formData.description} onChange={handleChange} className="input" rows={2} />
+                    </div>
                   </div>
-                  {editingNas && (
-                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                      <CheckCircleIcon className="w-3 h-3" />
-                      Secret is set. Leave blank to keep current.
-                    </p>
-                  )}
                 </div>
 
-                <div>
-                  <label className="label">RADIUS Port</label>
-                  <input
-                    type="number"
-                    name="auth_port"
-                    value={formData.auth_port}
-                    onChange={handleChange}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="label">Description</label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    className="input"
-                    rows={2}
-                  />
-                </div>
-
-                {/* Allowed Realms for RADIUS */}
-                <div className="border-t dark:border-gray-700 pt-4">
-                  <label className="label">Allowed Realms (for RADIUS)</label>
-                  <input
-                    type="text"
-                    name="allowed_realms"
-                    value={formData.allowed_realms}
-                    onChange={handleChange}
-                    className="input"
-                    placeholder="e.g., test.mes.net.lb, other.domain.com"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Comma-separated list of realms. Users logging in as user@realm will have the realm stripped if it's in this list.
-                  </p>
-                </div>
-
-                {formData.type === 'mikrotik' && (
-                  <div className="border-t dark:border-gray-700 pt-4 space-y-4">
-                    <h3 className="font-medium text-gray-900 dark:text-white">Mikrotik API Settings</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="label">API Port</label>
-                        <input
-                          type="text"
-                          name="api_port"
-                          value={formData.api_port}
-                          onChange={handleChange}
-                          className="input"
-                        />
-                      </div>
-                      <div>
-                        <label className="label">CoA Port</label>
-                        <input
-                          type="text"
-                          name="coa_port"
-                          value={formData.coa_port}
-                          onChange={handleChange}
-                          className="input"
-                        />
-                      </div>
-                    </div>
+                {/* RADIUS Secret Group */}
+                <div className="wb-group">
+                  <div className="wb-group-title">RADIUS Secret</div>
+                  <div className="wb-group-body space-y-2">
                     <div>
-                      <label className="label">API Username</label>
-                      <input
-                        type="text"
-                        name="api_username"
-                        value={formData.api_username}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">API Password</label>
+                      <label className="label">Secret</label>
                       <div className="relative">
-                        <input
-                          type={showApiPassword ? 'text' : 'password'}
-                          name="api_password"
-                          value={formData.api_password}
-                          onChange={handleChange}
-                          className="input pr-10"
-                          placeholder={editingNas ? '••••••••' : 'Enter password'}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowApiPassword(!showApiPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                        >
-                          {showApiPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                        <input type={showSecret ? 'text' : 'password'} name="secret" value={formData.secret} onChange={handleChange} className="input pr-8" placeholder={editingNas ? '--------' : 'Enter secret'} required={!editingNas} />
+                        <button type="button" onClick={() => setShowSecret(!showSecret)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                          {showSecret ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                         </button>
                       </div>
                       {editingNas && (
-                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <p className="text-[10px] text-green-600 dark:text-green-400 mt-0.5 flex items-center gap-0.5">
                           <CheckCircleIcon className="w-3 h-3" />
-                          Password is set. Leave blank to keep current.
+                          Secret is set. Leave blank to keep current.
                         </p>
                       )}
                     </div>
+                  </div>
+                </div>
 
+                {/* Allowed Realms Group */}
+                <div className="wb-group">
+                  <div className="wb-group-title">Allowed Realms</div>
+                  <div className="wb-group-body space-y-1">
+                    <div>
+                      <label className="label">Realms (for RADIUS)</label>
+                      <input type="text" name="allowed_realms" value={formData.allowed_realms} onChange={handleChange} className="input" placeholder="e.g., test.mes.net.lb, other.domain.com" />
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        Comma-separated list of realms. Users logging in as user@realm will have the realm stripped if it's in this list.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mikrotik API Settings Group */}
+                {formData.type === 'mikrotik' && (
+                  <div className="wb-group">
+                    <div className="wb-group-title">Mikrotik API Settings</div>
+                    <div className="wb-group-body space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="label">API Port</label>
+                          <input type="text" name="api_port" value={formData.api_port} onChange={handleChange} className="input" />
+                        </div>
+                        <div>
+                          <label className="label">CoA Port</label>
+                          <input type="text" name="coa_port" value={formData.coa_port} onChange={handleChange} className="input" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label">API Username</label>
+                        <input type="text" name="api_username" value={formData.api_username} onChange={handleChange} className="input" />
+                      </div>
+                      <div>
+                        <label className="label">API Password</label>
+                        <div className="relative">
+                          <input type={showApiPassword ? 'text' : 'password'} name="api_password" value={formData.api_password} onChange={handleChange} className="input pr-8" placeholder={editingNas ? '--------' : 'Enter password'} />
+                          <button type="button" onClick={() => setShowApiPassword(!showApiPassword)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                            {showApiPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {editingNas && (
+                          <p className="text-[10px] text-green-600 dark:text-green-400 mt-0.5 flex items-center gap-0.5">
+                            <CheckCircleIcon className="w-3 h-3" />
+                            Password is set. Leave blank to keep current.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                <div className="border-t dark:border-gray-700 pt-4">
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      name="is_active"
-                      checked={formData.is_active}
-                      onChange={handleChange}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span className="text-gray-900 dark:text-white">Active NAS</span>
-                  </label>
+                {/* Active Checkbox */}
+                <div className="wb-group">
+                  <div className="wb-group-body">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} className="w-3.5 h-3.5 border-[#a0a0a0]" style={{ borderRadius: '2px' }} />
+                      <span className="text-[11px] text-gray-900 dark:text-gray-100">Active NAS</span>
+                    </label>
+                  </div>
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
-                  <button type="button" onClick={closeModal} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saveMutation.isLoading} className="btn-primary">
-                    {saveMutation.isLoading ? 'Saving...' : editingNas ? 'Update' : 'Create'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="modal-footer">
+                <button type="button" onClick={closeModal} className="btn">Cancel</button>
+                <button type="submit" disabled={saveMutation.isLoading} className="btn btn-primary">
+                  {saveMutation.isLoading ? 'Saving...' : editingNas ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

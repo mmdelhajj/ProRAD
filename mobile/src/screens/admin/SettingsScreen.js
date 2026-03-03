@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   RefreshControl,
   TouchableOpacity,
   TextInput,
@@ -14,9 +13,11 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { LoadingScreen } from '../../components';
 import { settingsApi, dashboardApi } from '../../services/api';
 
@@ -60,23 +61,19 @@ const CollapsibleSection = ({ title, icon, children, defaultOpen = false }) => {
 const sectionStyles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.base,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.toolbar,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -84,8 +81,8 @@ const sectionStyles = StyleSheet.create({
     flex: 1,
   },
   icon: {
-    fontSize: 20,
-    marginRight: spacing.md,
+    fontSize: 16,
+    marginRight: spacing.sm,
   },
   title: {
     ...typography.h4,
@@ -98,7 +95,8 @@ const sectionStyles = StyleSheet.create({
   body: {
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
-    padding: spacing.base,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
 });
 
@@ -168,7 +166,7 @@ const SaveButton = ({ onPress, loading, label }) => (
 
 const fieldStyles = StyleSheet.create({
   wrapper: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
   },
   label: {
     ...typography.bodySmall,
@@ -182,12 +180,12 @@ const fieldStyles = StyleSheet.create({
     marginTop: 2,
   },
   input: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     ...typography.body,
     color: colors.text,
   },
@@ -199,20 +197,20 @@ const fieldStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
     paddingVertical: spacing.xs,
   },
   toggleLeft: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   readOnly: {
     backgroundColor: colors.surfaceHover,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   readOnlyText: {
     ...typography.body,
@@ -220,10 +218,10 @@ const fieldStyles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   saveButtonDisabled: {
     opacity: 0.6,
@@ -260,7 +258,7 @@ const SystemInfoBar = ({ label, value, color, percentage }) => (
 
 const infoBarStyles = StyleSheet.create({
   wrapper: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   row: {
     flexDirection: 'row',
@@ -276,14 +274,14 @@ const infoBarStyles = StyleSheet.create({
     fontWeight: '600',
   },
   trackOuter: {
-    height: 6,
+    height: 4,
     backgroundColor: colors.borderLight,
-    borderRadius: 3,
+    borderRadius: borderRadius.sm,
     overflow: 'hidden',
   },
   trackFill: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: borderRadius.sm,
   },
 });
 
@@ -735,19 +733,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   contentContainer: {
-    paddingTop: spacing.base,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.tabBar,
   },
   subSectionTitle: {
     ...typography.label,
     color: colors.textSecondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     marginTop: spacing.xs,
   },
   divider: {
     height: 1,
     backgroundColor: colors.borderLight,
-    marginVertical: spacing.base,
+    marginVertical: spacing.sm,
   },
   infoRow: {
     flexDirection: 'row',
@@ -773,10 +771,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '12',
     borderWidth: 1,
     borderColor: colors.primary + '30',
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   updateButtonDisabled: {
     opacity: 0.6,
@@ -788,12 +786,12 @@ const styles = StyleSheet.create({
   colorPreviewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.base,
-    marginTop: -spacing.sm,
+    marginBottom: spacing.sm,
+    marginTop: -spacing.xs,
   },
   colorSwatch: {
-    width: 24,
-    height: 24,
+    width: 20,
+    height: 20,
     borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,

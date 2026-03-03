@@ -58,169 +58,169 @@ export default function Profile() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">My Profile</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">View and manage your account</p>
+    <div className="space-y-3" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      <div className="wb-toolbar">
+        <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">My Profile</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-2">View and manage your account</span>
       </div>
 
-      {/* Profile Info Card */}
-      <div className="card p-6">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-primary-100 dark:bg-primary-900/50 rounded-full">
-            <UserCircleIcon className="w-12 h-12 text-primary-600 dark:text-primary-400" />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{user?.full_name || user?.username}</h2>
-            <p className="text-gray-500 dark:text-gray-400">@{user?.username}</p>
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400">Email</label>
-                <p className="text-gray-900 dark:text-white">{user?.email || '-'}</p>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400">Phone</label>
-                <p className="text-gray-900 dark:text-white">{user?.phone || '-'}</p>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400">Account Type</label>
-                <p className="text-gray-900 dark:text-white capitalize">
-                  {user?.user_type === 0 ? 'Administrator' : user?.user_type === 1 ? 'Staff' : 'Reseller'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400">Status</label>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                  user?.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }`}>
-                  {user?.is_active ? 'Active' : 'Inactive'}
-                </span>
+      {/* Profile Info */}
+      <div className="wb-group">
+        <div className="wb-group-title flex items-center gap-2">
+          <UserCircleIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          Account Information
+        </div>
+        <div className="wb-group-body">
+          <div className="flex items-start gap-3">
+            <UserCircleIcon className="w-10 h-10 text-[#316AC5] flex-shrink-0" />
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold text-gray-900 dark:text-white">{user?.full_name || user?.username}</div>
+              <div className="text-[12px] text-gray-500 dark:text-gray-400">@{user?.username}</div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div className="label">Email</div>
+                  <div className="text-[12px] text-gray-900 dark:text-gray-100">{user?.email || '-'}</div>
+                </div>
+                <div>
+                  <div className="label">Phone</div>
+                  <div className="text-[12px] text-gray-900 dark:text-gray-100">{user?.phone || '-'}</div>
+                </div>
+                <div>
+                  <div className="label">Account Type</div>
+                  <div className="text-[12px] text-gray-900 dark:text-gray-100 capitalize">
+                    {user?.user_type === 0 ? 'Administrator' : user?.user_type === 1 ? 'Staff' : 'Reseller'}
+                  </div>
+                </div>
+                <div>
+                  <div className="label">Status</div>
+                  <span className={user?.is_active ? 'badge badge-success' : 'badge badge-danger'}>
+                    {user?.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Change Password Card */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
-              <KeyIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Password</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Update your password</p>
-            </div>
+      {/* Change Password */}
+      <div className="wb-group">
+        <div className="wb-group-title flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <KeyIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            Password
           </div>
           {!showPasswordForm && (
             <button
               onClick={() => setShowPasswordForm(true)}
-              className="btn-primary"
+              className="btn btn-primary btn-sm"
             >
               Change Password
             </button>
           )}
         </div>
+        <div className="wb-group-body">
+          {!showPasswordForm ? (
+            <p className="text-[12px] text-gray-500 dark:text-gray-400">Click "Change Password" to update your password.</p>
+          ) : (
+            <form onSubmit={handlePasswordChange} className="space-y-3 max-w-sm">
+              <div>
+                <label className="label">Current Password</label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={passwordForm.current_password}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                    className="input pr-8"
+                    placeholder="Enter current password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  >
+                    {showCurrentPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
 
-        {showPasswordForm && (
-          <form onSubmit={handlePasswordChange} className="mt-4 space-y-4 border-t dark:border-gray-700 pt-4">
-            <div>
-              <label className="label">Current Password</label>
-              <div className="relative">
-                <input
-                  type={showCurrentPassword ? 'text' : 'password'}
-                  value={passwordForm.current_password}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                  className="input pr-10"
-                  placeholder="Enter current password"
-                  required
-                />
+              <div>
+                <label className="label">New Password</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={passwordForm.new_password}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                    className="input pr-8"
+                    placeholder="Enter new password (min 6 characters)"
+                    minLength={6}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  >
+                    {showNewPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Confirm New Password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={passwordForm.confirm_password}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
+                    className="input pr-8"
+                    placeholder="Confirm new password"
+                    minLength={6}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  >
+                    {showConfirmPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-primary flex items-center gap-1"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin h-3 w-3 border-b-2 border-white" style={{ borderRadius: '50%' }}></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="w-3.5 h-3.5" />
+                      Save Password
+                    </>
+                  )}
+                </button>
                 <button
                   type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  onClick={() => {
+                    setShowPasswordForm(false)
+                    setPasswordForm({ current_password: '', new_password: '', confirm_password: '' })
+                  }}
+                  className="btn"
                 >
-                  {showCurrentPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                  Cancel
                 </button>
               </div>
-            </div>
-
-            <div>
-              <label className="label">New Password</label>
-              <div className="relative">
-                <input
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={passwordForm.new_password}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
-                  className="input pr-10"
-                  placeholder="Enter new password (min 6 characters)"
-                  minLength={6}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                >
-                  {showNewPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="label">Confirm New Password</label>
-              <div className="relative">
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={passwordForm.confirm_password}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
-                  className="input pr-10"
-                  placeholder="Confirm new password"
-                  minLength={6}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                >
-                  {showConfirmPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary flex items-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircleIcon className="w-4 h-4" />
-                    Save Password
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPasswordForm(false)
-                  setPasswordForm({ current_password: '', new_password: '', confirm_password: '' })
-                }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )

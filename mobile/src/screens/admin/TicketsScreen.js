@@ -17,6 +17,7 @@ import {
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { LoadingScreen, EmptyState } from '../../components';
 import { ticketApi } from '../../services/api';
 import { formatDate, getTimeAgo } from '../../utils/format';
@@ -65,16 +66,16 @@ const badgeStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
     alignSelf: 'flex-start',
   },
   dot: {
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
     borderRadius: 3,
-    marginRight: spacing.xs + 1,
+    marginRight: spacing.xs,
   },
   text: {
     ...typography.caption,
@@ -112,18 +113,18 @@ const FilterChips = ({ selected, onSelect }) => (
 
 const chipStyles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
   },
   chip: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    marginRight: spacing.sm,
+    marginRight: spacing.xs,
   },
   chipActive: {
     backgroundColor: colors.primary,
@@ -196,27 +197,21 @@ const TicketRow = ({ item, onPress }) => {
 const ticketRowStyles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.md,
-    padding: spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   idBadge: {
     backgroundColor: colors.primary + '12',
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
   },
@@ -226,11 +221,11 @@ const ticketRowStyles = StyleSheet.create({
     color: colors.primary,
   },
   subject: {
-    ...typography.body,
+    ...typography.bodySmall,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: spacing.md,
-    lineHeight: 22,
+    marginBottom: spacing.sm,
+    lineHeight: 16,
   },
   bottomRow: {
     flexDirection: 'row',
@@ -243,7 +238,7 @@ const ticketRowStyles = StyleSheet.create({
     flex: 1,
   },
   customerIcon: {
-    fontSize: 14,
+    fontSize: 13,
     marginRight: spacing.xs,
   },
   customerName: {
@@ -256,9 +251,9 @@ const ticketRowStyles = StyleSheet.create({
     alignItems: 'center',
   },
   priorityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     marginRight: spacing.xs,
   },
   priorityText: {
@@ -514,15 +509,14 @@ const modalStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.base,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    ...shadows.sm,
+    paddingTop: Platform.OS === 'ios' ? 48 : spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   closeButton: {
     paddingVertical: spacing.xs,
-    paddingRight: spacing.md,
+    paddingRight: spacing.sm,
   },
   closeText: {
     ...typography.body,
@@ -540,7 +534,7 @@ const modalStyles = StyleSheet.create({
   },
   closeTicketButton: {
     paddingVertical: spacing.xs,
-    paddingLeft: spacing.md,
+    paddingLeft: spacing.sm,
   },
   closeTicketText: {
     ...typography.bodySmall,
@@ -549,16 +543,16 @@ const modalStyles = StyleSheet.create({
   },
   subjectBar: {
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.border,
   },
   subjectText: {
-    ...typography.body,
+    ...typography.bodySmall,
     fontWeight: '600',
     color: colors.text,
-    lineHeight: 22,
+    lineHeight: 16,
   },
   subjectMeta: {
     ...typography.caption,
@@ -571,34 +565,33 @@ const modalStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   conversation: {
     flex: 1,
   },
   conversationContent: {
-    padding: spacing.base,
-    paddingBottom: spacing.xxl,
+    padding: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   messageBubbleCustomer: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
     maxWidth: '85%',
     alignSelf: 'flex-start',
   },
   messageBubbleAdmin: {
     backgroundColor: colors.primary + '12',
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.primary + '25',
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
     maxWidth: '85%',
     alignSelf: 'flex-end',
   },
@@ -611,9 +604,9 @@ const modalStyles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   messageText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
-    lineHeight: 22,
+    lineHeight: 16,
   },
   messageTime: {
     ...typography.caption,
@@ -635,26 +628,26 @@ const modalStyles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    padding: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? spacing.xxl : spacing.md,
+    padding: spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.sm,
   },
   replyInput: {
     flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    ...typography.body,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    ...typography.bodySmall,
     color: colors.text,
-    maxHeight: 100,
-    marginRight: spacing.sm,
+    maxHeight: 80,
+    marginRight: spacing.xs,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -663,7 +656,7 @@ const modalStyles = StyleSheet.create({
     backgroundColor: colors.primary + '44',
   },
   sendText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.textInverse,
   },
@@ -671,8 +664,8 @@ const modalStyles = StyleSheet.create({
     backgroundColor: colors.surfaceHover,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingVertical: spacing.base,
-    paddingBottom: Platform.OS === 'ios' ? spacing.xxl : spacing.base,
+    paddingVertical: spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.sm,
     alignItems: 'center',
   },
   closedText: {
@@ -855,7 +848,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.tabBar,
   },
   loadingMore: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
 });

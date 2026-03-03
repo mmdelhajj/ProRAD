@@ -76,9 +76,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: spacing.xs + 1,
   },
   text: {

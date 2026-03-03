@@ -38,12 +38,12 @@ const Input = ({
 
   const labelTop = labelAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [multiline ? 14 : 17, -8],
+    outputRange: [multiline ? 16 : 18, -9],
   });
 
   const labelFontSize = labelAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [15, 11],
+    outputRange: [15, 12],
   });
 
   const labelColor = labelAnim.interpolate({
@@ -64,9 +64,9 @@ const Input = ({
           styles.container,
           {
             borderColor: getBorderColor(),
+            borderWidth: isFocused ? 1.5 : 1,
             backgroundColor: editable ? colors.surface : colors.surfaceHover,
           },
-          isFocused && styles.containerFocused,
           error && styles.containerError,
           multiline && styles.containerMultiline,
         ]}
@@ -135,19 +135,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.base,
     minHeight: 52,
     position: 'relative',
-  },
-  containerFocused: {
-    borderWidth: 2,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   containerError: {
     borderColor: colors.danger,
@@ -197,7 +188,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   eyeText: {
-    fontSize: 18,
+    fontSize: 20,
   },
   errorText: {
     ...typography.caption,

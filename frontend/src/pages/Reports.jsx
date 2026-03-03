@@ -49,208 +49,234 @@ export default function Reports() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Reports</h1>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      <div className="wb-toolbar mb-2">
+        <span className="text-[13px] font-semibold">Reports</span>
       </div>
 
-      {/* Subscribers Tab */}
-      {activeTab === 'subscribers' && subscriberStats && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Subscribers</h3>
-              <p className="text-3xl font-semibold text-gray-900 dark:text-white">{subscriberStats.total}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active</h3>
-              <p className="text-3xl font-semibold text-green-600 dark:text-green-400">{subscriberStats.active}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Expired</h3>
-              <p className="text-3xl font-semibold text-red-600 dark:text-red-400">{subscriberStats.expired}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Online Now</h3>
-              <p className="text-3xl font-semibold text-blue-600 dark:text-blue-400">{subscriberStats.online}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">New This Month</h3>
-              <p className="text-3xl font-semibold text-gray-900 dark:text-white">{subscriberStats.newThisMonth}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Expiring Soon (7 days)</h3>
-              <p className="text-3xl font-semibold text-orange-600 dark:text-orange-400">{subscriberStats.expiringSoon}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* WinBox Tabs */}
+      <div className="flex items-end gap-0 mb-0">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={
+              tab.id === activeTab
+                ? 'wb-tab active'
+                : 'wb-tab'
+            }
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Revenue Tab */}
-      {activeTab === 'revenue' && (
-        <div className="space-y-6">
-          <div className="flex gap-2">
-            {['day', 'week', 'month', 'year'].map(p => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-4 py-2 rounded-md text-sm ${period === p ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-              >
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </button>
-            ))}
-          </div>
-          {revenueStats && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Revenue</h3>
-                  <p className="text-3xl font-semibold text-green-600 dark:text-green-400">${revenueStats.totalRevenue?.toFixed(2)}</p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Payments Count</h3>
-                  <p className="text-3xl font-semibold text-gray-900 dark:text-white">{revenueStats.paymentCount}</p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Avg Payment</h3>
-                  <p className="text-3xl font-semibold text-gray-900 dark:text-white">
-                    ${revenueStats.paymentCount ? (revenueStats.totalRevenue / revenueStats.paymentCount).toFixed(2) : '0.00'}
-                  </p>
+      {/* Tab content area */}
+      <div className="border border-[#a0a0a0] dark:border-[#555] bg-white dark:bg-[#2b2b2b] p-3" style={{ borderRadius: '0 2px 2px 2px' }}>
+
+        {/* Subscribers Tab */}
+        {activeTab === 'subscribers' && subscriberStats && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="wb-group">
+                <div className="wb-group-title">Total Subscribers</div>
+                <div className="wb-group-body">
+                  <div className="text-[20px] font-bold text-gray-900 dark:text-[#e0e0e0]">{subscriberStats.total}</div>
                 </div>
               </div>
-              {revenueStats.byMethod && (
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Revenue by Method</h3>
-                  <div className="space-y-3">
-                    {revenueStats.byMethod.map(m => (
-                      <div key={m.payment_method} className="flex justify-between items-center">
-                        <span className="text-gray-600 dark:text-gray-400 capitalize">{m.payment_method || 'Unknown'}</span>
-                        <span className="font-medium dark:text-white">${m.amount?.toFixed(2)} ({m.count} payments)</span>
+              <div className="wb-group">
+                <div className="wb-group-title">Active</div>
+                <div className="wb-group-body">
+                  <div className="text-[20px] font-bold text-[#4CAF50]">{subscriberStats.active}</div>
+                </div>
+              </div>
+              <div className="wb-group">
+                <div className="wb-group-title">Expired</div>
+                <div className="wb-group-body">
+                  <div className="text-[20px] font-bold text-[#f44336]">{subscriberStats.expired}</div>
+                </div>
+              </div>
+              <div className="wb-group">
+                <div className="wb-group-title">Online Now</div>
+                <div className="wb-group-body">
+                  <div className="text-[20px] font-bold text-[#2196F3]">{subscriberStats.online}</div>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="wb-group">
+                <div className="wb-group-title">New This Month</div>
+                <div className="wb-group-body">
+                  <div className="text-[20px] font-bold text-gray-900 dark:text-[#e0e0e0]">{subscriberStats.newThisMonth}</div>
+                </div>
+              </div>
+              <div className="wb-group">
+                <div className="wb-group-title">Expiring Soon (7 days)</div>
+                <div className="wb-group-body">
+                  <div className="text-[20px] font-bold text-[#FF9800]">{subscriberStats.expiringSoon}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Revenue Tab */}
+        {activeTab === 'revenue' && (
+          <div className="space-y-3">
+            <div className="flex gap-1">
+              {['day', 'week', 'month', 'year'].map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={
+                    period === p
+                      ? 'btn btn-primary btn-sm'
+                      : 'btn btn-sm'
+                  }
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
+            </div>
+            {revenueStats && (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="wb-group">
+                    <div className="wb-group-title">Total Revenue</div>
+                    <div className="wb-group-body">
+                      <div className="text-[20px] font-bold text-[#4CAF50]">${revenueStats.totalRevenue?.toFixed(2)}</div>
+                    </div>
+                  </div>
+                  <div className="wb-group">
+                    <div className="wb-group-title">Payments Count</div>
+                    <div className="wb-group-body">
+                      <div className="text-[20px] font-bold text-gray-900 dark:text-[#e0e0e0]">{revenueStats.paymentCount}</div>
+                    </div>
+                  </div>
+                  <div className="wb-group">
+                    <div className="wb-group-title">Avg Payment</div>
+                    <div className="wb-group-body">
+                      <div className="text-[20px] font-bold text-gray-900 dark:text-[#e0e0e0]">
+                        ${revenueStats.paymentCount ? (revenueStats.totalRevenue / revenueStats.paymentCount).toFixed(2) : '0.00'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {revenueStats.byMethod && (
+                  <div className="wb-group">
+                    <div className="wb-group-title">Revenue by Method</div>
+                    <div className="wb-group-body space-y-1">
+                      {revenueStats.byMethod.map(m => (
+                        <div key={m.payment_method} className="flex justify-between items-center text-[12px]">
+                          <span className="text-gray-700 dark:text-[#ccc] capitalize">{m.payment_method || 'Unknown'}</span>
+                          <span className="font-semibold text-gray-900 dark:text-[#e0e0e0]">${m.amount?.toFixed(2)} ({m.count} payments)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Services Tab */}
+        {activeTab === 'services' && serviceStats && (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Subscribers</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {serviceStats.map(s => (
+                  <tr key={s.id}>
+                    <td className="font-semibold">{s.name}</td>
+                    <td>{s.subscriber_count}</td>
+                    <td>${s.revenue?.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Resellers Tab */}
+        {activeTab === 'resellers' && resellerStats && (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Reseller</th>
+                  <th>Balance</th>
+                  <th>Total Subscribers</th>
+                  <th>Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resellerStats.map(r => (
+                  <tr key={r.id}>
+                    <td className="font-semibold">{r.name}</td>
+                    <td>${r.balance?.toFixed(2)}</td>
+                    <td>{r.subscriber_count}</td>
+                    <td>{r.active_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Expiry Report Tab */}
+        {activeTab === 'expiry' && expiryReport && (
+          <div className="space-y-3">
+            <div className="wb-group">
+              <div className="wb-group-title">
+                {expiryReport.total} subscribers expiring in the next 7 days
+              </div>
+              <div className="wb-group-body">
+                {expiryReport.byDay && (
+                  <div className="grid grid-cols-7 gap-1">
+                    {expiryReport.byDay.map(d => (
+                      <div key={d.day} className="text-center border border-[#ccc] dark:border-[#555] p-2 bg-[#fff8f0] dark:bg-[#3a3020]" style={{ borderRadius: '2px' }}>
+                        <div className="text-[16px] font-bold text-[#FF9800]">{d.count}</div>
+                        <div className="text-[11px] text-gray-600 dark:text-[#aaa]">Day {d.day}</div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Services Tab */}
-      {activeTab === 'services' && serviceStats && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Service</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Subscribers</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Revenue</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {serviceStats.map(s => (
-                <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{s.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{s.subscriber_count}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">${s.revenue?.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Resellers Tab */}
-      {activeTab === 'resellers' && resellerStats && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Reseller</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Balance</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Subscribers</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Active</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {resellerStats.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{r.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">${r.balance?.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{r.subscriber_count}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{r.active_count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Expiry Report Tab */}
-      {activeTab === 'expiry' && expiryReport && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              {expiryReport.total} subscribers expiring in the next 7 days
-            </h3>
-            {expiryReport.byDay && (
-              <div className="grid grid-cols-7 gap-2">
-                {expiryReport.byDay.map(d => (
-                  <div key={d.day} className="text-center p-3 bg-orange-50 dark:bg-orange-900/30 rounded">
-                    <div className="text-lg font-semibold text-orange-600 dark:text-orange-400">{d.count}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Day {d.day}</div>
-                  </div>
-                ))}
+                )}
+              </div>
+            </div>
+            {expiryReport.subscribers && expiryReport.subscribers.length > 0 && (
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Full Name</th>
+                      <th>Service</th>
+                      <th>Expiry Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expiryReport.subscribers.slice(0, 20).map(s => (
+                      <tr key={s.id}>
+                        <td className="font-semibold">{s.username}</td>
+                        <td>{s.full_name}</td>
+                        <td>{s.service?.name}</td>
+                        <td>{formatDate(s.expiry_date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
-          {expiryReport.subscribers && expiryReport.subscribers.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Username</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Full Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Service</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expiry Date</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {expiryReport.subscribers.slice(0, 20).map(s => (
-                    <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{s.username}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{s.full_name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{s.service?.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                        {formatDate(s.expiry_date)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

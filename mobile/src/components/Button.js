@@ -10,6 +10,7 @@ import {
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
+import { shadows } from '../theme/shadows';
 
 let Haptics;
 try {
@@ -86,6 +87,7 @@ const getVariantStyles = (variant) => {
       return {
         container: {
           backgroundColor: colors.primary,
+          ...shadows.sm,
         },
         text: {
           color: colors.textInverse,
@@ -127,6 +129,7 @@ const getVariantStyles = (variant) => {
       return {
         container: {
           backgroundColor: colors.danger,
+          ...shadows.sm,
         },
         text: {
           color: colors.textInverse,
@@ -205,7 +208,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: 48,
   },
   fullWidth: {
     width: '100%',

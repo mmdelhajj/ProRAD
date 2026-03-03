@@ -7,7 +7,8 @@ import {
 } from 'react-native';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { spacing } from '../theme/spacing';
+import { spacing, borderRadius } from '../theme/spacing';
+import { shadows } from '../theme/shadows';
 
 const LoadingScreen = ({ message }) => {
   return (
@@ -39,24 +40,20 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...shadows.md,
   },
   logoText: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '800',
     color: colors.textInverse,
     letterSpacing: -1,
@@ -64,7 +61,7 @@ const styles = StyleSheet.create({
   brandName: {
     ...typography.h3,
     color: colors.text,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   spinner: {
     marginBottom: spacing.base,

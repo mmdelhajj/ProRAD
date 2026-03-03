@@ -3,17 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Dimensions,
   Platform,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { subscriberApi } from '../../services/api';
 import { Card, StatusBadge } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatBytes, formatDuration } from '../../utils/format';
 
 const POLL_INTERVAL = 2000;
@@ -686,18 +687,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   backButton: {
-    marginRight: spacing.md,
-    padding: spacing.xs,
+    marginRight: 6,
+    padding: 2,
   },
   backArrow: {
-    fontSize: 22,
+    fontSize: 18,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -705,27 +706,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    ...typography.h4,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.text,
   },
   headerSubtitle: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: colors.textSecondary,
     marginTop: 1,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 4,
   },
   pausedBadge: {
     backgroundColor: colors.warning + '25',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   pausedBadgeText: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.warning,
     fontWeight: '700',
   },
@@ -735,7 +739,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.base,
+    padding: 6,
   },
 
   // ---- Error ----
@@ -743,12 +747,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger + '15',
     borderWidth: 1,
     borderColor: colors.danger + '30',
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    borderRadius: borderRadius.sm,
+    padding: 6,
+    marginBottom: 6,
   },
   errorText: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: colors.danger,
   },
 
@@ -758,19 +762,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    marginBottom: 6,
+    ...shadows.sm,
   },
   ipLabel: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   ipValue: {
-    ...typography.body,
+    fontSize: 12,
     color: colors.text,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
@@ -779,65 +782,59 @@ const styles = StyleSheet.create({
   // ---- Speed Display ----
   speedDisplayContainer: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: 4,
+    marginBottom: 6,
   },
   speedCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    ...shadows.sm,
   },
   speedArrowContainer: {
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   speedArrow: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
   },
   speedValue: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     letterSpacing: -0.5,
   },
   speedUnit: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textSecondary,
     marginTop: 1,
   },
   speedLabel: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textLight,
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
 
   // ---- Section cards ----
   sectionCard: {
-    marginTop: spacing.md,
+    marginTop: 6,
   },
 
   // ---- Connection header ----
   connHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   connHeaderText: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textLight,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -846,11 +843,11 @@ const styles = StyleSheet.create({
 
   // ---- Empty connections ----
   emptyConnections: {
-    paddingVertical: spacing.xl,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   emptyConnectionsText: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: colors.textLight,
   },
 
@@ -861,16 +858,17 @@ const styles = StyleSheet.create({
   },
   statItem: {
     width: '50%',
-    paddingVertical: spacing.sm,
-    paddingRight: spacing.sm,
+    paddingVertical: 3,
+    paddingRight: 4,
   },
   statLabel: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   statValue: {
-    ...typography.h4,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
   },
@@ -878,18 +876,14 @@ const styles = StyleSheet.create({
   // ---- FAB ----
   fab: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 36 : 20,
-    right: spacing.base,
+    bottom: Platform.OS === 'ios' ? 36 : 16,
+    right: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+    ...shadows.md,
   },
   fabActive: {
     backgroundColor: colors.primary,
@@ -898,12 +892,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   fabIcon: {
-    fontSize: 16,
+    fontSize: 13,
     color: colors.textInverse,
-    marginRight: spacing.xs,
+    marginRight: 3,
   },
   fabText: {
-    ...typography.button,
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textInverse,
   },
 });

@@ -13,6 +13,7 @@ import {
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { LoadingScreen, EmptyState, Card, SectionHeader } from '../../components';
 import { backupApi } from '../../services/api';
 import { formatBytes, formatDate, getTimeAgo } from '../../utils/format';
@@ -107,33 +108,27 @@ const BackupRow = ({ item, onRestore, onDelete, isRestoring, isDeleting }) => {
 const rowStyles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.md,
-    padding: spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+    width: 30,
+    height: 30,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   icon: {
-    fontSize: 18,
+    fontSize: 14,
   },
   info: {
     flex: 1,
@@ -160,7 +155,7 @@ const rowStyles = StyleSheet.create({
   typeBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
     marginLeft: spacing.sm,
   },
   typeText: {
@@ -170,21 +165,21 @@ const rowStyles = StyleSheet.create({
   fullDate: {
     ...typography.caption,
     color: colors.textLight,
-    marginTop: spacing.sm,
-    marginLeft: 52, // align with text after icon
+    marginTop: spacing.xs,
+    marginLeft: 38,
   },
   actions: {
     flexDirection: 'row',
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
   },
   actionButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     marginHorizontal: spacing.xs,
   },
   restoreButton: {
@@ -247,7 +242,7 @@ const scheduleStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
@@ -272,8 +267,8 @@ const scheduleStyles = StyleSheet.create({
   detail: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
-    marginLeft: spacing.base + spacing.sm,
+    marginTop: 1,
+    marginLeft: spacing.md + spacing.xs,
   },
   right: {
     alignItems: 'flex-end',
@@ -305,25 +300,21 @@ const progressStyles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xxl,
+    borderRadius: borderRadius.sm,
+    padding: spacing.md,
     alignItems: 'center',
-    width: 260,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 10,
+    width: 240,
+    ...shadows.md,
   },
   title: {
     ...typography.h4,
     color: colors.text,
-    marginTop: spacing.base,
+    marginTop: spacing.sm,
   },
   message: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
 });
@@ -596,41 +587,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   listContent: {
-    paddingTop: spacing.base,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.tabBar,
   },
   createButton: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.base,
-    paddingVertical: spacing.base,
+    borderRadius: borderRadius.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    minHeight: 48,
+    ...shadows.sm,
   },
   createButtonDisabled: {
     opacity: 0.6,
   },
   createIcon: {
-    fontSize: 20,
+    fontSize: 14,
     color: colors.textInverse,
-    marginRight: spacing.sm,
+    marginRight: spacing.xs,
     fontWeight: '600',
   },
   createText: {
     ...typography.button,
     color: colors.textInverse,
-    fontSize: 16,
   },
   schedulesCard: {
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.md,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
   },
 });
 

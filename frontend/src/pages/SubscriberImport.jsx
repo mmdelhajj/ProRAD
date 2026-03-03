@@ -8,9 +8,7 @@ import {
   ArrowUpTrayIcon,
   DocumentArrowUpIcon,
   CheckCircleIcon,
-  XCircleIcon,
   ArrowLeftIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
@@ -160,111 +158,107 @@ export default function SubscriberImport() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/subscribers')}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400"
-          >
-            <ArrowLeftIcon className="h-6 w-6" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Import Subscribers</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-              Import subscribers from Excel file
-            </p>
-          </div>
-        </div>
+    <div className="space-y-3" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Toolbar */}
+      <div className="wb-toolbar">
+        <button
+          onClick={() => navigate('/subscribers')}
+          className="btn btn-sm flex items-center gap-1"
+        >
+          <ArrowLeftIcon className="h-3 w-3" />
+          Back
+        </button>
+        <div className="wb-toolbar-separator" />
+        <span className="text-[13px] font-semibold text-gray-900">Import Subscribers</span>
       </div>
 
       {/* Instructions */}
-      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Instructions</h3>
-        <ol className="list-decimal list-inside text-sm text-blue-700 space-y-1">
-          <li>Download the sample Excel file to see the required format</li>
-          <li>Fill in subscriber data starting from row 3 (row 1 is headers, row 2 is description)</li>
-          <li>Required fields: Username, Password, Service (must match existing service name)</li>
-          <li>Upload your Excel file and review the preview</li>
-          <li>Click Import to add all subscribers</li>
-        </ol>
+      <div className="wb-group">
+        <div className="wb-group-title">Instructions</div>
+        <div className="wb-group-body text-[12px] text-gray-700">
+          <ol className="list-decimal list-inside space-y-0.5">
+            <li>Download the sample Excel file to see the required format</li>
+            <li>Fill in subscriber data starting from row 3 (row 1 is headers, row 2 is description)</li>
+            <li>Required fields: Username, Password, Service (must match existing service name)</li>
+            <li>Upload your Excel file and review the preview</li>
+            <li>Click Import to add all subscribers</li>
+          </ol>
+        </div>
       </div>
 
       {/* Step 1: Download Sample */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Step 1: Download Sample File</h2>
-        <button
-          onClick={downloadSample}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-        >
-          <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-          Download Sample Excel
-        </button>
+      <div className="wb-group">
+        <div className="wb-group-title">Step 1: Download Sample File</div>
+        <div className="wb-group-body">
+          <button
+            onClick={downloadSample}
+            className="btn btn-primary flex items-center gap-1"
+          >
+            <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+            Download Sample Excel
+          </button>
+        </div>
       </div>
 
       {/* Step 2: Upload File */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Step 2: Upload Excel File</h2>
+      <div className="wb-group">
+        <div className="wb-group-title">Step 2: Upload Excel File</div>
+        <div className="wb-group-body space-y-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".xlsx,.xls"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="btn flex items-center gap-1"
+            >
+              <ArrowUpTrayIcon className="h-3.5 w-3.5" />
+              Choose File
+            </button>
+            {fileName && (
+              <span className="text-[12px] text-gray-600 flex items-center gap-1">
+                <DocumentArrowUpIcon className="h-3.5 w-3.5" />
+                {fileName}
+              </span>
+            )}
+          </div>
 
-        <div className="flex items-center gap-4">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".xlsx,.xls"
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
-          >
-            <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
-            Choose File
-          </button>
-          {fileName && (
-            <span className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-              <DocumentArrowUpIcon className="h-5 w-5 inline mr-1" />
-              {fileName}
-            </span>
-          )}
-        </div>
-
-        {/* NAS Selection */}
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Default NAS (optional)
-          </label>
-          <select
-            value={selectedNasId}
-            onChange={(e) => setSelectedNasId(e.target.value)}
-            className="block w-full max-w-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          >
-            <option value="">No default NAS</option>
-            {nasDevices.map((nas) => (
-              <option key={nas.id} value={nas.id}>
-                {nas.name} ({nas.ip_address})
-              </option>
-            ))}
-          </select>
+          {/* NAS Selection */}
+          <div>
+            <label className="label">Default NAS (optional)</label>
+            <select
+              value={selectedNasId}
+              onChange={(e) => setSelectedNasId(e.target.value)}
+              className="input max-w-xs"
+            >
+              <option value="">No default NAS</option>
+              {nasDevices.map((nas) => (
+                <option key={nas.id} value={nas.id}>
+                  {nas.name} ({nas.ip_address})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Step 3: Preview & Import */}
       {parsedData.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-              Step 3: Review & Import ({parsedData.length} subscribers)
-            </h2>
+        <div className="wb-group">
+          <div className="wb-group-title flex items-center justify-between">
+            <span>Step 3: Review & Import ({parsedData.length} subscribers)</span>
             <button
               onClick={handleImport}
               disabled={isImporting}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+              className="btn btn-success btn-sm flex items-center gap-1"
             >
               {isImporting ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -272,109 +266,99 @@ export default function SubscriberImport() {
                 </>
               ) : (
                 <>
-                  <CheckCircleIcon className="h-5 w-5 mr-2" />
+                  <CheckCircleIcon className="h-3.5 w-3.5" />
                   Import All
                 </>
               )}
             </button>
           </div>
-
-          {/* Preview Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+          <div className="table-container">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Row</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Password</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Service</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expiry</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Phone</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">MAC</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Row</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Username</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Name</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Password</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Service</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Expiry</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Phone</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>MAC</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody>
                 {parsedData.slice(0, 100).map((row, idx) => {
                   const serviceValidation = getServiceValidation(row.service)
                   return (
-                    <tr key={idx} className={!row.username || !row.password || !serviceValidation.valid ? 'bg-red-50' : ''}>
-                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.row}</td>
-                      <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">
-                        {row.username || <span className="text-red-500">Missing</span>}
+                    <tr key={idx} className={!row.username || !row.password || !serviceValidation.valid ? 'bg-[#ffe0e0]' : ''}>
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>{row.row}</td>
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>
+                        {row.username || <span className="text-[#f44336] font-semibold">Missing</span>}
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.full_name}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                        {row.password ? '****' : <span className="text-red-500">Missing</span>}
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>{row.full_name}</td>
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>
+                        {row.password ? '****' : <span className="text-[#f44336] font-semibold">Missing</span>}
                       </td>
-                      <td className="px-3 py-2 text-sm">
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>
                         {serviceValidation.valid ? (
-                          <span className="text-green-600">{serviceValidation.message}</span>
+                          <span className="text-[#4CAF50]">{serviceValidation.message}</span>
                         ) : (
-                          <span className="text-red-500">{row.service || 'Missing'} ({serviceValidation.message})</span>
+                          <span className="text-[#f44336]">{row.service || 'Missing'} ({serviceValidation.message})</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.expiry}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.phone}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.mac_address}</td>
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>{row.expiry}</td>
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>{row.phone}</td>
+                      <td style={{ padding: '3px 8px', fontSize: 11 }}>{row.mac_address}</td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-            {parsedData.length > 100 && (
-              <p className="text-sm text-gray-500 mt-2 text-center">
-                Showing first 100 of {parsedData.length} rows
-              </p>
-            )}
           </div>
+          {parsedData.length > 100 && (
+            <div className="wb-statusbar">
+              Showing first 100 of {parsedData.length} rows
+            </div>
+          )}
         </div>
       )}
 
       {/* Import Results */}
       {importResults && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+        <div className="wb-group">
+          <div className="wb-group-title">
             Import Results: {importResults.success} success, {importResults.failed} failed
-          </h2>
-
-          {/* Results Table */}
-          <div className="overflow-x-auto max-h-96">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 sticky top-0">
+          </div>
+          <div className="table-container" style={{ maxHeight: '384px', overflowY: 'auto' }}>
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Row</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Message</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Row</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Username</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Status</th>
+                  <th style={{ padding: '3px 8px', fontSize: 11 }}>Message</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody>
                 {importResults.results?.map((result, idx) => (
-                  <tr key={idx} className={result.status === 'failed' ? 'bg-red-50' : 'bg-green-50'}>
-                    <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{result.row}</td>
-                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{result.username}</td>
-                    <td className="px-3 py-2 text-sm">
+                  <tr key={idx} className={result.status === 'failed' ? 'bg-[#ffe0e0]' : 'bg-[#e0ffe0]'}>
+                    <td style={{ padding: '3px 8px', fontSize: 11 }}>{result.row}</td>
+                    <td style={{ padding: '3px 8px', fontSize: 11 }}>{result.username}</td>
+                    <td style={{ padding: '3px 8px', fontSize: 11 }}>
                       {result.status === 'success' ? (
-                        <span className="inline-flex items-center text-green-600">
-                          <CheckCircleIcon className="h-4 w-4 mr-1" />
-                          Success
-                        </span>
+                        <span className="badge badge-success">Success</span>
                       ) : (
-                        <span className="inline-flex items-center text-red-600">
-                          <XCircleIcon className="h-4 w-4 mr-1" />
-                          Failed
-                        </span>
+                        <span className="badge badge-danger">Failed</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{result.message}</td>
+                    <td style={{ padding: '3px 8px', fontSize: 11 }}>{result.message}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-4 flex gap-4">
+          <div className="p-2 flex gap-2 border-t border-[#a0a0a0]">
             <button
               onClick={() => {
                 setParsedData([])
@@ -382,13 +366,13 @@ export default function SubscriberImport() {
                 setImportResults(null)
                 if (fileInputRef.current) fileInputRef.current.value = ''
               }}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700"
+              className="btn"
             >
               Import More
             </button>
             <button
               onClick={() => navigate('/subscribers')}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+              className="btn btn-primary"
             >
               Go to Subscribers
             </button>

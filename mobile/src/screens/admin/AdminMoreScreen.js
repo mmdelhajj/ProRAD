@@ -2,15 +2,16 @@ import React, { useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Alert,
   StyleSheet,
   Platform,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import useAuthStore from '../../store/authStore';
 import { getBaseURL } from '../../services/api';
 
@@ -156,52 +157,46 @@ const itemStyles = StyleSheet.create({
   card: {
     width: '48%',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
     flexDirection: 'column',
-    minHeight: 100,
+    minHeight: 80,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary + '10',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   icon: {
-    fontSize: 20,
+    fontSize: 16,
   },
   textContainer: {
     flex: 1,
     marginBottom: spacing.xs,
   },
   label: {
-    ...typography.body,
+    ...typography.bodySmall,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   description: {
     ...typography.caption,
     color: colors.textSecondary,
-    lineHeight: 15,
+    lineHeight: 13,
   },
   chevron: {
     ...typography.h4,
     color: colors.textLight,
     position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
+    top: spacing.sm,
+    right: spacing.sm,
   },
 });
 
@@ -310,49 +305,48 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: colors.surface,
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingTop: Platform.OS === 'ios' ? 48 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    ...shadows.sm,
   },
   headerTitle: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.text,
   },
   headerSubtitle: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
   },
   serverInfo: {
     alignItems: 'center',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   serverText: {
     ...typography.caption,
     color: colors.textLight,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   versionText: {
     ...typography.caption,
     color: colors.textLight,
   },
   logoutButton: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.sm,
     backgroundColor: colors.danger + '10',
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.danger + '30',
-    paddingVertical: spacing.base,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   logoutText: {

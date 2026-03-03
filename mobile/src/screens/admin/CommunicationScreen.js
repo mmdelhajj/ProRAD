@@ -18,6 +18,7 @@ import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import api from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -237,22 +238,16 @@ const RuleRow = ({ rule, onEdit, onToggle }) => {
 
 const rowStyles = StyleSheet.create({
   container: {
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
+    ...shadows.sm,
   },
   info: {
     flex: 1,
@@ -279,9 +274,9 @@ const rowStyles = StyleSheet.create({
     gap: spacing.xs,
   },
   tag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
   },
   tagText: {
     ...typography.caption,
@@ -539,9 +534,9 @@ const modalStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 56 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -551,7 +546,7 @@ const modalStyles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center',
-    marginHorizontal: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   cancelButton: {
     ...typography.body,
@@ -566,14 +561,14 @@ const modalStyles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
   },
 });
 
 const formStyles = StyleSheet.create({
   fieldContainer: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
   },
   label: {
     ...typography.label,
@@ -582,16 +577,16 @@ const formStyles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
     ...typography.body,
     color: colors.text,
   },
   textArea: {
-    minHeight: 120,
+    minHeight: 100,
     textAlignVertical: 'top',
     paddingTop: spacing.md,
   },
@@ -605,11 +600,11 @@ const formStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
   },
   pickerButtonText: {
     ...typography.body,
@@ -621,15 +616,15 @@ const formStyles = StyleSheet.create({
   },
   pickerOptions: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: spacing.xs,
     overflow: 'hidden',
   },
   pickerOption: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
@@ -650,9 +645,9 @@ const formStyles = StyleSheet.create({
   },
   checkbox: {
     flex: 1,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -677,9 +672,9 @@ const formStyles = StyleSheet.create({
   },
   variableChip: {
     backgroundColor: colors.primary + '12',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   variableChipText: {
     ...typography.caption,
@@ -691,12 +686,11 @@ const formStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.base,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
   },
   switchLabel: {
     ...typography.body,
@@ -704,9 +698,9 @@ const formStyles = StyleSheet.create({
     fontWeight: '500',
   },
   deleteButton: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.danger + '40',
     backgroundColor: colors.danger + '08',
@@ -912,9 +906,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 56 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -929,16 +923,16 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   addButtonText: {
     ...typography.button,
     color: colors.textInverse,
   },
   listContent: {
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.tabBar,
   },
 });

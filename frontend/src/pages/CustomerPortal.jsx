@@ -183,53 +183,50 @@ export default function CustomerPortal() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-[#c0c0c0] dark:bg-[#2d2d2d] flex items-center justify-center" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+        <svg className="animate-spin h-8 w-8 text-[#316AC5]" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
       </div>
     )
   }
 
   // Dashboard
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 dark:bg-gray-700">
+    <div className="min-h-screen bg-[#c0c0c0] dark:bg-[#2d2d2d]" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {companyLogo ? (
-              <img src={companyLogo} alt={companyName} className="h-10 object-contain" />
-            ) : (
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                <WifiIcon className="w-5 h-5 text-white" />
-              </div>
-            )}
-            <div>
-              {!companyLogo && <h1 className="font-bold text-gray-900 dark:text-white">{companyName}</h1>}
-              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{dashboard?.username || customerData?.username}</p>
+      <header className="wb-toolbar justify-between">
+        <div className="flex items-center gap-2">
+          {companyLogo ? (
+            <img src={companyLogo} alt={companyName} className="h-7 object-contain" />
+          ) : (
+            <div className="w-7 h-7 bg-[#316AC5] flex items-center justify-center" style={{ borderRadius: '2px' }}>
+              <WifiIcon className="w-4 h-4 text-white" />
             </div>
+          )}
+          <div>
+            {!companyLogo && <span className="text-[13px] font-semibold text-gray-900 dark:text-[#e0e0e0]">{companyName}</span>}
+            <span className="text-[12px] text-gray-500 dark:text-[#aaa] ml-2">{dashboard?.username || customerData?.username}</span>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-gray-600 hover:text-red-600"
-          >
-            <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
         </div>
+        <button
+          onClick={handleLogout}
+          className="btn btn-sm flex items-center gap-1"
+        >
+          <ArrowRightOnRectangleIcon className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Logout</span>
+        </button>
       </header>
 
       {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 mt-4">
-        <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="max-w-7xl mx-auto px-3 mt-3">
+        <div className="flex gap-0 border-b border-[#a0a0a0] dark:border-[#555]">
           {['dashboard', 'sessions', 'usage', 'tickets'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition ${
-                activeTab === tab
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`wb-tab ${activeTab === tab ? 'active' : ''}`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
@@ -238,118 +235,108 @@ export default function CustomerPortal() {
       </div>
 
       {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-3 py-3">
         {activeTab === 'dashboard' && dashboard && (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {/* Status Card */}
-            <div className={`rounded-2xl p-6 ${
+            <div className={`card p-3 text-white ${
               dashboard.status === 'active' && dashboard.days_left > 0
-                ? 'bg-gradient-to-r from-green-500 to-green-600'
+                ? 'bg-[#4CAF50] border-[#388E3C]'
                 : dashboard.status === 'expired' || dashboard.days_left <= 0
-                ? 'bg-gradient-to-r from-red-500 to-red-600'
-                : 'bg-gradient-to-r from-yellow-500 to-yellow-600'
-            } text-white`}>
+                ? 'bg-[#f44336] border-[#c62828]'
+                : 'bg-[#FF9800] border-[#F57C00]'
+            }`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white/80 text-sm">Account Status</p>
-                  <p className="text-2xl font-bold capitalize mt-1">{dashboard.status}</p>
+                  <p className="text-white/80 text-[11px]">Account Status</p>
+                  <p className="text-[16px] font-bold capitalize mt-0.5">{dashboard.status}</p>
                 </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                <div className={`w-8 h-8 flex items-center justify-center ${
                   dashboard.is_online ? 'bg-white/20' : 'bg-white/10'
-                }`}>
-                  <SignalIcon className={`w-6 h-6 ${dashboard.is_online ? 'text-white' : 'text-white/50'}`} />
+                }`} style={{ borderRadius: '2px' }}>
+                  <SignalIcon className={`w-5 h-5 ${dashboard.is_online ? 'text-white' : 'text-white/50'}`} />
                 </div>
               </div>
-              <div className="mt-4 flex items-center gap-4">
+              <div className="mt-3 flex items-center gap-4 text-[12px]">
                 <div>
-                  <p className="text-white/80 text-xs">Expires</p>
+                  <p className="text-white/70 text-[11px]">Expires</p>
                   <p className="font-medium">{formatDate(dashboard.expiry_date)}</p>
                 </div>
-                <div className="h-8 w-px bg-white/20" />
+                <div className="h-6 w-px bg-white/20" />
                 <div>
-                  <p className="text-white/80 text-xs">Days Left</p>
+                  <p className="text-white/70 text-[11px]">Days Left</p>
                   <p className="font-medium">{dashboard.days_left} days</p>
                 </div>
-                <div className="h-8 w-px bg-white/20" />
+                <div className="h-6 w-px bg-white/20" />
                 <div>
-                  <p className="text-white/80 text-xs">Connection</p>
+                  <p className="text-white/70 text-[11px]">Connection</p>
                   <p className="font-medium">{dashboard.is_online ? 'Online' : 'Offline'}</p>
                 </div>
               </div>
             </div>
 
             {/* Info Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
               {/* Service */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <WifiIcon className="w-5 h-5 text-blue-600" />
-                  </div>
+              <div className="stat-card">
+                <div className="flex items-center gap-2">
+                  <WifiIcon className="w-4 h-4 text-[#316AC5]" />
                   <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">Service Plan</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{dashboard.service_name}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-[#aaa]">Service Plan</p>
+                    <p className="text-[12px] font-bold text-gray-900 dark:text-[#e0e0e0]">{dashboard.service_name}</p>
                   </div>
                 </div>
               </div>
 
               {/* Speed */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <SignalIcon className="w-5 h-5 text-green-600" />
-                  </div>
+              <div className="stat-card">
+                <div className="flex items-center gap-2">
+                  <SignalIcon className="w-4 h-4 text-[#4CAF50]" />
                   <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">Current Speed</p>
-                    <p className="font-bold text-gray-900 dark:text-white">
+                    <p className="text-[11px] text-gray-500 dark:text-[#aaa]">Current Speed</p>
+                    <p className="text-[12px] font-bold text-gray-900 dark:text-[#e0e0e0]">
                       {dashboard.current_download_speed}k / {dashboard.current_upload_speed}k
                     </p>
                     {dashboard.fup_level > 0 && (
-                      <p className="text-xs text-orange-600">FUP Level {dashboard.fup_level}</p>
+                      <p className="text-[11px] text-[#FF9800]">FUP Level {dashboard.fup_level}</p>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* IP Address */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center">
-                    <UserCircleIcon className="w-5 h-5 text-purple-600" />
-                  </div>
+              <div className="stat-card">
+                <div className="flex items-center gap-2">
+                  <UserCircleIcon className="w-4 h-4 text-[#9C27B0]" />
                   <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">IP Address</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{dashboard.ip_address || 'N/A'}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-[#aaa]">IP Address</p>
+                    <p className="text-[12px] font-bold text-gray-900 dark:text-[#e0e0e0]">{dashboard.ip_address || 'N/A'}</p>
                   </div>
                 </div>
               </div>
 
               {/* MAC Address */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/50 rounded-lg flex items-center justify-center">
-                    <ClockIcon className="w-5 h-5 text-orange-600" />
-                  </div>
+              <div className="stat-card">
+                <div className="flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-[#FF9800]" />
                   <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">MAC Address</p>
-                    <p className="font-bold text-gray-900 dark:text-white text-xs">{dashboard.mac_address || 'N/A'}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-[#aaa]">MAC Address</p>
+                    <p className="text-[11px] font-bold text-gray-900 dark:text-[#e0e0e0]">{dashboard.mac_address || 'N/A'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Monthly Price */}
               {dashboard.price > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm dark:shadow-gray-900">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-lg flex items-center justify-center">
-                      <BanknotesIcon className="w-5 h-5 text-green-600" />
-                    </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-2">
+                    <BanknotesIcon className="w-4 h-4 text-[#4CAF50]" />
                     <div>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">Monthly Price</p>
-                      <p className="font-bold text-gray-900 dark:text-white">
+                      <p className="text-[11px] text-gray-500 dark:text-[#aaa]">Monthly Price</p>
+                      <p className="text-[12px] font-bold text-gray-900 dark:text-[#e0e0e0]">
                         ${dashboard.price.toFixed(2)}
                         {dashboard.override_price && (
-                          <span className="ml-1 text-xs text-orange-500" title="Custom price">★</span>
+                          <span className="ml-1 text-[11px] text-[#FF9800]" title="Custom price">*</span>
                         )}
                       </p>
                     </div>
@@ -359,68 +346,68 @@ export default function CustomerPortal() {
             </div>
 
             {/* Usage Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {/* Daily Usage */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm dark:shadow-gray-900">
-                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <CalendarDaysIcon className="w-5 h-5 text-blue-600" />
+              <div className="wb-group">
+                <div className="wb-group-title flex items-center gap-1">
+                  <CalendarDaysIcon className="w-4 h-4 text-[#316AC5]" />
                   Daily Usage
-                </h3>
-                <div className="space-y-4">
+                </div>
+                <div className="wb-group-body space-y-2">
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</span>
-                      <span className="font-medium">
+                    <div className="flex justify-between text-[12px] mb-0.5">
+                      <span className="text-gray-500 dark:text-[#aaa]">Download</span>
+                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">
                         {formatBytes(dashboard.daily_download_used)}
                         {dashboard.daily_quota > 0 && ` / ${formatBytes(dashboard.daily_quota)}`}
                       </span>
                     </div>
                     {dashboard.daily_quota > 0 && (
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="wb-usage-bar">
                         <div
-                          className="h-full bg-blue-600 rounded-full"
+                          className="wb-usage-bar-fill bg-[#316AC5]"
                           style={{ width: `${Math.min((dashboard.daily_download_used / dashboard.daily_quota) * 100, 100)}%` }}
                         />
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</span>
-                      <span className="font-medium">{formatBytes(dashboard.daily_upload_used)}</span>
+                    <div className="flex justify-between text-[12px] mb-0.5">
+                      <span className="text-gray-500 dark:text-[#aaa]">Upload</span>
+                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">{formatBytes(dashboard.daily_upload_used)}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Monthly Usage */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm dark:shadow-gray-900">
-                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <ChartBarIcon className="w-5 h-5 text-green-600" />
+              <div className="wb-group">
+                <div className="wb-group-title flex items-center gap-1">
+                  <ChartBarIcon className="w-4 h-4 text-[#4CAF50]" />
                   Monthly Usage
-                </h3>
-                <div className="space-y-4">
+                </div>
+                <div className="wb-group-body space-y-2">
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</span>
-                      <span className="font-medium">
+                    <div className="flex justify-between text-[12px] mb-0.5">
+                      <span className="text-gray-500 dark:text-[#aaa]">Download</span>
+                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">
                         {formatBytes(dashboard.monthly_download_used)}
                         {dashboard.monthly_quota > 0 && ` / ${formatBytes(dashboard.monthly_quota)}`}
                       </span>
                     </div>
                     {dashboard.monthly_quota > 0 && (
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="wb-usage-bar">
                         <div
-                          className="h-full bg-green-600 rounded-full"
+                          className="wb-usage-bar-fill bg-[#4CAF50]"
                           style={{ width: `${Math.min((dashboard.monthly_download_used / dashboard.monthly_quota) * 100, 100)}%` }}
                         />
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</span>
-                      <span className="font-medium">{formatBytes(dashboard.monthly_upload_used)}</span>
+                    <div className="flex justify-between text-[12px] mb-0.5">
+                      <span className="text-gray-500 dark:text-[#aaa]">Upload</span>
+                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">{formatBytes(dashboard.monthly_upload_used)}</span>
                     </div>
                   </div>
                 </div>
@@ -428,28 +415,30 @@ export default function CustomerPortal() {
             </div>
 
             {/* Profile Info */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm dark:shadow-gray-900">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4">Profile Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Full Name</p>
-                  <p className="font-medium">{dashboard.full_name || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Username</p>
-                  <p className="font-medium">{dashboard.username}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Email</p>
-                  <p className="font-medium">{dashboard.email || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Phone</p>
-                  <p className="font-medium">{dashboard.phone || '-'}</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Address</p>
-                  <p className="font-medium">{dashboard.address || '-'}</p>
+            <div className="wb-group">
+              <div className="wb-group-title">Profile Information</div>
+              <div className="wb-group-body">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="label">Full Name</div>
+                    <div className="text-[12px] text-gray-900 dark:text-[#e0e0e0]">{dashboard.full_name || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="label">Username</div>
+                    <div className="text-[12px] text-gray-900 dark:text-[#e0e0e0]">{dashboard.username}</div>
+                  </div>
+                  <div>
+                    <div className="label">Email</div>
+                    <div className="text-[12px] text-gray-900 dark:text-[#e0e0e0]">{dashboard.email || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="label">Phone</div>
+                    <div className="text-[12px] text-gray-900 dark:text-[#e0e0e0]">{dashboard.phone || '-'}</div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="label">Address</div>
+                    <div className="text-[12px] text-gray-900 dark:text-[#e0e0e0]">{dashboard.address || '-'}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -457,38 +446,34 @@ export default function CustomerPortal() {
         )}
 
         {activeTab === 'sessions' && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b">
-              <h3 className="font-bold text-gray-900 dark:text-white">Session History (Last 30 Days)</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+          <div className="wb-group">
+            <div className="wb-group-title">Session History (Last 30 Days)</div>
+            <div className="table-container">
+              <table className="table">
+                <thead>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Start Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Duration</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">IP Address</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</th>
+                    <th>Start Time</th>
+                    <th>Duration</th>
+                    <th>IP Address</th>
+                    <th>Download</th>
+                    <th>Upload</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody>
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                      <td colSpan="5" className="text-center py-4 text-gray-500 dark:text-[#aaa]">
                         No session history found
                       </td>
                     </tr>
                   ) : (
                     sessions.map((session, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 dark:bg-gray-700">
-                        <td className="px-4 py-3 text-sm">
-                          {session.start_time ? formatDateTime(session.start_time) : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm">{formatDuration(session.duration)}</td>
-                        <td className="px-4 py-3 text-sm font-mono">{session.ip_address || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-blue-600">{formatBytes(session.bytes_out)}</td>
-                        <td className="px-4 py-3 text-sm text-green-600">{formatBytes(session.bytes_in)}</td>
+                      <tr key={idx}>
+                        <td>{session.start_time ? formatDateTime(session.start_time) : '-'}</td>
+                        <td>{formatDuration(session.duration)}</td>
+                        <td className="font-mono">{session.ip_address || '-'}</td>
+                        <td className="text-[#316AC5]">{formatBytes(session.bytes_out)}</td>
+                        <td className="text-[#4CAF50]">{formatBytes(session.bytes_in)}</td>
                       </tr>
                     ))
                   )}
@@ -499,34 +484,32 @@ export default function CustomerPortal() {
         )}
 
         {activeTab === 'usage' && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b">
-              <h3 className="font-bold text-gray-900 dark:text-white">Daily Usage History</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+          <div className="wb-group">
+            <div className="wb-group-title">Daily Usage History</div>
+            <div className="table-container">
+              <table className="table">
+                <thead>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Download</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Upload</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Sessions</th>
+                    <th>Date</th>
+                    <th>Download</th>
+                    <th>Upload</th>
+                    <th>Sessions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody>
                   {usageHistory.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                      <td colSpan="4" className="text-center py-4 text-gray-500 dark:text-[#aaa]">
                         No usage history found
                       </td>
                     </tr>
                   ) : (
                     usageHistory.map((usage, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 dark:bg-gray-700">
-                        <td className="px-4 py-3 text-sm font-medium">{usage.date}</td>
-                        <td className="px-4 py-3 text-sm text-blue-600">{formatBytes(usage.download)}</td>
-                        <td className="px-4 py-3 text-sm text-green-600">{formatBytes(usage.upload)}</td>
-                        <td className="px-4 py-3 text-sm">{usage.sessions}</td>
+                      <tr key={idx}>
+                        <td className="font-medium">{usage.date}</td>
+                        <td className="text-[#316AC5]">{formatBytes(usage.download)}</td>
+                        <td className="text-[#4CAF50]">{formatBytes(usage.upload)}</td>
+                        <td>{usage.sessions}</td>
                       </tr>
                     ))
                   )}
@@ -537,81 +520,76 @@ export default function CustomerPortal() {
         )}
 
         {activeTab === 'tickets' && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Header with Create Button */}
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 dark:text-white">Support Tickets</h3>
+              <span className="text-[13px] font-semibold text-gray-900 dark:text-[#e0e0e0]">Support Tickets</span>
               <button
                 onClick={() => setShowCreateTicket(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="btn btn-primary flex items-center gap-1"
               >
-                <PlusIcon className="w-5 h-5" />
+                <PlusIcon className="w-3.5 h-3.5" />
                 New Ticket
               </button>
             </div>
 
             {/* Tickets List */}
             {!selectedTicket ? (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
+              <div className="wb-group">
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Ticket #</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Subject</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Category</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Action</th>
+                        <th>Ticket #</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                        <th>Category</th>
+                        <th>Date</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody>
                       {tickets.length === 0 ? (
                         <tr>
-                          <td colSpan="6" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                          <td colSpan="6" className="text-center py-4 text-gray-500 dark:text-[#aaa]">
                             No tickets found. Create your first support ticket!
                           </td>
                         </tr>
                       ) : (
                         tickets.map((ticket) => (
-                          <tr key={ticket.id} className="hover:bg-gray-50 dark:bg-gray-700">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-mono">{ticket.ticket_number}</span>
+                          <tr key={ticket.id}>
+                            <td>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono">{ticket.ticket_number}</span>
                                 {ticket.has_admin_reply && (
-                                  <span className="relative flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-                                  </span>
+                                  <span className="wb-status-dot bg-[#316AC5]" />
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium">{ticket.subject}</span>
+                            <td>
+                              <div className="flex items-center gap-1">
+                                <span className="font-medium">{ticket.subject}</span>
                                 {ticket.has_admin_reply && (
-                                  <BellAlertIcon className="w-4 h-4 text-blue-500" title="New reply from support" />
+                                  <BellAlertIcon className="w-3.5 h-3.5 text-[#316AC5]" title="New reply from support" />
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                ticket.status === 'open' ? 'bg-green-100 text-green-800' :
-                                ticket.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                ticket.status === 'closed' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-                                'bg-blue-100 text-blue-800'
-                              }`}>
+                            <td>
+                              <span className={
+                                ticket.status === 'open' ? 'badge badge-success' :
+                                ticket.status === 'pending' ? 'badge badge-warning' :
+                                ticket.status === 'closed' ? 'badge badge-gray' :
+                                'badge badge-info'
+                              }>
                                 {ticket.status}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-500 capitalize">{ticket.category}</td>
-                            <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                              {formatDate(ticket.created_at)}
-                            </td>
-                            <td className="px-4 py-3">
+                            <td className="capitalize">{ticket.category}</td>
+                            <td>{formatDate(ticket.created_at)}</td>
+                            <td>
                               <button
                                 onClick={() => fetchTicketDetail(ticket.id)}
-                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                className="btn btn-sm btn-primary"
                               >
                                 View
                               </button>
@@ -625,71 +603,72 @@ export default function CustomerPortal() {
               </div>
             ) : (
               /* Ticket Detail View */
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-4 border-b flex items-center justify-between">
+              <div className="wb-group">
+                <div className="wb-group-title flex items-center justify-between">
                   <div>
-                    <h3 className="font-bold text-gray-900 dark:text-white">{selectedTicket.subject}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{selectedTicket.ticket_number}</p>
+                    <span className="font-semibold">{selectedTicket.subject}</span>
+                    <span className="text-[11px] text-gray-500 dark:text-[#aaa] ml-2">{selectedTicket.ticket_number}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      selectedTicket.status === 'open' ? 'bg-green-100 text-green-800' :
-                      selectedTicket.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      selectedTicket.status === 'closed' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-                      'bg-blue-100 text-blue-800'
-                    }`}>
+                    <span className={
+                      selectedTicket.status === 'open' ? 'badge badge-success' :
+                      selectedTicket.status === 'pending' ? 'badge badge-warning' :
+                      selectedTicket.status === 'closed' ? 'badge badge-gray' :
+                      'badge badge-info'
+                    }>
                       {selectedTicket.status}
                     </span>
                     <button
                       onClick={() => setSelectedTicket(null)}
-                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      className="btn btn-xs"
                     >
-                      <XMarkIcon className="w-5 h-5" />
+                      <XMarkIcon className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
+                <div className="p-3 space-y-2 max-h-96 overflow-y-auto bg-white dark:bg-[#3a3a3a]">
                   {/* Original Message */}
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      You • {formatDateTime(selectedTicket.created_at)}
+                  <div className="p-2 border border-[#2196F3] bg-[#e3f2fd] dark:bg-[#1a2a4a] text-[12px]" style={{ borderRadius: '2px' }}>
+                    <div className="text-[11px] text-gray-500 dark:text-[#aaa] mb-1">
+                      You - {formatDateTime(selectedTicket.created_at)}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+                    <p className="whitespace-pre-wrap text-gray-900 dark:text-[#e0e0e0]">{selectedTicket.description}</p>
                   </div>
 
                   {/* Replies */}
                   {selectedTicket.replies?.map((reply) => (
                     <div
                       key={reply.id}
-                      className={`rounded-lg p-4 ${reply.is_admin ? 'bg-gray-100' : 'bg-blue-50'}`}
+                      className={`p-2 border text-[12px] ${reply.is_admin ? 'border-[#a0a0a0] bg-[#f0f0f0] dark:bg-[#444] dark:border-[#555]' : 'border-[#2196F3] bg-[#e3f2fd] dark:bg-[#1a2a4a]'}`}
+                      style={{ borderRadius: '2px' }}
                     >
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                        {reply.is_admin ? 'Support' : 'You'} • {formatDateTime(reply.created_at)}
+                      <div className="text-[11px] text-gray-500 dark:text-[#aaa] mb-1">
+                        {reply.is_admin ? 'Support' : 'You'} - {formatDateTime(reply.created_at)}
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{reply.message}</p>
+                      <p className="whitespace-pre-wrap text-gray-900 dark:text-[#e0e0e0]">{reply.message}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Reply Form */}
                 {selectedTicket.status !== 'closed' && (
-                  <form onSubmit={handleReplyTicket} className="p-4 border-t">
-                    <div className="flex gap-2">
+                  <form onSubmit={handleReplyTicket} className="p-3 border-t border-[#a0a0a0] dark:border-[#555]">
+                    <div className="flex gap-1">
                       <textarea
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
                         placeholder="Type your reply..."
                         rows={2}
-                        className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="input flex-1 resize-none"
                       />
                       <button
                         type="submit"
                         disabled={!replyText.trim()}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        className="btn btn-primary"
                       >
-                        <PaperAirplaneIcon className="w-5 h-5" />
+                        <PaperAirplaneIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </form>
@@ -701,33 +680,33 @@ export default function CustomerPortal() {
 
         {/* Create Ticket Modal */}
         {showCreateTicket && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4">
-              <div className="flex items-center justify-between p-4 border-b">
-                <h3 className="text-lg font-semibold">Create Support Ticket</h3>
-                <button onClick={() => setShowCreateTicket(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                  <XMarkIcon className="w-5 h-5" />
+          <div className="modal-overlay">
+            <div className="modal" style={{ maxWidth: '480px', width: '100%' }}>
+              <div className="modal-header">
+                <span>Create Support Ticket</span>
+                <button onClick={() => setShowCreateTicket(false)} className="text-white hover:text-gray-200">
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
               <form onSubmit={handleCreateTicket}>
-                <div className="p-4 space-y-4">
+                <div className="modal-body space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                    <label className="label">Subject</label>
                     <input
                       type="text"
                       value={ticketForm.subject}
                       onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="input w-full"
                       placeholder="Brief description of your issue"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                    <label className="label">Category</label>
                     <select
                       value={ticketForm.category}
                       onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="input w-full"
                     >
                       <option value="general">General</option>
                       <option value="billing">Billing</option>
@@ -736,28 +715,28 @@ export default function CustomerPortal() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                    <label className="label">Description</label>
                     <textarea
                       value={ticketForm.description}
                       onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
                       rows={4}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="input w-full resize-none"
                       placeholder="Detailed description of your issue"
                       required
                     />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 p-4 border-t">
+                <div className="modal-footer">
                   <button
                     type="button"
                     onClick={() => setShowCreateTicket(false)}
-                    className="px-4 py-2 text-gray-700 border rounded-lg hover:bg-gray-50 dark:bg-gray-700"
+                    className="btn"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="btn btn-primary"
                   >
                     Create Ticket
                   </button>

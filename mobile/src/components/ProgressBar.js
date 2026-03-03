@@ -103,31 +103,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   label: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     fontWeight: '500',
   },
   percentage: {
-    ...typography.bodySmall,
+    ...typography.caption,
     fontWeight: '700',
   },
   trackOuter: {
     height: 8,
     backgroundColor: colors.borderLight,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
     overflow: 'hidden',
   },
   bar: {
     height: '100%',
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.xs + 1,
+    marginTop: spacing.xs,
   },
   usageText: {
     ...typography.caption,
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   totalText: {
     ...typography.caption,
     color: colors.textLight,
-    marginLeft: 3,
+    marginLeft: 2,
   },
 });
 

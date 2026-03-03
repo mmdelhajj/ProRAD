@@ -13,6 +13,221 @@ import {
   ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 
+const winStyles = {
+  /* ── full-screen wrapper ── */
+  page: {
+    minHeight: '100vh',
+    display: 'flex',
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    fontSize: 11,
+    margin: 0,
+    padding: 0,
+    background: '#c0c0c0',
+  },
+
+  /* ── left branding panel ── */
+  leftPanel: (bg, primaryColor) => ({
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'hidden',
+    padding: '24px',
+    ...(bg
+      ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      : { background: `linear-gradient(135deg, ${primaryColor || '#4a7ab5'} 0%, #2d5a87 100%)` }),
+  }),
+
+  leftOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'rgba(0,0,0,0.45)',
+  },
+
+  /* ── feature rows on the left panel ── */
+  featureIcon: {
+    width: 36,
+    height: 36,
+    minWidth: 36,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid rgba(255,255,255,0.35)',
+    background: 'rgba(255,255,255,0.12)',
+    borderRadius: '2px',
+    marginRight: 10,
+  },
+
+  /* ── right side wrapper ── */
+  rightPanel: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
+    background: '#c0c0c0',
+  },
+
+  /* ── the dialog box ── */
+  dialog: {
+    width: '100%',
+    maxWidth: 380,
+    border: '2px solid',
+    borderColor: '#dfdfdf #808080 #808080 #dfdfdf',
+    background: '#c0c0c0',
+    borderRadius: '0px',
+  },
+
+  /* ── title bar ── */
+  titleBar: {
+    background: 'linear-gradient(to right, #4a7ab5, #2d5a87)',
+    padding: '6px 10px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  titleText: {
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: '12px',
+    letterSpacing: '0.2px',
+    flex: 1,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+
+  /* ── body area ── */
+  body: {
+    padding: '16px 18px 14px',
+  },
+
+  /* ── classic label ── */
+  label: {
+    display: 'block',
+    fontSize: '11px',
+    color: '#000',
+    marginBottom: 3,
+    fontWeight: 400,
+  },
+
+  /* ── classic input ── */
+  input: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '4px 6px',
+    fontSize: '12px',
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    border: '1px solid #a0a0a0',
+    borderRadius: '1px',
+    background: '#fff',
+    color: '#000',
+    outline: 'none',
+  },
+
+  inputFocused: {
+    borderColor: '#4a7ab5',
+  },
+
+  /* ── primary (blue) button ── */
+  btnPrimary: (disabled) => ({
+    width: '100%',
+    padding: '5px 12px',
+    fontSize: '12px',
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    fontWeight: 600,
+    color: '#fff',
+    background: disabled
+      ? 'linear-gradient(to bottom, #8db4d6, #6c97b9)'
+      : 'linear-gradient(to bottom, #5b8ec2, #3a6fa0)',
+    border: '1px solid',
+    borderColor: disabled ? '#8db4d6 #6c97b9 #6c97b9 #8db4d6' : '#4a7ab5 #2d5a87 #2d5a87 #4a7ab5',
+    borderRadius: '1px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.7 : 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    textShadow: '0 1px 1px rgba(0,0,0,0.25)',
+  }),
+
+  /* ── secondary (gray) button ── */
+  btnSecondary: {
+    width: '100%',
+    padding: '4px 10px',
+    fontSize: '11px',
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    color: '#000',
+    background: 'linear-gradient(to bottom, #fff, #e8e8e8)',
+    border: '1px solid',
+    borderColor: '#dfdfdf #808080 #808080 #dfdfdf',
+    borderRadius: '1px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+
+  /* ── sunken well (status / info) ── */
+  infoWell: (type) => ({
+    padding: '6px 8px',
+    marginBottom: 10,
+    fontSize: '11px',
+    border: '1px solid',
+    borderRadius: '1px',
+    ...(type === 'warning'
+      ? { borderColor: '#c0a000', background: '#fff8d0', color: '#665200' }
+      : { borderColor: '#c00000', background: '#ffd8d8', color: '#600' }),
+  }),
+
+  /* ── horizontal separator ── */
+  separator: {
+    borderTop: '1px solid #808080',
+    borderBottom: '1px solid #dfdfdf',
+    margin: '10px 0',
+  },
+
+  /* ── footer text ── */
+  footer: {
+    textAlign: 'center',
+    fontSize: '11px',
+    color: '#555',
+    marginTop: 10,
+    padding: '0 18px 12px',
+  },
+
+  /* ── 2FA section ── */
+  twoFAIcon: {
+    width: 48,
+    height: 48,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '2px solid',
+    borderColor: '#dfdfdf #808080 #808080 #dfdfdf',
+    background: '#d8d8d8',
+    borderRadius: '1px',
+    margin: '0 auto 8px',
+  },
+
+  twoFAInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '8px 6px',
+    fontSize: '20px',
+    fontFamily: "'Consolas', 'Courier New', monospace",
+    textAlign: 'center',
+    letterSpacing: '0.4em',
+    border: '1px solid #a0a0a0',
+    borderRadius: '1px',
+    background: '#fff',
+    color: '#000',
+    outline: 'none',
+  },
+}
+
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -70,41 +285,35 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Branding & Features */}
+    <div style={{ ...winStyles.page, flexDirection: 'row' }}>
+      {/* ─── Left Side: Branding & Features (desktop only) ─── */}
       <div
-        className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-between relative overflow-hidden"
-        style={loginBackground ? {
-          backgroundImage: `url(${loginBackground})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        } : {
-          background: `linear-gradient(to bottom right, ${primaryColor || '#2563eb'}, #4338ca)`,
-        }}
+        className="hidden lg:flex lg:w-1/2"
+        style={winStyles.leftPanel(loginBackground, primaryColor)}
       >
-        {/* Background Overlay for text readability */}
-        {loginBackground && <div className="absolute inset-0 bg-black/40"></div>}
-        {/* Background Pattern (only show if no custom background) */}
-        {!loginBackground && (
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2"></div>
-          </div>
-        )}
+        {loginBackground && <div style={winStyles.leftOverlay} />}
 
-        {/* Logo & Name - show logo OR name, not both */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-4">
+        {/* Logo / Name */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {companyLogo ? (
-              <img src={companyLogo} alt={companyName || 'Logo'} className="h-16 object-contain" />
+              <img src={companyLogo} alt={companyName || 'Logo'} style={{ height: 48, objectFit: 'contain' }} />
             ) : (
               <>
-                <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-                  <WifiIcon className="w-8 h-8 text-white" />
+                <div style={{
+                  width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '2px',
+                }}>
+                  <WifiIcon style={{ width: 24, height: 24, color: '#fff' }} />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">{companyName || 'ISP Management'}</h1>
-                  <p className="text-blue-200 text-sm">ISP Management System</p>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>
+                    {companyName || 'ISP Management'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
+                    ISP Management System
+                  </div>
                 </div>
               </>
             )}
@@ -113,219 +322,250 @@ export default function Login() {
 
         {/* Features */}
         {showLoginFeatures && (
-          <div className="relative z-10 space-y-8">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
-                <WifiIcon className="w-6 h-6 text-white" />
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {[
+              { Icon: WifiIcon, title: loginFeature1Title, desc: loginFeature1Desc },
+              { Icon: ChartBarIcon, title: loginFeature2Title, desc: loginFeature2Desc },
+              { Icon: CogIcon, title: loginFeature3Title, desc: loginFeature3Desc },
+            ].map(({ Icon, title, desc }, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                <div style={winStyles.featureIcon}>
+                  <Icon style={{ width: 18, height: 18, color: '#fff' }} />
+                </div>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{title}</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>{desc}</div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-white font-semibold text-lg">{loginFeature1Title}</h3>
-                <p className="text-white/70 text-sm">{loginFeature1Desc}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
-                <ChartBarIcon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-white font-semibold text-lg">{loginFeature2Title}</h3>
-                <p className="text-white/70 text-sm">{loginFeature2Desc}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
-                <CogIcon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-white font-semibold text-lg">{loginFeature3Title}</h3>
-                <p className="text-white/70 text-sm">{loginFeature3Desc}</p>
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
-        {/* Footer/Tagline */}
-        <div className="relative z-10">
-          <p className="text-white/70 text-sm">{loginTagline}</p>
+        {/* Tagline */}
+        <div style={{ position: 'relative', zIndex: 1, color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>
+          {loginTagline}
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
-        <div className="w-full max-w-md">
-          {/* Mobile Logo - show logo OR name, not both */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center gap-3 mb-4">
+      {/* ─── Right Side: Login Dialog ─── */}
+      <div className="w-full lg:w-1/2" style={winStyles.rightPanel}>
+        <div style={{ width: '100%', maxWidth: 400 }}>
+
+          {/* Mobile logo */}
+          <div className="lg:hidden" style={{ textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               {companyLogo ? (
-                <img src={companyLogo} alt={companyName || 'Logo'} className="h-12 object-contain" />
+                <img src={companyLogo} alt={companyName || 'Logo'} style={{ height: 36, objectFit: 'contain' }} />
               ) : (
                 <>
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center">
-                    <WifiIcon className="w-7 h-7 text-blue-600" />
+                  <div style={{
+                    width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid', borderColor: '#dfdfdf #808080 #808080 #dfdfdf',
+                    background: '#d4d4d4', borderRadius: '1px',
+                  }}>
+                    <WifiIcon style={{ width: 20, height: 20, color: '#2d5a87' }} />
                   </div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyName || 'ISP Management'}</h1>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: '#000' }}>
+                    {companyName || 'ISP Management'}
+                  </span>
                 </>
               )}
             </div>
           </div>
 
-          {/* Login Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
+          {/* ── Dialog window ── */}
+          <div style={winStyles.dialog}>
+
             {!requires2FA ? (
               <>
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h2>
-                  <p className="text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
+                {/* Title bar */}
+                <div style={winStyles.titleBar}>
+                  <LockClosedIcon style={{ width: 14, height: 14, color: '#fff' }} />
+                  <span style={winStyles.titleText}>
+                    {companyName ? `${companyName} - Sign In` : 'Sign In'}
+                  </span>
                 </div>
 
-                {sessionReason === 'idle' && (
-                  <div className="mb-5 px-4 py-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg text-sm text-yellow-800 dark:text-yellow-300">
-                    You were logged out due to inactivity. Please sign in again.
-                  </div>
-                )}
-                {sessionReason === 'expired' && (
-                  <div className="mb-5 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-sm text-red-800 dark:text-red-300">
-                    Your session has expired. Please sign in again.
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Username
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <UserIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                      </div>
-                      <input
-                        id="username"
-                        type="text"
-                        required
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        placeholder="Enter your username"
-                        autoComplete="username"
-                      />
+                {/* Body */}
+                <div style={winStyles.body}>
+                  {/* Session warnings */}
+                  {sessionReason === 'idle' && (
+                    <div style={winStyles.infoWell('warning')}>
+                      You were logged out due to inactivity. Please sign in again.
                     </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <LockClosedIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                      </div>
-                      <input
-                        id="password"
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        placeholder="Enter your password"
-                        autoComplete="current-password"
-                      />
+                  )}
+                  {sessionReason === 'expired' && (
+                    <div style={winStyles.infoWell('error')}>
+                      Your session has expired. Please sign in again.
                     </div>
-                  </div>
+                  )}
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 px-4 text-white font-semibold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    style={{ backgroundColor: primaryColor || '#2563eb' }}
-                  >
-                    {loading ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Signing in...
-                      </>
-                    ) : (
-                      'Sign In'
-                    )}
-                  </button>
-                </form>
+                  <form onSubmit={handleSubmit}>
+                    {/* Username */}
+                    <div style={{ marginBottom: 10 }}>
+                      <label htmlFor="username" style={winStyles.label}>Username:</label>
+                      <div style={{ position: 'relative' }}>
+                        <UserIcon style={{
+                          position: 'absolute', left: 5, top: '50%', transform: 'translateY(-50%)',
+                          width: 14, height: 14, color: '#808080',
+                        }} />
+                        <input
+                          id="username"
+                          type="text"
+                          required
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          style={{ ...winStyles.input, paddingLeft: 24 }}
+                          onFocus={(e) => e.target.style.borderColor = '#4a7ab5'}
+                          onBlur={(e) => e.target.style.borderColor = '#a0a0a0'}
+                          placeholder="Enter your username"
+                          autoComplete="username"
+                        />
+                      </div>
+                    </div>
 
-                <div className="mt-6 text-center">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {/* Password */}
+                    <div style={{ marginBottom: 14 }}>
+                      <label htmlFor="password" style={winStyles.label}>Password:</label>
+                      <div style={{ position: 'relative' }}>
+                        <LockClosedIcon style={{
+                          position: 'absolute', left: 5, top: '50%', transform: 'translateY(-50%)',
+                          width: 14, height: 14, color: '#808080',
+                        }} />
+                        <input
+                          id="password"
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          style={{ ...winStyles.input, paddingLeft: 24 }}
+                          onFocus={(e) => e.target.style.borderColor = '#4a7ab5'}
+                          onBlur={(e) => e.target.style.borderColor = '#a0a0a0'}
+                          placeholder="Enter your password"
+                          autoComplete="current-password"
+                        />
+                      </div>
+                    </div>
+
+                    <div style={winStyles.separator} />
+
+                    {/* Sign In button */}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      style={winStyles.btnPrimary(loading)}
+                    >
+                      {loading ? (
+                        <>
+                          <svg style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24">
+                            <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Signing in...
+                        </>
+                      ) : (
+                        'Sign In'
+                      )}
+                    </button>
+                  </form>
+
+                  <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: '#666' }}>
                     Admin, Reseller, or PPPoE Customer
-                  </p>
+                  </div>
                 </div>
               </>
             ) : (
               <>
-                <div className="text-center mb-8">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ backgroundColor: `${primaryColor || '#2563eb'}20` }}>
-                    <ShieldCheckIcon className="w-8 h-8" style={{ color: primaryColor || '#2563eb' }} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Two-Factor Authentication</h2>
-                  <p className="text-gray-500 dark:text-gray-400 mt-1">Enter the 6-digit code from your authenticator app</p>
+                {/* 2FA Title bar */}
+                <div style={winStyles.titleBar}>
+                  <ShieldCheckIcon style={{ width: 14, height: 14, color: '#fff' }} />
+                  <span style={winStyles.titleText}>Two-Factor Authentication</span>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div>
-                    <label htmlFor="twoFACode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Authentication Code
-                    </label>
-                    <input
-                      id="twoFACode"
-                      type="text"
-                      required
-                      value={twoFACode}
-                      onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="block w-full py-4 text-center text-2xl tracking-[0.5em] font-mono border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:border-blue-500"
-                      style={{ '--tw-ring-color': primaryColor || '#2563eb' }}
-                      placeholder="000000"
-                      maxLength={6}
-                      autoComplete="one-time-code"
-                      autoFocus
-                    />
+                {/* 2FA Body */}
+                <div style={winStyles.body}>
+                  <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                    <div style={winStyles.twoFAIcon}>
+                      <ShieldCheckIcon style={{ width: 24, height: 24, color: '#4a7ab5' }} />
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#000', marginBottom: 2 }}>
+                      Verification Required
+                    </div>
+                    <div style={{ fontSize: 11, color: '#555' }}>
+                      Enter the 6-digit code from your authenticator app
+                    </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading || twoFACode.length !== 6}
-                    className="w-full py-3 px-4 text-white font-semibold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    style={{ backgroundColor: primaryColor || '#2563eb' }}
-                  >
-                    {loading ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Verifying...
-                      </>
-                    ) : (
-                      'Verify & Sign In'
-                    )}
-                  </button>
+                  <form onSubmit={handleSubmit}>
+                    <div style={{ marginBottom: 10 }}>
+                      <label htmlFor="twoFACode" style={winStyles.label}>Authentication Code:</label>
+                      <input
+                        id="twoFACode"
+                        type="text"
+                        required
+                        value={twoFACode}
+                        onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        style={winStyles.twoFAInput}
+                        onFocus={(e) => e.target.style.borderColor = '#4a7ab5'}
+                        onBlur={(e) => e.target.style.borderColor = '#a0a0a0'}
+                        placeholder="000000"
+                        maxLength={6}
+                        autoComplete="one-time-code"
+                        autoFocus
+                      />
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="w-full py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center justify-center gap-1"
-                  >
-                    <ArrowLeftIcon className="w-4 h-4" />
-                    Back to login
-                  </button>
-                </form>
+                    <div style={winStyles.separator} />
+
+                    {/* Verify button */}
+                    <button
+                      type="submit"
+                      disabled={loading || twoFACode.length !== 6}
+                      style={winStyles.btnPrimary(loading || twoFACode.length !== 6)}
+                    >
+                      {loading ? (
+                        <>
+                          <svg style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24">
+                            <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Verifying...
+                        </>
+                      ) : (
+                        'Verify & Sign In'
+                      )}
+                    </button>
+
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        type="button"
+                        onClick={handleBack}
+                        style={winStyles.btnSecondary}
+                      >
+                        <ArrowLeftIcon style={{ width: 12, height: 12 }} />
+                        Back to login
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </>
             )}
           </div>
 
           {/* Footer */}
-          <p className="mt-6 text-center text-sm text-gray-400 dark:text-gray-500">
+          <div style={winStyles.footer}>
             {footerText || (companyName ? `${companyName} - ISP Management System` : 'ISP Management System')}
-          </p>
+          </div>
         </div>
       </div>
+
+      {/* Keyframe for spinner */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

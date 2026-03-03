@@ -27,36 +27,94 @@ import {
   UserGroupIcon,
   BellAlertIcon,
   AdjustmentsHorizontalIcon,
-  ArrowPathIcon,
   ChatBubbleLeftRightIcon,
   CloudArrowUpIcon,
   ShieldCheckIcon,
   QueueListIcon,
   ShieldExclamationIcon,
   GlobeAltIcon,
-  Bars2Icon,
-  CheckIcon,
-  ArrowUturnLeftIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-  EyeIcon,
-  EyeSlashIcon,
   WrenchScrewdriverIcon,
   BoltIcon,
   BanknotesIcon,
   DevicePhoneMobileIcon,
   PaintBrushIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  StopIcon,
+  SunIcon,
+  MoonIcon,
+  Bars2Icon,
+  EyeIcon,
+  EyeSlashIcon,
+  ArrowUturnLeftIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
-// Navigation items with permission requirements
+// Get saved menu order from localStorage
+const getSavedMenuOrder = () => {
+  try {
+    const saved = localStorage.getItem('menuOrder')
+    if (saved) return JSON.parse(saved)
+  } catch (e) {
+    console.error('Failed to load menu order:', e)
+  }
+  return null
+}
+
+// Save menu order to localStorage
+const saveMenuOrder = (order) => {
+  try {
+    localStorage.setItem('menuOrder', JSON.stringify(order))
+  } catch (e) {
+    console.error('Failed to save menu order:', e)
+  }
+}
+
+// Get saved hidden items from localStorage
+const getSavedHiddenItems = () => {
+  try {
+    const saved = localStorage.getItem('menuHidden')
+    if (saved) return new Set(JSON.parse(saved))
+  } catch (e) {
+    console.error('Failed to load hidden items:', e)
+  }
+  return new Set()
+}
+
+// Save hidden items to localStorage
+const saveHiddenItems = (hiddenSet) => {
+  try {
+    localStorage.setItem('menuHidden', JSON.stringify([...hiddenSet]))
+  } catch (e) {
+    console.error('Failed to save hidden items:', e)
+  }
+}
+
+// Apply saved order to navigation items
+const applyMenuOrder = (navigation, savedOrder) => {
+  if (!savedOrder || savedOrder.length === 0) return navigation
+  const orderMap = new Map(savedOrder.map((name, index) => [name, index]))
+  return [...navigation].sort((a, b) => {
+    const orderA = orderMap.has(a.name) ? orderMap.get(a.name) : 999
+    const orderB = orderMap.has(b.name) ? orderMap.get(b.name) : 999
+    return orderA - orderB
+  })
+}
+
+// Navigation items with permission requirements and tree structure
 const allNavigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon, permission: 'dashboard.view' },
   { name: 'Subscribers', href: '/subscribers', icon: UsersIcon, permission: 'subscribers.view' },
   { name: 'Services', href: '/services', icon: CogIcon, permission: 'services.view' },
-  { name: 'CDN List', href: '/cdn', icon: GlobeAltIcon, permission: 'admin' },
-  { name: 'CDN Bandwidth Rules', href: '/cdn-bandwidth-rules', icon: AdjustmentsHorizontalIcon, permission: 'admin' },
-  { name: 'CDN Port Rules', href: '/cdn-port-rules', icon: BoltIcon, permission: 'admin' },
+  {
+    name: 'CDN', icon: GlobeAltIcon, permission: 'admin', children: [
+      { name: 'CDN List', href: '/cdn', icon: GlobeAltIcon, permission: 'admin' },
+      { name: 'Bandwidth Rules', href: '/cdn-bandwidth-rules', icon: AdjustmentsHorizontalIcon, permission: 'admin' },
+      { name: 'Port Rules', href: '/cdn-port-rules', icon: BoltIcon, permission: 'admin' },
+    ]
+  },
   { name: 'NAS/Routers', href: '/nas', icon: ServerIcon, permission: 'nas.view' },
   { name: 'Resellers', href: '/resellers', icon: BuildingOfficeIcon, permission: 'resellers.view' },
   { name: 'Sessions', href: '/sessions', icon: SignalIcon, permission: 'sessions.view' },
@@ -79,65 +137,9 @@ const allNavigation = [
   { name: 'Diagnostic Tools', href: '/diagnostic-tools', icon: WrenchScrewdriverIcon, permission: 'admin' },
 ]
 
-// Get saved menu order from localStorage
-const getSavedMenuOrder = () => {
-  try {
-    const saved = localStorage.getItem('menuOrder')
-    if (saved) {
-      return JSON.parse(saved)
-    }
-  } catch (e) {
-    console.error('Failed to load menu order:', e)
-  }
-  return null
-}
-
-// Save menu order to localStorage
-const saveMenuOrder = (order) => {
-  try {
-    localStorage.setItem('menuOrder', JSON.stringify(order))
-  } catch (e) {
-    console.error('Failed to save menu order:', e)
-  }
-}
-
-// Get saved hidden items from localStorage
-const getSavedHiddenItems = () => {
-  try {
-    const saved = localStorage.getItem('menuHidden')
-    if (saved) {
-      return new Set(JSON.parse(saved))
-    }
-  } catch (e) {
-    console.error('Failed to load hidden items:', e)
-  }
-  return new Set()
-}
-
-// Save hidden items to localStorage
-const saveHiddenItems = (hiddenSet) => {
-  try {
-    localStorage.setItem('menuHidden', JSON.stringify([...hiddenSet]))
-  } catch (e) {
-    console.error('Failed to save hidden items:', e)
-  }
-}
-
-// Apply saved order to navigation
-const applyMenuOrder = (navigation, savedOrder) => {
-  if (!savedOrder || savedOrder.length === 0) return navigation
-
-  const orderMap = new Map(savedOrder.map((href, index) => [href, index]))
-  const sorted = [...navigation].sort((a, b) => {
-    const orderA = orderMap.has(a.href) ? orderMap.get(a.href) : 999
-    const orderB = orderMap.has(b.href) ? orderMap.get(b.href) : 999
-    return orderA - orderB
-  })
-  return sorted
-}
-
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState({ 'CDN': true })
   const [editMode, setEditMode] = useState(false)
   const [orderedNav, setOrderedNav] = useState([])
   const [hiddenItems, setHiddenItems] = useState(() => getSavedHiddenItems())
@@ -145,7 +147,7 @@ export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, hasPermission, isAdmin, isReseller, refreshUser } = useAuthStore()
-  const { companyName, companyLogo, fetchBranding, loaded } = useBrandingStore()
+  const { companyName, fetchBranding, loaded } = useBrandingStore()
   const { theme, toggleTheme } = useThemeStore()
   const queryClient = useQueryClient()
   const inactivityTimer = useRef(null)
@@ -176,8 +178,7 @@ export default function Layout({ children }) {
 
   // Inactivity logout after 10 minutes
   useEffect(() => {
-    const TIMEOUT = 10 * 60 * 1000 // 10 minutes
-
+    const TIMEOUT = 10 * 60 * 1000
     const resetTimer = () => {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
       inactivityTimer.current = setTimeout(() => {
@@ -185,18 +186,16 @@ export default function Layout({ children }) {
         navigate('/login?reason=idle')
       }, TIMEOUT)
     }
-
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click']
     events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
-    resetTimer() // start the timer immediately
-
+    resetTimer()
     return () => {
       events.forEach(e => window.removeEventListener(e, resetTimer))
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     }
   }, [logout, navigate])
 
-  // Handle session expired (401 from API — token expired on server)
+  // Handle session expired
   useEffect(() => {
     const handleExpired = () => {
       logout()
@@ -206,7 +205,7 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('auth:session-expired', handleExpired)
   }, [logout, navigate])
 
-  // Filter and order navigation
+  // Filter and order navigation based on permissions + saved order
   useEffect(() => {
     const filtered = allNavigation.filter((item) => {
       if (item.rebrandOnly) return isReseller() && user?.reseller?.rebrand_enabled
@@ -225,7 +224,7 @@ export default function Layout({ children }) {
     navigate('/login')
   }
 
-  // Move item up
+  // Move item up in menu order
   const moveUp = useCallback((index) => {
     if (index <= 0) return
     setOrderedNav(prev => {
@@ -233,14 +232,12 @@ export default function Layout({ children }) {
       const temp = newNav[index]
       newNav[index] = newNav[index - 1]
       newNav[index - 1] = temp
-      // Save to localStorage
-      const newOrder = newNav.map(item => item.href)
-      saveMenuOrder(newOrder)
+      saveMenuOrder(newNav.map(item => item.name))
       return newNav
     })
   }, [])
 
-  // Move item down
+  // Move item down in menu order
   const moveDown = useCallback((index) => {
     setOrderedNav(prev => {
       if (index >= prev.length - 1) return prev
@@ -248,21 +245,19 @@ export default function Layout({ children }) {
       const temp = newNav[index]
       newNav[index] = newNav[index + 1]
       newNav[index + 1] = temp
-      // Save to localStorage
-      const newOrder = newNav.map(item => item.href)
-      saveMenuOrder(newOrder)
+      saveMenuOrder(newNav.map(item => item.name))
       return newNav
     })
   }, [])
 
   // Toggle item visibility
-  const toggleHidden = useCallback((href) => {
+  const toggleHidden = useCallback((name) => {
     setHiddenItems(prev => {
       const next = new Set(prev)
-      if (next.has(href)) {
-        next.delete(href)
+      if (next.has(name)) {
+        next.delete(name)
       } else {
-        next.add(href)
+        next.add(name)
       }
       saveHiddenItems(next)
       return next
@@ -275,11 +270,11 @@ export default function Layout({ children }) {
     saveHiddenItems(new Set())
   }, [])
 
+  // Reset menu order and visibility
   const handleResetOrder = () => {
     localStorage.removeItem('menuOrder')
     localStorage.removeItem('menuHidden')
     setHiddenItems(new Set())
-    // Re-filter and use default order
     const filtered = allNavigation.filter((item) => {
       if (item.rebrandOnly) return isReseller() && user?.reseller?.rebrand_enabled
       if (item.permission === null) return true
@@ -294,281 +289,328 @@ export default function Layout({ children }) {
     setEditMode(!editMode)
   }
 
-  // Edit mode controls
+  // Edit mode controls bar
   const EditModeControls = () => (
-    <div className="flex items-center gap-1 px-2 py-2 border-b dark:border-gray-700 bg-amber-50 dark:bg-amber-900/30">
+    <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[#a0a0a0] dark:border-[#374151] bg-amber-50 dark:bg-amber-900/30">
       <button
         onClick={handleResetOrder}
-        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded"
+        className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] text-gray-600 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded"
         title="Reset order and show all"
       >
-        <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
+        <ArrowUturnLeftIcon className="w-3 h-3" />
         Reset
       </button>
       {hiddenItems.size > 0 && (
         <button
           onClick={handleShowAll}
-          className="flex items-center gap-1 px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded"
+          className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded"
           title="Show all hidden items"
         >
-          <EyeIcon className="w-3.5 h-3.5" />
+          <EyeIcon className="w-3 h-3" />
           Show All
         </button>
       )}
       <div className="flex-1" />
       <button
         onClick={toggleEditMode}
-        className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900/70 rounded font-medium"
+        className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900/70 rounded font-medium"
       >
-        <CheckIcon className="w-3.5 h-3.5" />
+        <CheckIcon className="w-3 h-3" />
         Done
       </button>
     </div>
   )
 
-  // Render navigation items
-  const renderNavItems = (isMobile = false) => {
-    return orderedNav
-      .filter(item => editMode || !hiddenItems.has(item.href))
-      .map((item, index) => {
-        const isActive = location.pathname === item.href
-        const Icon = item.icon
-        const isHidden = hiddenItems.has(item.href)
-
-        if (editMode) {
-          return (
-            <div
-              key={item.href}
-              className={clsx(
-                'flex items-center gap-1 px-1 py-0.5 text-xs font-medium rounded-md',
-                isHidden
-                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 line-through'
-                  : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200'
-              )}
-            >
-              <div className="flex flex-col">
-                <button
-                  onClick={() => moveUp(index)}
-                  disabled={index === 0}
-                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronUpIcon className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={() => moveDown(index)}
-                  disabled={index === orderedNav.length - 1}
-                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronDownIcon className="w-3 h-3" />
-                </button>
-              </div>
-              <button
-                onClick={() => toggleHidden(item.href)}
-                className={clsx(
-                  'p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-500',
-                  isHidden ? 'text-red-400 dark:text-red-500' : 'text-gray-500 dark:text-gray-400'
-                )}
-                title={isHidden ? 'Show item' : 'Hide item'}
-              >
-                {isHidden ? <EyeSlashIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
-              </button>
-              <Icon className={clsx('w-4 h-4 flex-shrink-0', isHidden ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400')} />
-              <span className="truncate flex-1">{item.name}</span>
-            </div>
-          )
-        }
-
-        return (
-          <Link
-            key={item.href}
-            to={item.href}
-            onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-            className={clsx(
-              'flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors',
-              isActive
-                ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-            )}
-          >
-            <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
-            <span className="truncate">{item.name}</span>
-          </Link>
-        )
-      })
+  const toggleGroup = (name) => {
+    setExpandedGroups(prev => ({ ...prev, [name]: !prev[name] }))
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-80 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+  const isItemActive = (item) => {
+    if (item.href) return location.pathname === item.href
+    if (item.children) return item.children.some(c => location.pathname === c.href)
+    return false
+  }
 
-      {/* Mobile sidebar */}
-      <div
-        className={clsx(
-          'fixed inset-y-0 left-0 z-50 w-56 bg-white dark:bg-gray-800 shadow-xl transform transition-transform lg:hidden flex flex-col',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        <div className="flex items-center justify-between h-12 px-3 border-b dark:border-gray-700 flex-shrink-0 dark:bg-gray-800">
+  // Render tree navigation
+  const renderTreeItems = (isMobile = false) => {
+    return orderedNav
+      .filter(item => editMode || !hiddenItems.has(item.name))
+      .map((item, index) => {
+      const Icon = item.icon
+      const isActive = isItemActive(item)
+      const hasChildren = item.children && item.children.length > 0
+      const isExpanded = expandedGroups[item.name]
+      const isHidden = hiddenItems.has(item.name)
+
+      // Edit mode: show flat list with up/down arrows and eye toggle
+      if (editMode) {
+        return (
           <div
-            className="flex items-center gap-2 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={toggleTheme}
-            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-          >
-            {companyLogo ? (
-              <img src={companyLogo} alt={companyName} className="h-8 object-contain flex-shrink-0" />
-            ) : (
-              <span className="text-base font-bold text-primary-600 dark:text-primary-400 truncate">{companyName}</span>
+            key={item.name}
+            className={clsx(
+              'flex items-center gap-1 px-1 py-0.5 mx-1 my-0.5 text-[11px] rounded',
+              isHidden
+                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 line-through'
+                : 'bg-gray-50 dark:bg-[#374151] text-gray-700 dark:text-gray-200'
             )}
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0 dark:text-gray-300">
-            <XMarkIcon className="w-5 h-5" />
-          </button>
-        </div>
-        {editMode && <EditModeControls />}
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {renderNavItems(true)}
-        </nav>
-        <div className="p-2 border-t dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900">
-          {(isAdmin() || isReseller()) && !editMode && (
-            <button
-              onClick={toggleEditMode}
-              className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <Bars2Icon className="w-4 h-4 mr-2" />
-              Customize Menu
-            </button>
-          )}
-          <div className="flex items-center px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300">
-            <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{user?.username}</p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                {user?.user_type === 4 ? 'Admin' : user?.user_type === 2 ? 'Reseller' : 'User'}
-              </p>
-            </div>
-          </div>
-          <Link
-            to="/profile"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <UserCircleIcon className="w-4 h-4 mr-2" />
-            My Profile
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-          >
-            <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-52 lg:flex-col">
-        <div className="flex flex-col flex-1 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
-          <div className="flex items-center h-12 px-3 border-b dark:border-gray-700 flex-shrink-0">
-            <div
-              className="flex items-center gap-2 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={toggleTheme}
-              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-            >
-              {companyLogo ? (
-                <img src={companyLogo} alt={companyName} className="h-8 object-contain flex-shrink-0" />
-              ) : (
-                <span className="text-base font-bold text-primary-600 dark:text-primary-400 truncate">{companyName}</span>
-              )}
-            </div>
-          </div>
-          {editMode && <EditModeControls />}
-          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-            {renderNavItems(false)}
-          </nav>
-          <div className="p-2 border-t dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900">
-            {(isAdmin() || isReseller()) && !editMode && (
+            <div className="flex flex-col">
               <button
-                onClick={toggleEditMode}
-                className="flex items-center w-full px-2.5 py-1.5 mb-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => moveUp(index)}
+                disabled={index === 0}
+                className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <Bars2Icon className="w-4 h-4 mr-2" />
-                Customize Menu
+                <ChevronUpIcon className="w-2.5 h-2.5" />
               </button>
-            )}
-            <div className="flex items-center px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300">
-              <UserCircleIcon className="w-6 h-6 mr-2 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{user?.username}</p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  {user?.user_type === 4 ? 'Admin' : user?.user_type === 2 ? 'Reseller' : 'User'}
-                </p>
-              </div>
+              <button
+                onClick={() => moveDown(index)}
+                disabled={index === orderedNav.filter(i => editMode || !hiddenItems.has(i.name)).length - 1}
+                className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-500 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronDownIcon className="w-2.5 h-2.5" />
+              </button>
             </div>
-            <Link
-              to="/profile"
-              className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <UserCircleIcon className="w-4 h-4 mr-2" />
-              My Profile
-            </Link>
             <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+              onClick={() => toggleHidden(item.name)}
+              className={clsx(
+                'p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-500',
+                isHidden ? 'text-red-400 dark:text-red-500' : 'text-gray-500 dark:text-gray-400'
+              )}
+              title={isHidden ? 'Show item' : 'Hide item'}
             >
-              <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
-              Logout
+              {isHidden ? <EyeSlashIcon className="w-3 h-3" /> : <EyeIcon className="w-3 h-3" />}
             </button>
+            <Icon className={clsx('w-3.5 h-3.5 flex-shrink-0', isHidden ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400')} />
+            <span className="truncate flex-1">{item.name}</span>
           </div>
-        </div>
-      </div>
+        )
+      }
 
-      {/* Main content */}
-      <div className="lg:pl-52">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center h-12 px-3 bg-white dark:bg-gray-800 border-b dark:border-gray-700 lg:px-6">
+      if (hasChildren) {
+        // Filter children by permissions
+        const visibleChildren = item.children.filter(child => {
+          if (child.permission === 'admin') return isAdmin()
+          return hasPermission(child.permission)
+        })
+        if (visibleChildren.length === 0) return null
+
+        return (
+          <div key={item.name}>
+            <div
+              className={clsx(
+                'wb-tree-item',
+                isActive && !isExpanded && 'active'
+              )}
+              onClick={() => toggleGroup(item.name)}
+            >
+              <span className="wb-tree-arrow">
+                {isExpanded ? '▼' : '▶'}
+              </span>
+              <Icon className="wb-tree-icon" />
+              <span className="truncate">{item.name}</span>
+            </div>
+            {isExpanded && visibleChildren.map(child => {
+              const ChildIcon = child.icon
+              const isChildActive = location.pathname === child.href
+              return (
+                <Link
+                  key={child.href}
+                  to={child.href}
+                  onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+                  className={clsx('wb-tree-item pl-7', isChildActive && 'active')}
+                >
+                  <ChildIcon className="wb-tree-icon" />
+                  <span className="truncate">{child.name}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )
+      }
+
+      return (
+        <Link
+          key={item.href}
+          to={item.href}
+          onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+          className={clsx('wb-tree-item', isActive && 'active')}
+        >
+          <span className="wb-tree-arrow" />
+          <Icon className="wb-tree-icon" />
+          <span className="truncate">{item.name}</span>
+        </Link>
+      )
+    })
+  }
+
+  const serverIP = window.location.hostname
+  const username = user?.username || 'admin'
+  const appVersion = 'v1.0.350'
+  const userType = user?.user_type === 4 ? 'Admin' : user?.user_type === 2 ? 'Reseller' : 'User'
+
+  return (
+    <div className="h-screen flex flex-col font-segoe text-[13px]">
+      {/* ================================================================
+          TITLE BAR - Blue gradient with connection info
+          ================================================================ */}
+      <div
+        className="flex items-center justify-between h-7 px-3 text-white text-[12px] select-none flex-shrink-0"
+        style={{ background: 'linear-gradient(to bottom, #4a7ab5, #2d5a87)' }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-1.5 -ml-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden dark:text-gray-300"
+            className="lg:hidden p-0.5 hover:bg-white/20 rounded-sm"
           >
-            <Bars3Icon className="w-5 h-5" />
+            <Bars3Icon className="w-4 h-4" />
           </button>
-          <div className="flex-1" />
-          <div className="flex items-center gap-3">
-            <UpdateNotification />
-            {isReseller() && (
-              <>
-                <div className="hidden sm:flex items-center gap-1.5 text-sm">
-                  <BanknotesIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  <span className={clsx(
-                    'font-semibold',
-                    (user?.reseller?.balance ?? 0) >= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                  )}>
-                    ${parseFloat(user?.reseller?.balance ?? 0).toFixed(2)}
-                  </span>
-                </div>
-                <div className="hidden sm:block text-gray-300 dark:text-gray-600">|</div>
-              </>
+          <span className="truncate font-semibold">
+            {username}@{serverIP} — {companyName || 'MES ISP Management'} {appVersion}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {isReseller() && (
+            <span className={clsx(
+              'font-mono text-[11px]',
+              (user?.reseller?.balance ?? 0) >= 0 ? 'text-green-300' : 'text-red-300'
+            )}>
+              Balance: ${parseFloat(user?.reseller?.balance ?? 0).toFixed(2)}
+            </span>
+          )}
+          <Clock />
+          <UpdateNotification />
+          {/* Window controls */}
+          <div className="hidden lg:flex items-center gap-0.5 ml-2">
+            <Link
+              to="/profile"
+              className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
+              title="My Profile"
+            >
+              <UserCircleIcon className="w-3 h-3" />
+            </Link>
+            {(isAdmin() || isReseller()) && (
+              <button
+                onClick={toggleEditMode}
+                className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
+                title="Customize Menu"
+              >
+                <Bars2Icon className="w-3 h-3" />
+              </button>
             )}
-            <Clock />
+            <button
+              onClick={toggleTheme}
+              className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
+              title={theme === 'light' ? 'Dark mode' : 'Light mode'}
+            >
+              {theme === 'dark' ? <SunIcon className="w-3 h-3" /> : <MoonIcon className="w-3 h-3" />}
+            </button>
+            <button
+              onClick={() => {
+                if (document.fullscreenElement) {
+                  document.exitFullscreen()
+                } else {
+                  document.documentElement.requestFullscreen()
+                }
+              }}
+              className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
+              title="Toggle Fullscreen"
+            >
+              <StopIcon className="w-3 h-3" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-red-500 rounded-sm"
+              title="Logout"
+            >
+              <XMarkIcon className="w-3 h-3" />
+            </button>
           </div>
-        </header>
+        </div>
+      </div>
 
-        {/* License warning banner */}
-        <LicenseBanner />
 
-        {/* Update available banner */}
-        <UpdateBanner />
+      {/* License/Update banners */}
+      <LicenseBanner />
+      <UpdateBanner />
 
-        {/* Page content */}
-        <main className="p-3 lg:p-6">{children}</main>
+      {/* ================================================================
+          MAIN AREA - Sidebar + Content
+          ================================================================ */}
+      <div className="flex flex-1 min-h-0">
+
+        {/* Mobile sidebar backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* ============================================================
+            SIDEBAR - Tree navigation
+            ============================================================ */}
+        {/* Mobile sidebar */}
+        <div
+          className={clsx(
+            'fixed inset-y-0 left-0 z-50 w-52 bg-white dark:bg-[#1f2937] border-r border-[#a0a0a0] dark:border-[#374151] flex flex-col transform transition-transform lg:hidden',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          <div className="flex items-center justify-between h-7 px-2 border-b border-[#a0a0a0] dark:border-[#374151] bg-[#f0f0f0] dark:bg-[#111827] flex-shrink-0">
+            <span onClick={toggleTheme} className="text-[12px] font-semibold truncate cursor-pointer hover:text-[#316AC5] dark:text-[#f3f4f6]" title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}>{companyName || 'MES ISP'}</span>
+            <button onClick={() => setSidebarOpen(false)} className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#374151] rounded-sm dark:text-[#f3f4f6]">
+              <XMarkIcon className="w-4 h-4" />
+            </button>
+          </div>
+          {editMode && <EditModeControls />}
+          <nav className="flex-1 py-1 overflow-y-auto dark:text-[#f3f4f6]">
+            {renderTreeItems(true)}
+          </nav>
+        </div>
+
+        {/* Desktop sidebar */}
+        <div className="hidden lg:flex lg:flex-col lg:w-[185px] bg-white dark:bg-[#1f2937] border-r border-[#a0a0a0] dark:border-[#374151] flex-shrink-0">
+          <div
+            onClick={toggleTheme}
+            className="flex items-center h-7 px-2 border-b border-[#a0a0a0] dark:border-[#374151] bg-[#f0f0f0] dark:bg-[#111827] cursor-pointer hover:bg-[#e0e0e0] dark:hover:bg-[#374151] flex-shrink-0"
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          >
+            <span className="text-[12px] font-semibold truncate dark:text-[#f3f4f6]">{companyName || 'MES ISP Management'}</span>
+          </div>
+          {editMode && <EditModeControls />}
+          <nav className="flex-1 py-1 overflow-y-auto dark:text-[#f3f4f6]">
+            {renderTreeItems(false)}
+          </nav>
+        </div>
+
+        {/* ============================================================
+            CONTENT AREA
+            ============================================================ */}
+        <div className="flex-1 flex flex-col min-w-0 bg-[#f0f0f0] dark:bg-[#111827]">
+          {/* Page content - scrollable */}
+          <main className="flex-1 overflow-auto p-2 lg:p-3">
+            {children}
+          </main>
+
+          {/* ============================================================
+              STATUS BAR
+              ============================================================ */}
+          <div className="wb-statusbar flex-shrink-0 text-[11px]">
+            <span>{userType}: {username}</span>
+            <span>
+              {isReseller() && (
+                <span className={clsx(
+                  'mr-3',
+                  (user?.reseller?.balance ?? 0) >= 0 ? 'text-green-700' : 'text-red-700'
+                )}>
+                  Balance: ${parseFloat(user?.reseller?.balance ?? 0).toFixed(2)}
+                </span>
+              )}
+              {serverIP}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   )

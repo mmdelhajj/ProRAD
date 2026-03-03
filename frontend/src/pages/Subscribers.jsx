@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import clsx from 'clsx'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { subscriberApi, serviceApi, nasApi, resellerApi } from '../services/api'
@@ -42,7 +43,7 @@ import {
   SignalIcon,
   MapPinIcon,
 } from '@heroicons/react/24/outline'
-import clsx from 'clsx'
+// clsx not needed - WinBox design uses inline styles and design system classes
 import toast from 'react-hot-toast'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -80,7 +81,7 @@ const statusFilters = [
   { value: 'expiring', label: 'Expiring Soon' },
 ]
 
-// Status color helper
+// Status color helper - WinBox dots
 const getStatusDisplay = (subscriber) => {
   const isExpired = subscriber.expiry_date && new Date(subscriber.expiry_date) < new Date()
   const isExpiring = subscriber.expiry_date &&
@@ -88,18 +89,18 @@ const getStatusDisplay = (subscriber) => {
     !isExpired
 
   if (subscriber.status === 0) {
-    return { color: 'bg-gray-500', text: 'Inactive', textColor: 'text-gray-600' }
+    return { dotColor: '#9e9e9e', text: 'Inactive', textColor: '#757575' }
   }
   if (subscriber.status === 2) {
-    return { color: 'bg-gray-500', text: 'Suspended', textColor: 'text-gray-600' }
+    return { dotColor: '#9e9e9e', text: 'Suspended', textColor: '#757575' }
   }
   if (isExpired) {
-    return { color: 'bg-yellow-500', text: 'Expired', textColor: 'text-yellow-600' }
+    return { dotColor: '#FF9800', text: 'Expired', textColor: '#e65100' }
   }
   if (subscriber.is_online) {
-    return { color: 'bg-green-500', text: 'Online', textColor: 'text-green-600' }
+    return { dotColor: '#4CAF50', text: 'Online', textColor: '#2e7d32' }
   }
-  return { color: 'bg-red-500', text: 'Offline', textColor: 'text-red-600' }
+  return { dotColor: '#f44336', text: 'Offline', textColor: '#c62828' }
 }
 
 // Format bytes to human readable
@@ -191,7 +192,7 @@ export default function Subscribers() {
     extend_expiry: false,
     reset_fup: false,
     charge_price: false,
-    prorate_price: true, // Default to prorate pricing
+    prorate_price: true,
   })
   const [priceCalculation, setPriceCalculation] = useState(null)
   const [calculatingPrice, setCalculatingPrice] = useState(false)
@@ -205,7 +206,7 @@ export default function Subscribers() {
   const [mapModal, setMapModal] = useState(null)
   const [torchData, setTorchData] = useState(null)
   const [torchLoading, setTorchLoading] = useState(false)
-  const [torchAutoRefresh, setTorchAutoRefresh] = useState(true) // Auto-refresh ON by default
+  const [torchAutoRefresh, setTorchAutoRefresh] = useState(true)
 
   // Fetch subscribers
   const { data, isLoading, refetch } = useQuery({
@@ -378,7 +379,7 @@ export default function Subscribers() {
     if (!subscriber || !subscriber.is_online) return
     setTorchLoading(true)
     try {
-      const res = await subscriberApi.getTorch(subscriber.id, 2) // 2 seconds for faster refresh
+      const res = await subscriberApi.getTorch(subscriber.id, 2)
       if (res.data?.success) {
         setTorchData(res.data.data)
       } else {
@@ -393,13 +394,13 @@ export default function Subscribers() {
     }
   }
 
-  // Auto-refresh torch data - continuous like MikroTik Winbox
+  // Auto-refresh torch data
   useEffect(() => {
     let interval
     if (torchModal && torchAutoRefresh && !torchLoading) {
       interval = setInterval(() => {
         fetchTorchData(torchModal)
-      }, 2000) // Refresh every 2 seconds for live feel
+      }, 2000)
     }
     return () => {
       if (interval) clearInterval(interval)
@@ -440,26 +441,25 @@ export default function Subscribers() {
     mutationFn: (id) => subscriberApi.ping(id),
     onSuccess: (res) => {
       const data = res.data.data
-      // Show dismissible ping result - click anywhere to close
       toast.custom((t) => (
         <div
           onClick={() => toast.dismiss(t.id)}
-          className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto cursor-pointer border border-gray-200 dark:border-gray-700`}
+          style={{
+            maxWidth: '28rem', width: '100%', background: '#fff', border: '1px solid #a0a0a0',
+            borderRadius: '2px', boxShadow: '2px 2px 8px rgba(0,0,0,0.3)',
+            pointerEvents: 'auto', cursor: 'pointer',
+            opacity: t.visible ? 1 : 0, transition: 'opacity 0.2s',
+          }}
         >
-          <div className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                <WifiIcon className="h-6 w-6 text-green-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Ping Result</p>
-                <pre className="mt-1 text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono">{data.output}</pre>
-                <p className="mt-2 text-xs text-gray-400">Click anywhere to close</p>
-              </div>
-            </div>
+          <div style={{ padding: '4px 10px', color: '#fff', fontSize: '11px', fontWeight: 600, background: 'linear-gradient(to bottom, #4a7ab5, #2d5a87)' }}>
+            Ping Result
+          </div>
+          <div style={{ padding: '10px' }}>
+            <pre style={{ fontSize: '11px', color: '#555', whiteSpace: 'pre-wrap', fontFamily: 'monospace, monospace' }}>{data.output}</pre>
+            <p style={{ marginTop: '6px', fontSize: '10px', color: '#999' }}>Click anywhere to close</p>
           </div>
         </div>
-      ), { duration: 30000 }) // 30 seconds max, but user can click to dismiss
+      ), { duration: 30000 })
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to ping'),
   })
@@ -526,10 +526,8 @@ export default function Subscribers() {
     if (ids.length === 0) return
 
     if (ids.length > 1) {
-      // Bulk action
       bulkActionMutation.mutate({ ids, action })
     } else {
-      // Single action
       const id = ids[0]
       const sub = selectedSubscribers[0]
       switch (action) {
@@ -636,8 +634,32 @@ export default function Subscribers() {
     toast.success('Exported to CSV')
   }
 
+  // Check if all visible rows are selected (must be before columns useMemo)
+  const allSelected = (data?.data || []).length > 0 && selectedIds.size === (data?.data || []).length
+
   const columns = useMemo(
     () => [
+      {
+        id: 'checkbox',
+        header: () => (
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={selectAll}
+            style={{ width: 13, height: 13 }}
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            checked={selectedIds.has(row.original.id)}
+            onChange={() => toggleRowSelection(row.original.id)}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 13, height: 13 }}
+          />
+        ),
+        size: 28,
+      },
       {
         id: 'status_indicator',
         header: '',
@@ -646,83 +668,80 @@ export default function Subscribers() {
           if (sortBy === 'daily_usage' || sortBy === 'monthly_usage') {
             const rank = (page - 1) * limit + row.index + 1
             return (
-              <div className="flex items-center justify-center">
-                <span className={clsx(
-                  'text-[10px] font-bold px-1 py-0.5 rounded min-w-[22px] text-center',
-                  rank === 1 ? 'bg-yellow-400 text-yellow-900' :
-                  rank === 2 ? 'bg-gray-300 text-gray-700' :
-                  rank === 3 ? 'bg-orange-300 text-orange-900' :
-                  'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                )}>#{rank}</span>
-              </div>
+              <span style={{
+                fontSize: '9px', fontWeight: 'bold', padding: '1px 3px',
+                borderRadius: '2px', minWidth: '18px', textAlign: 'center', display: 'inline-block',
+                background: rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : '#e0e0e0',
+                color: rank <= 3 ? '#333' : '#666'
+              }}>#{rank}</span>
             )
           }
           return (
-            <div className="flex items-center justify-center">
-              <span className={clsx('w-3 h-3 rounded-full', statusInfo.color, row.original.is_online && 'animate-pulse')} />
-            </div>
+            <span
+              style={{
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: statusInfo.dotColor,
+              }}
+            />
           )
         },
-        size: 30,
+        size: 28,
       },
       ...(visibleColumns.username ? [{
         accessorKey: 'username',
         header: 'Username',
         cell: ({ row }) => (
-          <div>
-            <span className="inline-flex items-center gap-1">
-              <Link
-                to={`/subscribers/${row.original.id}`}
-                className="font-semibold text-primary-600 dark:text-cyan-400 hover:text-primary-800 dark:hover:text-cyan-300 hover:underline"
-                onClick={(e) => e.stopPropagation()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Link
+              to={`/subscribers/${row.original.id}`}
+              className="font-semibold text-[#316AC5] dark:text-[#05d1f5] hover:underline hover:text-[#1a4a7a] dark:hover:text-[#3cdffa]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {row.original.username}
+            </Link>
+            {row.original.is_online && hasPermission('subscribers.torch') && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setTorchModal(row.original)
+                  setTorchData(null)
+                  fetchTorchData(row.original)
+                }}
+                style={{ color: '#4CAF50', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                title="Live Traffic (Torch)"
               >
-                {row.original.username}
-              </Link>
-              {row.original.is_online && hasPermission('subscribers.torch') && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setTorchModal(row.original)
-                    setTorchData(null)
-                    fetchTorchData(row.original)
-                  }}
-                  className="text-green-500 hover:text-green-700"
-                  title="Live Traffic (Torch)"
-                >
-                  <SignalIcon className="w-4 h-4" />
-                </button>
-              )}
-              {row.original.latitude && row.original.longitude && parseFloat(row.original.latitude) !== 0 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setMapModal(row.original) }}
-                  className="text-blue-500 hover:text-blue-700"
-                  title="View Location on Map"
-                >
-                  <MapPinIcon className="w-4 h-4" />
-                </button>
-              )}
-              {row.original.fup_level > 0 && (
-                <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold text-white rounded whitespace-nowrap ${
-                  row.original.fup_level === 1 ? 'bg-yellow-500' :
-                  row.original.fup_level === 2 ? 'bg-orange-500' :
-                  'bg-red-600'
-                }`}>
-                  FUP{row.original.fup_level}
-                </span>
-              )}
-              {sortBy === 'daily_usage' && (() => {
-                const bytes = (row.original.daily_download_used || 0) + (row.original.daily_upload_used || 0)
-                const gb = bytes / 1073741824
-                const label = gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1048576).toFixed(0)} MB`
-                return <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 rounded whitespace-nowrap">↓ {label}</span>
-              })()}
-              {sortBy === 'monthly_usage' && (() => {
-                const bytes = (row.original.monthly_download_used || 0) + (row.original.monthly_upload_used || 0)
-                const gb = bytes / 1073741824
-                const label = gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1048576).toFixed(0)} MB`
-                return <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded whitespace-nowrap">↓ {label}</span>
-              })()}
-            </span>
+                <SignalIcon style={{ width: 14, height: 14 }} />
+              </button>
+            )}
+            {row.original.latitude && row.original.longitude && parseFloat(row.original.latitude) !== 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setMapModal(row.original) }}
+                style={{ color: '#2196F3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                title="View Location"
+              >
+                <MapPinIcon style={{ width: 14, height: 14 }} />
+              </button>
+            )}
+            {row.original.fup_level > 0 && (
+              <span className={`fup-badge-${Math.min(row.original.fup_level, 3)}`}>
+                FUP{row.original.fup_level}
+              </span>
+            )}
+            {sortBy === 'daily_usage' && (() => {
+              const bytes = (row.original.daily_download_used || 0) + (row.original.daily_upload_used || 0)
+              const gb = bytes / 1073741824
+              const label = gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1048576).toFixed(0)} MB`
+              return <span className="badge-cyan">{label}</span>
+            })()}
+            {sortBy === 'monthly_usage' && (() => {
+              const bytes = (row.original.monthly_download_used || 0) + (row.original.monthly_upload_used || 0)
+              const gb = bytes / 1073741824
+              const label = gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1048576).toFixed(0)} MB`
+              return <span className="badge-indigo">{label}</span>
+            })()}
           </div>
         ),
       }] : []),
@@ -738,8 +757,8 @@ export default function Subscribers() {
         accessorKey: 'mac_address',
         header: 'MAC',
         cell: ({ row }) => (
-          <div className="flex items-center gap-1">
-            <span className="font-mono text-xs">{row.original.mac_address || 'N/A'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>{row.original.mac_address || 'N/A'}</span>
             {row.original.mac_address && (
               <button
                 onClick={(e) => {
@@ -747,10 +766,10 @@ export default function Subscribers() {
                   setActionModal({ type: 'resetMac', subscriber: row.original })
                   setActionValue(row.original.mac_address)
                 }}
-                className="text-gray-400 hover:text-primary-600"
+                style={{ color: '#999', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 title="Reset MAC"
               >
-                <ArrowPathIcon className="w-3.5 h-3.5" />
+                <ArrowPathIcon style={{ width: 12, height: 12 }} />
               </button>
             )}
           </div>
@@ -760,10 +779,12 @@ export default function Subscribers() {
         accessorKey: 'ip_address',
         header: 'IP',
         cell: ({ row }) => (
-          <span className={clsx(
-            'font-mono text-xs',
-            row.original.is_online ? 'text-green-600 font-medium' : 'text-gray-500'
-          )}>
+          <span style={{
+            fontFamily: 'monospace',
+            fontSize: '10px',
+            color: row.original.is_online ? '#2e7d32' : '#999',
+            fontWeight: row.original.is_online ? 600 : 400
+          }}>
             {row.original.ip_address || row.original.static_ip || 'N/A'}
           </span>
         ),
@@ -773,34 +794,28 @@ export default function Subscribers() {
         header: 'Service',
         cell: ({ row }) => {
           const serviceName = row.original.service?.name || '-'
-          // If daily_quota column is visible, show only service name (progress bar is in daily_quota column)
           if (visibleColumns.daily_quota) {
-            return <div className="text-center font-medium">{serviceName}</div>
+            return <span style={{ fontWeight: 500 }}>{serviceName}</span>
           }
           const used = row.original.daily_quota_used || 0
-          const limit = row.original.service?.daily_quota || 0
-
-          if (limit === 0) {
-            return <div className="text-center font-medium">{serviceName}</div>
+          const svcLimit = row.original.service?.daily_quota || 0
+          if (svcLimit === 0) {
+            return <span style={{ fontWeight: 500 }}>{serviceName}</span>
           }
-
-          const percent = Math.min(100, (used / limit) * 100)
-          const usedFormatted = formatBytes(used)
-
+          const percent = Math.min(100, (used / svcLimit) * 100)
           return (
-            <div className="min-w-[120px]">
-              <div className="text-center font-medium text-sm">{serviceName}</div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mt-1 relative border border-gray-300 dark:border-gray-600">
+            <div style={{ minWidth: '90px' }}>
+              <div style={{ fontWeight: 500, fontSize: '10px', textAlign: 'center' }}>{serviceName}</div>
+              <div className="wb-usage-bar" style={{ marginTop: '2px' }}>
                 <div
-                  className={`h-full rounded-full transition-all ${
-                    percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
-                  }`}
-                  style={{ width: `${Math.min(100, percent)}%` }}
+                  className="wb-usage-bar-fill"
+                  style={{
+                    width: `${percent}%`,
+                    backgroundColor: percent >= 80 ? '#f44336' : percent >= 50 ? '#FF9800' : '#4CAF50',
+                  }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-800 dark:text-gray-200">
-                  {usedFormatted}
-                </span>
               </div>
+              <div style={{ fontSize: '9px', textAlign: 'center', color: '#666', marginTop: '1px' }}>{formatBytes(used)}</div>
             </div>
           )
         },
@@ -816,24 +831,31 @@ export default function Subscribers() {
               setFupLevel('')
               setPage(1)
             }}
-            className={`flex items-center gap-1 font-medium whitespace-nowrap ${sortBy === 'daily_usage' ? 'text-cyan-600 dark:text-cyan-400' : 'hover:text-cyan-600 dark:hover:text-cyan-400'}`}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              fontWeight: 600, fontSize: '10px', whiteSpace: 'nowrap',
+              color: sortBy === 'daily_usage' ? '#00838f' : 'inherit'
+            }}
           >
-            Top Daily {sortBy === 'daily_usage' ? '▼' : '↕'}
+            Top Daily {sortBy === 'daily_usage' ? '\u25BC' : '\u2195'}
           </button>
         ),
         cell: ({ row }) => {
           const used = (row.original.daily_download_used || 0) + (row.original.daily_upload_used || 0)
-          const limit = row.original.service?.daily_quota || 0
-          if (used === 0 && limit === 0) return <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>
-          const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
+          const svcLimit = row.original.service?.daily_quota || 0
+          if (used === 0 && svcLimit === 0) return <span style={{ color: '#bbb', fontSize: '9px' }}>&mdash;</span>
+          const percent = svcLimit > 0 ? Math.min(100, (used / svcLimit) * 100) : 0
           return (
-            <div className="min-w-[80px]">
-              <div className="text-xs font-medium text-center mb-0.5 text-cyan-700 dark:text-cyan-300">{formatBytes(used)}</div>
-              {limit > 0 && (
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div style={{ minWidth: '70px' }}>
+              <div style={{ fontSize: '9px', fontWeight: 600, textAlign: 'center', color: '#00838f', marginBottom: '2px' }}>{formatBytes(used)}</div>
+              {svcLimit > 0 && (
+                <div className="wb-usage-bar">
                   <div
-                    className={`h-full rounded-full ${percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'}`}
-                    style={{ width: `${percent}%` }}
+                    className="wb-usage-bar-fill"
+                    style={{
+                      width: `${percent}%`,
+                      backgroundColor: percent >= 80 ? '#f44336' : percent >= 50 ? '#FF9800' : '#4CAF50',
+                    }}
                   />
                 </div>
               )}
@@ -846,15 +868,13 @@ export default function Subscribers() {
         header: 'Reseller',
         cell: ({ row }) => {
           const reseller = row.original.reseller
-          if (!reseller) return <span className="text-gray-400 dark:text-gray-500 text-xs">-</span>
+          if (!reseller) return <span style={{ color: '#bbb' }}>-</span>
           return (
-            <div className="text-xs">
-              <div className="font-medium text-gray-900 dark:text-white">
-                {reseller.user?.username || reseller.name}
-              </div>
+            <div style={{ fontSize: '10px' }}>
+              <div style={{ fontWeight: 500 }}>{reseller.user?.username || reseller.name}</div>
               {reseller.parent && (
-                <div className="text-gray-500 dark:text-gray-400 text-[10px]">
-                  ↳ Sub of: {reseller.parent.user?.username || reseller.parent.name}
+                <div style={{ color: '#999', fontSize: '9px' }}>
+                  Sub: {reseller.parent.user?.username || reseller.parent.name}
                 </div>
               )}
             </div>
@@ -867,7 +887,7 @@ export default function Subscribers() {
         cell: ({ row }) => {
           const statusInfo = getStatusDisplay(row.original)
           return (
-            <span className={clsx('text-xs font-medium', statusInfo.textColor)}>
+            <span style={{ fontSize: '10px', fontWeight: 500, color: statusInfo.textColor }}>
               {statusInfo.text}
             </span>
           )
@@ -883,10 +903,10 @@ export default function Subscribers() {
           const daysLeft = Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24))
           return (
             <div>
-              <div className={clsx(isExpired ? 'text-red-600' : 'text-gray-900 dark:text-white', 'text-sm')}>
+              <div style={{ fontSize: '10px', color: isExpired ? '#c62828' : '#333' }}>
                 {formatDate(row.original.expiry_date)}
               </div>
-              <div className={clsx('text-xs', isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400')}>
+              <div style={{ fontSize: '9px', color: isExpired ? '#e53935' : '#999' }}>
                 {isExpired ? `${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
               </div>
             </div>
@@ -898,10 +918,10 @@ export default function Subscribers() {
         header: 'Last Seen',
         cell: ({ row }) => {
           if (row.original.is_online) {
-            return <span className="text-green-600 dark:text-green-400 text-xs font-medium">Online Now</span>
+            return <span style={{ color: '#2e7d32', fontSize: '10px', fontWeight: 600 }}>Online Now</span>
           }
           if (!row.original.last_seen) {
-            return <span className="text-gray-400 dark:text-gray-500 text-xs">Never</span>
+            return <span style={{ color: '#bbb', fontSize: '10px' }}>Never</span>
           }
           const lastSeen = new Date(row.original.last_seen)
           const now = new Date()
@@ -917,11 +937,7 @@ export default function Subscribers() {
           else if (diffDays < 30) timeAgo = `${diffDays}d ago`
           else timeAgo = formatDate(row.original.last_seen)
 
-          return (
-            <div className="text-xs">
-              <div className="text-gray-600 dark:text-gray-300">{timeAgo}</div>
-            </div>
-          )
+          return <span style={{ fontSize: '10px', color: '#666' }}>{timeAgo}</span>
         },
       }] : []),
       ...(visibleColumns.monthly_quota ? [{
@@ -929,24 +945,20 @@ export default function Subscribers() {
         header: 'Monthly',
         cell: ({ row }) => {
           const used = row.original.monthly_quota_used || 0
-          const limit = row.original.service?.monthly_quota || 0
-
-          if (limit === 0) return <span className="text-gray-400 dark:text-gray-500 text-xs">Unlimited</span>
-          const percent = Math.min(100, (used / limit) * 100)
-          const usedFormatted = formatBytes(used)
-
+          const svcLimit = row.original.service?.monthly_quota || 0
+          if (svcLimit === 0) return <span style={{ color: '#bbb', fontSize: '9px' }}>Unlimited</span>
+          const percent = Math.min(100, (used / svcLimit) * 100)
           return (
-            <div className="min-w-[80px]">
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 relative border border-gray-300 dark:border-gray-600">
+            <div style={{ minWidth: '70px' }}>
+              <div style={{ fontSize: '9px', fontWeight: 500, textAlign: 'center', marginBottom: '2px' }}>{formatBytes(used)}</div>
+              <div className="wb-usage-bar">
                 <div
-                  className={`h-full rounded-full ${
-                    percent >= 100 ? 'bg-red-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-teal-500'
-                  }`}
-                  style={{ width: `${Math.min(100, percent)}%` }}
+                  className="wb-usage-bar-fill"
+                  style={{
+                    width: `${percent}%`,
+                    backgroundColor: percent >= 80 ? '#f44336' : percent >= 50 ? '#FF9800' : '#4CAF50',
+                  }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-gray-800 dark:text-gray-200">
-                  {usedFormatted}
-                </span>
               </div>
             </div>
           )
@@ -959,11 +971,9 @@ export default function Subscribers() {
           const sub = row.original
           const price = sub.override_price ? sub.price : sub.service?.price
           return (
-            <span className="font-medium">
+            <span style={{ fontWeight: 500 }}>
               ${(price || 0).toFixed(2)}
-              {sub.override_price && (
-                <span className="ml-1 text-xs text-orange-500" title="Custom price">★</span>
-              )}
+              {sub.override_price && <span style={{ color: '#FF9800', marginLeft: '2px', fontSize: '10px' }} title="Custom price">*</span>}
             </span>
           )
         },
@@ -972,7 +982,7 @@ export default function Subscribers() {
         accessorKey: 'credit_balance',
         header: 'Balance',
         cell: ({ row }) => (
-          <span className="font-medium">${(row.original.credit_balance || 0).toFixed(2)}</span>
+          <span style={{ fontWeight: 500 }}>${(row.original.credit_balance || 0).toFixed(2)}</span>
         ),
       }] : []),
       ...(visibleColumns.address ? [{
@@ -991,7 +1001,7 @@ export default function Subscribers() {
         accessorKey: 'note',
         header: 'Notes',
         cell: ({ row }) => (
-          <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[150px] block" title={row.original.note}>
+          <span style={{ fontSize: '10px', color: '#666', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }} title={row.original.note}>
             {row.original.note || '-'}
           </span>
         ),
@@ -1000,7 +1010,7 @@ export default function Subscribers() {
         accessorKey: 'created_at',
         header: 'Created At',
         cell: ({ row }) => (
-          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          <span style={{ fontSize: '10px', color: '#666', whiteSpace: 'nowrap' }}>
             {row.original.created_at ? formatDate(row.original.created_at) : '-'}
           </span>
         ),
@@ -1011,7 +1021,7 @@ export default function Subscribers() {
         cell: ({ row }) => formatDate(row.original.deleted_at),
       }] : []),
     ],
-    [viewMode, visibleColumns, sortBy, page, limit]
+    [viewMode, visibleColumns, sortBy, page, limit, selectedIds, allSelected]
   )
 
   const table = useReactTable({
@@ -1028,503 +1038,350 @@ export default function Subscribers() {
   const totalPages = Math.ceil((data?.meta?.total || 0) / limit)
   const stats = data?.stats || {}
 
-  // Check if all visible rows are selected
-  const allSelected = (data?.data || []).length > 0 && selectedIds.size === (data?.data || []).length
-
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Subscribers</h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleExport}
-            className="btn btn-secondary btn-sm flex items-center gap-1"
-            title="Export"
-          >
-            <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
-          {hasPermission('subscribers.create') && (
-            <button
-              onClick={() => setShowBulkImport(true)}
-              className="btn btn-secondary btn-sm flex items-center gap-1"
-              title="Import CSV"
-            >
-              <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Import CSV</span>
-            </button>
-          )}
-          {hasPermission('subscribers.create') && (
-            <Link
-              to="/subscribers/import"
-              className="btn btn-secondary btn-sm flex items-center gap-1"
-              title="Import Excel"
-            >
-              <DocumentArrowUpIcon className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Import Excel</span>
-            </Link>
-          )}
-          <button
-            onClick={() => refetch()}
-            className="btn btn-secondary btn-sm flex items-center gap-1"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="w-3.5 h-3.5" />
-          </button>
-          {hasPermission('subscribers.create') && (
-            <Link to="/subscribers/new" className="btn btn-primary btn-sm flex items-center gap-1">
-              <PlusIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Add</span>
-            </Link>
-          )}
-        </div>
+    <div>
+      {/* === Tabs: Active / Archived === */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', marginBottom: '-1px', position: 'relative', zIndex: 1 }}>
+        <button
+          onClick={() => { setViewMode('active'); setPage(1); clearSelection(); }}
+          className={viewMode === 'active' ? 'wb-tab active' : 'wb-tab'}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => { setViewMode('archived'); setPage(1); clearSelection(); }}
+          className={viewMode === 'archived' ? 'wb-tab active' : 'wb-tab'}
+          style={{ display: 'flex', alignItems: 'center', gap: '3px' }}
+        >
+          <ArchiveBoxIcon style={{ width: 12, height: 12 }} />
+          Archived
+        </button>
       </div>
 
-      {/* Stats Bar - Scrollable on mobile */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border text-sm overflow-x-auto">
-        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'online' && 'bg-green-100 dark:bg-green-900/40 ring-1 ring-green-400')} onClick={() => { setStatus(status === 'online' ? '' : 'online'); setPage(1); }}>
-          <span className="w-2 h-2 rounded-full bg-green-500"></span>
-          <span className="font-semibold text-green-600">{stats.online || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400">Online</span>
-        </div>
-        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'offline' && 'bg-red-100 dark:bg-red-900/40 ring-1 ring-red-400')} onClick={() => { setStatus(status === 'offline' ? '' : 'offline'); setPage(1); }}>
-          <span className="w-2 h-2 rounded-full bg-red-500"></span>
-          <span className="font-semibold text-red-600">{stats.offline || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400">Offline</span>
-        </div>
-        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'active' && 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-400')} onClick={() => { setStatus(status === 'active' ? '' : 'active'); setPage(1); }}>
-          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-          <span className="font-semibold text-blue-600">{stats.active || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400">Active</span>
-        </div>
-        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'inactive' && 'bg-gray-200 dark:bg-gray-600 ring-1 ring-gray-400')} onClick={() => { setStatus(status === 'inactive' ? '' : 'inactive'); setPage(1); }}>
-          <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-          <span className="font-semibold text-gray-600 dark:text-gray-400">{stats.inactive || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400">Inactive</span>
-        </div>
-        <div className={clsx("flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded", status === 'expired' && 'bg-yellow-100 dark:bg-yellow-900/40 ring-1 ring-yellow-400')} onClick={() => { setStatus(status === 'expired' ? '' : 'expired'); setPage(1); }}>
-          <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-          <span className="font-semibold text-yellow-600">{stats.expired || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400">Expired</span>
-        </div>
-        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-2"></div>
-        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('1'); setPage(1); }}>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP1:</span>
-          <span className="font-semibold text-amber-600">{stats.fup1 || 0}</span>
-        </div>
-        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('2'); setPage(1); }}>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP2:</span>
-          <span className="font-semibold text-orange-600">{stats.fup2 || 0}</span>
-        </div>
-        <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('3'); setPage(1); }}>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP3:</span>
-          <span className="font-semibold text-red-600">{stats.fup3 || 0}</span>
-        </div>
-        {stats.fup4 > 0 && (
-          <div className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded" onClick={() => { setFupLevel('4'); setPage(1); }}>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">FUP4:</span>
-            <span className="font-semibold text-purple-600">{stats.fup4 || 0}</span>
+      {/* === Main panel === */}
+      <div className="card" style={{ borderTop: '1px solid #a0a0a0' }}>
+
+        {/* === Stats Row === */}
+        <div className="flex items-center gap-3 px-2 py-1 border-b border-[#ccc] dark:border-[#374151] bg-[#f8f8f8] dark:bg-[#1f2937] flex-wrap text-[11px]">
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${status === 'online' ? 'bg-[#e8f5e9] dark:bg-green-900/40' : ''}`}
+            onClick={() => { setStatus(status === 'online' ? '' : 'online'); setPage(1); }}
+          >
+            <span className="wb-status-dot" style={{ backgroundColor: '#4CAF50' }} />
+            <strong className="text-[#2e7d32] dark:text-green-400">{stats.online || 0}</strong>
+            <span className="text-[#666] dark:text-gray-400">Online</span>
           </div>
-        )}
-
-        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0"></div>
-
-        {/* Monthly FUP */}
-        <div
-          className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', monthlyFup && 'bg-pink-100 dark:bg-pink-900/40 ring-1 ring-pink-400')}
-          onClick={() => { setMonthlyFup(!monthlyFup); setFupLevel(''); setSortBy(''); setPage(1); }}
-        >
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Monthly FUP:</span>
-          <span className="font-semibold text-pink-600">{stats.monthly_fup || 0}</span>
-        </div>
-
-        {/* Top Daily */}
-        <div
-          className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', sortBy === 'daily_usage' && 'bg-cyan-100 dark:bg-cyan-900/40 ring-1 ring-cyan-400')}
-          onClick={() => { setSortBy(sortBy === 'daily_usage' ? '' : 'daily_usage'); setSorting([]); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
-        >
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Top Daily</span>
-          {sortBy === 'daily_usage' && <span className="text-cyan-600 text-xs">▼</span>}
-        </div>
-
-        {/* Top Monthly */}
-        <div
-          className={clsx('flex items-center gap-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded flex-shrink-0', sortBy === 'monthly_usage' && 'bg-indigo-100 dark:bg-indigo-900/40 ring-1 ring-indigo-400')}
-          onClick={() => { setSortBy(sortBy === 'monthly_usage' ? '' : 'monthly_usage'); setSorting([]); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
-        >
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Top Monthly</span>
-          {sortBy === 'monthly_usage' && <span className="text-indigo-600 text-xs">▼</span>}
-        </div>
-
-        <div className="flex items-center gap-1.5 ml-auto">
-          <span className="font-semibold text-gray-700 dark:text-gray-300">{data?.meta?.total || 0}</span>
-          <span className="text-gray-500 dark:text-gray-400">Total</span>
-        </div>
-      </div>
-
-      {/* Search, Filters & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-        {/* View Mode Tabs */}
-        <div className="flex rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 p-0.5 shrink-0">
-          <button
-            onClick={() => { setViewMode('active'); setPage(1); clearSelection(); }}
-            className={clsx(
-              'px-3 py-1 text-sm font-medium rounded-md transition-colors',
-              viewMode === 'active'
-                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            )}
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${status === 'offline' ? 'bg-[#ffebee] dark:bg-red-900/40' : ''}`}
+            onClick={() => { setStatus(status === 'offline' ? '' : 'offline'); setPage(1); }}
           >
-            Active
-          </button>
-          <button
-            onClick={() => { setViewMode('archived'); setPage(1); clearSelection(); }}
-            className={clsx(
-              'px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-1',
-              viewMode === 'archived'
-                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            )}
-          >
-            <ArchiveBoxIcon className="w-3.5 h-3.5" />
-            Archived
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="flex-1 relative min-w-0">
-          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            className="input input-sm pl-8 w-full"
-          />
-        </div>
-
-        {viewMode === 'active' && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value)
-                setPage(1)
-              }}
-              className="input input-sm w-28 sm:w-32"
-            >
-              {statusFilters.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={clsx(
-                'btn btn-secondary btn-sm flex items-center gap-1',
-                showFilters && 'bg-primary-50 text-primary-600'
-              )}
-            >
-              <FunnelIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Filters</span>
-            </button>
-            <button
-              onClick={() => setShowColumnSettings(!showColumnSettings)}
-              className={clsx(
-                'btn btn-secondary btn-sm flex items-center gap-1',
-                showColumnSettings && 'bg-primary-50 text-primary-600'
-              )}
-            >
-              <EyeIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Columns</span>
-            </button>
+            <span className="wb-status-dot" style={{ backgroundColor: '#f44336' }} />
+            <strong className="text-[#c62828] dark:text-red-400">{stats.offline || 0}</strong>
+            <span className="text-[#666] dark:text-gray-400">Offline</span>
           </div>
-        )}
-      </div>
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${status === 'expired' ? 'bg-[#fff3e0] dark:bg-orange-900/40' : ''}`}
+            onClick={() => { setStatus(status === 'expired' ? '' : 'expired'); setPage(1); }}
+          >
+            <span className="wb-status-dot" style={{ backgroundColor: '#FF9800' }} />
+            <strong className="text-[#e65100] dark:text-orange-400">{stats.expired || 0}</strong>
+            <span className="text-[#666] dark:text-gray-400">Expired</span>
+          </div>
 
-      {/* Expandable Filter/Column panels */}
-      {(showFilters || showColumnSettings) && (
-        <div className="card p-3">
-          {showColumnSettings && (
-            <div>
-              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Visible Columns</div>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.entries(visibleColumns).map(([key, visible]) => (
-                  <label key={key} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 text-xs dark:text-gray-200">
-                    <input
-                      type="checkbox"
-                      checked={visible}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, [key]: e.target.checked })}
-                      className="rounded border-gray-300 dark:border-gray-600 w-3 h-3"
-                    />
-                    <span className="capitalize">{key.replace('_', ' ')}</span>
-                  </label>
-                ))}
-              </div>
+          <span className="w-px h-3.5 bg-[#ccc] dark:bg-[#4b5563]" />
+
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${fupLevel === '1' ? 'bg-[#e3f2fd] dark:bg-blue-900/40' : ''}`}
+            onClick={() => { setFupLevel(fupLevel === '1' ? '' : '1'); setPage(1); }}
+          >
+            <span className="fup-badge-1">FUP1</span>
+            <strong className="text-[#1565c0] dark:text-blue-400">{stats.fup1 || 0}</strong>
+          </div>
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${fupLevel === '2' ? 'bg-[#fff3e0] dark:bg-orange-900/40' : ''}`}
+            onClick={() => { setFupLevel(fupLevel === '2' ? '' : '2'); setPage(1); }}
+          >
+            <span className="fup-badge-2">FUP2</span>
+            <strong className="text-[#e65100] dark:text-orange-400">{stats.fup2 || 0}</strong>
+          </div>
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${fupLevel === '3' ? 'bg-[#ffebee] dark:bg-red-900/40' : ''}`}
+            onClick={() => { setFupLevel(fupLevel === '3' ? '' : '3'); setPage(1); }}
+          >
+            <span className="fup-badge-3">FUP3</span>
+            <strong className="text-[#c62828] dark:text-red-400">{stats.fup3 || 0}</strong>
+          </div>
+          {stats.fup4 > 0 && (
+            <div
+              className="flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm"
+              onClick={() => { setFupLevel('4'); setPage(1); }}
+            >
+              <span className="badge-purple">FUP4</span>
+              <strong className="text-[#6a1b9a] dark:text-purple-400">{stats.fup4 || 0}</strong>
             </div>
           )}
 
-          {showFilters && viewMode === 'active' && (
-            <div className={showColumnSettings ? 'mt-3 pt-3 border-t dark:border-gray-700' : ''}>
-              <div className="grid grid-cols-2 sm:flex sm:items-end gap-2 sm:gap-3">
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Service</label>
-                  <select
-                    value={serviceId}
-                    onChange={(e) => { setServiceId(e.target.value); setPage(1); }}
-                    className="input input-sm w-full sm:w-40"
-                  >
-                    <option value="">All Services</option>
-                    {services?.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">NAS</label>
-                  <select
-                    value={nasId}
-                    onChange={(e) => { setNasId(e.target.value); setPage(1); }}
-                    className="input input-sm w-full sm:w-40"
-                  >
-                    <option value="">All NAS</option>
-                    {nasList?.map((n) => (
-                      <option key={n.id} value={n.id}>{n.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Reseller</label>
-                  <select
-                    value={resellerId}
-                    onChange={(e) => { setResellerId(e.target.value); setPage(1); }}
-                    className="input input-sm w-full sm:w-40"
-                  >
-                    <option value="">All Resellers</option>
-                    {resellers?.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">FUP Level</label>
-                  <select
-                    value={fupLevel}
-                    onChange={(e) => { setFupLevel(e.target.value); setPage(1); }}
-                    className="input input-sm w-full sm:w-32"
-                  >
-                    <option value="">All FUP</option>
-                    <option value="0">FUP 0 (Normal)</option>
-                    <option value="1">FUP 1</option>
-                    <option value="2">FUP 2</option>
-                    <option value="3">FUP 3</option>
-                    <option value="4">FUP 4</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Per Page</label>
-                  <select
-                    value={limit}
-                    onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
-                    className="input input-sm w-full sm:w-20"
-                  >
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
-                </div>
-                <button
-                  onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setResellerId(''); setFupLevel(''); setPage(1); }}
-                  className="btn btn-secondary btn-sm col-span-2 sm:col-span-1"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+          <span className="w-px h-3.5 bg-[#ccc] dark:bg-[#4b5563]" />
 
-      {/* ACTION BUTTONS TOOLBAR - Proradius4 style */}
-      <div className="card p-2 sticky top-0 z-30 shadow-sm">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* Select All Button */}
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${monthlyFup ? 'bg-[#fce4ec] dark:bg-pink-900/40' : ''}`}
+            onClick={() => { setMonthlyFup(!monthlyFup); setFupLevel(''); setSortBy(''); setPage(1); }}
+          >
+            <span className="text-[10px] text-[#666] dark:text-gray-400">Monthly FUP:</span>
+            <strong className="text-[#c2185b] dark:text-pink-400">{stats.monthly_fup || 0}</strong>
+          </div>
+
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${sortBy === 'daily_usage' ? 'bg-[#e0f7fa] dark:bg-cyan-900/40' : ''}`}
+            onClick={() => { setSortBy(sortBy === 'daily_usage' ? '' : 'daily_usage'); setSorting([]); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
+          >
+            <span className="text-[10px] text-[#666] dark:text-gray-400">Top Daily</span>
+            {sortBy === 'daily_usage' && <span className="text-[#00838f] dark:text-cyan-400 text-[10px]">{'\u25BC'}</span>}
+          </div>
+
+          <div
+            className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${sortBy === 'monthly_usage' ? 'bg-[#e8eaf6] dark:bg-indigo-900/40' : ''}`}
+            onClick={() => { setSortBy(sortBy === 'monthly_usage' ? '' : 'monthly_usage'); setSorting([]); setMonthlyFup(false); setFupLevel(''); setPage(1); }}
+          >
+            <span className="text-[10px] text-[#666] dark:text-gray-400">Top Monthly</span>
+            {sortBy === 'monthly_usage' && <span className="text-[#283593] dark:text-indigo-400 text-[10px]">{'\u25BC'}</span>}
+          </div>
+
+          <div className="ml-auto flex items-center gap-1">
+            <strong className="text-[#333] dark:text-gray-200">{data?.meta?.total || 0}</strong>
+            <span className="text-[#666] dark:text-gray-400">Total</span>
+          </div>
+        </div>
+
+        {/* === Toolbar === */}
+        <div className="wb-toolbar" style={{ flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 20 }}>
+          {/* Select All */}
           <button
             onClick={selectAll}
-            className={clsx(
-              'btn btn-sm flex items-center gap-1',
-              allSelected ? 'btn-primary' : 'btn-secondary'
-            )}
+            className={allSelected ? 'btn btn-primary btn-sm' : 'btn btn-sm'}
             title={allSelected ? 'Deselect All' : 'Select All'}
           >
-            <Squares2X2Icon className="w-4 h-4" />
-            <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
+            <Squares2X2Icon style={{ width: 14, height: 14, marginRight: 2 }} />
+            <span className="hide-mobile">{allSelected ? 'Deselect' : 'Select All'}</span>
           </button>
 
-          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
+          <span className="wb-toolbar-separator hide-mobile" />
 
-          {/* Bulk Action Buttons - disabled when nothing selected */}
           {hasPermission('subscribers.renew') && (
-            <button
-              onClick={() => executeBulkAction('renew')}
-              disabled={selectedCount === 0}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Renew"
-            >
-              <ClockIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Renew</span>
+            <button onClick={() => executeBulkAction('renew')} disabled={selectedCount === 0} className="btn btn-sm" title="Renew">
+              <ClockIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Renew</span>
             </button>
           )}
-
-          {hasPermission('subscribers.reset_fup') && (
-            <button
-              onClick={() => executeBulkAction('reset_fup')}
-              disabled={selectedCount === 0}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Reset FUP"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Reset FUP</span>
-            </button>
-          )}
-
           {hasPermission('subscribers.inactivate') && (
-            <button
-              onClick={() => executeBulkAction('enable')}
-              disabled={selectedCount === 0}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Activate"
-            >
-              <PlayIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Activate</span>
+            <button onClick={() => executeBulkAction('enable')} disabled={selectedCount === 0} className="btn btn-sm" title="Activate">
+              <PlayIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Activate</span>
             </button>
           )}
-
           {hasPermission('subscribers.inactivate') && (
-            <button
-              onClick={() => executeBulkAction('disable')}
-              disabled={selectedCount === 0}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Deactivate"
-            >
-              <PauseIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Deactivate</span>
+            <button onClick={() => executeBulkAction('disable')} disabled={selectedCount === 0} className="btn btn-sm" title="Deactivate">
+              <PauseIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Deactivate</span>
             </button>
           )}
-
           {hasPermission('subscribers.disconnect') && (
-            <button
-              onClick={() => executeBulkAction('disconnect')}
-              disabled={selectedCount === 0}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Disconnect"
-            >
-              <XCircleIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Disconnect</span>
+            <button onClick={() => executeBulkAction('disconnect')} disabled={selectedCount === 0} className="btn btn-sm" title="Disconnect">
+              <XCircleIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Disconnect</span>
+            </button>
+          )}
+          {hasPermission('subscribers.reset_fup') && (
+            <button onClick={() => executeBulkAction('reset_fup')} disabled={selectedCount === 0} className="btn btn-sm" title="Reset FUP">
+              <ArrowPathIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Reset FUP</span>
             </button>
           )}
 
-          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
+          <span className="wb-toolbar-separator hide-mobile" />
 
-          {/* Single-select only buttons */}
           {hasPermission('subscribers.rename') && (
-            <button
-              onClick={() => executeAction('rename')}
-              disabled={selectedCount !== 1}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Rename"
-            >
-              <IdentificationIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Rename</span>
+            <button onClick={() => executeAction('rename')} disabled={selectedCount !== 1} className="btn btn-sm" title="Rename">
+              <IdentificationIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Rename</span>
             </button>
           )}
-
           {hasPermission('subscribers.add_days') && (
-            <button
-              onClick={() => executeAction('add_days')}
-              disabled={selectedCount !== 1}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Add Days"
-            >
-              <CalendarDaysIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Days</span>
+            <button onClick={() => executeAction('add_days')} disabled={selectedCount !== 1} className="btn btn-sm" title="Add Days">
+              <CalendarDaysIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Add Days</span>
             </button>
           )}
-
-          {hasPermission('subscribers.change_service') && (
-            <button
-              onClick={() => executeAction('change_service')}
-              disabled={selectedCount !== 1}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Change Service"
-            >
-              <ArrowsRightLeftIcon className="w-4 h-4" />
-              <span className="hidden md:inline">Change Service</span>
-            </button>
-          )}
-
-          {hasPermission('subscribers.refill_quota') && (
-            <button
-              onClick={() => executeAction('refill')}
-              disabled={selectedCount !== 1}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Refill"
-            >
-              <BanknotesIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Refill</span>
-            </button>
-          )}
-
           {hasPermission('subscribers.ping') && (
-            <button
-              onClick={() => executeAction('ping')}
-              disabled={selectedCount !== 1}
-              className="btn btn-secondary btn-sm flex items-center gap-1 disabled:opacity-40"
-              title="Ping"
-            >
-              <WifiIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Ping</span>
+            <button onClick={() => executeAction('ping')} disabled={selectedCount !== 1} className="btn btn-sm" title="Ping">
+              <WifiIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Ping</span>
             </button>
           )}
 
-          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block" />
+          <span className="wb-toolbar-separator hide-mobile" />
 
           {hasPermission('subscribers.delete') && (
-            <button
-              onClick={() => executeBulkAction('delete')}
-              disabled={selectedCount === 0}
-              className="btn btn-sm flex items-center gap-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 border-red-200 dark:border-red-800 disabled:opacity-40"
-              title="Delete"
-            >
-              <TrashIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete</span>
+            <button onClick={() => executeBulkAction('delete')} disabled={selectedCount === 0} className="btn btn-danger btn-sm" title="Delete">
+              <TrashIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+              <span className="hide-mobile">Delete</span>
             </button>
           )}
 
-          {/* Selection counter */}
-          {selectedCount > 0 && (
-            <div className="ml-auto flex items-center gap-2 text-sm">
-              <span className="font-semibold text-primary-600">{selectedCount}</span>
-              <button
-                onClick={clearSelection}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              >
-                <XMarkIcon className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+          {/* Right side: search + status + buttons */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+            {selectedCount > 0 && (
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#316AC5', marginRight: '4px' }}>
+                {selectedCount} selected
+                <button onClick={clearSelection} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', marginLeft: '3px' }}>
+                  <XMarkIcon style={{ width: 12, height: 12 }} />
+                </button>
+              </span>
+            )}
 
-      {/* Table */}
-      <div className="card">
-        <div className="overflow-x-auto">
+            {viewMode === 'active' && (
+              <select
+                value={status}
+                onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+                className="input input-sm"
+                style={{ width: '110px' }}
+              >
+                {statusFilters.map((f) => (
+                  <option key={f.value} value={f.value}>{f.label}</option>
+                ))}
+              </select>
+            )}
+
+            <div style={{ position: 'relative' }}>
+              <MagnifyingGlassIcon style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#999' }} />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                className="input input-sm"
+                style={{ paddingLeft: '20px', width: '140px' }}
+              />
+            </div>
+
+            {viewMode === 'active' && (
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={showFilters ? 'btn btn-primary btn-sm' : 'btn btn-sm'}
+                title="Filters"
+              >
+                <FunnelIcon style={{ width: 13, height: 13 }} />
+              </button>
+            )}
+            <button
+              onClick={() => setShowColumnSettings(!showColumnSettings)}
+              className={showColumnSettings ? 'btn btn-primary btn-sm' : 'btn btn-sm'}
+              title="Columns"
+            >
+              <EyeIcon style={{ width: 13, height: 13 }} />
+            </button>
+            <button onClick={() => refetch()} className="btn btn-sm" title="Refresh">
+              <ArrowPathIcon style={{ width: 13, height: 13 }} />
+            </button>
+            <button onClick={handleExport} className="btn btn-sm" title="Export CSV">
+              <ArrowDownTrayIcon style={{ width: 13, height: 13 }} />
+            </button>
+            {hasPermission('subscribers.create') && (
+              <button onClick={() => setShowBulkImport(true)} className="btn btn-sm" title="Import CSV">
+                <ArrowUpTrayIcon style={{ width: 13, height: 13 }} />
+              </button>
+            )}
+            {hasPermission('subscribers.create') && (
+              <Link to="/subscribers/new" className="btn btn-primary btn-sm" title="Add Subscriber">
+                <PlusIcon style={{ width: 13, height: 13, marginRight: 2 }} />
+                <span className="hide-mobile">Add</span>
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* === Filter / Column panels === */}
+        {(showFilters || showColumnSettings) && (
+          <div className="px-2 py-1.5 border-b border-[#ccc] dark:border-[#374151] bg-[#f4f4f4] dark:bg-[#1f2937]">
+            {showColumnSettings && (
+              <div>
+                <div className="text-[10px] font-semibold text-[#666] dark:text-gray-400 mb-1">Visible Columns</div>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(visibleColumns).map(([key, visible]) => (
+                    <label key={key} className={clsx(
+                      'flex items-center gap-1 px-1.5 py-0.5 border rounded-sm text-[10px] cursor-pointer',
+                      visible
+                        ? 'bg-[#e3f2fd] dark:bg-blue-900/40 border-[#ccc] dark:border-blue-700'
+                        : 'bg-[#f5f5f5] dark:bg-[#374151] border-[#ccc] dark:border-[#4b5563]'
+                    )}>
+                      <input
+                        type="checkbox"
+                        checked={visible}
+                        onChange={(e) => setVisibleColumns({ ...visibleColumns, [key]: e.target.checked })}
+                        className="w-[11px] h-[11px]"
+                      />
+                      <span className="capitalize dark:text-gray-300">{key.replace('_', ' ')}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {showFilters && viewMode === 'active' && (
+              <div className={showColumnSettings ? 'mt-2 pt-2 border-t border-[#ccc] dark:border-[#374151]' : ''}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={{ fontSize: '10px', color: '#666', display: 'block' }}>Service</label>
+                    <select value={serviceId} onChange={(e) => { setServiceId(e.target.value); setPage(1); }} className="input input-sm" style={{ width: '130px' }}>
+                      <option value="">All Services</option>
+                      {services?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', color: '#666', display: 'block' }}>NAS</label>
+                    <select value={nasId} onChange={(e) => { setNasId(e.target.value); setPage(1); }} className="input input-sm" style={{ width: '130px' }}>
+                      <option value="">All NAS</option>
+                      {nasList?.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', color: '#666', display: 'block' }}>Reseller</label>
+                    <select value={resellerId} onChange={(e) => { setResellerId(e.target.value); setPage(1); }} className="input input-sm" style={{ width: '130px' }}>
+                      <option value="">All Resellers</option>
+                      {resellers?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', color: '#666', display: 'block' }}>FUP Level</label>
+                    <select value={fupLevel} onChange={(e) => { setFupLevel(e.target.value); setPage(1); }} className="input input-sm" style={{ width: '100px' }}>
+                      <option value="">All FUP</option>
+                      <option value="0">FUP 0</option>
+                      <option value="1">FUP 1</option>
+                      <option value="2">FUP 2</option>
+                      <option value="3">FUP 3</option>
+                      <option value="4">FUP 4</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', color: '#666', display: 'block' }}>Per Page</label>
+                    <select value={limit} onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }} className="input input-sm" style={{ width: '65px' }}>
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                  </div>
+                  <button onClick={() => { setSearch(''); setStatus(''); setServiceId(''); setNasId(''); setResellerId(''); setFupLevel(''); setPage(1); }} className="btn btn-sm">
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* === Table === */}
+        <div className="table-container" style={{ border: 'none' }}>
           <table className="table table-compact">
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -1533,30 +1390,28 @@ export default function Subscribers() {
                     <th
                       key={header.id}
                       onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                      className={clsx(header.column.getCanSort() && 'cursor-pointer select-none', 'text-center')}
+                      style={{ cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
                     >
-                      <div className="flex items-center justify-center gap-1">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() === 'asc' && ' ▲'}
-                        {header.column.getIsSorted() === 'desc' && ' ▼'}
+                        {header.column.getIsSorted() === 'asc' && ' \u25B2'}
+                        {header.column.getIsSorted() === 'desc' && ' \u25BC'}
                       </div>
                     </th>
                   ))}
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                    </div>
+                  <td colSpan={columns.length} style={{ textAlign: 'center', padding: '20px' }}>
+                    Loading...
                   </td>
                 </tr>
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                  <td colSpan={columns.length} style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
                     {viewMode === 'archived' ? 'No archived subscribers' : 'No subscribers found'}
                   </td>
                 </tr>
@@ -1566,16 +1421,12 @@ export default function Subscribers() {
                   return (
                     <tr
                       key={row.id}
-                      className={clsx(
-                        'cursor-pointer transition-colors',
-                        isSelected
-                          ? 'bg-red-300 dark:bg-red-900/60 border-l-4 border-l-red-700 dark:border-l-red-500 dark:text-white'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      )}
+                      className={isSelected ? 'selected' : ''}
+                      style={{ cursor: 'pointer' }}
                       onClick={() => toggleRowSelection(row.original.id)}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="text-center">
+                        <td key={cell.id}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -1587,65 +1438,53 @@ export default function Subscribers() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-2 border-t text-xs">
-          <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+        {/* === Status Bar / Pagination === */}
+        <div className="wb-statusbar">
+          <span>
             {((page - 1) * limit) + 1}-{Math.min(page * limit, data?.meta?.total || 0)} of {data?.meta?.total || 0}
           </span>
-          <div className="flex items-center gap-1">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              className="btn btn-xs"
             >
-              <ChevronLeftIcon className="w-4 h-4" />
+              <ChevronLeftIcon style={{ width: 12, height: 12 }} />
             </button>
-            <span className="px-2 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-              {page}/{totalPages || 1}
-            </span>
+            <span style={{ fontSize: '11px', padding: '0 4px' }}>{page}/{totalPages || 1}</span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              className="btn btn-xs"
             >
-              <ChevronRightIcon className="w-4 h-4" />
+              <ChevronRightIcon style={{ width: 12, height: 12 }} />
             </button>
           </div>
         </div>
       </div>
+
+      {/* ===================== MODALS ===================== */}
 
       {/* Reset MAC Modal */}
       {actionModal?.type === 'resetMac' && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h3 className="text-lg font-semibold">Reset MAC Address</h3>
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-sm">
-                <XMarkIcon className="w-5 h-5" />
+              <span>Reset MAC Address</span>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="modal-body space-y-4">
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current MAC: <code className="bg-gray-100 px-2 py-1 rounded">{actionModal.subscriber.mac_address || 'None'}</code></div>
-              </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: '#666' }}>User: <strong>{actionModal.subscriber.username}</strong></div>
+              <div style={{ color: '#666' }}>Current MAC: <code style={{ background: '#e8e8e8', padding: '1px 4px', borderRadius: '2px' }}>{actionModal.subscriber.mac_address || 'None'}</code></div>
               <div>
                 <label className="label">New MAC Address (leave empty to clear)</label>
-                <input
-                  type="text"
-                  value={actionValue}
-                  onChange={(e) => setActionValue(e.target.value)}
-                  className="input font-mono"
-                  placeholder="XX:XX:XX:XX:XX:XX"
-                />
+                <input type="text" value={actionValue} onChange={(e) => setActionValue(e.target.value)} className="input" placeholder="XX:XX:XX:XX:XX:XX" style={{ fontFamily: 'monospace' }} />
               </div>
               <div>
                 <label className="label">Reason</label>
-                <select
-                  value={actionReason}
-                  onChange={(e) => setActionReason(e.target.value)}
-                  className="input"
-                >
+                <select value={actionReason} onChange={(e) => setActionReason(e.target.value)} className="input">
                   <option value="">Select reason...</option>
                   <option value="device_change">User switched device</option>
                   <option value="account_sharing">Prevent account sharing</option>
@@ -1657,15 +1496,9 @@ export default function Subscribers() {
               </div>
             </div>
             <div className="modal-footer">
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-secondary">
-                Cancel
-              </button>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn">Cancel</button>
               <button
-                onClick={() => resetMacMutation.mutate({
-                  id: actionModal.subscriber.id,
-                  mac_address: actionValue || null,
-                  reason: actionReason,
-                })}
+                onClick={() => resetMacMutation.mutate({ id: actionModal.subscriber.id, mac_address: actionValue || null, reason: actionReason })}
                 disabled={resetMacMutation.isPending}
                 className="btn btn-primary"
               >
@@ -1681,46 +1514,26 @@ export default function Subscribers() {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h3 className="text-lg font-semibold">Rename Username</h3>
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-sm">
-                <XMarkIcon className="w-5 h-5" />
+              <span>Rename Username</span>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="modal-body space-y-4">
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Current Username: <strong>{actionModal.subscriber.username}</strong></div>
-              </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: '#666' }}>Current Username: <strong>{actionModal.subscriber.username}</strong></div>
               <div>
                 <label className="label">New Username *</label>
-                <input
-                  type="text"
-                  value={actionValue}
-                  onChange={(e) => setActionValue(e.target.value)}
-                  className="input"
-                  placeholder="Enter new username"
-                />
+                <input type="text" value={actionValue} onChange={(e) => setActionValue(e.target.value)} className="input" placeholder="Enter new username" />
               </div>
               <div>
                 <label className="label">Reason</label>
-                <input
-                  type="text"
-                  value={actionReason}
-                  onChange={(e) => setActionReason(e.target.value)}
-                  className="input"
-                  placeholder="Enter reason for change"
-                />
+                <input type="text" value={actionReason} onChange={(e) => setActionReason(e.target.value)} className="input" placeholder="Enter reason for change" />
               </div>
             </div>
             <div className="modal-footer">
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-secondary">
-                Cancel
-              </button>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn">Cancel</button>
               <button
-                onClick={() => renameMutation.mutate({
-                  id: actionModal.subscriber.id,
-                  new_username: actionValue,
-                  reason: actionReason,
-                })}
+                onClick={() => renameMutation.mutate({ id: actionModal.subscriber.id, new_username: actionValue, reason: actionReason })}
                 disabled={!actionValue || renameMutation.isPending}
                 className="btn btn-primary"
               >
@@ -1736,34 +1549,22 @@ export default function Subscribers() {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h3 className="text-lg font-semibold">Add/Subtract Days</h3>
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-sm">
-                <XMarkIcon className="w-5 h-5" />
+              <span>Add/Subtract Days</span>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="modal-body space-y-4">
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current Expiry: <strong>{actionModal.subscriber.expiry_date ? formatDate(actionModal.subscriber.expiry_date) : 'N/A'}</strong></div>
-              </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: '#666' }}>User: <strong>{actionModal.subscriber.username}</strong></div>
+              <div style={{ color: '#666' }}>Current Expiry: <strong>{actionModal.subscriber.expiry_date ? formatDate(actionModal.subscriber.expiry_date) : 'N/A'}</strong></div>
               <div>
                 <label className="label">Days *</label>
-                <input
-                  type="number"
-                  value={actionValue}
-                  onChange={(e) => setActionValue(e.target.value)}
-                  className="input"
-                  placeholder="Enter days (negative to subtract)"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Use negative number to subtract days</p>
+                <input type="number" value={actionValue} onChange={(e) => setActionValue(e.target.value)} className="input" placeholder="Enter days (negative to subtract)" />
+                <p style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>Use negative number to subtract days</p>
               </div>
               <div>
                 <label className="label">Reason</label>
-                <select
-                  value={actionReason}
-                  onChange={(e) => setActionReason(e.target.value)}
-                  className="input"
-                >
+                <select value={actionReason} onChange={(e) => setActionReason(e.target.value)} className="input">
                   <option value="">Select reason...</option>
                   <option value="compensation">Compensation</option>
                   <option value="overdue_fix">Overdue fix</option>
@@ -1774,15 +1575,9 @@ export default function Subscribers() {
               </div>
             </div>
             <div className="modal-footer">
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-secondary">
-                Cancel
-              </button>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn">Cancel</button>
               <button
-                onClick={() => addDaysMutation.mutate({
-                  id: actionModal.subscriber.id,
-                  days: parseInt(actionValue),
-                  reason: actionReason,
-                })}
+                onClick={() => addDaysMutation.mutate({ id: actionModal.subscriber.id, days: parseInt(actionValue), reason: actionReason })}
                 disabled={!actionValue || addDaysMutation.isPending}
                 className="btn btn-primary"
               >
@@ -1796,153 +1591,84 @@ export default function Subscribers() {
       {/* Change Service Modal */}
       {actionModal?.type === 'changeService' && (
         <div className="modal-overlay">
-          <div className="modal max-w-lg">
+          <div className="modal modal-lg" style={{ maxWidth: '500px' }}>
             <div className="modal-header">
-              <h3 className="text-lg font-semibold">Change Service</h3>
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); setPriceCalculation(null); setChangeServiceOptions({ extend_expiry: false, reset_fup: false, charge_price: false, prorate_price: true }); }} className="btn btn-ghost btn-sm">
-                <XMarkIcon className="w-5 h-5" />
+              <span>Change Service</span>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); setPriceCalculation(null); setChangeServiceOptions({ extend_expiry: false, reset_fup: false, charge_price: false, prorate_price: true }); }} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="modal-body space-y-4">
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Current Service: <strong>{actionModal.subscriber.service?.name || 'N/A'}</strong> - ${actionModal.subscriber.service?.price?.toFixed(2) || '0.00'}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Expiry: <strong>{actionModal.subscriber.expiry_date ? new Date(actionModal.subscriber.expiry_date).toLocaleDateString() : 'N/A'}</strong></div>
-              </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: '#666' }}>User: <strong>{actionModal.subscriber.username}</strong></div>
+              <div style={{ color: '#666' }}>Current Service: <strong>{actionModal.subscriber.service?.name || 'N/A'}</strong> - ${actionModal.subscriber.service?.price?.toFixed(2) || '0.00'}</div>
+              <div style={{ color: '#666' }}>Expiry: <strong>{actionModal.subscriber.expiry_date ? new Date(actionModal.subscriber.expiry_date).toLocaleDateString() : 'N/A'}</strong></div>
               <div>
                 <label className="label">New Service *</label>
                 <select
                   value={actionValue}
                   onChange={(e) => {
                     setActionValue(e.target.value)
-                    if (e.target.value) {
-                      fetchPriceCalculation(actionModal.subscriber.id, e.target.value)
-                    } else {
-                      setPriceCalculation(null)
-                    }
+                    if (e.target.value) fetchPriceCalculation(actionModal.subscriber.id, e.target.value)
+                    else setPriceCalculation(null)
                   }}
                   className="input"
                 >
                   <option value="">Select Service</option>
-                  {services?.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} - ${s.price?.toFixed(2)}</option>
-                  ))}
+                  {services?.map((s) => <option key={s.id} value={s.id}>{s.name} - ${s.price?.toFixed(2)}</option>)}
                 </select>
               </div>
 
-              {/* Price Calculation Display */}
-              {calculatingPrice && (
-                <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  Calculating price...
-                </div>
-              )}
+              {calculatingPrice && <div style={{ background: '#f8f8f8', padding: '6px 8px', border: '1px solid #ccc', borderRadius: '2px', color: '#666' }}>Calculating price...</div>}
               {priceCalculation && !calculatingPrice && (
-                <div className={`p-3 rounded-lg text-sm ${priceCalculation.is_upgrade ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200' : priceCalculation.is_downgrade ? 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200' : 'bg-gray-50'}`}>
-                  <div className="font-semibold mb-2">
-                    {priceCalculation.is_upgrade ? '⬆️ Upgrade' : priceCalculation.is_downgrade ? '⬇️ Downgrade' : '↔️ Same Price'}
+                <div style={{ background: '#f8f8f8', padding: '8px', border: '1px solid #ccc', borderRadius: '2px' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                    {priceCalculation.is_upgrade ? 'Upgrade' : priceCalculation.is_downgrade ? 'Downgrade' : 'Same Price'}
                   </div>
-                  <div className="space-y-1 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    <div className="flex justify-between">
-                      <span>Remaining days:</span>
-                      <span className="font-medium">{priceCalculation.remaining_days} days</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Old day price:</span>
-                      <span>${priceCalculation.old_day_price?.toFixed(2)}/day</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>New day price:</span>
-                      <span>${priceCalculation.new_day_price?.toFixed(2)}/day</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Credit from old service:</span>
-                      <span className="text-green-600">-${priceCalculation.old_credit?.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Cost for new service:</span>
-                      <span className="text-red-600">+${priceCalculation.new_cost?.toFixed(2)}</span>
-                    </div>
-                    {priceCalculation.change_fee > 0 && (
-                      <div className="flex justify-between">
-                        <span>Change fee:</span>
-                        <span>+${priceCalculation.change_fee?.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="border-t pt-1 mt-1 flex justify-between font-semibold">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: '#555' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Remaining days:</span><span style={{ fontWeight: 500 }}>{priceCalculation.remaining_days} days</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Old day price:</span><span>${priceCalculation.old_day_price?.toFixed(2)}/day</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>New day price:</span><span>${priceCalculation.new_day_price?.toFixed(2)}/day</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Credit from old:</span><span style={{ color: '#2e7d32' }}>-${priceCalculation.old_credit?.toFixed(2)}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cost for new:</span><span style={{ color: '#c62828' }}>+${priceCalculation.new_cost?.toFixed(2)}</span></div>
+                    {priceCalculation.change_fee > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Change fee:</span><span>+${priceCalculation.change_fee?.toFixed(2)}</span></div>}
+                    <div style={{ borderTop: '1px solid #ccc', paddingTop: '4px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
                       <span>Total to {priceCalculation.total_charge >= 0 ? 'charge' : 'refund'}:</span>
-                      <span className={priceCalculation.total_charge >= 0 ? 'text-red-600' : 'text-green-600'}>
-                        ${Math.abs(priceCalculation.total_charge)?.toFixed(2)}
-                      </span>
+                      <span style={{ color: priceCalculation.total_charge >= 0 ? '#c62828' : '#2e7d32' }}>${Math.abs(priceCalculation.total_charge)?.toFixed(2)}</span>
                     </div>
                   </div>
                   {priceCalculation.is_downgrade && !priceCalculation.downgrade_allowed && (
-                    <div className="mt-2 text-red-600 font-medium">
-                      ⚠️ Downgrade is not allowed by system settings
-                    </div>
+                    <div style={{ marginTop: '6px', color: '#c62828', fontWeight: 500 }}>Downgrade is not allowed by system settings</div>
                   )}
                 </div>
               )}
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={changeServiceOptions.extend_expiry}
-                    onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, extend_expiry: e.target.checked })}
-                    className="rounded border-gray-300 dark:border-gray-600"
-                  />
-                  <span className="text-sm">Extend Expiry</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
+                  <input type="checkbox" checked={changeServiceOptions.extend_expiry} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, extend_expiry: e.target.checked })} style={{ width: 13, height: 13 }} />
+                  Extend Expiry
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={changeServiceOptions.reset_fup}
-                    onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, reset_fup: e.target.checked })}
-                    className="rounded border-gray-300 dark:border-gray-600"
-                  />
-                  <span className="text-sm">Reset FUP Quota</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
+                  <input type="checkbox" checked={changeServiceOptions.reset_fup} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, reset_fup: e.target.checked })} style={{ width: 13, height: 13 }} />
+                  Reset FUP Quota
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={changeServiceOptions.prorate_price}
-                    onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, prorate_price: e.target.checked, charge_price: false })}
-                    className="rounded border-gray-300 dark:border-gray-600"
-                  />
-                  <span className="text-sm">Prorate Price (recommended)</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
+                  <input type="checkbox" checked={changeServiceOptions.prorate_price} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, prorate_price: e.target.checked, charge_price: false })} style={{ width: 13, height: 13 }} />
+                  Prorate Price (recommended)
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={changeServiceOptions.charge_price}
-                    onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, charge_price: e.target.checked, prorate_price: false })}
-                    className="rounded border-gray-300 dark:border-gray-600"
-                  />
-                  <span className="text-sm">Charge Full Price</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px' }}>
+                  <input type="checkbox" checked={changeServiceOptions.charge_price} onChange={(e) => setChangeServiceOptions({ ...changeServiceOptions, charge_price: e.target.checked, prorate_price: false })} style={{ width: 13, height: 13 }} />
+                  Charge Full Price
                 </label>
               </div>
               <div>
                 <label className="label">Reason</label>
-                <input
-                  type="text"
-                  value={actionReason}
-                  onChange={(e) => setActionReason(e.target.value)}
-                  className="input"
-                  placeholder="Enter reason for change"
-                />
+                <input type="text" value={actionReason} onChange={(e) => setActionReason(e.target.value)} className="input" placeholder="Enter reason for change" />
               </div>
             </div>
             <div className="modal-footer">
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); setPriceCalculation(null); setChangeServiceOptions({ extend_expiry: false, reset_fup: false, charge_price: false, prorate_price: true }); }} className="btn btn-secondary">
-                Cancel
-              </button>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); setPriceCalculation(null); setChangeServiceOptions({ extend_expiry: false, reset_fup: false, charge_price: false, prorate_price: true }); }} className="btn">Cancel</button>
               <button
-                onClick={() => changeServiceMutation.mutate({
-                  id: actionModal.subscriber.id,
-                  service_id: parseInt(actionValue),
-                  ...changeServiceOptions,
-                  reason: actionReason,
-                })}
+                onClick={() => changeServiceMutation.mutate({ id: actionModal.subscriber.id, service_id: parseInt(actionValue), ...changeServiceOptions, reason: actionReason })}
                 disabled={!actionValue || changeServiceMutation.isPending || (priceCalculation?.is_downgrade && !priceCalculation?.downgrade_allowed)}
                 className="btn btn-primary"
               >
@@ -1958,34 +1684,20 @@ export default function Subscribers() {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h3 className="text-lg font-semibold">Refill Account</h3>
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-sm">
-                <XMarkIcon className="w-5 h-5" />
+              <span>Refill Account</span>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="modal-body space-y-4">
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">User: <strong>{actionModal.subscriber.username}</strong></div>
-              </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: '#666' }}>User: <strong>{actionModal.subscriber.username}</strong></div>
               <div>
                 <label className="label">Amount *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={actionValue}
-                  onChange={(e) => setActionValue(e.target.value)}
-                  className="input"
-                  placeholder="Enter amount"
-                />
+                <input type="number" step="0.01" min="0" value={actionValue} onChange={(e) => setActionValue(e.target.value)} className="input" placeholder="Enter amount" />
               </div>
               <div>
                 <label className="label">Reason</label>
-                <select
-                  value={actionReason}
-                  onChange={(e) => setActionReason(e.target.value)}
-                  className="input"
-                >
+                <select value={actionReason} onChange={(e) => setActionReason(e.target.value)} className="input">
                   <option value="">Select reason...</option>
                   <option value="prepaid_card">Prepaid Card</option>
                   <option value="cash_payment">Cash Payment</option>
@@ -1996,15 +1708,9 @@ export default function Subscribers() {
               </div>
             </div>
             <div className="modal-footer">
-              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn btn-secondary">
-                Cancel
-              </button>
+              <button onClick={() => { setActionModal(null); setActionValue(''); setActionReason(''); }} className="btn">Cancel</button>
               <button
-                onClick={() => refillMutation.mutate({
-                  id: actionModal.subscriber.id,
-                  amount: parseFloat(actionValue),
-                  reason: actionReason,
-                })}
+                onClick={() => refillMutation.mutate({ id: actionModal.subscriber.id, amount: parseFloat(actionValue), reason: actionReason })}
                 disabled={!actionValue || parseFloat(actionValue) <= 0 || refillMutation.isPending}
                 className="btn btn-primary"
               >
@@ -2018,253 +1724,134 @@ export default function Subscribers() {
       {/* Bulk Import Modal */}
       {showBulkImport && (
         <div className="modal-overlay">
-          <div className="modal modal-lg">
+          <div className="modal modal-lg" style={{ maxWidth: '500px' }}>
             <div className="modal-header">
-              <h3 className="text-lg font-semibold">Bulk Import Subscribers</h3>
-              <button onClick={() => { setShowBulkImport(false); setImportFile(null); setImportResults(null); }} className="btn btn-ghost btn-sm">
-                <XMarkIcon className="w-5 h-5" />
+              <span>Bulk Import Subscribers</span>
+              <button onClick={() => { setShowBulkImport(false); setImportFile(null); setImportResults(null); }} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="modal-body space-y-4">
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div>
                 <label className="label">CSV File</label>
                 <div
-                  className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary-400"
+                  style={{ border: '2px dashed #ccc', borderRadius: '2px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <DocumentArrowUpIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                  <DocumentArrowUpIcon style={{ width: 30, height: 30, color: '#999', margin: '0 auto 6px' }} />
+                  <p style={{ fontSize: '11px', color: '#666' }}>
                     {importFile ? importFile.name : 'Click to select CSV file'}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  <p style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
                     Columns: username, password, full_name, email, phone, address
                   </p>
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                />
+                <input ref={fileInputRef} type="file" accept=".csv" onChange={(e) => setImportFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
               </div>
-
               <div>
                 <label className="label">Service Plan *</label>
-                <select
-                  value={importServiceId}
-                  onChange={(e) => setImportServiceId(e.target.value)}
-                  className="input"
-                >
+                <select value={importServiceId} onChange={(e) => setImportServiceId(e.target.value)} className="input">
                   <option value="">Select Service</option>
-                  {services?.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
+                  {services?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
-
               {importResults && (
-                <div className="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
-                  <h4 className="font-medium mb-2">Import Results</h4>
-                  <p className="text-sm text-green-600">Created: {importResults.created}</p>
-                  <p className="text-sm text-red-600">Failed: {importResults.failed}</p>
+                <div style={{ background: '#f8f8f8', border: '1px solid #ccc', borderRadius: '2px', padding: '8px', maxHeight: '150px', overflowY: 'auto' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '4px' }}>Import Results</div>
+                  <p style={{ color: '#2e7d32' }}>Created: {importResults.created}</p>
+                  <p style={{ color: '#c62828' }}>Failed: {importResults.failed}</p>
                   {importResults.results?.filter(r => !r.success).slice(0, 10).map((r, i) => (
-                    <p key={i} className="text-xs text-red-500">
-                      Row {r.row}: {r.message}
-                    </p>
+                    <p key={i} style={{ fontSize: '10px', color: '#c62828' }}>Row {r.row}: {r.message}</p>
                   ))}
                 </div>
               )}
             </div>
             <div className="modal-footer">
-              <button
-                onClick={() => { setShowBulkImport(false); setImportFile(null); setImportResults(null); }}
-                className="btn btn-secondary"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleBulkImport}
-                disabled={!importFile || !importServiceId || bulkImportMutation.isPending}
-                className="btn btn-primary flex items-center gap-2"
-              >
-                {bulkImportMutation.isPending ? (
-                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ArrowUpTrayIcon className="w-4 h-4" />
-                )}
-                Import
+              <button onClick={() => { setShowBulkImport(false); setImportFile(null); setImportResults(null); }} className="btn">Close</button>
+              <button onClick={handleBulkImport} disabled={!importFile || !importServiceId || bulkImportMutation.isPending} className="btn btn-primary">
+                {bulkImportMutation.isPending ? 'Importing...' : 'Import'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Torch Modal - Live Traffic (Mobile Friendly) */}
+      {/* Torch Modal */}
       {torchModal && (
         <div className="modal-overlay">
-          <div className="modal-content w-full max-w-2xl mx-2 sm:mx-auto max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="modal-header flex-shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <SignalIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
-                <h3 className="text-base sm:text-lg font-bold truncate">
-                  <span className="hidden sm:inline">Live Traffic - </span>{torchModal.username}
-                </h3>
-                {torchAutoRefresh && (
-                  <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                  </span>
-                )}
+          <div className="modal modal-lg" style={{ maxWidth: '650px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <SignalIcon style={{ width: 16, height: 16 }} />
+                <span>Live Traffic - {torchModal.username}</span>
+                {torchAutoRefresh && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4CAF50', display: 'inline-block' }} />}
               </div>
-              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-ghost btn-sm flex-shrink-0">
-                <XMarkIcon className="w-5 h-5" />
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-
-            {/* Body - Scrollable */}
-            <div className="modal-body flex-1 overflow-y-auto">
-              {/* Controls - Stack on mobile */}
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  IP: <code className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 px-2 py-1 rounded text-xs font-mono">{torchModal.ip_address || 'N/A'}</code>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
-                    <input
-                      type="checkbox"
-                      checked={torchAutoRefresh}
-                      onChange={(e) => setTorchAutoRefresh(e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-500"
-                    />
-                    <span className="text-xs sm:text-sm">Auto</span>
+            <div className="modal-body" style={{ maxHeight: '60vh', overflow: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                <span style={{ fontSize: '11px' }}>IP: <code style={{ background: '#e8e8e8', padding: '1px 4px', borderRadius: '2px', fontFamily: 'monospace' }}>{torchModal.ip_address || 'N/A'}</code></span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={torchAutoRefresh} onChange={(e) => setTorchAutoRefresh(e.target.checked)} style={{ width: 13, height: 13 }} />
+                    Auto
                   </label>
-                  <button
-                    onClick={() => fetchTorchData(torchModal)}
-                    disabled={torchLoading}
-                    className="btn btn-sm btn-secondary flex items-center gap-1"
-                  >
-                    <ArrowPathIcon className={clsx('w-4 h-4', torchLoading && 'animate-spin')} />
-                    <span className="hidden sm:inline">Refresh</span>
+                  <button onClick={() => fetchTorchData(torchModal)} disabled={torchLoading} className="btn btn-sm">
+                    <ArrowPathIcon style={{ width: 13, height: 13, ...(torchLoading ? { animation: 'spin 1s linear infinite' } : {}) }} />
                   </button>
                 </div>
               </div>
 
-              {/* Loading */}
               {torchLoading && !torchData && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                  <span className="ml-3 text-gray-500 dark:text-gray-400">Capturing...</span>
-                </div>
+                <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>Capturing...</div>
               )}
 
-              {/* Torch Data */}
               {torchData && (
                 <div>
-                  {/* Summary Header - Stack on mobile */}
-                  <div className="bg-gray-900 text-white rounded-t-lg p-3">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                      <div className="text-sm">
-                        <span className="text-gray-400">Interface: </span>
-                        <span className="font-mono text-green-400">{torchData.interface}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-1">
-                          <ArrowDownTrayIcon className="w-4 h-4 text-green-400" />
-                          <span className="text-green-400 font-bold">
-                            {((torchData.total_tx || 0) * 8 / 1000000).toFixed(1)} Mbps
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <ArrowUpTrayIcon className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-400 font-bold">
-                            {((torchData.total_rx || 0) * 8 / 1000000).toFixed(1)} Mbps
-                          </span>
-                        </div>
-                      </div>
+                  <div style={{ background: '#2d2d2d', color: '#e0e0e0', padding: '6px 10px', borderRadius: '2px 2px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                    <span style={{ fontSize: '11px' }}>
+                      <span style={{ color: '#aaa' }}>Interface: </span>
+                      <span style={{ color: '#4CAF50', fontFamily: 'monospace' }}>{torchData.interface}</span>
+                    </span>
+                    <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
+                      <span style={{ color: '#4CAF50', fontWeight: 700 }}>DL: {((torchData.total_tx || 0) * 8 / 1000000).toFixed(1)} Mbps</span>
+                      <span style={{ color: '#2196F3', fontWeight: 700 }}>UL: {((torchData.total_rx || 0) * 8 / 1000000).toFixed(1)} Mbps</span>
                     </div>
                   </div>
 
-                  {/* Traffic Entries */}
                   {torchData.entries && torchData.entries.length > 0 ? (
-                    <div className="border border-t-0 border-gray-300 dark:border-gray-600 rounded-b-lg overflow-hidden">
-                      {/* Mobile: Card Layout */}
-                      <div className="sm:hidden max-h-64 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
-                        {torchData.entries.slice(0, 50).map((entry, idx) => (
-                          <div key={idx} className={clsx(
-                            'p-3 text-xs',
-                            entry.tx_rate > 1000000 ? 'bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-gray-800',
-                            entry.tx_rate > 5000000 && 'bg-yellow-50 dark:bg-yellow-900/30'
-                          )}>
-                            <div className="flex justify-between items-start mb-1">
-                              <span className={clsx(
-                                'font-bold uppercase',
-                                entry.protocol === 'tcp' && 'text-blue-600 dark:text-blue-400',
-                                entry.protocol === 'udp' && 'text-purple-600 dark:text-purple-400',
-                                entry.protocol === 'icmp' && 'text-orange-600 dark:text-orange-400',
-                                !entry.protocol && 'text-gray-600 dark:text-gray-400'
-                              )}>
-                                {entry.protocol || '-'}
-                              </span>
-                              <div className="text-right">
-                                <span className="text-green-600 dark:text-green-400 font-semibold">
-                                  ↓ {entry.tx_rate > 1000000 ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)}M` : entry.tx_rate > 1000 ? `${(entry.tx_rate * 8 / 1000).toFixed(0)}k` : `${(entry.tx_rate * 8).toFixed(0)}b`}
-                                </span>
-                                <span className="text-gray-400 dark:text-gray-500 mx-1">/</span>
-                                <span className="text-blue-600 dark:text-blue-400 font-semibold">
-                                  ↑ {entry.rx_rate > 1000000 ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)}M` : entry.rx_rate > 1000 ? `${(entry.rx_rate * 8 / 1000).toFixed(0)}k` : `${(entry.rx_rate * 8).toFixed(0)}b`}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-gray-600 dark:text-gray-300 truncate font-mono">
-                              {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
-                              <span className="mx-1 text-gray-400">→</span>
-                              {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Desktop: Table Layout */}
-                      <div className="hidden sm:block max-h-80 overflow-y-auto">
-                        <table className="w-full text-xs font-mono">
-                          <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0">
-                            <tr className="text-gray-600 dark:text-gray-400">
-                              <th className="px-2 py-1.5 text-left">Proto</th>
-                              <th className="px-2 py-1.5 text-left">Src. Address</th>
-                              <th className="px-2 py-1.5 text-left">Dst. Address</th>
-                              <th className="px-2 py-1.5 text-right">Download</th>
-                              <th className="px-2 py-1.5 text-right">Upload</th>
+                    <div style={{ border: '1px solid #a0a0a0', borderTop: 'none', borderRadius: '0 0 2px 2px', overflow: 'hidden' }}>
+                      <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                        <table className="table table-compact" style={{ margin: 0 }}>
+                          <thead>
+                            <tr>
+                              <th>Proto</th>
+                              <th>Src. Address</th>
+                              <th>Dst. Address</th>
+                              <th style={{ textAlign: 'right' }}>Download</th>
+                              <th style={{ textAlign: 'right' }}>Upload</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white dark:bg-gray-800">
+                          <tbody>
                             {torchData.entries.slice(0, 100).map((entry, idx) => (
-                              <tr key={idx} className={clsx(
-                                'border-t border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700',
-                                entry.tx_rate > 1000000 && 'bg-green-50 dark:bg-green-900/20',
-                                entry.tx_rate > 5000000 && 'bg-yellow-50 dark:bg-yellow-900/20'
-                              )}>
-                                <td className="px-2 py-1">
-                                  <span className={clsx(
-                                    'uppercase',
-                                    entry.protocol === 'tcp' && 'text-blue-600',
-                                    entry.protocol === 'udp' && 'text-purple-600',
-                                    entry.protocol === 'icmp' && 'text-orange-600'
-                                  )}>
+                              <tr key={idx}>
+                                <td>
+                                  <span style={{ textTransform: 'uppercase', color: entry.protocol === 'tcp' ? '#1565c0' : entry.protocol === 'udp' ? '#6a1b9a' : '#e65100' }}>
                                     {entry.protocol || '-'}
                                   </span>
                                 </td>
-                                <td className="px-2 py-1 text-gray-700 dark:text-gray-300">
+                                <td style={{ fontFamily: 'monospace' }}>
                                   {entry.src_address}{entry.src_port > 0 && `:${entry.src_port}`}
                                 </td>
-                                <td className="px-2 py-1 text-gray-700 dark:text-gray-300">
+                                <td style={{ fontFamily: 'monospace' }}>
                                   {entry.dst_address}{entry.dst_port > 0 && `:${entry.dst_port}`}
                                 </td>
-                                <td className="px-2 py-1 text-right text-green-700 dark:text-green-400 font-medium">
+                                <td style={{ textAlign: 'right', color: '#2e7d32', fontWeight: 500 }}>
                                   {entry.tx_rate > 1000000 ? `${(entry.tx_rate * 8 / 1000000).toFixed(1)} Mbps` : entry.tx_rate > 1000 ? `${(entry.tx_rate * 8 / 1000).toFixed(1)} kbps` : `${(entry.tx_rate * 8).toFixed(0)} bps`}
                                 </td>
-                                <td className="px-2 py-1 text-right text-blue-700 dark:text-blue-400 font-medium">
+                                <td style={{ textAlign: 'right', color: '#1565c0', fontWeight: 500 }}>
                                   {entry.rx_rate > 1000000 ? `${(entry.rx_rate * 8 / 1000000).toFixed(1)} Mbps` : entry.rx_rate > 1000 ? `${(entry.rx_rate * 8 / 1000).toFixed(1)} kbps` : `${(entry.rx_rate * 8).toFixed(0)} bps`}
                                 </td>
                               </tr>
@@ -2272,15 +1859,13 @@ export default function Subscribers() {
                           </tbody>
                         </table>
                       </div>
-
-                      {/* Footer */}
-                      <div className="bg-gray-100 dark:bg-gray-700 px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 border-t dark:border-gray-600 flex justify-between">
+                      <div style={{ background: '#f0f0f0', padding: '3px 8px', fontSize: '10px', color: '#666', borderTop: '1px solid #ccc', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{torchData.entries.length} flows</span>
                         <span>{torchData.duration}</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-t-0 border-gray-300 dark:border-gray-600 rounded-b-lg p-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
+                    <div style={{ border: '1px solid #a0a0a0', borderTop: 'none', borderRadius: '0 0 2px 2px', padding: '20px', textAlign: 'center', color: '#999', background: '#fafafa' }}>
                       No active traffic flows
                     </div>
                   )}
@@ -2288,48 +1873,43 @@ export default function Subscribers() {
               )}
 
               {!torchLoading && !torchData && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  Click Refresh to capture traffic
-                </div>
+                <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>Click Refresh to capture traffic</div>
               )}
             </div>
-
-            {/* Footer */}
-            <div className="modal-footer flex-shrink-0">
-              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn btn-secondary w-full sm:w-auto">
-                Close
-              </button>
+            <div className="modal-footer">
+              <button onClick={() => { setTorchModal(null); setTorchData(null); setTorchAutoRefresh(false); }} className="btn">Close</button>
             </div>
           </div>
         </div>
       )}
+
       {/* Location Map Modal */}
       {mapModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setMapModal(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-blue-600 px-4 py-3 flex items-center justify-between">
-              <h3 className="text-white font-semibold flex items-center gap-2">
-                <MapPinIcon className="w-5 h-5" />
-                {mapModal.full_name || mapModal.username}
-              </h3>
-              <button onClick={() => setMapModal(null)} className="text-white/80 hover:text-white">
-                <XMarkIcon className="w-5 h-5" />
+        <div className="modal-overlay" onClick={() => setMapModal(null)}>
+          <div className="modal modal-lg" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MapPinIcon style={{ width: 16, height: 16 }} />
+                <span>{mapModal.full_name || mapModal.username}</span>
+              </div>
+              <button onClick={() => setMapModal(null)} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="rounded-b-xl overflow-hidden">
+            <div style={{ overflow: 'hidden' }}>
               <ViewLocationMap lat={parseFloat(mapModal.latitude)} lng={parseFloat(mapModal.longitude)} />
             </div>
-            <div className="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                📍 {parseFloat(mapModal.latitude).toFixed(6)}, {parseFloat(mapModal.longitude).toFixed(6)}
-              </p>
+            <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '10px', color: '#666' }}>
+                {parseFloat(mapModal.latitude).toFixed(6)}, {parseFloat(mapModal.longitude).toFixed(6)}
+              </span>
               <a
                 href={`https://www.google.com/maps/dir/?api=1&destination=${mapModal.latitude},${mapModal.longitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-secondary text-xs px-3 py-1 flex items-center gap-1"
+                className="btn btn-sm"
               >
-                <MapPinIcon className="w-3.5 h-3.5" />
+                <MapPinIcon style={{ width: 12, height: 12, marginRight: 3 }} />
                 Navigate
               </a>
             </div>
@@ -2339,45 +1919,35 @@ export default function Subscribers() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteConfirm(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-red-600 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <TrashIcon className="w-6 h-6" />
-                Delete {deleteConfirm.ids.length} Subscriber{deleteConfirm.ids.length > 1 ? 's' : ''}?
-              </h3>
-              <button onClick={() => setDeleteConfirm(null)} className="text-white/80 hover:text-white">
-                <XMarkIcon className="w-6 h-6" />
+        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(to bottom, #e74c3c, #c0392b)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <TrashIcon style={{ width: 16, height: 16 }} />
+                <span>Delete {deleteConfirm.ids.length} Subscriber{deleteConfirm.ids.length > 1 ? 's' : ''}?</span>
+              </div>
+              <button onClick={() => setDeleteConfirm(null)} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
               </button>
             </div>
-            <div className="px-6 py-4">
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">The following will be permanently deleted:</p>
-              <div className="max-h-60 overflow-y-auto space-y-1">
+            <div className="modal-body">
+              <p style={{ color: '#666', marginBottom: '6px' }}>The following will be permanently deleted:</p>
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                 {deleteConfirm.names.slice(0, 20).map((name, i) => (
-                  <div key={i} className="flex items-center gap-2 py-1.5 px-3 bg-red-50 dark:bg-red-900/40 rounded-lg border border-red-200 dark:border-red-700">
-                    <span className="text-red-700 dark:text-red-200 font-bold text-lg">{name}</span>
+                  <div key={i} style={{ padding: '3px 6px', marginBottom: '2px', background: '#fff0f0', border: '1px solid #ffcdd2', borderRadius: '2px' }}>
+                    <strong style={{ color: '#c62828' }}>{name}</strong>
                   </div>
                 ))}
                 {deleteConfirm.names.length > 20 && (
-                  <div className="text-gray-500 dark:text-gray-400 text-sm py-1 px-3">
-                    ... and {deleteConfirm.names.length - 20} more
-                  </div>
+                  <div style={{ color: '#999', fontSize: '10px', padding: '3px 6px' }}>... and {deleteConfirm.names.length - 20} more</div>
                 )}
               </div>
             </div>
-            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex gap-3 justify-end">
+            <div className="modal-footer">
+              <button onClick={() => setDeleteConfirm(null)} className="btn">Cancel</button>
               <button
-                onClick={() => setDeleteConfirm(null)}
-                className="btn btn-secondary px-6"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  bulkActionMutation.mutate({ ids: deleteConfirm.ids, action: 'delete' })
-                  setDeleteConfirm(null)
-                }}
-                className="btn px-6 bg-red-600 hover:bg-red-700 text-white font-bold"
+                onClick={() => { bulkActionMutation.mutate({ ids: deleteConfirm.ids, action: 'delete' }); setDeleteConfirm(null); }}
+                className="btn btn-danger"
               >
                 Delete
               </button>
@@ -2385,7 +1955,6 @@ export default function Subscribers() {
           </div>
         </div>
       )}
-
     </div>
   )
 }

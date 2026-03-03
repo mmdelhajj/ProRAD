@@ -2,15 +2,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
 import { ProgressBar, Card, StatusBadge, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import {
   formatBytes,
   formatSpeed,
@@ -88,19 +89,19 @@ const infoStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   rowBorder: {
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
   label: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     flex: 1,
   },
   value: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '600',
     flex: 1,
@@ -393,26 +394,26 @@ const styles = StyleSheet.create({
 
   // Status Banner
   statusBanner: {
-    paddingTop: spacing.xxxl + spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.base,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
+    paddingTop: spacing.xxxl + spacing.sm,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   bannerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   onlineIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: borderRadius.md,
     marginRight: spacing.xs,
   },
   onlineLabel: {
@@ -421,47 +422,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bannerServiceName: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.textInverse,
     marginBottom: spacing.xs,
   },
   bannerExpiry: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: 'rgba(255,255,255,0.85)',
   },
 
   // Speed Info
   speedRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.base,
-    marginTop: spacing.base,
-    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
   },
   speedCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.base,
-    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
   },
   speedArrow: {
-    fontSize: 18,
+    fontSize: 14,
     color: colors.primary,
     fontWeight: '700',
     marginBottom: spacing.xs,
   },
   speedValue: {
-    ...typography.h3,
+    ...typography.h4,
     color: colors.text,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   speedLabel: {
     ...typography.caption,
@@ -473,21 +468,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.md,
-    marginHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.base,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.fup2 + '15',
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.fup2 + '30',
   },
   fupBadge: {
     backgroundColor: colors.fup2,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
     borderRadius: borderRadius.sm,
-    marginRight: spacing.sm,
+    marginRight: spacing.xs,
   },
   fupBadgeText: {
     ...typography.caption,
@@ -495,7 +490,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fupSpeedText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.fup2,
     fontWeight: '600',
   },
@@ -505,9 +500,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
   },
   sectionTitle: {
     ...typography.h4,
@@ -520,10 +515,10 @@ const styles = StyleSheet.create({
 
   // Usage / Info cards
   usageCard: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.md,
   },
   infoCard: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.md,
   },
 });
 

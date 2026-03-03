@@ -62,60 +62,61 @@ export default function UpdateBanner() {
 
   return (
     <>
-      <div className={`${isCritical ? 'bg-orange-500' : 'bg-blue-500'} text-white px-4 py-2`}>
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
+      <div className={`${isCritical ? 'border-l-4 border-l-[#FF9800] bg-[#fff8e1] dark:bg-[#2a2a1a]' : 'border-l-4 border-l-[#2196F3] bg-[#e3f2fd] dark:bg-[#1a2a3a]'} px-3 py-2`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
             {updating ? (
-              <ArrowPathIcon className="w-5 h-5 flex-shrink-0 animate-spin" />
+              <ArrowPathIcon className={`w-4 h-4 flex-shrink-0 animate-spin ${isCritical ? 'text-[#FF9800]' : 'text-[#2196F3]'}`} />
             ) : (
-              <ArrowDownTrayIcon className="w-5 h-5 flex-shrink-0" />
+              <ArrowDownTrayIcon className={`w-4 h-4 flex-shrink-0 ${isCritical ? 'text-[#FF9800]' : 'text-[#2196F3]'}`} />
             )}
-            <div>
+            <div className="text-[12px] min-w-0">
               {updating ? (
-                <span className="font-medium">
+                <span className={`font-semibold ${isCritical ? 'text-[#e65100] dark:text-[#FFB74D]' : 'text-[#1565c0] dark:text-[#90caf9]'}`}>
                   Updating to v{newVersion}... {statusData?.message || 'Please wait'}
                 </span>
               ) : (
                 <>
-                  <span className="font-medium">
+                  <span className={`font-semibold ${isCritical ? 'text-[#e65100] dark:text-[#FFB74D]' : 'text-[#1565c0] dark:text-[#90caf9]'}`}>
                     {isCritical ? 'Critical Update Available: ' : 'Update Available: '}
                     v{newVersion}
                   </span>
-                  <span className="ml-2 text-sm opacity-90">
+                  <span className={`ml-2 ${isCritical ? 'text-[#bf360c] dark:text-[#FFB74D]' : 'text-[#1976d2] dark:text-[#90caf9]'}`}>
                     (Current: v{currentVersion})
                   </span>
                 </>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
             {!updating && (
               <>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="text-sm underline hover:no-underline opacity-90"
+                  className={`text-[12px] underline hover:no-underline ${isCritical ? 'text-[#e65100] dark:text-[#FFB74D]' : 'text-[#1565c0] dark:text-[#90caf9]'}`}
                 >
                   View details
                 </button>
                 <button
                   onClick={handleStartUpdate}
                   disabled={startUpdateMutation.isPending}
-                  className="text-sm font-medium bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 px-3 py-1 rounded disabled:opacity-50"
+                  className="btn btn-primary btn-xs"
                 >
                   {startUpdateMutation.isPending ? 'Starting...' : 'Update Now'}
                 </button>
                 {!isCritical && (
                   <button
                     onClick={() => setDismissed(true)}
-                    className="p-1 rounded hover:bg-white/20"
+                    className={`p-0.5 hover:bg-black/10 ${isCritical ? 'text-[#e65100] dark:text-[#FFB74D]' : 'text-[#1565c0] dark:text-[#90caf9]'}`}
+                    style={{ borderRadius: '2px' }}
                   >
-                    <XMarkIcon className="w-4 h-4" />
+                    <XMarkIcon className="w-3.5 h-3.5" />
                   </button>
                 )}
               </>
             )}
             {updating && statusData?.progress > 0 && (
-              <span className="text-sm font-medium">
+              <span className={`text-[12px] font-semibold ${isCritical ? 'text-[#e65100] dark:text-[#FFB74D]' : 'text-[#1565c0] dark:text-[#90caf9]'}`}>
                 {statusData.progress}%
               </span>
             )}
@@ -123,11 +124,11 @@ export default function UpdateBanner() {
         </div>
         {/* Progress bar when updating */}
         {updating && (
-          <div className="max-w-7xl mx-auto mt-2">
-            <div className="w-full bg-white/30 rounded-full h-1.5">
+          <div className="mt-1.5">
+            <div className="w-full h-1 bg-[#e0e0e0] dark:bg-[#555]" style={{ borderRadius: '1px' }}>
               <div
-                className="bg-white h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${statusData?.progress || 0}%` }}
+                className={`h-1 transition-all duration-300 ${isCritical ? 'bg-[#FF9800]' : 'bg-[#2196F3]'}`}
+                style={{ width: `${statusData?.progress || 0}%`, borderRadius: '1px' }}
               />
             </div>
           </div>
@@ -136,43 +137,41 @@ export default function UpdateBanner() {
 
       {/* Update Details Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: '500px', width: '100%' }}>
+            <div className="modal-header">
+              <span>
                 Update to v{newVersion}
                 {isCritical && (
-                  <span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-800 rounded-full">
-                    Critical
-                  </span>
+                  <span className="ml-2 badge-warning">Critical</span>
                 )}
-              </h3>
+              </span>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-white/80 hover:text-white"
               >
-                <XMarkIcon className="w-5 h-5" />
+                <XMarkIcon className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="px-6 py-4 overflow-y-auto max-h-[40vh]">
-              <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
-                <span className="font-mono bg-gray-100 px-2 py-1 rounded">v{currentVersion}</span>
-                <span>→</span>
-                <span className="font-mono bg-green-100 text-green-700 px-2 py-1 rounded">v{newVersion}</span>
+            <div className="modal-body" style={{ maxHeight: '300px' }}>
+              <div className="flex items-center gap-2 mb-3 text-[12px] text-gray-500 dark:text-[#aaa]">
+                <span className="font-mono bg-[#e0e0e0] dark:bg-[#444] px-1.5 py-0.5" style={{ borderRadius: '2px' }}>v{currentVersion}</span>
+                <span>-&gt;</span>
+                <span className="font-mono bg-[#e8f5e9] dark:bg-[#1e7e34] text-[#2e7d32] dark:text-white px-1.5 py-0.5" style={{ borderRadius: '2px' }}>v{newVersion}</span>
               </div>
 
               {updateData?.release_notes && (
                 <>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">What's New</h4>
-                  <div className="text-sm text-gray-600 whitespace-pre-wrap bg-gray-50 p-3 rounded">
+                  <div className="text-[12px] font-semibold text-gray-700 dark:text-[#ccc] mb-1">What's New</div>
+                  <div className="text-[12px] text-gray-600 dark:text-[#aaa] whitespace-pre-wrap bg-[#f7f7f7] dark:bg-[#333] p-2 border border-[#a0a0a0] dark:border-[#555]" style={{ borderRadius: '2px' }}>
                     {updateData.release_notes}
                   </div>
                 </>
               )}
 
               {updateData?.released_at && (
-                <p className="mt-4 text-xs text-gray-400">
+                <p className="mt-3 text-[11px] text-gray-400 dark:text-[#888]">
                   Released: {new Date(updateData.released_at).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
@@ -182,12 +181,12 @@ export default function UpdateBanner() {
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-200 bg-amber-50">
-              <div className="flex items-start gap-3">
-                <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-800">
-                  <p className="font-medium">Before updating:</p>
-                  <ul className="mt-1 list-disc list-inside text-amber-700">
+            <div className="px-3 py-2 border-l-4 border-l-[#FF9800] bg-[#fff8e1] dark:bg-[#2a2a1a] mx-0">
+              <div className="flex items-start gap-2">
+                <ExclamationTriangleIcon className="w-4 h-4 text-[#FF9800] flex-shrink-0 mt-0.5" />
+                <div className="text-[12px] text-[#e65100] dark:text-[#FFB74D]">
+                  <p className="font-semibold">Before updating:</p>
+                  <ul className="mt-0.5 list-disc list-inside text-[11px]">
                     <li>A backup will be created automatically</li>
                     <li>The system will restart after update</li>
                     <li>Users may experience brief disconnection</li>
@@ -196,10 +195,10 @@ export default function UpdateBanner() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+            <div className="modal-footer">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded"
+                className="btn btn-sm"
               >
                 Cancel
               </button>
@@ -209,9 +208,9 @@ export default function UpdateBanner() {
                   handleStartUpdate()
                 }}
                 disabled={startUpdateMutation.isPending}
-                className="px-6 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                className="btn btn-primary btn-sm"
               >
-                <ArrowDownTrayIcon className="w-4 h-4" />
+                <ArrowDownTrayIcon className="w-3.5 h-3.5 mr-1" />
                 Update Now
               </button>
             </div>
@@ -221,18 +220,23 @@ export default function UpdateBanner() {
 
       {/* Update Complete Modal */}
       {statusData?.step === 'complete' && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6 text-center">
-            <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Update Complete!</h3>
-            <p className="text-gray-600 mb-4">
-              ProxPanel has been updated to v{newVersion}
-            </p>
-            <p className="text-sm text-gray-500">
-              The page will reload automatically...
-            </p>
-            <div className="mt-4">
-              <ArrowPathIcon className="w-6 h-6 text-gray-400 mx-auto animate-spin" />
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <span>Update Complete</span>
+            </div>
+            <div className="modal-body text-center py-6">
+              <CheckCircleIcon className="w-12 h-12 text-[#4CAF50] mx-auto mb-3" />
+              <div className="text-[13px] font-semibold text-gray-900 dark:text-[#e0e0e0] mb-1">Update Complete!</div>
+              <p className="text-[12px] text-gray-600 dark:text-[#aaa] mb-3">
+                ProxPanel has been updated to v{newVersion}
+              </p>
+              <p className="text-[11px] text-gray-500 dark:text-[#888]">
+                The page will reload automatically...
+              </p>
+              <div className="mt-3">
+                <ArrowPathIcon className="w-5 h-5 text-gray-400 dark:text-[#888] mx-auto animate-spin" />
+              </div>
             </div>
           </div>
         </div>
@@ -240,25 +244,32 @@ export default function UpdateBanner() {
 
       {/* Update Error Modal */}
       {statusData?.error && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <ExclamationTriangleIcon className="w-8 h-8 text-red-500" />
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Update Failed</h3>
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <span>Update Failed</span>
             </div>
-            <p className="text-gray-600 mb-4">{statusData.error}</p>
-            <p className="text-sm text-gray-500 mb-4">
-              The system has been restored from backup. Please try again or contact support.
-            </p>
-            <button
-              onClick={() => {
-                setUpdating(false)
-                queryClient.invalidateQueries(['update-status'])
-              }}
-              className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-            >
-              Close
-            </button>
+            <div className="modal-body">
+              <div className="flex items-center gap-2 mb-3">
+                <ExclamationTriangleIcon className="w-5 h-5 text-[#f44336]" />
+                <span className="text-[13px] font-semibold text-gray-900 dark:text-[#e0e0e0]">Update Failed</span>
+              </div>
+              <p className="text-[12px] text-gray-600 dark:text-[#aaa] mb-2">{statusData.error}</p>
+              <p className="text-[11px] text-gray-500 dark:text-[#888]">
+                The system has been restored from backup. Please try again or contact support.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                onClick={() => {
+                  setUpdating(false)
+                  queryClient.invalidateQueries(['update-status'])
+                }}
+                className="btn btn-sm"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

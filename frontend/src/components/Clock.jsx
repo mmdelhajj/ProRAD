@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { ClockIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { fetchTimezone, getTimezone, onTimezoneChange } from '../utils/timezone'
 import api from '../services/api'
 
@@ -37,25 +36,21 @@ export default function Clock() {
     const days = Math.floor(seconds / 86400)
     const hours = Math.floor((seconds % 86400) / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`
-    if (hours > 0) return `${hours}h ${minutes}m`
-    return `${minutes}m`
+    const secs = seconds % 60
+    if (days > 0) return `${days}d ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`
+    return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`
   }
 
   // Subscribe to timezone changes
   useEffect(() => {
-    // Fetch timezone if not already loaded
     if (!timezone) {
       fetchTimezone().then(tz => {
         if (tz) setTimezone(tz)
       })
     }
-
-    // Listen for timezone changes
     const unsubscribe = onTimezoneChange((tz) => {
       setTimezone(tz)
     })
-
     return () => unsubscribe()
   }, [])
 
@@ -72,44 +67,32 @@ export default function Clock() {
         ...tzOptions
       }))
       setDate(now.toLocaleDateString('en-US', {
-        weekday: 'short',
         year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
         ...tzOptions
       }))
     }
 
-    updateClock() // Initial update
+    updateClock()
     const interval = setInterval(updateClock, 1000)
     return () => clearInterval(interval)
   }, [timezone])
 
   return (
-    <div className="flex items-center gap-3 text-sm">
-      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-        <ClockIcon className="w-4 h-4" />
-        <span className="font-mono font-medium text-gray-700 dark:text-gray-200">{time || '--:--:--'}</span>
-      </div>
-      <div className="hidden sm:block text-gray-400 dark:text-gray-500">|</div>
-      <div className="hidden sm:block text-gray-500 dark:text-gray-400">{date || '---'}</div>
-      {timezone && (
-        <>
-          <div className="hidden md:block text-gray-400 dark:text-gray-500">|</div>
-          <div className="hidden md:block text-xs text-gray-400 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-            {timezone}
-          </div>
-        </>
-      )}
+    <>
       {uptime !== null && (
-        <>
-          <div className="hidden lg:block text-gray-400 dark:text-gray-500">|</div>
-          <div className="hidden lg:flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-            <ArrowPathIcon className="w-3.5 h-3.5" />
-            <span>Uptime: {formatUptime(uptime)}</span>
-          </div>
-        </>
+        <span className="hidden lg:inline">
+          Uptime: <span className="font-mono">{formatUptime(uptime)}</span>
+        </span>
       )}
-    </div>
+      <span className="hidden sm:inline">
+        Time: <span className="font-mono">{time || '--:--:--'}</span>
+      </span>
+      <span className="hidden sm:inline font-mono">{date || '--'}</span>
+      {timezone && (
+        <span className="hidden md:inline text-[11px] opacity-80">{timezone}</span>
+      )}
+    </>
   )
 }

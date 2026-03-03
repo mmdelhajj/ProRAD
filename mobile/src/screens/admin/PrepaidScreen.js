@@ -17,6 +17,7 @@ import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import api, { serviceApi } from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -77,14 +78,14 @@ const TabBar = ({ activeTab, onTabChange }) => (
 const tabStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.toolbar,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingHorizontal: spacing.base,
+    paddingHorizontal: spacing.sm,
   },
   tab: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.xs,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -139,19 +140,19 @@ const StatusFilterBar = ({ active, onChange }) => (
 
 const filterStyles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.toolbar,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   scroll: {
-    paddingHorizontal: spacing.base,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
   },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.surfaceHover,
     borderWidth: 1,
     borderColor: colors.border,
@@ -240,22 +241,16 @@ const CardRow = ({ card, onDelete }) => {
 
 const cardRowStyles = StyleSheet.create({
   container: {
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.sm,
   },
   info: {
     flex: 1,
@@ -292,9 +287,9 @@ const cardRowStyles = StyleSheet.create({
     marginTop: 2,
   },
   statusBadge: {
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   statusText: {
     ...typography.caption,
@@ -434,7 +429,7 @@ const GenerateForm = ({ services, onGenerate, generating }) => {
             placeholderTextColor={colors.textLight}
           />
         </View>
-        <View style={{ width: spacing.md }} />
+        <View style={{ width: spacing.sm }} />
         <View style={genFormStyles.col}>
           <Text style={genFormStyles.label}>Validity (days)</Text>
           <TextInput
@@ -489,22 +484,22 @@ const genStyles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
   },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary + '08',
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.primary + '20',
-    padding: spacing.base,
-    marginBottom: spacing.lg,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
   },
   infoIcon: {
-    fontSize: 24,
-    marginRight: spacing.md,
+    fontSize: 14,
+    marginRight: spacing.xs,
   },
   infoText: {
     ...typography.bodySmall,
@@ -514,15 +509,10 @@ const genStyles = StyleSheet.create({
   },
   generateButton: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md + 2,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    marginTop: spacing.lg,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: spacing.md,
   },
   generateButtonText: {
     ...typography.button,
@@ -533,7 +523,7 @@ const genStyles = StyleSheet.create({
 
 const genFormStyles = StyleSheet.create({
   fieldContainer: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
   },
   label: {
     ...typography.label,
@@ -542,11 +532,11 @@ const genFormStyles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
     ...typography.body,
     color: colors.text,
   },
@@ -557,7 +547,7 @@ const genFormStyles = StyleSheet.create({
   },
   twoCol: {
     flexDirection: 'row',
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
   },
   col: {
     flex: 1,
@@ -567,11 +557,11 @@ const genFormStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
   },
   pickerButtonText: {
     ...typography.body,
@@ -585,15 +575,15 @@ const genFormStyles = StyleSheet.create({
   },
   pickerOptions: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: spacing.xs,
     overflow: 'hidden',
   },
   pickerOption: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
@@ -858,9 +848,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 56 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -873,28 +863,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   searchContainer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
+    backgroundColor: colors.toolbar,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   searchInput: {
     backgroundColor: colors.surfaceHover,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm + 2 : spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
     ...typography.body,
     color: colors.text,
   },
   listContent: {
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.tabBar,
   },
   loadingMore: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
 });

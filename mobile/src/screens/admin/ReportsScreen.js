@@ -2,17 +2,17 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   StyleSheet,
-  Platform,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { EmptyState } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { reportApi } from '../../services/api';
 import { formatCurrency, formatBytes } from '../../utils/format';
 
@@ -86,14 +86,14 @@ const periodStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.base,
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
   chip: {
     backgroundColor: colors.surfaceHover || colors.background,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -126,14 +126,13 @@ const StatCard = ({ label, value, color, icon }) => (
 const statStyles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
     borderLeftWidth: 3,
-    padding: spacing.md,
+    padding: spacing.sm,
     alignItems: 'center',
   },
-  icon: { fontSize: 20, marginBottom: spacing.xs },
+  icon: { fontSize: 16, marginBottom: spacing.xs },
   value: { ...typography.h3, fontWeight: '800', marginBottom: 2 },
   label: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
 });
@@ -167,35 +166,29 @@ const ReportTypeCard = ({ report, isSelected, onPress }) => (
 const cardStyles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   iconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
-  icon: { fontSize: 22 },
+  icon: { fontSize: 18 },
   title: { ...typography.h4, color: colors.text, marginBottom: spacing.xs },
   description: { ...typography.bodySmall, color: colors.textSecondary, lineHeight: 18 },
   selectedBadge: {
     position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
+    top: spacing.sm,
+    right: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   selectedText: { ...typography.caption, color: colors.textInverse, fontWeight: '600' },
 });
@@ -527,28 +520,27 @@ const ReportsScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  contentContainer: { paddingTop: spacing.base, paddingBottom: spacing.tabBar },
+  contentContainer: { paddingTop: spacing.sm, paddingBottom: spacing.tabBar },
   sectionTitle: {
     ...typography.h4,
     color: colors.text,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
   },
   reportGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: spacing.base,
+    paddingHorizontal: spacing.sm,
   },
-  reportGridItem: { width: '50%', paddingRight: spacing.sm },
+  reportGridItem: { width: '50%', paddingRight: spacing.xs },
   sectionCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginHorizontal: spacing.base,
-    padding: spacing.base,
-    marginBottom: spacing.md,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    marginHorizontal: spacing.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
   },
   periodLabel: {
     ...typography.bodySmall,
@@ -558,32 +550,32 @@ const styles = StyleSheet.create({
   },
   generateButton: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
   },
   generateButtonDisabled: { opacity: 0.6 },
   generateButtonText: { ...typography.button, color: colors.textInverse },
-  loadingContainer: { alignItems: 'center', paddingVertical: spacing.xxxl },
+  loadingContainer: { alignItems: 'center', paddingVertical: spacing.lg },
   loadingText: { ...typography.body, color: colors.textSecondary, marginTop: spacing.md },
   // Stat grid
   statsRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
+    gap: spacing.xs,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
   },
   statHalf: { flex: 1 },
   // Section card for lists
   cardTitle: {
     ...typography.h4,
     color: colors.text,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   listRowBorder: {
     borderTopWidth: 1,
@@ -607,9 +599,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   listRank: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',

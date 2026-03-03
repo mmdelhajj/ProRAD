@@ -102,7 +102,7 @@ const rowStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   border: {
     borderBottomWidth: 1,
@@ -112,14 +112,14 @@ const rowStyles = StyleSheet.create({
     flex: 1,
   },
   dateText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '600',
   },
   sessionsText: {
     ...typography.caption,
     color: colors.textLight,
-    marginTop: 2,
+    marginTop: 1,
   },
   dataCol: {
     alignItems: 'flex-end',
@@ -127,24 +127,24 @@ const rowStyles = StyleSheet.create({
   dataRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 1,
+    marginVertical: 0,
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: borderRadius.sm,
     marginRight: spacing.xs,
   },
   dataLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-    width: 20,
+    width: 18,
   },
   dataValue: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '600',
-    minWidth: 72,
+    minWidth: 60,
     textAlign: 'right',
   },
 });
@@ -173,13 +173,13 @@ const totalStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderTopWidth: 2,
     borderTopColor: colors.border,
     marginTop: spacing.xs,
   },
   label: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '700',
     flex: 1,
@@ -190,19 +190,19 @@ const totalStyles = StyleSheet.create({
   dataRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 1,
+    marginVertical: 0,
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: borderRadius.sm,
     marginRight: spacing.xs,
   },
   text: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '700',
-    minWidth: 92,
+    minWidth: 72,
     textAlign: 'right',
   },
 });
@@ -465,38 +465,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingTop: spacing.xxxl + spacing.base,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: spacing.xxxl + spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   headerTitle: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.text,
   },
 
   // Tab selector
   tabRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   tab: {
     flex: 1,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.xs + 1,
     alignItems: 'center',
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.surfaceHover,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tabActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tabText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     fontWeight: '600',
   },
@@ -506,7 +509,7 @@ const styles = StyleSheet.create({
 
   // List
   listContent: {
-    paddingHorizontal: spacing.base,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.tabBar,
   },
   footerCard: {
@@ -515,23 +518,23 @@ const styles = StyleSheet.create({
 
   // Monthly summary
   monthlySummary: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   summaryCard: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.md,
   },
   noQuotaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   noQuotaLabel: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   noQuotaValue: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '700',
   },
@@ -539,13 +542,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.base,
-    paddingTop: spacing.md,
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
   daysRemainingLabel: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   daysRemainingValue: {
@@ -554,8 +557,8 @@ const styles = StyleSheet.create({
   },
 
   breakdownHeader: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   breakdownTitle: {
     ...typography.h4,
@@ -566,10 +569,10 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxxl,
+    paddingVertical: spacing.xxl,
   },
   emptyText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
 });

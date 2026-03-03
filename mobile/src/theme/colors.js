@@ -12,9 +12,10 @@ export const colors = {
   background: '#f8fafc',
   surface: '#ffffff',
   surfaceHover: '#f1f5f9',
+  toolbar: '#ffffff',
 
   // Text
-  text: '#0f172a',
+  text: '#1e293b',
   textSecondary: '#64748b',
   textLight: '#94a3b8',
   textInverse: '#ffffff',

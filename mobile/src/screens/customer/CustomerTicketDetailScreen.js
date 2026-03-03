@@ -14,6 +14,7 @@ import { Card, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatDate } from '../../utils/format';
 import { customerApi } from '../../services/api';
 
@@ -86,7 +87,7 @@ const MessageBubble = ({ message, isCustomer }) => {
 
 const bubbleStyles = StyleSheet.create({
   wrapper: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.md,
     maxWidth: '82%',
   },
   wrapperRight: {
@@ -100,7 +101,7 @@ const bubbleStyles = StyleSheet.create({
   senderLabel: {
     ...typography.caption,
     fontWeight: '600',
-    marginBottom: spacing.xs,
+    marginBottom: 1,
   },
   senderRight: {
     color: colors.primary,
@@ -109,21 +110,21 @@ const bubbleStyles = StyleSheet.create({
     color: colors.textSecondary,
   },
   bubble: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
   },
   bubbleCustomer: {
     backgroundColor: colors.primary,
-    borderBottomRightRadius: borderRadius.sm,
+    borderColor: colors.primaryDark,
   },
   bubbleSupport: {
     backgroundColor: colors.surfaceHover,
-    borderBottomLeftRadius: borderRadius.sm,
   },
   messageText: {
-    ...typography.body,
-    lineHeight: 22,
+    ...typography.bodySmall,
+    lineHeight: 18,
   },
   textCustomer: {
     color: colors.textInverse,
@@ -134,7 +135,7 @@ const bubbleStyles = StyleSheet.create({
   timestamp: {
     ...typography.caption,
     color: colors.textLight,
-    marginTop: spacing.xs,
+    marginTop: 1,
   },
   timestampRight: {
     textAlign: 'right',
@@ -365,7 +366,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   errorText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
 
@@ -373,18 +374,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: spacing.xxxl + spacing.base,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: spacing.xxxl + spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   backButton: {
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   backText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -396,10 +397,10 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   headerBadge: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.xs,
   },
   headerBadgeText: {
     ...typography.caption,
@@ -409,16 +410,16 @@ const styles = StyleSheet.create({
   // Info card
   infoCard: {
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   infoSubject: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     fontWeight: '600',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   infoRow: {
     flexDirection: 'row',
@@ -426,8 +427,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   infoCategoryChip: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 1,
     borderRadius: borderRadius.sm,
     backgroundColor: colors.surfaceHover,
   },
@@ -443,31 +444,31 @@ const styles = StyleSheet.create({
 
   // Messages
   messageList: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.base,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     flexGrow: 1,
   },
   emptyMessages: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxxl,
+    paddingVertical: spacing.xxl,
   },
   emptyMessagesText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textLight,
   },
 
   // Closed banner
   closedBanner: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingVertical: spacing.base,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
   },
   closedBannerText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     fontWeight: '500',
   },
@@ -476,38 +477,41 @@ const styles = StyleSheet.create({
   replyBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   replyInput: {
     flex: 1,
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
-    backgroundColor: colors.surfaceHover,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    maxHeight: 120,
-    marginRight: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    maxHeight: 100,
+    marginRight: spacing.xs,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+    marginBottom: 1,
+    ...shadows.sm,
   },
   sendButtonDisabled: {
     backgroundColor: colors.primary + '55',
   },
   sendButtonText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.textInverse,
   },

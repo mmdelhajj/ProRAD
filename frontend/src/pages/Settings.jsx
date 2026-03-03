@@ -11,6 +11,7 @@ import ClusterTab from '../components/ClusterTab'
 import NetworkConfiguration from '../components/NetworkConfiguration'
 import { dashboardApi } from '../services/api'
 import { QRCodeSVG } from 'qrcode.react'
+import clsx from 'clsx'
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -274,7 +275,12 @@ export default function Settings() {
       const res = await tunnelApi.getStatus()
       setTunnelStatus(res.data)
     } catch (err) {
-      setTunnelError('Failed to get tunnel status')
+      // If route doesn't exist (old backend), show as inactive instead of error
+      if (err?.response?.status === 404 || err?.response?.data?.message?.includes('Cannot GET')) {
+        setTunnelStatus({ enabled: false, running: false, url: null, subdomain: '', credentials_set: false })
+      } else {
+        setTunnelError(err?.response?.data?.message || err?.message || 'Failed to get tunnel status')
+      }
     } finally {
       setTunnelLoading(false)
     }
@@ -288,9 +294,13 @@ export default function Settings() {
       await fetchTunnelStatus()
       toast.success('Remote access enabled')
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to enable remote access'
-      setTunnelError(msg)
-      toast.error(msg)
+      if (err?.response?.status === 404 || err?.response?.data?.message?.includes('Cannot')) {
+        toast.error('Remote access not available on this server version')
+      } else {
+        const msg = err.response?.data?.message || 'Failed to enable remote access'
+        setTunnelError(msg)
+        toast.error(msg)
+      }
     } finally {
       setTunnelLoading(false)
     }
@@ -304,9 +314,13 @@ export default function Settings() {
       await fetchTunnelStatus()
       toast.success('Remote access disabled')
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to disable remote access'
-      setTunnelError(msg)
-      toast.error(msg)
+      if (err?.response?.status === 404 || err?.response?.data?.message?.includes('Cannot')) {
+        toast.error('Remote access not available on this server version')
+      } else {
+        const msg = err.response?.data?.message || 'Failed to disable remote access'
+        setTunnelError(msg)
+        toast.error(msg)
+      }
     } finally {
       setTunnelLoading(false)
     }
@@ -822,7 +836,7 @@ export default function Settings() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#316AC5]"></div>
       </div>
     )
   }
@@ -834,21 +848,18 @@ export default function Settings() {
       const isChecked = value === 'true' || value === '1' || value === true
       return (
         <div>
-          <button
-            type="button"
-            onClick={() => handleChange(field.key, isChecked ? 'false' : 'true')}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-              isChecked ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-800 shadow ring-0 transition duration-200 ease-in-out ${
-                isChecked ? 'translate-x-5' : 'translate-x-0'
-              }`}
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={() => handleChange(field.key, isChecked ? 'false' : 'true')}
+              className="w-3.5 h-3.5 border border-[#a0a0a0] accent-[#316AC5]"
+              style={{ borderRadius: '2px' }}
             />
-          </button>
+            <span className="text-[12px] text-gray-700">{field.label}</span>
+          </label>
           {field.description && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
+            <p className="mt-1 text-[11px] text-gray-500">{field.description}</p>
           )}
         </div>
       )
@@ -860,7 +871,7 @@ export default function Settings() {
           <select
             value={value}
             onChange={(e) => handleChange(field.key, e.target.value)}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="input"
           >
             <option value="">Select timezone...</option>
             {(timezones || []).map(tz => (
@@ -868,7 +879,7 @@ export default function Settings() {
             ))}
           </select>
           {field.description && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
+            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{field.description}</p>
           )}
         </div>
       )
@@ -879,7 +890,7 @@ export default function Settings() {
         <select
           value={value}
           onChange={(e) => handleChange(field.key, e.target.value)}
-          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          className="input"
         >
           <option value="">Select...</option>
           {field.options.map(opt => (
@@ -896,7 +907,7 @@ export default function Settings() {
           onChange={(e) => handleChange(field.key, e.target.value)}
           placeholder={field.placeholder}
           rows={3}
-          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          className="input"
         />
       )
     }
@@ -909,24 +920,24 @@ export default function Settings() {
           onChange={(e) => handleChange(field.key, e.target.value)}
           placeholder={field.placeholder}
           step={field.type === 'number' ? '0.01' : undefined}
-          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          className="input"
         />
         {field.description && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
+          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{field.description}</p>
         )}
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Settings</h1>
-        <div className="flex space-x-3">
+    <div className="space-y-1">
+      <div className="wb-toolbar flex justify-between items-center">
+        <h1 className="text-[14px] font-semibold text-gray-900 dark:text-[#e0e0e0]">Settings</h1>
+        <div className="flex gap-1">
           {hasChanges && (
             <button
               onClick={handleReset}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:bg-gray-700"
+              className="btn"
             >
               Reset
             </button>
@@ -934,11 +945,7 @@ export default function Settings() {
           <button
             onClick={handleSave}
             disabled={!hasChanges || updateMutation.isPending}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
-              hasChanges
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-gray-400 cursor-not-allowed'
-            }`}
+            className={hasChanges ? 'btn-primary' : 'btn opacity-50 cursor-not-allowed'}
           >
             {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
           </button>
@@ -946,64 +953,61 @@ export default function Settings() {
       </div>
 
       {updateMutation.isSuccess && (
-        <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 text-green-700 px-4 py-3 rounded">
+        <div className="card border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-3 py-2 text-[12px]">
           Settings saved successfully!
         </div>
       )}
 
       {updateMutation.isError && (
-        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="card border-red-500 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-2 text-[12px]">
           Failed to save settings. Please try again.
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+      <div className="card">
         {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex -mb-px">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`px-6 py-4 text-sm font-medium border-b-2 ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+        <div className="flex flex-wrap border-b border-[#a0a0a0] bg-[#f0f0f0] dark:bg-[#444] dark:border-[#555]">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`px-3 py-1.5 text-[12px] border border-[#a0a0a0] border-b-0 dark:border-[#555] ${
+                activeTab === tab.id
+                  ? 'bg-white dark:bg-[#333] font-semibold -mb-px'
+                  : 'bg-[#e8e8e8] dark:bg-[#444] text-[#666] dark:text-[#aaa]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Form Fields */}
-        <div className="p-6">
+        <div className="p-3">
           {activeTab === 'branding' ? (
-            <div className="space-y-8">
+            <div className="space-y-4">
               {/* Company Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Company Name
-                </label>
+              <div className="wb-group">
+                <div className="wb-group-title">Company Name</div>
+                <div className="wb-group-body">
                 <input
                   type="text"
                   value={formData.company_name || ''}
                   onChange={(e) => handleChange('company_name', e.target.value)}
                   placeholder="Your Company Name"
-                  className="block w-full max-w-md rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input max-w-md"
                 />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">This name appears in the sidebar and login page</p>
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-[#999]">This name appears in the sidebar and login page</p>
+                </div>
               </div>
 
               {/* Logo Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Company Logo
-                </label>
-                <div className="flex items-start gap-6">
+              <div className="wb-group">
+                <div className="wb-group-title">Company Logo</div>
+                <div className="wb-group-body">
+                <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-700 overflow-hidden">
+                    <div className="w-32 h-32 border border-[#a0a0a0] dark:border-[#555] rounded-sm flex items-center justify-center bg-white dark:bg-[#2a2a2a] overflow-hidden">
                       {companyLogo ? (
                         <img src={companyLogo} alt="Company Logo" className="max-w-full max-h-full object-contain" />
                       ) : (
@@ -1013,106 +1017,109 @@ export default function Settings() {
                   </div>
                   <div className="flex-1">
                     <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
-                    <div className="flex flex-col gap-2">
-                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingLogo} className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
-                        <PhotoIcon className="w-4 h-4 mr-2" />
+                    <div className="flex flex-col gap-1">
+                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingLogo} className="btn w-fit">
+                        <PhotoIcon className="w-3.5 h-3.5 mr-1" />
                         {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
                       </button>
                       {companyLogo && (
-                        <button type="button" onClick={handleLogoDelete} className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 w-fit">
-                          <TrashIcon className="w-4 h-4 mr-2" />
+                        <button type="button" onClick={handleLogoDelete} className="btn-danger w-fit">
+                          <TrashIcon className="w-3.5 h-3.5 mr-1" />
                           Remove Logo
                         </button>
                       )}
                     </div>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-2 text-[11px] text-gray-500 dark:text-[#999]">
                       Recommended: <strong>180 x 36 pixels</strong> (horizontal logo). PNG with transparent background, max 2MB.
                     </p>
                   </div>
                 </div>
+                </div>
               </div>
 
               {/* Primary Color */}
-              <div className="border-t dark:border-gray-700 pt-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <SwatchIcon className="w-4 h-4 inline mr-1" />
+              <div className="wb-group">
+                <div className="wb-group-title">
+                  <SwatchIcon className="w-3.5 h-3.5 inline mr-1" />
                   Primary Color
-                </label>
-                <div className="flex items-center gap-4">
+                </div>
+                <div className="wb-group-body">
+                <div className="flex items-center gap-3">
                   <input
                     type="color"
                     value={formData.primary_color || '#2563eb'}
                     onChange={(e) => handleChange('primary_color', e.target.value)}
-                    className="w-16 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                    className="w-12 h-8 rounded-sm border border-[#a0a0a0] dark:border-[#555] cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.primary_color || '#2563eb'}
                     onChange={(e) => handleChange('primary_color', e.target.value)}
                     placeholder="#2563eb"
-                    className="w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    className="input w-28"
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     {['#2563eb', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'].map((color) => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => handleChange('primary_color', color)}
-                        className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-600 shadow-sm hover:scale-110 transition-transform"
+                        className="w-6 h-6 rounded-full border-2 border-white dark:border-[#555] hover:scale-110 transition-transform"
                         style={{ backgroundColor: color }}
                         title={color}
                       />
                     ))}
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Used for buttons, links, and accent elements throughout the app</p>
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-[#999]">Used for buttons, links, and accent elements throughout the app</p>
+                </div>
               </div>
 
               {/* Login Background Image */}
-              <div className="border-t dark:border-gray-700 pt-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Login Page Background
-                </label>
-                <div className="flex items-start gap-6">
+              <div className="wb-group">
+                <div className="wb-group-title">Login Page Background</div>
+                <div className="wb-group-body">
+                <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-800 overflow-hidden">
+                    <div className="w-48 h-32 border border-[#a0a0a0] dark:border-[#555] rounded-sm flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-800 overflow-hidden">
                       {loginBackground ? (
                         <img src={loginBackground} alt="Login Background" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-white text-xs">Default Gradient</span>
+                        <span className="text-white text-[11px]">Default Gradient</span>
                       )}
                     </div>
                   </div>
                   <div className="flex-1">
                     <input ref={backgroundInputRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp" onChange={handleBackgroundUpload} className="hidden" />
-                    <div className="flex flex-col gap-2">
-                      <button type="button" onClick={() => backgroundInputRef.current?.click()} disabled={uploadingBackground} className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
-                        <PhotoIcon className="w-4 h-4 mr-2" />
+                    <div className="flex flex-col gap-1">
+                      <button type="button" onClick={() => backgroundInputRef.current?.click()} disabled={uploadingBackground} className="btn w-fit">
+                        <PhotoIcon className="w-3.5 h-3.5 mr-1" />
                         {uploadingBackground ? 'Uploading...' : 'Upload Background'}
                       </button>
                       {loginBackground && (
-                        <button type="button" onClick={handleBackgroundDelete} className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 w-fit">
-                          <TrashIcon className="w-4 h-4 mr-2" />
+                        <button type="button" onClick={handleBackgroundDelete} className="btn-danger w-fit">
+                          <TrashIcon className="w-3.5 h-3.5 mr-1" />
                           Use Default Gradient
                         </button>
                       )}
                     </div>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-2 text-[11px] text-gray-500 dark:text-[#999]">
                       Recommended: <strong>1920 x 1080 pixels</strong>. JPG or PNG, max 5MB.<br />
                       This image appears on the left side of the login page.
                     </p>
                   </div>
                 </div>
+                </div>
               </div>
 
               {/* Favicon */}
-              <div className="border-t dark:border-gray-700 pt-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <div className="border-t dark:border-gray-700 pt-3">
+                <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Favicon (Browser Tab Icon)
                 </label>
-                <div className="flex items-start gap-6">
+                <div className="flex items-start gap-3">
                   <div className="flex-shrink-0">
-                    <div className="w-16 h-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-700 overflow-hidden">
+                    <div className="w-16 h-16 border-2 border-dashed border-[#a0a0a0] flex items-center justify-center bg-gray-50 dark:bg-gray-700 overflow-hidden">
                       {favicon ? (
                         <img src={favicon} alt="Favicon" className="w-8 h-8 object-contain" />
                       ) : (
@@ -1123,18 +1130,18 @@ export default function Settings() {
                   <div className="flex-1">
                     <input ref={faviconInputRef} type="file" accept="image/png,image/x-icon,image/svg+xml" onChange={handleFaviconUpload} className="hidden" />
                     <div className="flex flex-col gap-2">
-                      <button type="button" onClick={() => faviconInputRef.current?.click()} disabled={uploadingFavicon} className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
+                      <button type="button" onClick={() => faviconInputRef.current?.click()} disabled={uploadingFavicon} className="inline-flex items-center px-4 py-2 text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-[#a0a0a0] hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
                         <PhotoIcon className="w-4 h-4 mr-2" />
                         {uploadingFavicon ? 'Uploading...' : 'Upload Favicon'}
                       </button>
                       {favicon && (
-                        <button type="button" onClick={handleFaviconDelete} className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 w-fit">
+                        <button type="button" onClick={handleFaviconDelete} className="inline-flex items-center px-4 py-2 text-[12px] font-medium text-red-600 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 w-fit">
                           <TrashIcon className="w-4 h-4 mr-2" />
                           Remove Favicon
                         </button>
                       )}
                     </div>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
                       Recommended: <strong>32 x 32 pixels</strong>. PNG, ICO, or SVG, max 500KB.
                     </p>
                   </div>
@@ -1142,8 +1149,8 @@ export default function Settings() {
               </div>
 
               {/* Footer Text */}
-              <div className="border-t dark:border-gray-700 pt-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <div className="border-t dark:border-gray-700 pt-3">
+                <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Footer Copyright Text
                 </label>
                 <input
@@ -1151,18 +1158,18 @@ export default function Settings() {
                   value={formData.footer_text || ''}
                   onChange={(e) => handleChange('footer_text', e.target.value)}
                   placeholder="© 2026 Your Company Name. All rights reserved."
-                  className="block w-full max-w-lg rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full max-w-lg border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                 />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Appears at the bottom of the login page</p>
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Appears at the bottom of the login page</p>
               </div>
 
               {/* Login Page Features Section */}
-              <div className="border-t dark:border-gray-700 pt-6">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Login Page Features</h3>
+              <div className="border-t dark:border-gray-700 pt-3">
+                <h3 className="text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-3">Login Page Features</h3>
 
                 {/* Tagline */}
-                <div className="mb-4">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                <div className="mb-3">
+                  <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Tagline (bottom of left panel)
                   </label>
                   <input
@@ -1170,12 +1177,12 @@ export default function Settings() {
                     value={formData.login_tagline || ''}
                     onChange={(e) => handleChange('login_tagline', e.target.value)}
                     placeholder="High Performance ISP Management Solution"
-                    className="block w-full max-w-lg rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    className="block w-full max-w-lg border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                   />
                 </div>
 
                 {/* Show/Hide Features Toggle */}
-                <div className="mb-4">
+                <div className="mb-3">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <div className="relative">
                       <input
@@ -1184,92 +1191,92 @@ export default function Settings() {
                         onChange={(e) => handleChange('show_login_features', e.target.checked ? 'true' : 'false')}
                         className="sr-only"
                       />
-                      <div className={`w-10 h-6 rounded-full transition-colors ${formData.show_login_features !== 'false' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.show_login_features !== 'false' ? 'translate-x-5' : 'translate-x-1'}`}></div>
+                      <div className={`w-10 h-6 transition-colors ${formData.show_login_features !== 'false' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white transition-transform ${formData.show_login_features !== 'false' ? 'translate-x-5' : 'translate-x-1'}`}></div>
                       </div>
                     </div>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Show feature boxes on login page</span>
+                    <span className="text-[12px] text-gray-700 dark:text-gray-300">Show feature boxes on login page</span>
                   </label>
                 </div>
 
                 {/* Feature 1 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3 p-4 bg-gray-50 dark:bg-gray-700/50">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 1 Title</label>
+                    <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 1 Title</label>
                     <input
                       type="text"
                       value={formData.login_feature_1_title || ''}
                       onChange={(e) => handleChange('login_feature_1_title', e.target.value)}
                       placeholder="PPPoE Management"
-                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 1 Description</label>
+                    <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 1 Description</label>
                     <input
                       type="text"
                       value={formData.login_feature_1_desc || ''}
                       onChange={(e) => handleChange('login_feature_1_desc', e.target.value)}
                       placeholder="Complete subscriber and session management..."
-                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                     />
                   </div>
                 </div>
 
                 {/* Feature 2 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3 p-4 bg-gray-50 dark:bg-gray-700/50">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 2 Title</label>
+                    <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 2 Title</label>
                     <input
                       type="text"
                       value={formData.login_feature_2_title || ''}
                       onChange={(e) => handleChange('login_feature_2_title', e.target.value)}
                       placeholder="Bandwidth Control"
-                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 2 Description</label>
+                    <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 2 Description</label>
                     <input
                       type="text"
                       value={formData.login_feature_2_desc || ''}
                       onChange={(e) => handleChange('login_feature_2_desc', e.target.value)}
                       placeholder="FUP quotas, time-based speed control..."
-                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                     />
                   </div>
                 </div>
 
                 {/* Feature 3 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 3 Title</label>
+                    <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 3 Title</label>
                     <input
                       type="text"
                       value={formData.login_feature_3_title || ''}
                       onChange={(e) => handleChange('login_feature_3_title', e.target.value)}
                       placeholder="MikroTik Integration"
-                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 3 Description</label>
+                    <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Feature 3 Description</label>
                     <input
                       type="text"
                       value={formData.login_feature_3_desc || ''}
                       onChange={(e) => handleChange('login_feature_3_desc', e.target.value)}
                       placeholder="Seamless RADIUS and API integration..."
-                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Sidebar Preview */}
-              <div className="border-t dark:border-gray-700 pt-6">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Sidebar Preview</h3>
-                <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 max-w-xs">
+              <div className="border-t dark:border-gray-700 pt-3">
+                <h3 className="text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-3">Sidebar Preview</h3>
+                <div className="bg-gray-100 dark:bg-gray-700 p-3">
+                  <div className="bg-white dark:bg-gray-800 shadow p-4 max-w-xs">
                     <div className="flex items-center gap-3">
                       {companyLogo ? (
                         <img src={companyLogo} alt="Logo" className="h-10 object-contain" />
@@ -1284,26 +1291,26 @@ export default function Settings() {
               </div>
             </div>
           ) : activeTab === 'account' ? (
-            <div className="space-y-8">
+            <div className="space-y-3">
               {/* User Info */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Account Information</h3>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-3">Account Information</h3>
+                <div className="bg-gray-50 dark:bg-gray-700 p-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Username</p>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400">Username</p>
                       <p className="font-medium">{user?.username}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400">Email</p>
                       <p className="font-medium">{user?.email || '-'}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Full Name</p>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400">Full Name</p>
                       <p className="font-medium">{user?.full_name || '-'}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Role</p>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400">Role</p>
                       <p className="font-medium capitalize">{user?.user_type}</p>
                     </div>
                   </div>
@@ -1312,27 +1319,27 @@ export default function Settings() {
 
               {/* Two-Factor Authentication */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Two-Factor Authentication</h3>
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-3">Two-Factor Authentication</h3>
 
                 {twoFAStatus?.enabled ? (
-                  <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center mb-4">
+                  <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 p-3">
+                    <div className="flex items-center mb-3">
                       <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                       </svg>
                       <span className="font-medium text-green-800">2FA is enabled</span>
                     </div>
-                    <p className="text-sm text-green-700 mb-4">Your account is protected with two-factor authentication.</p>
+                    <p className="text-[12px] text-green-700 mb-3">Your account is protected with two-factor authentication.</p>
 
                     <div className="border-t border-green-200 pt-4 mt-4">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Disable 2FA</p>
+                      <p className="text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-2">Disable 2FA</p>
                       <div className="space-y-3">
                         <input
                           type="password"
                           placeholder="Current password"
                           value={disablePassword}
                           onChange={(e) => setDisablePassword(e.target.value)}
-                          className="block w-full max-w-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full max-w-xs border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                         />
                         <input
                           type="text"
@@ -1340,12 +1347,12 @@ export default function Settings() {
                           value={disableCode}
                           onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                           maxLength={6}
-                          className="block w-full max-w-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full max-w-xs border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-[12px]"
                         />
                         <button
                           onClick={() => disableTwoFAMutation.mutate({ password: disablePassword, code: disableCode })}
                           disabled={disableTwoFAMutation.isPending || !disablePassword || disableCode.length !== 6}
-                          className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                          className="px-4 py-2 text-[12px] font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
                         >
                           {disableTwoFAMutation.isPending ? 'Disabling...' : 'Disable 2FA'}
                         </button>
@@ -1353,22 +1360,22 @@ export default function Settings() {
                     </div>
                   </div>
                 ) : twoFASetup ? (
-                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-4">Setup Two-Factor Authentication</h4>
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 p-3">
+                    <h4 className="font-medium text-blue-900 mb-3">Setup Two-Factor Authentication</h4>
 
-                    <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex flex-col md:flex-row gap-3">
                       <div className="flex-shrink-0">
-                        <p className="text-sm text-blue-800 mb-2">1. Scan this QR code with your authenticator app</p>
+                        <p className="text-[12px] text-blue-800 mb-2">1. Scan this QR code with your authenticator app</p>
                         <img src={twoFASetup.qr_code} alt="2FA QR Code" className="w-48 h-48 border rounded" />
                       </div>
 
                       <div className="flex-1">
-                        <p className="text-sm text-blue-800 mb-2">Or enter this code manually:</p>
-                        <code className="block bg-white px-3 py-2 rounded border text-sm font-mono mb-4 break-all">
+                        <p className="text-[12px] text-blue-800 mb-2">Or enter this code manually:</p>
+                        <code className="block bg-white px-3 py-2 rounded border text-[12px] font-mono mb-3 break-all">
                           {twoFASetup.secret}
                         </code>
 
-                        <p className="text-sm text-blue-800 mb-2">2. Enter the 6-digit code from your app:</p>
+                        <p className="text-[12px] text-blue-800 mb-2">2. Enter the 6-digit code from your app:</p>
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -1376,12 +1383,12 @@ export default function Settings() {
                             value={twoFACode}
                             onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             maxLength={6}
-                            className="block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg tracking-widest"
+                            className="block w-32 border-[#a0a0a0] dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 text-center text-lg tracking-widest"
                           />
                           <button
                             onClick={() => verifyTwoFAMutation.mutate(twoFACode)}
                             disabled={verifyTwoFAMutation.isPending || twoFACode.length !== 6}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            className="px-4 py-2 text-[12px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                           >
                             {verifyTwoFAMutation.isPending ? 'Verifying...' : 'Verify & Enable'}
                           </button>
@@ -1391,27 +1398,27 @@ export default function Settings() {
 
                     <button
                       onClick={() => { setTwoFASetup(null); setTwoFACode('') }}
-                      className="mt-4 text-sm text-blue-600 hover:text-blue-800"
+                      className="mt-4 text-[12px] text-blue-600 hover:text-blue-800"
                     >
                       Cancel setup
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                    <div className="flex items-center mb-4">
+                  <div className="bg-gray-50 dark:bg-gray-700 border border-[#a0a0a0] p-3">
+                    <div className="flex items-center mb-3">
                       <svg className="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                       <span className="font-medium text-gray-700 dark:text-gray-300 dark:text-gray-400">2FA is not enabled</span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-[12px] text-gray-600 mb-3">
                       Add an extra layer of security to your account by enabling two-factor authentication.
                       You'll need an authenticator app like Google Authenticator or Authy.
                     </p>
                     <button
                       onClick={() => setupTwoFAMutation.mutate()}
                       disabled={setupTwoFAMutation.isPending}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      className="px-4 py-2 text-[12px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                     >
                       {setupTwoFAMutation.isPending ? 'Setting up...' : 'Enable 2FA'}
                     </button>
@@ -1420,85 +1427,85 @@ export default function Settings() {
               </div>
             </div>
           ) : activeTab === 'notifications' ? (
-            <div className="space-y-8">
+            <div className="space-y-3">
               {/* Email/SMTP Settings */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Email Notifications (SMTP)</h3>
+              <div className="card p-3">
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-3">Email Notifications (SMTP)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Host</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">SMTP Host</label>
                     <input
                       type="text"
                       value={formData.smtp_host || ''}
                       onChange={(e) => handleChange('smtp_host', e.target.value)}
                       placeholder="smtp.gmail.com"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Port</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">SMTP Port</label>
                     <input
                       type="number"
                       value={formData.smtp_port || ''}
                       onChange={(e) => handleChange('smtp_port', e.target.value)}
                       placeholder="587"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Username</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">SMTP Username</label>
                     <input
                       type="text"
                       value={formData.smtp_username || ''}
                       onChange={(e) => handleChange('smtp_username', e.target.value)}
                       placeholder="user@gmail.com"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Password</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">SMTP Password</label>
                     <input
                       type="password"
                       value={formData.smtp_password || ''}
                       onChange={(e) => handleChange('smtp_password', e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Name</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">From Name</label>
                     <input
                       type="text"
                       value={formData.smtp_from_name || ''}
                       onChange={(e) => handleChange('smtp_from_name', e.target.value)}
                       placeholder="Company Name"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Email</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">From Email</label>
                     <input
                       type="email"
                       value={formData.smtp_from_email || ''}
                       onChange={(e) => handleChange('smtp_from_email', e.target.value)}
                       placeholder="noreply@company.com"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Email Address</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Test Email Address</label>
                     <div className="flex gap-2">
                       <input
                         type="email"
                         value={testEmail}
                         onChange={(e) => setTestEmail(e.target.value)}
                         placeholder="test@example.com"
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                        className="flex-1 px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                       />
                       <button
                         onClick={handleTestSmtp}
                         disabled={testingSmtp || !formData.smtp_host}
-                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 text-[12px] font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {testingSmtp ? 'Testing...' : 'Test SMTP'}
                       </button>
@@ -1508,15 +1515,15 @@ export default function Settings() {
               </div>
 
               {/* SMS Settings */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">SMS Notifications</h3>
+              <div className="card p-3">
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-3">SMS Notifications</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMS Provider</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">SMS Provider</label>
                     <select
                       value={formData.sms_provider || ''}
                       onChange={(e) => handleChange('sms_provider', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                     >
                       <option value="">Select Provider</option>
                       <option value="twilio">Twilio</option>
@@ -1528,33 +1535,33 @@ export default function Settings() {
                   {formData.sms_provider === 'twilio' && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Twilio Account SID</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Twilio Account SID</label>
                         <input
                           type="text"
                           value={formData.sms_twilio_sid || ''}
                           onChange={(e) => handleChange('sms_twilio_sid', e.target.value)}
                           placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Twilio Auth Token</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Twilio Auth Token</label>
                         <input
                           type="password"
                           value={formData.sms_twilio_token || ''}
                           onChange={(e) => handleChange('sms_twilio_token', e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Twilio Phone Number</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Twilio Phone Number</label>
                         <input
                           type="text"
                           value={formData.sms_twilio_from || ''}
                           onChange={(e) => handleChange('sms_twilio_from', e.target.value)}
                           placeholder="+1234567890"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                     </>
@@ -1563,33 +1570,33 @@ export default function Settings() {
                   {formData.sms_provider === 'vonage' && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vonage API Key</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Vonage API Key</label>
                         <input
                           type="text"
                           value={formData.sms_vonage_key || ''}
                           onChange={(e) => handleChange('sms_vonage_key', e.target.value)}
                           placeholder="API Key"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vonage API Secret</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Vonage API Secret</label>
                         <input
                           type="password"
                           value={formData.sms_vonage_secret || ''}
                           onChange={(e) => handleChange('sms_vonage_secret', e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sender Name/Number</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Sender Name/Number</label>
                         <input
                           type="text"
                           value={formData.sms_vonage_from || ''}
                           onChange={(e) => handleChange('sms_vonage_from', e.target.value)}
                           placeholder="CompanyName or +1234567890"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                     </>
@@ -1598,55 +1605,55 @@ export default function Settings() {
                   {formData.sms_provider === 'custom' && (
                     <>
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API URL</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">API URL</label>
                         <input
                           type="text"
                           value={formData.sms_custom_url || ''}
                           onChange={(e) => handleChange('sms_custom_url', e.target.value)}
                           placeholder="https://api.provider.com/sms/send"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">HTTP Method</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">HTTP Method</label>
                         <select
                           value={formData.sms_custom_method || 'POST'}
                           onChange={(e) => handleChange('sms_custom_method', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         >
                           <option value="POST">POST</option>
                           <option value="GET">GET</option>
                         </select>
                       </div>
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Request Body (JSON)</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Request Body (JSON)</label>
                         <textarea
                           value={formData.sms_custom_body || ''}
                           onChange={(e) => handleChange('sms_custom_body', e.target.value)}
                           placeholder='{"to": "{{to}}", "message": "{{message}}"}'
                           rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white font-mono text-[12px]"
                         />
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Use {'{{to}}'} and {'{{message}}'} as placeholders</p>
+                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Use {'{{to}}'} and {'{{message}}'} as placeholders</p>
                       </div>
                     </>
                   )}
 
                   {formData.sms_provider && (
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
+                      <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={testPhone}
                           onChange={(e) => setTestPhone(e.target.value)}
                           placeholder="+1234567890"
-                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="flex-1 px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                         <button
                           onClick={handleTestSms}
                           disabled={testingSms || !testPhone}
-                          className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-4 py-2 text-[12px] font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {testingSms ? 'Testing...' : 'Test SMS'}
                         </button>
@@ -1657,16 +1664,16 @@ export default function Settings() {
               </div>
 
               {/* WhatsApp Settings */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">WhatsApp Notifications</h3>
+              <div className="card p-3">
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-3">WhatsApp Notifications</h3>
 
                 {/* Provider selector */}
-                <div className="mb-5">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+                <div className="mb-3">
+                  <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Provider</label>
                   <select
                     value={formData.whatsapp_provider || 'ultramsg'}
                     onChange={(e) => handleChangeAndSave('whatsapp_provider', e.target.value)}
-                    className="w-full sm:w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                    className="w-full sm:w-64 px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                   >
                     <option value="ultramsg">Ultramsg</option>
                     <option value="proxrad">ProxRad WhatsApp</option>
@@ -1676,44 +1683,44 @@ export default function Settings() {
                 {(formData.whatsapp_provider || 'ultramsg') === 'ultramsg' ? (
                   /* Ultramsg provider */
                   <>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">
                       Get your Instance ID and Token from <a href="https://ultramsg.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">ultramsg.com</a>
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instance ID</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Instance ID</label>
                         <input
                           type="text"
                           value={formData.whatsapp_instance_id || ''}
                           onChange={(e) => handleChange('whatsapp_instance_id', e.target.value)}
                           placeholder="instanceXXXXX"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Token</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Token</label>
                         <input
                           type="password"
                           value={formData.whatsapp_token || ''}
                           onChange={(e) => handleChange('whatsapp_token', e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                          className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                         />
                       </div>
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
                         <div className="flex gap-2">
                           <input
                             type="text"
                             value={testPhone}
                             onChange={(e) => setTestPhone(e.target.value)}
                             placeholder="+1234567890 (with country code)"
-                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                            className="flex-1 px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                           />
                           <button
                             onClick={handleTestWhatsapp}
                             disabled={testingWhatsapp || !formData.whatsapp_instance_id || !formData.whatsapp_token}
-                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 text-[12px] font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {testingWhatsapp ? 'Testing...' : 'Test WhatsApp'}
                           </button>
@@ -1724,13 +1731,13 @@ export default function Settings() {
                 ) : (
                   /* ProxRad provider */
                   <div className="space-y-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-[12px] text-gray-500 dark:text-gray-400">
                       Link your WhatsApp number via ProxRad (proxsms.com). Scan the QR code below to connect your number.
                     </p>
 
                     {/* Subscription / Trial status banner */}
                     {proxradAccess && (
-                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${
+                      <div className={`flex items-start gap-3 p-3 border ${
                         proxradAccess.type === 'subscribed'
                           ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
                           : proxradAccess.type === 'expired'
@@ -1743,16 +1750,16 @@ export default function Settings() {
                         <div>
                           {proxradAccess.type === 'subscribed' && (
                             <>
-                              <p className="text-sm font-medium text-green-800 dark:text-green-300">Subscribed</p>
-                              <p className="text-xs text-green-600 dark:text-green-400">
+                              <p className="text-[12px] font-medium text-green-800 dark:text-green-300">Subscribed</p>
+                              <p className="text-[11px] text-green-600 dark:text-green-400">
                                 Active until {new Date(proxradAccess.expires_at).toLocaleDateString()}
                               </p>
                             </>
                           )}
                           {proxradAccess.type === 'trial' && proxradAccess.trial_ends && (
                             <>
-                              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Trial Mode</p>
-                              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                              <p className="text-[12px] font-medium text-yellow-800 dark:text-yellow-300">Trial Mode</p>
+                              <p className="text-[11px] text-yellow-600 dark:text-yellow-400">
                                 {proxradAccess.trial_hours_left > 0
                                   ? `${proxradAccess.trial_hours_left} hour${proxradAccess.trial_hours_left !== 1 ? 's' : ''} remaining — contact your provider to subscribe`
                                   : 'Trial ending soon'}
@@ -1761,16 +1768,16 @@ export default function Settings() {
                           )}
                           {proxradAccess.type === 'trial' && !proxradAccess.trial_ends && (
                             <>
-                              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Trial Mode</p>
-                              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                              <p className="text-[12px] font-medium text-yellow-800 dark:text-yellow-300">Trial Mode</p>
+                              <p className="text-[11px] text-yellow-600 dark:text-yellow-400">
                                 2-day trial starts when you link your number
                               </p>
                             </>
                           )}
                           {proxradAccess.type === 'expired' && (
                             <>
-                              <p className="text-sm font-medium text-red-800 dark:text-red-300">Trial / Subscription Expired</p>
-                              <p className="text-xs text-red-600 dark:text-red-400">
+                              <p className="text-[12px] font-medium text-red-800 dark:text-red-300">Trial / Subscription Expired</p>
+                              <p className="text-[11px] text-red-600 dark:text-red-400">
                                 Sending is blocked. Contact your provider to subscribe.
                               </p>
                             </>
@@ -1781,17 +1788,17 @@ export default function Settings() {
 
                     {/* Currently linked account */}
                     {formData.proxrad_account_unique && !proxradLinking && (
-                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
+                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700">
                         <span className="text-green-600 dark:text-green-400 text-xl">✅</span>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-green-800 dark:text-green-300">WhatsApp Account Linked</p>
-                          <p className="text-xs text-green-600 dark:text-green-400">
+                          <p className="text-[12px] font-medium text-green-800 dark:text-green-300">WhatsApp Account Linked</p>
+                          <p className="text-[11px] text-green-600 dark:text-green-400">
                             {proxradPhone || formData.proxrad_phone || formData.proxrad_account_unique}
                           </p>
                         </div>
                         <button
                           onClick={handleProxRadUnlink}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium"
+                          className="text-[11px] text-red-500 hover:text-red-700 font-medium"
                         >
                           Unlink
                         </button>
@@ -1800,15 +1807,15 @@ export default function Settings() {
 
                     {/* QR Code display */}
                     {proxradLinking && (
-                      <div className="flex flex-col items-center gap-3 p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                        <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                      <div className="flex flex-col items-center gap-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+                        <p className="text-[12px] font-medium text-blue-800 dark:text-blue-300">
                           📱 Scan with WhatsApp to link your number
                         </p>
                         {proxradQrUrl ? (
                           <img
                             src={proxradQrUrl}
                             alt="WhatsApp QR Code"
-                            className="w-48 h-48 border border-gray-200 rounded-lg bg-white p-1"
+                            className="w-48 h-48 border border-[#a0a0a0] bg-white p-1"
                             onError={(e) => { e.target.style.display='none' }}
                           />
                         ) : (
@@ -1816,13 +1823,13 @@ export default function Settings() {
                             <span className="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></span>
                           </div>
                         )}
-                        <p className="text-xs text-blue-600 dark:text-blue-400 text-center">
+                        <p className="text-[11px] text-blue-600 dark:text-blue-400 text-center">
                           Open WhatsApp → Linked Devices → Link a Device → Scan this QR
                         </p>
-                        <p className="text-xs text-gray-400 animate-pulse">Waiting for connection...</p>
+                        <p className="text-[11px] text-gray-400 animate-pulse">Waiting for connection...</p>
                         <button
                           onClick={handleProxRadCancelLink}
-                          className="text-xs text-red-500 hover:text-red-700 underline"
+                          className="text-[11px] text-red-500 hover:text-red-700 underline"
                         >
                           Cancel
                         </button>
@@ -1834,7 +1841,7 @@ export default function Settings() {
                       <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={handleProxRadCreateLink}
-                          className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+                          className="px-5 py-2 text-[12px] font-medium text-white bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
                         >
                           📱 Link via QR Code
                         </button>
@@ -1844,19 +1851,19 @@ export default function Settings() {
                     {/* Test after selected */}
                     {formData.proxrad_account_unique && !proxradLinking && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
+                        <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Test Phone Number</label>
                         <div className="flex gap-2">
                           <input
                             type="text"
                             value={testPhone}
                             onChange={(e) => setTestPhone(e.target.value)}
                             placeholder="+1234567890"
-                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+                            className="flex-1 px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white"
                           />
                           <button
                             onClick={handleTestProxRad}
                             disabled={testingWhatsapp || !testPhone}
-                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+                            className="px-4 py-2 text-[12px] font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
                           >
                             {testingWhatsapp ? 'Testing...' : 'Test Send'}
                           </button>
@@ -1868,22 +1875,22 @@ export default function Settings() {
               </div>
 
               {/* WhatsApp Subscriber Management */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+              <div className="card p-3">
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
                   📱 Send WhatsApp to Subscribers
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">
                   Select subscribers and send a WhatsApp message directly, or manage auto-notification settings.
                 </p>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {/* Subscriber Selector */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <h4 className="text-[12px] font-semibold text-gray-900 flex items-center gap-2">
                         Select Subscribers
                       </h4>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
                         {waSubscribers.length} with phone
                         {waSubscribers.filter(s => s.whatsapp_notifications).length > 0 && (
                           <span className="ml-2 text-green-600 dark:text-green-400 font-medium">
@@ -1897,11 +1904,11 @@ export default function Settings() {
                     <label className="flex items-center gap-2 mb-3 cursor-pointer">
                       <div
                         onClick={() => { setWaSendAll(!waSendAll); setWaSelectedIDs([]) }}
-                        className={`relative w-10 h-5 rounded-full transition-colors ${waSendAll ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        className={`relative w-10 h-5 transition-colors ${waSendAll ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                       >
-                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${waSendAll ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        <div className={`absolute top-0.5 w-4 h-4 bg-white transition-transform ${waSendAll ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </div>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-[12px] text-gray-700 dark:text-gray-300">
                         Send to all subscribers ({waSubscribers.length})
                       </span>
                     </label>
@@ -1914,12 +1921,12 @@ export default function Settings() {
                             value={waSubSearch}
                             onChange={e => { setWaSubSearch(e.target.value); fetchWaSubscribers(e.target.value) }}
                             placeholder="Search subscribers..."
-                            className="w-full px-3 py-2 pl-8 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white text-sm"
+                            className="w-full px-3 py-2 pl-8 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white text-[12px]"
                           />
                           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         </div>
 
-                        <div className="flex gap-2 mb-2 flex-wrap items-center text-xs">
+                        <div className="flex gap-2 mb-2 flex-wrap items-center text-[11px]">
                           <button onClick={() => setWaSelectedIDs(waSubscribers.map(s => s.id))} className="text-blue-600 hover:underline">Select all</button>
                           <span className="text-gray-300 dark:text-gray-600">|</span>
                           <button onClick={() => setWaSelectedIDs([])} className="text-gray-500 hover:underline">Clear</button>
@@ -1930,11 +1937,11 @@ export default function Settings() {
                           {waSelectedIDs.length > 0 && <span className="text-green-600 font-medium">{waSelectedIDs.length} selected</span>}
                         </div>
 
-                        <div className="max-h-64 overflow-y-auto space-y-1 border border-gray-200 dark:border-gray-600 rounded-lg p-2">
+                        <div className="max-h-64 overflow-y-auto space-y-1 border border-[#a0a0a0] p-2">
                           {waSubsLoading ? (
-                            <div className="text-center py-4 text-gray-400 text-sm">Loading...</div>
+                            <div className="text-center py-4 text-gray-400 text-[12px]">Loading...</div>
                           ) : waSubscribers.length === 0 ? (
-                            <p className="text-center py-4 text-gray-400 text-sm">No subscribers with phone numbers</p>
+                            <p className="text-center py-4 text-gray-400 text-[12px]">No subscribers with phone numbers</p>
                           ) : (
                             waSubscribers.map(sub => (
                               <label key={sub.id} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${waSelectedIDs.includes(sub.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
@@ -1942,17 +1949,17 @@ export default function Settings() {
                                   type="checkbox"
                                   checked={waSelectedIDs.includes(sub.id)}
                                   onChange={() => setWaSelectedIDs(prev => prev.includes(sub.id) ? prev.filter(x => x !== sub.id) : [...prev, sub.id])}
-                                  className="rounded border-gray-300"
+                                  className="rounded border-[#a0a0a0]"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{sub.username}</p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{sub.phone}</p>
+                                  <p className="text-[12px] text-[12px] font-semibold text-gray-900 truncate">{sub.username}</p>
+                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{sub.phone}</p>
                                 </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); waToggleNotifications(sub) }}
                                   disabled={waTogglingId === sub.id}
                                   title={sub.whatsapp_notifications ? 'Auto-notif ON — click to disable' : 'Auto-notif OFF — click to enable'}
-                                  className={`shrink-0 p-1 rounded-full transition-colors ${sub.whatsapp_notifications ? 'text-green-500 hover:bg-green-100 dark:hover:bg-green-900/30' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'} ${waTogglingId === sub.id ? 'opacity-50 cursor-wait' : ''}`}
+                                  className={`shrink-0 p-1 transition-colors ${sub.whatsapp_notifications ? 'text-green-500 hover:bg-green-100 dark:hover:bg-green-900/30' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'} ${waTogglingId === sub.id ? 'opacity-50 cursor-wait' : ''}`}
                                 >
                                   {sub.whatsapp_notifications ? (
                                     <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
@@ -1970,7 +1977,7 @@ export default function Settings() {
 
                   {/* Message Composer */}
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+                    <h4 className="text-[12px] font-semibold text-gray-900 flex items-center gap-2 mb-3">
                       ✉️ Compose Message
                     </h4>
                     <textarea
@@ -1978,15 +1985,15 @@ export default function Settings() {
                       onChange={e => setWaMessage(e.target.value)}
                       rows={8}
                       placeholder={"Type your message here...\n\nYou can use:\n{username} — subscriber username\n{full_name} — subscriber full name"}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white resize-none text-sm mb-2"
+                      className="w-full px-3 py-2 border border-[#a0a0a0] dark:bg-gray-800 dark:text-white resize-none text-[12px] mb-2"
                     />
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs text-gray-400">{waMessage.length} characters</p>
-                      <p className="text-xs text-gray-400">Recipients: {waSendAll ? `All (${waSubscribers.length})` : waSelectedIDs.length}</p>
+                      <p className="text-[11px] text-gray-400">{waMessage.length} characters</p>
+                      <p className="text-[11px] text-gray-400">Recipients: {waSendAll ? `All (${waSubscribers.length})` : waSelectedIDs.length}</p>
                     </div>
                     <div className="flex flex-wrap gap-1 mb-3">
                       {['{username}', '{full_name}'].map(v => (
-                        <button key={v} onClick={() => setWaMessage(m => m + v)} className="text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-500">
+                        <button key={v} onClick={() => setWaMessage(m => m + v)} className="text-[11px] bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-500">
                           {v}
                         </button>
                       ))}
@@ -1994,7 +2001,7 @@ export default function Settings() {
                     <button
                       onClick={waHandleSend}
                       disabled={waSending || !waMessage.trim() || (!waSendAll && waSelectedIDs.length === 0)}
-                      className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="w-full px-4 py-2 text-[12px] font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {waSending ? 'Sending...' : '📤 Send WhatsApp Message'}
                     </button>
@@ -2007,21 +2014,21 @@ export default function Settings() {
                 <button
                   onClick={handleSave}
                   disabled={!hasChanges || updateMutation.isPending}
-                  className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2 text-[12px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updateMutation.isPending ? 'Saving...' : 'Save Notification Settings'}
                 </button>
               </div>
             </div>
           ) : activeTab === 'license' ? (
-            <div className="space-y-6">
+            <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">License Information</h3>
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">License Information</h3>
                 <div className="flex gap-2">
                   <button
                     onClick={() => checkUpdateMutation.mutate()}
                     disabled={checkUpdateMutation.isPending}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-[#a0a0a0] hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
                   >
                     {checkUpdateMutation.isPending ? (
                       <>
@@ -2043,7 +2050,7 @@ export default function Settings() {
                   <button
                     onClick={() => revalidateMutation.mutate()}
                     disabled={revalidateMutation.isPending}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 text-[12px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                   >
                     {revalidateMutation.isPending ? (
                       <>
@@ -2067,10 +2074,10 @@ export default function Settings() {
 
               {licenseLoading ? (
                 <div className="flex items-center justify-center h-32">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#316AC5]"></div>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-3">
                   {/* License Status Card */}
                   {(() => {
                     const status = licenseStatus?.license_status || (licenseData?.valid ? 'active' : 'blocked')
@@ -2080,12 +2087,12 @@ export default function Settings() {
                       grace: { bg: 'bg-orange-50 border-orange-200', text: 'text-orange-800', subtext: 'text-orange-700', icon: 'text-orange-600', label: 'Grace Period', desc: 'License expired - renew now to avoid service interruption' },
                       readonly: { bg: 'bg-red-50 dark:bg-red-900/30 border-red-200', text: 'text-red-800', subtext: 'text-red-700', icon: 'text-red-600', label: 'Read-Only Mode', desc: 'License expired - system is read-only. Renew immediately!' },
                       blocked: { bg: 'bg-red-50 dark:bg-red-900/30 border-red-200', text: 'text-red-800', subtext: 'text-red-700', icon: 'text-red-600', label: 'License Blocked', desc: licenseData?.message || 'License invalid or expired' },
-                      unknown: { bg: 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600', text: 'text-gray-800', subtext: 'text-gray-700', icon: 'text-gray-600', label: 'Unknown Status', desc: 'Unable to determine license status' }
+                      unknown: { bg: 'bg-gray-50 dark:bg-gray-700 border-[#a0a0a0]', text: 'text-gray-800', subtext: 'text-gray-700', icon: 'text-gray-600', label: 'Unknown Status', desc: 'Unable to determine license status' }
                     }
                     const config = statusConfig[status] || statusConfig.unknown
 
                     return (
-                      <div className={`rounded-lg p-4 border ${config.bg}`}>
+                      <div className={`p-3 border ${config.bg}`}>
                         <div className="flex items-start">
                           <div className={`flex-shrink-0 ${config.icon}`}>
                             {status === 'active' ? (
@@ -2106,12 +2113,12 @@ export default function Settings() {
                             <div className="flex items-center gap-2">
                               <p className={`font-medium ${config.text}`}>{config.label}</p>
                               {licenseStatus?.read_only && (
-                                <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded">READ-ONLY</span>
+                                <span className="px-2 py-0.5 text-[11px] font-medium bg-red-100 text-red-800 rounded">READ-ONLY</span>
                               )}
                             </div>
-                            <p className={`text-sm ${config.subtext}`}>{config.desc}</p>
+                            <p className={`text-[12px] ${config.subtext}`}>{config.desc}</p>
                             {licenseStatus?.days_until_expiry !== undefined && licenseStatus?.days_until_expiry !== 0 && (
-                              <p className={`text-sm mt-1 font-medium ${config.subtext}`}>
+                              <p className={`text-[12px] mt-1 font-medium ${config.subtext}`}>
                                 {licenseStatus.days_until_expiry > 0
                                   ? `${licenseStatus.days_until_expiry} days remaining`
                                   : `${Math.abs(licenseStatus.days_until_expiry)} days overdue`
@@ -2126,7 +2133,7 @@ export default function Settings() {
 
                   {/* System Update Card */}
                   {updateData && (
-                    <div className={`rounded-lg p-4 border ${updateData.update_available ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
+                    <div className={`p-3 border ${updateData.update_available ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-700 border-[#a0a0a0]'}`}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-start">
                           <div className={`flex-shrink-0 ${updateData.update_available ? 'text-blue-600' : 'text-gray-500'}`}>
@@ -2138,12 +2145,12 @@ export default function Settings() {
                             <p className={`font-medium ${updateData.update_available ? 'text-blue-800' : 'text-gray-800'}`}>
                               {updateData.update_available ? 'Update Available' : 'System Up to Date'}
                             </p>
-                            <p className={`text-sm ${updateData.update_available ? 'text-blue-700' : 'text-gray-600'}`}>
+                            <p className={`text-[12px] ${updateData.update_available ? 'text-blue-700' : 'text-gray-600'}`}>
                               Current version: v{updateData.current_version || '1.0.0'}
                               {updateData.update_available && ` → v${updateData.new_version}`}
                             </p>
                             {updateData.update_available && updateData.release_notes && (
-                              <p className="text-sm text-blue-600 mt-1">{updateData.release_notes}</p>
+                              <p className="text-[12px] text-blue-600 mt-1">{updateData.release_notes}</p>
                             )}
                           </div>
                         </div>
@@ -2153,7 +2160,7 @@ export default function Settings() {
                               // Already on license tab, just trigger the update
                               window.location.href = '/settings?tab=license'
                             }}
-                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                            className="inline-flex items-center px-3 py-1.5 text-[12px] font-medium text-white bg-blue-600 hover:bg-blue-700"
                           >
                             Update Now
                           </button>
@@ -2163,12 +2170,12 @@ export default function Settings() {
                   )}
 
                   {/* Service Management Card */}
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                      <h4 className="font-medium text-gray-900 dark:text-white">Service Management</h4>
+                  <div className="card overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-[#a0a0a0]">
+                      <h4 className="text-[12px] font-semibold text-gray-900">Service Management</h4>
                     </div>
                     <div className="p-4">
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-[12px] text-gray-600 mb-3">
                         Restart services if you experience issues after updates or configuration changes.
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -2184,7 +2191,7 @@ export default function Settings() {
                             toast.success('API service is restarting. Page will reload in 10 seconds.', { id: 'restart' })
                             setTimeout(() => window.location.reload(), 10000)
                           }}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700"
+                          className="inline-flex items-center px-3 py-2 text-[12px] font-medium text-white bg-orange-600 hover:bg-orange-700"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -2203,7 +2210,7 @@ export default function Settings() {
                             toast.success('All services are restarting. Page will reload in 15 seconds.', { id: 'restart' })
                             setTimeout(() => window.location.reload(), 15000)
                           }}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                          className="inline-flex items-center px-3 py-2 text-[12px] font-medium text-white bg-red-600 hover:bg-red-700"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -2215,14 +2222,14 @@ export default function Settings() {
                   </div>
 
                   {/* License Details */}
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                      <h4 className="font-medium text-gray-900 dark:text-white">License Details</h4>
+                  <div className="card overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-[#a0a0a0]">
+                      <h4 className="text-[12px] font-semibold text-gray-900">License Details</h4>
                     </div>
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
                       <div className="px-4 py-3 flex justify-between">
                         <span className="text-gray-500 dark:text-gray-400">License Key</span>
-                        <span className="font-mono text-sm">{licenseData?.license_key || '-'}</span>
+                        <span className="font-mono text-[12px]">{licenseData?.license_key || '-'}</span>
                       </div>
                       <div className="px-4 py-3 flex justify-between">
                         <span className="text-gray-500 dark:text-gray-400">Customer Name</span>
@@ -2274,9 +2281,9 @@ export default function Settings() {
                   </div>
 
                   {/* Support Contact */}
-                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 p-3">
                     <h4 className="font-medium text-blue-900 mb-2">Need to upgrade or renew?</h4>
-                    <p className="text-sm text-blue-700">
+                    <p className="text-[12px] text-blue-700">
                       Contact support to upgrade your plan or renew your license.
                     </p>
                   </div>
@@ -2286,17 +2293,17 @@ export default function Settings() {
           ) : activeTab === 'cluster' ? (
             <ClusterTab />
           ) : activeTab === 'system' ? (
-            <div className="space-y-6">
+            <div className="space-y-3">
               {/* System Info Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">System Information</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Hardware specifications and system health</p>
+                  <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">System Information</h3>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400">Hardware specifications and system health</p>
                 </div>
                 <button
                   onClick={() => refetchSystemInfo()}
                   disabled={systemInfoLoading}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
+                  className="inline-flex items-center px-4 py-2 text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-[#a0a0a0] hover:bg-gray-50 dark:hover:bg-gray-600"
                 >
                   {systemInfoLoading ? 'Loading...' : 'Refresh'}
                 </button>
@@ -2311,23 +2318,23 @@ export default function Settings() {
                   {/* Hardware Specs Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* CPU */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="card p-3">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                        <div className="p-2">
                           <CpuChipIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">CPU</h4>
+                        <h4 className="text-[12px] font-semibold text-gray-900">CPU</h4>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{systemInfo.cpu?.cores} Cores</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate" title={systemInfo.cpu?.model}>{systemInfo.cpu?.model}</p>
+                      <p className="text-[16px] font-bold text-gray-900 dark:text-white">{systemInfo.cpu?.cores} Cores</p>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate" title={systemInfo.cpu?.model}>{systemInfo.cpu?.model}</p>
                       <div className="mt-2">
-                        <div className="flex justify-between text-sm mb-1">
+                        <div className="flex justify-between text-[12px] mb-1">
                           <span className="text-gray-500 dark:text-gray-400">Usage</span>
-                          <span className="font-medium text-gray-900 dark:text-white">{systemInfo.cpu?.usage}%</span>
+                          <span className="text-[12px] font-semibold text-gray-900">{systemInfo.cpu?.usage}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="w-full bg-[#e0e0e0] h-2 border border-[#c0c0c0]">
                           <div
-                            className={`h-2 rounded-full ${
+                            className={`h-2 ${
                               systemInfo.cpu?.usage > 80 ? 'bg-red-500' :
                               systemInfo.cpu?.usage > 60 ? 'bg-yellow-500' : 'bg-green-500'
                             }`}
@@ -2338,27 +2345,27 @@ export default function Settings() {
                     </div>
 
                     {/* Memory */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="card p-3">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                        <div className="p-2">
                           <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                           </svg>
                         </div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">Memory</h4>
+                        <h4 className="text-[12px] font-semibold text-gray-900">Memory</h4>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{systemInfo.memory?.total_gb} GB</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-[16px] font-bold text-gray-900 dark:text-white">{systemInfo.memory?.total_gb} GB</p>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400">
                         {Math.round(systemInfo.memory?.used_mb / 1024 * 10) / 10} GB used
                       </p>
                       <div className="mt-2">
-                        <div className="flex justify-between text-sm mb-1">
+                        <div className="flex justify-between text-[12px] mb-1">
                           <span className="text-gray-500 dark:text-gray-400">Usage</span>
-                          <span className="font-medium text-gray-900 dark:text-white">{systemInfo.memory?.usage}%</span>
+                          <span className="text-[12px] font-semibold text-gray-900">{systemInfo.memory?.usage}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="w-full bg-[#e0e0e0] h-2 border border-[#c0c0c0]">
                           <div
-                            className={`h-2 rounded-full ${
+                            className={`h-2 ${
                               systemInfo.memory?.usage > 80 ? 'bg-red-500' :
                               systemInfo.memory?.usage > 60 ? 'bg-yellow-500' : 'bg-green-500'
                             }`}
@@ -2369,27 +2376,27 @@ export default function Settings() {
                     </div>
 
                     {/* Disk */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="card p-3">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+                        <div className="p-2">
                           <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                           </svg>
                         </div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">Storage</h4>
+                        <h4 className="text-[12px] font-semibold text-gray-900">Storage</h4>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{systemInfo.disk?.total_gb} GB</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-[16px] font-bold text-gray-900 dark:text-white">{systemInfo.disk?.total_gb} GB</p>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400">
                         {systemInfo.disk?.type?.toUpperCase()} • {systemInfo.disk?.free_gb} GB free
                       </p>
                       <div className="mt-2">
-                        <div className="flex justify-between text-sm mb-1">
+                        <div className="flex justify-between text-[12px] mb-1">
                           <span className="text-gray-500 dark:text-gray-400">Usage</span>
-                          <span className="font-medium text-gray-900 dark:text-white">{systemInfo.disk?.usage}%</span>
+                          <span className="text-[12px] font-semibold text-gray-900">{systemInfo.disk?.usage}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="w-full bg-[#e0e0e0] h-2 border border-[#c0c0c0]">
                           <div
-                            className={`h-2 rounded-full ${
+                            className={`h-2 ${
                               systemInfo.disk?.usage > 80 ? 'bg-red-500' :
                               systemInfo.disk?.usage > 60 ? 'bg-yellow-500' : 'bg-green-500'
                             }`}
@@ -2400,23 +2407,23 @@ export default function Settings() {
                     </div>
 
                     {/* Capacity */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="card p-3">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                        <div className="p-2">
                           <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                         </div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">Capacity</h4>
+                        <h4 className="text-[12px] font-semibold text-gray-900">Capacity</h4>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <p className="text-[16px] font-bold text-gray-900 dark:text-white">
                         {systemInfo.capacity?.current_subscribers?.toLocaleString()}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400">
                         of {systemInfo.capacity?.estimated_max?.toLocaleString()} max subscribers
                       </p>
                       <div className="mt-2">
-                        <div className="flex justify-between text-sm mb-1">
+                        <div className="flex justify-between text-[12px] mb-1">
                           <span className="text-gray-500 dark:text-gray-400">Usage</span>
                           <span className={`font-medium ${
                             systemInfo.capacity?.status === 'critical' ? 'text-red-600' :
@@ -2424,9 +2431,9 @@ export default function Settings() {
                             'text-green-600'
                           }`}>{systemInfo.capacity?.usage_percent}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="w-full bg-[#e0e0e0] h-2 border border-[#c0c0c0]">
                           <div
-                            className={`h-2 rounded-full ${
+                            className={`h-2 ${
                               systemInfo.capacity?.status === 'critical' ? 'bg-red-500' :
                               systemInfo.capacity?.status === 'warning' ? 'bg-yellow-500' :
                               systemInfo.capacity?.status === 'moderate' ? 'bg-blue-500' :
@@ -2440,24 +2447,24 @@ export default function Settings() {
                   </div>
 
                   {/* OS Info */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-4">Operating System</h4>
+                  <div className="card p-3">
+                    <h4 className="text-[12px] font-semibold text-gray-900 mb-3">Operating System</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">OS</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.os?.name}</p>
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400">OS</p>
+                        <p className="text-[12px] font-semibold text-gray-900">{systemInfo.os?.name}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Version</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.os?.version}</p>
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400">Version</p>
+                        <p className="text-[12px] font-semibold text-gray-900">{systemInfo.os?.version}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Uptime</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.os?.uptime}</p>
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400">Uptime</p>
+                        <p className="text-[12px] font-semibold text-gray-900">{systemInfo.os?.uptime}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">CPU Speed</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{systemInfo.cpu?.speed || 'N/A'} MHz</p>
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400">CPU Speed</p>
+                        <p className="text-[12px] font-semibold text-gray-900">{systemInfo.cpu?.speed || 'N/A'} MHz</p>
                       </div>
                     </div>
                   </div>
@@ -2473,38 +2480,38 @@ export default function Settings() {
               )}
             </div>
           ) : activeTab === 'ssl' ? (
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+            <div className="space-y-3">
+              <div className="card p-3">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2">
                     <LockClosedIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Custom Domain & SSL Certificate</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Point your domain to this server and get a free HTTPS certificate from Let's Encrypt</p>
+                    <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">Custom Domain & SSL Certificate</h3>
+                    <p className="text-[12px] text-gray-500 dark:text-gray-400">Point your domain to this server and get a free HTTPS certificate from Let's Encrypt</p>
                   </div>
                 </div>
 
                 {sslStatus?.cert_exists && (
-                  <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+                  <div className="mb-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 flex items-center gap-2">
                     <CheckCircleIcon className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <p className="text-sm text-green-700 dark:text-green-300">
+                    <p className="text-[12px] text-green-700 dark:text-green-300">
                       SSL active — panel accessible at <strong>https://{sslStatus.domain}</strong>
                     </p>
                   </div>
                 )}
                 {sslStatus?.domain && !sslStatus?.cert_exists && (
-                  <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-center gap-2">
+                  <div className="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 flex items-center gap-2">
                     <ExclamationTriangleIcon className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                    <p className="text-[12px] text-yellow-700 dark:text-yellow-300">
                       Domain configured (<strong>{sslStatus.domain}</strong>) but no certificate found — run installation below.
                     </p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain / Subdomain</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Domain / Subdomain</label>
                     <input
                       type="text"
                       value={sslDomain}
@@ -2513,10 +2520,10 @@ export default function Settings() {
                       className="input w-full"
                       disabled={sslStreaming}
                     />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Must point to this server's public IP address via DNS</p>
+                    <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Must point to this server's public IP address via DNS</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email (Let's Encrypt)</label>
+                    <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1">Email (Let's Encrypt)</label>
                     <input
                       type="email"
                       value={sslEmail}
@@ -2525,7 +2532,7 @@ export default function Settings() {
                       className="input w-full"
                       disabled={sslStreaming}
                     />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Used for certificate expiry notifications</p>
+                    <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Used for certificate expiry notifications</p>
                   </div>
                 </div>
 
@@ -2546,7 +2553,7 @@ export default function Settings() {
                 </button>
 
                 {sslLog.length > 0 && (
-                  <div className="mt-4 bg-gray-900 rounded-lg p-4 font-mono text-xs max-h-80 overflow-y-auto space-y-0.5">
+                  <div className="mt-4 bg-gray-900 p-3 font-mono text-[11px] max-h-80 overflow-y-auto space-y-0.5">
                     {sslLog.map((line, i) => (
                       <div key={i} className={
                         line.includes('❌') ? 'text-red-400' :
@@ -2560,21 +2567,21 @@ export default function Settings() {
               </div>
 
     {/* Remote Access Card */}
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+    <div className="card p-3">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="p-2">
           <GlobeAltIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Remote Access</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Access your panel from anywhere via a secure ProxRad tunnel — no port forwarding required</p>
+          <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">Remote Access</h3>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">Access your panel from anywhere via a secure ProxRad tunnel — no port forwarding required</p>
         </div>
       </div>
 
       {tunnelError && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2">
+        <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-center gap-2">
           <ExclamationTriangleIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700 dark:text-red-300">{tunnelError}</p>
+          <p className="text-[12px] text-red-700 dark:text-red-300">{tunnelError}</p>
         </div>
       )}
 
@@ -2584,18 +2591,18 @@ export default function Settings() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <span className="text-sm text-gray-500 dark:text-gray-400">Loading tunnel status...</span>
+          <span className="text-[12px] text-gray-500 dark:text-gray-400">Loading tunnel status...</span>
         </div>
       ) : tunnelStatus && (
-        <div className={`p-4 rounded-xl border ${tunnelStatus.running ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
+        <div className={`p-4 rounded-xl border ${tunnelStatus.running ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-700 border-[#a0a0a0]'}`}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${tunnelStatus.running ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'}`} />
               <div>
-                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                <p className="text-[12px] font-semibold text-gray-900 text-[12px]">
                   {tunnelStatus.running ? 'Tunnel Active' : 'Tunnel Inactive'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   {tunnelStatus.running ? 'Remote access is enabled' : 'Click Enable to start remote access'}
                 </p>
               </div>
@@ -2603,7 +2610,7 @@ export default function Settings() {
             <button
               onClick={tunnelStatus.running ? handleDisableTunnel : handleEnableTunnel}
               disabled={tunnelLoading}
-              className={`btn text-sm disabled:opacity-50 disabled:cursor-not-allowed ${tunnelStatus.running ? 'btn-danger' : 'btn-primary'}`}
+              className={`btn text-[12px] disabled:opacity-50 disabled:cursor-not-allowed ${tunnelStatus.running ? 'btn-danger' : 'btn-primary'}`}
             >
               {tunnelLoading ? 'Please wait...' : tunnelStatus.running ? 'Disable' : 'Enable Remote Access'}
             </button>
@@ -2611,14 +2618,14 @@ export default function Settings() {
 
           {tunnelStatus.running && tunnelStatus.url && (
             <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Your Remote Access URL</p>
+              <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-2">Your Remote Access URL</p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-700 dark:text-green-300 font-mono truncate">
+                <code className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 text-[12px] text-green-700 dark:text-green-300 font-mono truncate">
                   {tunnelStatus.url}
                 </code>
                 <button
                   onClick={() => { navigator.clipboard.writeText(tunnelStatus.url); toast.success('URL copied!') }}
-                  className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
+                  className="btn btn-secondary text-[11px] px-3 py-2 whitespace-nowrap"
                 >
                   Copy
                 </button>
@@ -2626,12 +2633,12 @@ export default function Settings() {
                   href={tunnelStatus.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
+                  className="btn btn-secondary text-[11px] px-3 py-2 whitespace-nowrap"
                 >
                   Open
                 </a>
               </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
                 Share this URL with anyone who needs access. The connection is secured by Cloudflare.
               </p>
             </div>
@@ -2643,10 +2650,10 @@ export default function Settings() {
             </div>
           ) : (
             <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {settingGroups[activeTab]?.map(field => (
                 <div key={field.key} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     {field.label}
                   </label>
                   {renderField(field)}
@@ -2688,20 +2695,20 @@ export default function Settings() {
                 setTimeout(() => printWin.print(), 300)
               }
               return (
-              <div className="mt-8 border border-gray-200 dark:border-gray-600 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Mobile App QR Code</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+              <div className="mt-8 border border-[#a0a0a0] p-6">
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-1">Mobile App QR Code</h3>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">
                   Customers scan this QR code with the ProxPanel mobile app to connect to your panel.
                 </p>
-                <div className={`grid gap-6 ${remoteUrl ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                <div className={`grid gap-3 ${remoteUrl ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                   {/* Local / Direct URL QR */}
-                  <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-5">
+                  <div className="border border-[#a0a0a0] p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Local Network</h4>
+                      <h4 className="text-[12px] font-semibold text-gray-900 dark:text-white">Local Network</h4>
                     </div>
                     <div className="flex flex-col items-center">
-                      <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 mb-3">
+                      <div className="bg-white p-3 border border-gray-100 mb-3">
                         <QRCodeSVG
                           value={JSON.stringify({ server: localUrl, name: companyName })}
                           size={180}
@@ -2709,11 +2716,11 @@ export default function Settings() {
                           includeMargin={false}
                         />
                       </div>
-                      <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs text-gray-700 dark:text-gray-300 mb-3 max-w-full truncate">{localUrl}</code>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">For customers connected to your local network</p>
+                      <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-[11px] text-gray-700 dark:text-gray-300 mb-3 max-w-full truncate">{localUrl}</code>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center mb-3">For customers connected to your local network</p>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => downloadQr('qr-local', 'proxpanel-local-qr.png')} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">Download</button>
-                        <button type="button" onClick={() => printQr('qr-local', 'Local Network QR', localUrl)} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">Print</button>
+                        <button type="button" onClick={() => downloadQr('qr-local', 'proxpanel-local-qr.png')} className="inline-flex items-center px-3 py-1.5 text-[11px] font-medium border border-[#a0a0a0] dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">Download</button>
+                        <button type="button" onClick={() => printQr('qr-local', 'Local Network QR', localUrl)} className="inline-flex items-center px-3 py-1.5 text-[11px] font-medium border border-[#a0a0a0] dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">Print</button>
                       </div>
                     </div>
                     <div id="qr-local" className="hidden">
@@ -2723,13 +2730,13 @@ export default function Settings() {
 
                   {/* Remote Access URL QR */}
                   {remoteUrl && (
-                  <div className="border border-green-200 dark:border-green-700 rounded-lg p-5 bg-green-50/50 dark:bg-green-900/10">
+                  <div className="border border-green-200 dark:border-green-700 p-5 bg-green-50/50 dark:bg-green-900/10">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Remote Access</h4>
+                      <h4 className="text-[12px] font-semibold text-gray-900 dark:text-white">Remote Access</h4>
                     </div>
                     <div className="flex flex-col items-center">
-                      <div className="bg-white p-3 rounded-lg shadow-sm border border-green-100 mb-3">
+                      <div className="bg-white p-3 border border-green-100 mb-3">
                         <QRCodeSVG
                           value={JSON.stringify({ server: remoteUrl, name: companyName })}
                           size={180}
@@ -2737,11 +2744,11 @@ export default function Settings() {
                           includeMargin={false}
                         />
                       </div>
-                      <code className="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-xs text-green-800 dark:text-green-300 mb-3 max-w-full truncate">{remoteUrl}</code>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">For customers connecting from anywhere via internet</p>
+                      <code className="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-[11px] text-green-800 dark:text-green-300 mb-3 max-w-full truncate">{remoteUrl}</code>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center mb-3">For customers connecting from anywhere via internet</p>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => downloadQr('qr-remote', 'proxpanel-remote-qr.png')} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-white dark:bg-green-900/20 hover:bg-green-50 dark:hover:bg-green-900/30">Download</button>
-                        <button type="button" onClick={() => printQr('qr-remote', 'Remote Access QR', remoteUrl)} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-white dark:bg-green-900/20 hover:bg-green-50 dark:hover:bg-green-900/30">Print</button>
+                        <button type="button" onClick={() => downloadQr('qr-remote', 'proxpanel-remote-qr.png')} className="inline-flex items-center px-3 py-1.5 text-[11px] font-medium border border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-white dark:bg-green-900/20 hover:bg-green-50 dark:hover:bg-green-900/30">Download</button>
+                        <button type="button" onClick={() => printQr('qr-remote', 'Remote Access QR', remoteUrl)} className="inline-flex items-center px-3 py-1.5 text-[11px] font-medium border border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-white dark:bg-green-900/20 hover:bg-green-50 dark:hover:bg-green-900/30">Print</button>
                       </div>
                     </div>
                     <div id="qr-remote" className="hidden">
@@ -2759,8 +2766,8 @@ export default function Settings() {
       </div>
 
       {/* Quick Stats */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+      <div className="bg-gray-50 dark:bg-gray-700 p-3">
+        <p className="text-[12px] text-gray-500 dark:text-gray-400">
           {data?.length || 0} settings configured •
           {hasChanges ? ' Unsaved changes' : ' All changes saved'}
         </p>

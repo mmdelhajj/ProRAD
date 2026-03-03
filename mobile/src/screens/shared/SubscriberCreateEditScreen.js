@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -12,9 +11,11 @@ import {
   Switch,
   KeyboardAvoidingView,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { subscriberApi, serviceApi, resellerApi } from '../../services/api';
 import { Button, LoadingScreen } from '../../components';
 import useAuthStore from '../../store/authStore';
@@ -169,24 +170,24 @@ function DropdownPicker({ label, value, options, onSelect, placeholder, disabled
 
 const dropdownStyles = StyleSheet.create({
   container: {
-    marginBottom: spacing.base,
+    marginBottom: 8,
     zIndex: 1,
   },
   label: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '600',
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
     backgroundColor: colors.surface,
     minHeight: 48,
   },
@@ -194,7 +195,7 @@ const dropdownStyles = StyleSheet.create({
     opacity: 0.5,
   },
   triggerText: {
-    ...typography.body,
+    fontSize: 12,
     color: colors.text,
     flex: 1,
   },
@@ -202,44 +203,33 @@ const dropdownStyles = StyleSheet.create({
     color: colors.textLight,
   },
   arrow: {
-    fontSize: 10,
+    fontSize: 12,
     color: colors.textSecondary,
-    marginLeft: spacing.sm,
+    marginLeft: 4,
   },
   dropdown: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.surface,
-    marginTop: spacing.xs,
-    maxHeight: 240,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    marginTop: 2,
+    maxHeight: 200,
   },
   searchInput: {
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...typography.body,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 12,
     color: colors.text,
   },
   optionsList: {
-    maxHeight: 200,
+    maxHeight: 180,
   },
   option: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
   optionSelected: {
@@ -1041,30 +1031,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 54 : 12,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 54 : 8,
+    paddingBottom: 4,
+    paddingHorizontal: 6,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   backButton: {
-    paddingVertical: spacing.xs,
-    paddingRight: spacing.md,
+    paddingVertical: 2,
+    paddingRight: 6,
   },
   backText: {
-    ...typography.body,
+    fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
   },
   headerTitle: {
-    ...typography.h4,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.text,
     flex: 1,
     textAlign: 'center',
   },
   headerSpacer: {
-    width: 60,
+    width: 50,
   },
 
   // Saving bar
@@ -1073,14 +1064,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    paddingVertical: 3,
+    gap: 4,
   },
   savingText: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: colors.textInverse,
     fontWeight: '600',
-    marginLeft: spacing.sm,
+    marginLeft: 4,
   },
 
   // Scroll
@@ -1097,88 +1088,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.xxl,
+    paddingHorizontal: 12,
   },
   errorIcon: {
-    fontSize: 48,
-    marginBottom: spacing.base,
+    fontSize: 36,
+    marginBottom: 8,
   },
   errorTitle: {
-    ...typography.h3,
+    fontSize: 15,
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.sm,
+    marginBottom: 4,
   },
   errorMessage: {
-    ...typography.body,
+    fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: 22,
+    marginBottom: 10,
+    lineHeight: 18,
   },
 
   // Section
   sectionContainer: {
-    paddingHorizontal: spacing.base,
-    marginTop: spacing.lg,
+    paddingHorizontal: 6,
+    marginTop: 8,
   },
   sectionTitle: {
-    ...typography.h4,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.md,
+    marginBottom: 4,
   },
   sectionCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderRadius: borderRadius.sm,
+    padding: 8,
+    ...shadows.sm,
   },
 
   // Fields
   fieldContainer: {
-    marginBottom: spacing.base,
+    marginBottom: 8,
   },
   fieldLabel: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '600',
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   fieldHint: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textLight,
-    marginTop: spacing.xs,
+    marginTop: 2,
     fontStyle: 'italic',
   },
   input: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    ...typography.body,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    fontSize: 12,
     color: colors.text,
     backgroundColor: colors.surface,
     minHeight: 48,
   },
   multilineInput: {
-    minHeight: 72,
-    paddingTop: spacing.md,
+    minHeight: 56,
+    paddingTop: 6,
   },
   monoInput: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 14,
+    fontSize: 13,
   },
 
   // Password
@@ -1193,30 +1174,30 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   passwordToggle: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
-    borderTopRightRadius: borderRadius.md,
-    borderBottomRightRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
+    borderTopRightRadius: borderRadius.sm,
+    borderBottomRightRadius: borderRadius.sm,
+    paddingHorizontal: 6,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.surface,
   },
   passwordToggleText: {
-    fontSize: 20,
+    fontSize: 16,
   },
 
   // Status toggle
   statusRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: 4,
   },
   statusOption: {
     flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1.5,
+    paddingVertical: 5,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -1230,7 +1211,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger + '12',
   },
   statusOptionText: {
-    ...typography.body,
+    fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '600',
   },
@@ -1246,11 +1227,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.base,
-    paddingVertical: spacing.xs,
+    marginBottom: 8,
+    paddingVertical: 2,
   },
   switchLabel: {
-    ...typography.body,
+    fontSize: 12,
     color: colors.text,
     fontWeight: '500',
     flex: 1,
@@ -1262,10 +1243,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   currencySign: {
-    ...typography.h4,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.textSecondary,
-    marginRight: spacing.sm,
-    width: 20,
+    marginRight: 4,
+    width: 16,
     textAlign: 'center',
   },
   currencyInput: {
@@ -1274,22 +1256,22 @@ const styles = StyleSheet.create({
 
   // Notes
   notesInput: {
-    minHeight: 100,
-    paddingTop: spacing.md,
+    minHeight: 72,
+    paddingTop: 6,
     textAlignVertical: 'top',
   },
 
   // Save area
   saveContainer: {
-    paddingHorizontal: spacing.base,
-    marginTop: spacing.xl,
+    paddingHorizontal: 6,
+    marginTop: 10,
   },
   cancelButton: {
     alignItems: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: 8,
   },
   cancelText: {
-    ...typography.body,
+    fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
   },

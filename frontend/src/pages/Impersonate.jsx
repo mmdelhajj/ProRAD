@@ -59,10 +59,13 @@ export default function Impersonate() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Authenticating as reseller...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#c0c0c0] dark:bg-[#2d2d2d]" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+        <div className="card p-2 text-center">
+          <svg className="animate-spin h-6 w-6 text-[#316AC5] mx-auto mb-2" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-[11px] text-gray-600 dark:text-[#ccc]">Authenticating as reseller...</p>
         </div>
       </div>
     )
@@ -70,19 +73,22 @@ export default function Impersonate() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
-              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="min-h-screen flex items-center justify-center bg-[#c0c0c0] dark:bg-[#2d2d2d]" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+        <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
+          <div className="modal-header">
+            <span>Authentication Failed</span>
+          </div>
+          <div className="p-2 bg-[#f0f0f0] dark:bg-[#3a3a3a] text-center">
+            <div className="mx-auto flex items-center justify-center h-8 w-8 border border-[#f44336] bg-[#ffe0e0] dark:bg-[#4a2020] mb-2" style={{ borderRadius: '2px' }}>
+              <svg className="h-5 w-5 text-[#f44336]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Authentication Failed</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+            <p className="text-[12px] font-semibold text-gray-900 dark:text-[#e0e0e0] mb-1">Authentication Failed</p>
+            <p className="text-[11px] text-gray-600 dark:text-[#ccc] mb-2">{error}</p>
             <button
               onClick={() => window.close()}
-              className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+              className="btn btn-primary"
             >
               Close This Tab
             </button>

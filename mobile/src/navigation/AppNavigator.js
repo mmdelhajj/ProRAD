@@ -77,9 +77,9 @@ const placeholderStyles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.background,
   },
-  icon: { fontSize: 48, marginBottom: spacing.base },
-  title: { ...typography.h3, color: colors.text, marginBottom: spacing.xs },
-  subtitle: { ...typography.body, color: colors.textSecondary },
+  icon: { fontSize: 28, marginBottom: spacing.sm },
+  title: { ...typography.h4, color: colors.text, marginBottom: spacing.xs },
+  subtitle: { ...typography.bodySmall, color: colors.textSecondary },
 });
 
 // Reseller tickets reuse the admin TicketsScreen
@@ -113,7 +113,7 @@ function TabIcon({ label, focused }) {
   };
 
   return (
-    <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>
+    <Text style={{ fontSize: 16, opacity: focused ? 1 : 0.5 }}>
       {iconMap[label] || '\u2B55'}
     </Text>
   );
@@ -125,7 +125,7 @@ function TabIcon({ label, focused }) {
 
 function SubscribersStackNavigator() {
   return (
-    <SubscribersStack.Navigator screenOptions={{ headerShown: false }}>
+    <SubscribersStack.Navigator screenOptions={{ headerShown: false, contentStyle: { flex: 1 } }}>
       <SubscribersStack.Screen name="SubscriberList" component={SubscriberListScreen} />
       <SubscribersStack.Screen
         name="SubscriberDetail"
@@ -148,7 +148,7 @@ function SubscribersStackNavigator() {
 
 function AdminMoreStackNavigator() {
   return (
-    <AdminMoreStack.Navigator screenOptions={{ headerShown: false }}>
+    <AdminMoreStack.Navigator screenOptions={{ headerShown: false, contentStyle: { flex: 1 } }}>
       <AdminMoreStack.Screen name="MoreMenu" component={AdminMoreScreen} />
       <AdminMoreStack.Screen name="Resellers" component={ResellersScreen} options={{ animation: 'slide_from_right' }} />
       <AdminMoreStack.Screen name="NAS" component={NASScreen} options={{ animation: 'slide_from_right' }} />
@@ -169,7 +169,7 @@ function AdminMoreStackNavigator() {
 
 function ResellerMoreStackNavigator() {
   return (
-    <ResellerMoreStack.Navigator screenOptions={{ headerShown: false }}>
+    <ResellerMoreStack.Navigator screenOptions={{ headerShown: false, contentStyle: { flex: 1 } }}>
       <ResellerMoreStack.Screen name="MoreMenu" component={ResellerMoreScreen} />
       <ResellerMoreStack.Screen name="Resellers" component={ResellersScreen} options={{ animation: 'slide_from_right' }} />
       <ResellerMoreStack.Screen name="Tickets" component={ResellerTicketsScreen} options={{ animation: 'slide_from_right' }} />
@@ -184,7 +184,7 @@ function ResellerMoreStackNavigator() {
 
 function CustomerTicketsStackNavigator() {
   return (
-    <CustomerTicketsStack.Navigator screenOptions={{ headerShown: false }}>
+    <CustomerTicketsStack.Navigator screenOptions={{ headerShown: false, contentStyle: { flex: 1 } }}>
       <CustomerTicketsStack.Screen name="TicketList" component={TicketListScreen} />
       <CustomerTicketsStack.Screen
         name="TicketDetail"
@@ -212,12 +212,17 @@ const tabBarScreenOptions = {
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingBottom: Platform.OS === 'ios' ? 0 : spacing.xs,
-    height: Platform.OS === 'ios' ? 88 : 64,
+    height: 60,
+    paddingTop: 4,
+    paddingBottom: 6,
   },
   tabBarLabelStyle: {
     ...typography.tabBar,
   },
+  tabBarIconStyle: {
+    marginBottom: -2,
+  },
+  sceneStyle: { flex: 1 },
 };
 
 // ----------------------------------------------------------------
@@ -263,21 +268,21 @@ const impersonationStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.base,
+    paddingBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
   text: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: '#000',
     fontWeight: '600',
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   button: {
     backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   buttonText: {
     ...typography.caption,
@@ -511,7 +516,7 @@ export default function AppNavigator() {
   return (
     <RootStack.Navigator
       initialRouteName={initialRoute}
-      screenOptions={{ headerShown: false, animation: 'fade' }}
+      screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { flex: 1 } }}
     >
       {/* Server Connect */}
       <RootStack.Screen
@@ -560,15 +565,15 @@ const loadingStyles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   logo: {
-    fontSize: 56,
-    marginBottom: spacing.base,
+    fontSize: 36,
+    marginBottom: spacing.sm,
   },
   title: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.text,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.base,
   },
   spinner: {
-    marginTop: spacing.base,
+    marginTop: spacing.sm,
   },
 });

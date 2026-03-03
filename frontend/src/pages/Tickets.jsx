@@ -12,21 +12,20 @@ import {
   XMarkIcon,
   BellAlertIcon,
 } from '@heroicons/react/24/outline'
-import clsx from 'clsx'
 
-const priorityColors = {
-  low: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200',
-  normal: 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300',
-  high: 'bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300',
-  urgent: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300',
+const priorityBadge = {
+  low: 'badge-gray',
+  normal: 'badge-info',
+  high: 'badge-orange',
+  urgent: 'badge-danger',
 }
 
-const statusColors = {
-  open: 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300',
-  pending: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300',
-  in_progress: 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300',
-  resolved: 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300',
-  closed: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200',
+const statusBadge = {
+  open: 'badge-success',
+  pending: 'badge-warning',
+  in_progress: 'badge-info',
+  resolved: 'badge-purple',
+  closed: 'badge-gray',
 }
 
 const statusIcons = {
@@ -110,173 +109,152 @@ export default function Tickets() {
   const stats = statsData || { open: 0, pending: 0, closed: 0, total: 0 }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Support Tickets</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage support tickets and customer inquiries</p>
-        </div>
+    <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Toolbar */}
+      <div className="wb-toolbar justify-between">
+        <span className="text-[13px] font-semibold">Support Tickets</span>
         <button
           onClick={() => setShowModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          className="btn btn-primary"
         >
-          <PlusIcon className="w-5 h-5 mr-2" />
+          <PlusIcon className="w-3 h-3 mr-1" />
           New Ticket
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <div className="stat-card">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
-              <ExclamationCircleIcon className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Open</p>
-              <p className="text-xl font-bold text-green-600">{stats.open}</p>
+            <ExclamationCircleIcon className="w-4 h-4 text-[#4CAF50] mr-2" />
+            <div>
+              <div className="text-[11px] text-gray-500">Open</div>
+              <div className="text-[16px] font-bold text-[#4CAF50]">{stats.open}</div>
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
+        <div className="stat-card">
           <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
-              <ClockIcon className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
-              <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+            <ClockIcon className="w-4 h-4 text-[#FF9800] mr-2" />
+            <div>
+              <div className="text-[11px] text-gray-500">Pending</div>
+              <div className="text-[16px] font-bold text-[#FF9800]">{stats.pending}</div>
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
+        <div className="stat-card">
           <div className="flex items-center">
-            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <CheckCircleIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Closed</p>
-              <p className="text-xl font-bold text-gray-600 dark:text-gray-400">{stats.closed}</p>
+            <CheckCircleIcon className="w-4 h-4 text-gray-500 mr-2" />
+            <div>
+              <div className="text-[11px] text-gray-500">Closed</div>
+              <div className="text-[16px] font-bold text-gray-500">{stats.closed}</div>
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border">
+        <div className="stat-card">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-              <TicketIcon className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
-              <p className="text-xl font-bold">{stats.total}</p>
+            <TicketIcon className="w-4 h-4 text-[#2196F3] mr-2" />
+            <div>
+              <div className="text-[11px] text-gray-500">Total</div>
+              <div className="text-[16px] font-bold">{stats.total}</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4">
-        <div className="flex gap-4">
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">All Status</option>
-            <option value="open">Open</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-          </select>
-          <select
-            value={filters.priority}
-            onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">All Priority</option>
-            <option value="low">Low</option>
-            <option value="normal">Normal</option>
-            <option value="high">High</option>
-            <option value="urgent">Urgent</option>
-          </select>
-        </div>
+      <div className="wb-toolbar gap-2">
+        <select
+          value={filters.status}
+          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          className="input"
+          style={{ width: 'auto', minWidth: 130 }}
+        >
+          <option value="">All Status</option>
+          <option value="open">Open</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+        <select
+          value={filters.priority}
+          onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+          className="input"
+          style={{ width: 'auto', minWidth: 130 }}
+        >
+          <option value="">All Priority</option>
+          <option value="low">Low</option>
+          <option value="normal">Normal</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
       </div>
 
-      {/* Tickets List */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 dark:bg-gray-700">
+      {/* Tickets Table */}
+      <div className="table-container">
+        <table className="table">
+          <thead>
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subject</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+              <th>Ticket</th>
+              <th>Subject</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Category</th>
+              <th>Created</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                <td colSpan={7} className="text-center py-4 text-gray-500">Loading...</td>
               </tr>
             ) : ticketsData?.data?.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No tickets found</td>
+                <td colSpan={7} className="text-center py-4 text-gray-500">No tickets found</td>
               </tr>
             ) : (
               ticketsData?.data?.map((ticket) => {
                 const StatusIcon = statusIcons[ticket.status] || ExclamationCircleIcon
                 return (
-                  <tr key={ticket.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm text-gray-600 dark:text-gray-400">{ticket.ticket_number}</span>
+                  <tr key={ticket.id}>
+                    <td>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono">{ticket.ticket_number}</span>
                         {ticket.has_customer_reply && (
-                          <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                          </span>
+                          <span className="inline-block w-2 h-2 bg-red-500" style={{ borderRadius: '50%' }}></span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="font-medium">{ticket.subject}</div>
+                    <td>
+                      <div className="flex items-center gap-1">
+                        <span className="font-semibold">{ticket.subject}</span>
                         {ticket.has_customer_reply && (
-                          <BellAlertIcon className="w-4 h-4 text-red-500" title="New customer reply" />
+                          <BellAlertIcon className="w-3 h-3 text-red-500" title="New customer reply" />
                         )}
                       </div>
                       {ticket.subscriber && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{ticket.subscriber.username}</div>
+                        <div className="text-[11px] text-gray-500">{ticket.subscriber.username}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={clsx(
-                        'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                        statusColors[ticket.status]
-                      )}>
-                        <StatusIcon className="w-3 h-3 mr-1" />
+                    <td>
+                      <span className={statusBadge[ticket.status] || 'badge-gray'}>
+                        <StatusIcon className="w-3 h-3 mr-0.5 inline" />
                         {ticket.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={clsx(
-                        'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                        priorityColors[ticket.priority]
-                      )}>
+                    <td>
+                      <span className={priorityBadge[ticket.priority] || 'badge-gray'}>
                         {ticket.priority}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{ticket.category}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(ticket.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
+                    <td>{ticket.category}</td>
+                    <td>{formatDate(ticket.created_at)}</td>
+                    <td>
                       <button
                         onClick={() => handleViewTicket(ticket)}
-                        className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                        className="btn btn-sm"
                       >
                         View
                       </button>
@@ -291,42 +269,40 @@ export default function Tickets() {
 
       {/* Create Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold">Create New Ticket</h3>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                <XMarkIcon className="w-5 h-5" />
-              </button>
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: 480 }}>
+            <div className="modal-header">
+              <span>Create New Ticket</span>
+              <button onClick={() => setShowModal(false)} className="text-white hover:text-gray-200 text-[16px] leading-none">&times;</button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="modal-body space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                <label className="label">Subject</label>
                 <input
                   type="text"
                   value={formData.subject}
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="input"
                   placeholder="Brief description of the issue"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <label className="label">Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="input"
                   placeholder="Detailed description of the issue"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                  <label className="label">Priority</label>
                   <select
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                    className="input"
                   >
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
@@ -335,11 +311,11 @@ export default function Tickets() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                  <label className="label">Category</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                    className="input"
                   >
                     <option value="general">General</option>
                     <option value="billing">Billing</option>
@@ -349,17 +325,17 @@ export default function Tickets() {
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="modal-footer">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                className="btn"
               >
                 Cancel
               </button>
               <button
                 onClick={() => createMutation.mutate(formData)}
                 disabled={createMutation.isPending || !formData.subject || !formData.description}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                className="btn btn-primary"
               >
                 {createMutation.isPending ? 'Creating...' : 'Create Ticket'}
               </button>
@@ -370,30 +346,22 @@ export default function Tickets() {
 
       {/* Detail Modal */}
       {showDetailModal && selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="modal-overlay">
+          <div className="modal modal-lg" style={{ maxHeight: '90vh' }}>
+            <div className="modal-header">
               <div>
-                <h3 className="text-lg font-semibold">{selectedTicket.subject}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{selectedTicket.ticket_number}</p>
+                <span>{selectedTicket.subject}</span>
+                <span className="ml-2 text-[11px] font-normal opacity-80">{selectedTicket.ticket_number}</span>
               </div>
-              <button onClick={() => setShowDetailModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                <XMarkIcon className="w-5 h-5" />
-              </button>
+              <button onClick={() => setShowDetailModal(false)} className="text-white hover:text-gray-200 text-[16px] leading-none">&times;</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="modal-body space-y-3" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
               {/* Status and Actions */}
               <div className="flex items-center gap-2">
-                <span className={clsx(
-                  'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                  statusColors[selectedTicket.status]
-                )}>
+                <span className={statusBadge[selectedTicket.status] || 'badge-gray'}>
                   {selectedTicket.status}
                 </span>
-                <span className={clsx(
-                  'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                  priorityColors[selectedTicket.priority]
-                )}>
+                <span className={priorityBadge[selectedTicket.priority] || 'badge-gray'}>
                   {selectedTicket.priority}
                 </span>
                 <div className="flex-1" />
@@ -403,7 +371,8 @@ export default function Tickets() {
                     updateMutation.mutate({ id: selectedTicket.id, data: { status: e.target.value } })
                     setSelectedTicket({ ...selectedTicket, status: e.target.value })
                   }}
-                  className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded"
+                  className="input"
+                  style={{ width: 'auto', minWidth: 120 }}
                 >
                   <option value="open">Open</option>
                   <option value="pending">Pending</option>
@@ -414,49 +383,50 @@ export default function Tickets() {
               </div>
 
               {/* Original Description */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+              <div className="wb-group">
+                <div className="wb-group-title text-[11px] text-gray-500">
                   Created on {formatDateTime(selectedTicket.created_at)}
                 </div>
-                <p className="whitespace-pre-wrap">{selectedTicket.description}</p>
+                <div className="wb-group-body">
+                  <p className="whitespace-pre-wrap text-[12px]">{selectedTicket.description}</p>
+                </div>
               </div>
 
               {/* Replies */}
               {selectedTicket.replies?.map((reply) => (
-                <div key={reply.id} className={clsx(
-                  'rounded-lg p-4',
-                  reply.is_internal ? 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200' : 'bg-blue-50 dark:bg-blue-900/30'
-                )}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-medium text-sm">{reply.user?.username || 'User'}</span>
+                <div key={reply.id} className="wb-group" style={reply.is_internal ? { borderColor: '#FF9800' } : {}}>
+                  <div className="wb-group-title flex items-center gap-2">
+                    <span className="font-semibold text-[12px]">{reply.user?.username || 'User'}</span>
                     {reply.is_internal && (
-                      <span className="text-xs bg-yellow-200 text-yellow-800 px-1 rounded">Internal</span>
+                      <span className="badge-warning">Internal</span>
                     )}
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-[11px] text-gray-500 ml-auto">
                       {formatDateTime(reply.created_at)}
                     </span>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm">{reply.message}</p>
+                  <div className="wb-group-body">
+                    <p className="whitespace-pre-wrap text-[12px]">{reply.message}</p>
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Reply Form */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex gap-2">
+            <div className="modal-footer flex-col items-stretch gap-2">
+              <div className="flex gap-1">
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   rows={2}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="input flex-1"
                   placeholder="Type your reply..."
                 />
                 <button
                   onClick={() => replyMutation.mutate({ id: selectedTicket.id, message: replyText })}
                   disabled={replyMutation.isPending || !replyText}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  className="btn btn-primary"
                 >
-                  <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                  <ChatBubbleLeftRightIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>

@@ -95,7 +95,7 @@ export default function Prepaid() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin h-5 w-5 border-2 border-[#316AC5] border-t-transparent" style={{ borderRadius: '50%' }}></div>
       </div>
     )
   }
@@ -104,19 +104,20 @@ export default function Prepaid() {
   const meta = data?.meta || {}
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Prepaid Cards</h1>
-        <div className="space-x-2">
+    <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Toolbar */}
+      <div className="wb-toolbar justify-between">
+        <span className="text-[13px] font-semibold">Prepaid Cards</span>
+        <div className="flex gap-1">
           <button
             onClick={() => setShowRedeemModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="btn btn-success"
           >
             Redeem Card
           </button>
           <button
             onClick={() => setShowGenerateModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="btn btn-primary"
           >
             Generate Cards
           </button>
@@ -124,16 +125,16 @@ export default function Prepaid() {
       </div>
 
       {/* Batches Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         {(batches || []).slice(0, 4).map(batch => (
-          <div key={batch.batch_id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{batch.batch_id}</h3>
-            <div className="mt-2 flex justify-between">
-              <span className="text-2xl font-semibold text-green-600 dark:text-green-400">{batch.active}</span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">/ {batch.total} total</span>
+          <div key={batch.batch_id} className="stat-card">
+            <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{batch.batch_id}</div>
+            <div className="mt-1 flex justify-between items-baseline">
+              <span className="text-[14px] font-bold text-[#4CAF50]">{batch.active}</span>
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">/ {batch.total} total</span>
             </div>
-            <div className="mt-2 flex justify-between text-sm">
-              <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Used: {batch.used}</span>
+            <div className="mt-1 flex justify-between items-center">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">Used: {batch.used}</span>
               {batch.active > 0 && (
                 <button
                   onClick={() => {
@@ -141,7 +142,7 @@ export default function Prepaid() {
                       deleteBatchMutation.mutate(batch.batch_id)
                     }
                   }}
-                  className="text-red-600 hover:text-red-800"
+                  className="btn btn-danger btn-xs"
                 >
                   Delete Unused
                 </button>
@@ -152,11 +153,12 @@ export default function Prepaid() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex gap-4">
+      <div className="wb-toolbar gap-2">
         <select
           value={isUsed}
           onChange={(e) => { setIsUsed(e.target.value); setPage(1) }}
-          className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+          className="input"
+          style={{ width: 'auto', minWidth: 120 }}
         >
           <option value="">All Cards</option>
           <option value="false">Available</option>
@@ -165,7 +167,8 @@ export default function Prepaid() {
         <select
           value={batchFilter}
           onChange={(e) => { setBatchFilter(e.target.value); setPage(1) }}
-          className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+          className="input"
+          style={{ width: 'auto', minWidth: 140 }}
         >
           <option value="">All Batches</option>
           {(batches || []).map(b => (
@@ -175,39 +178,39 @@ export default function Prepaid() {
       </div>
 
       {/* Cards Table */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
+      <div className="table-container">
+        <table className="table">
+          <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Code</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PIN</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Value</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Days</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Service</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Batch</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+              <th>Code</th>
+              <th>PIN</th>
+              <th>Value</th>
+              <th>Days</th>
+              <th>Service</th>
+              <th>Status</th>
+              <th>Batch</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody>
             {cards.map(card => (
-              <tr key={card.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono dark:text-gray-200">{card.code}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono dark:text-gray-200">{card.pin}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm dark:text-gray-200">${card.value?.toFixed(2)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm dark:text-gray-200">{card.days}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm dark:text-gray-200">{card.service?.name || '-'}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs rounded-full ${card.is_used ? 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300' : 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300'}`}>
+              <tr key={card.id}>
+                <td className="font-mono">{card.code}</td>
+                <td className="font-mono">{card.pin}</td>
+                <td>${card.value?.toFixed(2)}</td>
+                <td>{card.days}</td>
+                <td>{card.service?.name || '-'}</td>
+                <td>
+                  <span className={card.is_used ? 'badge-gray' : 'badge-success'}>
                     {card.is_used ? 'Used' : 'Available'}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{card.batch_id}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                <td>{card.batch_id}</td>
+                <td style={{ textAlign: 'right' }}>
                   {!card.is_used && (
                     <button
                       onClick={() => deleteMutation.mutate(card.id)}
-                      className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                      className="btn btn-danger btn-xs"
                     >
                       Delete
                     </button>
@@ -217,71 +220,77 @@ export default function Prepaid() {
             ))}
           </tbody>
         </table>
-
-        {meta.totalPages > 1 && (
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 flex justify-between items-center">
-            <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Page {page} of {meta.totalPages}</span>
-            <div className="space-x-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 bg-gray-200 dark:bg-gray-600 dark:text-white rounded disabled:opacity-50">Previous</button>
-              <button onClick={() => setPage(p => p + 1)} disabled={page >= meta.totalPages} className="px-3 py-1 bg-gray-200 dark:bg-gray-600 dark:text-white rounded disabled:opacity-50">Next</button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Pagination */}
+      {meta.totalPages > 1 && (
+        <div className="wb-statusbar">
+          <span>Page {page} of {meta.totalPages}</span>
+          <div className="flex gap-1">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-sm">Previous</button>
+            <button onClick={() => setPage(p => p + 1)} disabled={page >= meta.totalPages} className="btn btn-sm">Next</button>
+          </div>
+        </div>
+      )}
 
       {/* Generate Modal */}
       {showGenerateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">Generate Prepaid Cards</h2>
-            <form onSubmit={handleGenerate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Count</label>
-                  <input
-                    type="number"
-                    value={generateForm.count}
-                    onChange={(e) => setGenerateForm({ ...generateForm, count: parseInt(e.target.value) || 0 })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    min="1" max="1000" required
-                  />
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: 420 }}>
+            <div className="modal-header">
+              <span>Generate Prepaid Cards</span>
+              <button onClick={() => setShowGenerateModal(false)} className="text-white hover:text-gray-200 text-[13px] leading-none">&times;</button>
+            </div>
+            <form onSubmit={handleGenerate}>
+              <div className="modal-body space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label">Count</label>
+                    <input
+                      type="number"
+                      value={generateForm.count}
+                      onChange={(e) => setGenerateForm({ ...generateForm, count: parseInt(e.target.value) || 0 })}
+                      className="input"
+                      min="1" max="1000" required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Days</label>
+                    <input
+                      type="number"
+                      value={generateForm.days}
+                      onChange={(e) => setGenerateForm({ ...generateForm, days: parseInt(e.target.value) || 0 })}
+                      className="input"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Days</label>
+                  <label className="label">Service</label>
+                  <select
+                    value={generateForm.service_id}
+                    onChange={(e) => setGenerateForm({ ...generateForm, service_id: e.target.value })}
+                    className="input"
+                  >
+                    <option value="">No service change</option>
+                    {(services || []).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Prefix (optional)</label>
                   <input
-                    type="number"
-                    value={generateForm.days}
-                    onChange={(e) => setGenerateForm({ ...generateForm, days: parseInt(e.target.value) || 0 })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    type="text"
+                    value={generateForm.prefix}
+                    onChange={(e) => setGenerateForm({ ...generateForm, prefix: e.target.value.toUpperCase() })}
+                    className="input"
+                    maxLength="6"
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Service</label>
-                <select
-                  value={generateForm.service_id}
-                  onChange={(e) => setGenerateForm({ ...generateForm, service_id: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                >
-                  <option value="">No service change</option>
-                  {(services || []).map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Prefix (optional)</label>
-                <input
-                  type="text"
-                  value={generateForm.prefix}
-                  onChange={(e) => setGenerateForm({ ...generateForm, prefix: e.target.value.toUpperCase() })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  maxLength="6"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => setShowGenerateModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
-                <button type="submit" disabled={generateMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowGenerateModal(false)} className="btn">Cancel</button>
+                <button type="submit" disabled={generateMutation.isPending} className="btn btn-primary">
                   Generate {generateForm.count} Cards
                 </button>
               </div>
@@ -292,43 +301,48 @@ export default function Prepaid() {
 
       {/* Redeem Modal */}
       {showRedeemModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">Redeem Prepaid Card</h2>
-            <form onSubmit={handleRedeem} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Card Code</label>
-                <input
-                  type="text"
-                  value={redeemForm.code}
-                  onChange={(e) => setRedeemForm({ ...redeemForm, code: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  required
-                />
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: 400 }}>
+            <div className="modal-header">
+              <span>Redeem Prepaid Card</span>
+              <button onClick={() => setShowRedeemModal(false)} className="text-white hover:text-gray-200 text-[13px] leading-none">&times;</button>
+            </div>
+            <form onSubmit={handleRedeem}>
+              <div className="modal-body space-y-2">
+                <div>
+                  <label className="label">Card Code</label>
+                  <input
+                    type="text"
+                    value={redeemForm.code}
+                    onChange={(e) => setRedeemForm({ ...redeemForm, code: e.target.value })}
+                    className="input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">PIN</label>
+                  <input
+                    type="text"
+                    value={redeemForm.pin}
+                    onChange={(e) => setRedeemForm({ ...redeemForm, pin: e.target.value })}
+                    className="input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">Subscriber ID</label>
+                  <input
+                    type="number"
+                    value={redeemForm.subscriber_id}
+                    onChange={(e) => setRedeemForm({ ...redeemForm, subscriber_id: e.target.value })}
+                    className="input"
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">PIN</label>
-                <input
-                  type="text"
-                  value={redeemForm.pin}
-                  onChange={(e) => setRedeemForm({ ...redeemForm, pin: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Subscriber ID</label>
-                <input
-                  type="number"
-                  value={redeemForm.subscriber_id}
-                  onChange={(e) => setRedeemForm({ ...redeemForm, subscriber_id: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => setShowRedeemModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
-                <button type="submit" disabled={redeemMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">Redeem</button>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowRedeemModal(false)} className="btn">Cancel</button>
+                <button type="submit" disabled={redeemMutation.isPending} className="btn btn-success">Redeem</button>
               </div>
             </form>
           </div>

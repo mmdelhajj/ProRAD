@@ -2,16 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   RefreshControl,
   Alert,
   StyleSheet,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { Card, Button, Input, LoadingScreen, StatusBadge } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { formatDate, formatSpeed, formatCurrency } from '../../utils/format';
 import { customerApi, authApi } from '../../services/api';
 import useAuthStore from '../../store/authStore';
@@ -65,19 +66,19 @@ const infoStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   rowBorder: {
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
   label: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     flex: 1,
   },
   value: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text,
     fontWeight: '600',
     flex: 1.5,
@@ -432,38 +433,34 @@ const styles = StyleSheet.create({
   // Profile header
   profileHeader: {
     alignItems: 'center',
-    paddingTop: spacing.xxxl + spacing.xl,
-    paddingBottom: spacing.xl,
+    paddingTop: spacing.xxxl + spacing.md,
+    paddingBottom: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.textInverse,
   },
   profileName: {
-    ...typography.h3,
+    ...typography.h4,
     color: colors.text,
     marginBottom: spacing.xs,
   },
   profileUsername: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
   },
 
@@ -472,9 +469,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
   },
   sectionTitle: {
     ...typography.h4,
@@ -483,7 +480,7 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.md,
   },
 
   // Subscription status row
@@ -491,7 +488,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
 
   // Action rows
@@ -500,30 +497,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.md,
     marginBottom: 1,
-    paddingVertical: spacing.base,
-    paddingHorizontal: spacing.base,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
   },
   actionText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     fontWeight: '500',
   },
   actionChevron: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textLight,
-    fontSize: 18,
+    fontSize: 14,
   },
   logoutRow: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     borderColor: colors.danger + '30',
   },
   logoutText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.danger,
     fontWeight: '600',
   },
@@ -531,25 +527,24 @@ const styles = StyleSheet.create({
   // Password form
   passwordForm: {
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
-    padding: spacing.base,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    padding: spacing.md,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
   },
   passwordError: {
     ...typography.caption,
     color: colors.danger,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
 
   // Version
   versionContainer: {
     alignItems: 'center',
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.base,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   versionText: {
     ...typography.caption,

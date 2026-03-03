@@ -344,14 +344,9 @@ export default function Resellers() {
         accessorKey: 'username',
         header: 'Username',
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
-              <UserGroupIcon className="w-5 h-5 text-primary-600" />
-            </div>
-            <div>
-              <div className="font-medium">{row.original.user?.username || row.original.username}</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.name || row.original.company}</div>
-            </div>
+          <div>
+            <div className="font-semibold text-[12px]">{row.original.user?.username || row.original.username}</div>
+            <div className="text-[11px] text-gray-500 dark:text-gray-400">{row.original.name || row.original.company}</div>
           </div>
         ),
       },
@@ -362,17 +357,18 @@ export default function Resellers() {
           const password = row.original.user?.password_plain
           const isVisible = visiblePasswords[row.original.id]
           return (
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm">
-                {password ? (isVisible ? password : '••••••••') : '-'}
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[12px]">
+                {password ? (isVisible ? password : '********') : '-'}
               </span>
               {password && (
                 <button
                   onClick={() => togglePasswordVisibility(row.original.id)}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400"
-                  title={isVisible ? 'Hide password' : 'Show password'}
+                  className="btn btn-xs"
+                  title={isVisible ? 'Hide' : 'Show'}
+                  style={{ padding: '0 2px', minHeight: 16 }}
                 >
-                  {isVisible ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                  {isVisible ? <EyeSlashIcon className="w-3 h-3" /> : <EyeIcon className="w-3 h-3" />}
                 </button>
               )}
             </div>
@@ -383,9 +379,9 @@ export default function Resellers() {
         accessorKey: 'contact',
         header: 'Contact',
         cell: ({ row }) => (
-          <div className="text-sm">
+          <div className="text-[12px]">
             <div>{row.original.user?.email || row.original.email}</div>
-            <div className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{row.original.user?.phone || row.original.phone}</div>
+            <div className="text-gray-500 dark:text-gray-400">{row.original.user?.phone || row.original.phone}</div>
           </div>
         ),
       },
@@ -393,37 +389,35 @@ export default function Resellers() {
         accessorKey: 'balance',
         header: 'Balance',
         cell: ({ row }) => (
-          <div className={clsx('font-semibold', row.original.balance >= 0 ? 'text-green-600' : 'text-red-600')}>
+          <span className={clsx('font-semibold text-[12px]', row.original.balance >= 0 ? 'text-green-600' : 'text-red-600')}>
             ${row.original.balance?.toFixed(2)}
-          </div>
+          </span>
         ),
       },
       {
         accessorKey: 'credit',
         header: 'Credit',
-        cell: ({ row }) => `$${(row.original.credit || 0).toFixed(2)}`,
+        cell: ({ row }) => <span className="text-[12px]">${(row.original.credit || 0).toFixed(2)}</span>,
       },
       {
         accessorKey: 'subscriber_count',
-        header: 'Subscribers',
-        cell: ({ row }) => row.original.subscriber_count || 0,
+        header: 'Subs',
+        cell: ({ row }) => <span className="text-[12px]">{row.original.subscriber_count || 0}</span>,
       },
       {
         accessorKey: 'is_active',
         header: 'Status',
         cell: ({ row }) => (
           <div className="flex flex-wrap items-center gap-1">
-            <span className={clsx('badge', row.original.is_active ? 'badge-success' : 'badge-gray')}>
+            <span className={clsx(row.original.is_active ? 'badge-success' : 'badge-gray')}>
               {row.original.is_active ? 'Active' : 'Inactive'}
             </span>
             {row.original.rebrand_enabled && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                Rebrand
-              </span>
+              <span className="badge-info">Rebrand</span>
             )}
             {row.original.custom_domain && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 ml-1" title={row.original.custom_domain}>
-                🌐 {row.original.custom_domain}
+              <span className="badge-purple" title={row.original.custom_domain}>
+                {row.original.custom_domain}
               </span>
             )}
           </div>
@@ -433,44 +427,44 @@ export default function Resellers() {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => {
                 if (confirm(`Login as ${row.original.user?.username || row.original.username}?`)) {
                   impersonateMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+              className="btn btn-xs"
               title="Login as Reseller"
             >
-              <ArrowRightOnRectangleIcon className="w-4 h-4" />
+              <ArrowRightOnRectangleIcon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => {
                 setSelectedReseller(row.original)
                 setShowTransferModal(true)
               }}
-              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
+              className="btn btn-xs btn-success"
               title="Transfer Balance"
             >
-              <ArrowUpIcon className="w-4 h-4" />
+              <ArrowUpIcon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => {
                 setSelectedReseller(row.original)
                 setShowWithdrawModal(true)
               }}
-              className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded"
+              className="btn btn-xs"
               title="Withdraw Balance"
             >
-              <ArrowDownIcon className="w-4 h-4" />
+              <ArrowDownIcon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => openModal(row.original)}
-              className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
+              className="btn btn-xs btn-primary"
               title="Edit"
             >
-              <PencilIcon className="w-4 h-4" />
+              <PencilIcon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => {
@@ -478,21 +472,21 @@ export default function Resellers() {
                   deleteMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+              className="btn btn-xs btn-danger"
               title="Delete (can restore)"
             >
-              <TrashIcon className="w-4 h-4" />
+              <TrashIcon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => {
-                if (confirm('⚠️ PERMANENT DELETE ⚠️\n\nThis will permanently remove the reseller from the database.\nThe username can be reused after this.\n\nTHIS CANNOT BE UNDONE!\n\nAre you sure?')) {
+                if (confirm('PERMANENT DELETE\n\nThis will permanently remove the reseller from the database.\nThe username can be reused after this.\n\nTHIS CANNOT BE UNDONE!\n\nAre you sure?')) {
                   permanentDeleteMutation.mutate(row.original.id)
                 }
               }}
-              className="p-1.5 text-gray-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 rounded"
+              className="btn btn-xs btn-danger"
               title="Permanent Delete (cannot undo)"
             >
-              <XCircleIcon className="w-4 h-4" />
+              <XCircleIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         ),
@@ -508,560 +502,374 @@ export default function Resellers() {
   })
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Resellers</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Manage reseller accounts and balances</p>
-        </div>
-        <button onClick={() => openModal()} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center">
-          <PlusIcon className="w-4 h-4" />
+    <div>
+      {/* Toolbar */}
+      <div className="wb-toolbar" style={{ justifyContent: 'space-between' }}>
+        <span className="text-[13px] font-semibold">Resellers</span>
+        <button onClick={() => openModal()} className="btn btn-sm btn-primary">
+          <PlusIcon className="w-3.5 h-3.5 mr-1" />
           Add Reseller
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Resellers</div>
-          <div className="text-2xl font-bold">{resellers?.length || 0}</div>
+      {/* Summary Stats */}
+      <div className="flex items-center gap-3 px-2 py-1.5 border-b border-[#a0a0a0] dark:border-[#374151] bg-[#f8f8f8] dark:bg-[#1f2937]">
+        <div className="stat-card" style={{ padding: '4px 10px', minWidth: 0 }}>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400">Total</div>
+          <div className="text-[14px] font-bold dark:text-gray-200">{resellers?.length || 0}</div>
         </div>
-        <div className="card p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Balance</div>
-          <div className="text-2xl font-bold text-green-600">
+        <div className="stat-card" style={{ padding: '4px 10px', minWidth: 0 }}>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400">Balance</div>
+          <div className="text-[14px] font-bold text-green-600 dark:text-green-400">
             ${resellers?.reduce((sum, r) => sum + (r.balance || 0), 0).toFixed(2)}
           </div>
         </div>
-        <div className="card p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Active Resellers</div>
-          <div className="text-2xl font-bold">
-            {resellers?.filter((r) => r.is_active).length || 0}
-          </div>
+        <div className="stat-card" style={{ padding: '4px 10px', minWidth: 0 }}>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400">Active</div>
+          <div className="text-[14px] font-bold dark:text-gray-200">{resellers?.filter((r) => r.is_active).length || 0}</div>
         </div>
-        <div className="card p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Total Subscribers</div>
-          <div className="text-2xl font-bold">
-            {resellers?.reduce((sum, r) => sum + (r.subscriber_count || 0), 0)}
-          </div>
+        <div className="stat-card" style={{ padding: '4px 10px', minWidth: 0 }}>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400">Subscribers</div>
+          <div className="text-[14px] font-bold dark:text-gray-200">{resellers?.reduce((sum, r) => sum + (r.subscriber_count || 0), 0)}</div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id}>
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
+      {/* Table */}
+      <div className="table-container" style={{ borderTop: 0 }}>
+        <table className="table">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id}>
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4 text-[12px] text-gray-500">
+                  Loading resellers...
+                </td>
+              </tr>
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4 text-[12px] text-gray-500">
+                  No resellers found
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
                   ))}
                 </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    No resellers found
-                  </td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 dark:bg-gray-700">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Statusbar */}
+      <div className="wb-statusbar">
+        <span>{resellers?.length || 0} reseller(s)</span>
+        <span>{resellers?.filter(r => r.is_active).length || 0} active</span>
       </div>
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h2 className="text-xl font-semibold">
-                  {editingReseller ? 'Edit Reseller' : 'Add Reseller'}
-                </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                  <XMarkIcon className="w-5 h-5" />
+        <div className="modal-overlay">
+          <div className="modal modal-lg" style={{ maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <span>{editingReseller ? 'Edit Reseller' : 'Add Reseller'}</span>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 16 }}>X</button>
+            </div>
+
+            {/* Tabs - only show when editing */}
+            {editingReseller && (
+              <div className="flex items-center border-b border-[#a0a0a0] bg-[#f0f0f0]">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('general')}
+                  className={clsx('wb-tab', activeTab === 'general' && 'active')}
+                >
+                  <Cog6ToothIcon className="w-3.5 h-3.5 inline mr-1" />
+                  General
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('nas')}
+                  className={clsx('wb-tab', activeTab === 'nas' && 'active')}
+                >
+                  <ServerIcon className="w-3.5 h-3.5 inline mr-1" />
+                  NAS ({assignedNAS.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('services')}
+                  className={clsx('wb-tab', activeTab === 'services' && 'active')}
+                >
+                  <CubeIcon className="w-3.5 h-3.5 inline mr-1" />
+                  Services ({assignedServices.filter(s => s.enabled).length})
                 </button>
               </div>
+            )}
 
-              {/* Tabs - only show when editing */}
-              {editingReseller && (
-                <div className="border-b px-6">
-                  <nav className="flex gap-4 -mb-px">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('general')}
-                      className={clsx(
-                        'flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium',
-                        activeTab === 'general'
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
-                      )}
-                    >
-                      <Cog6ToothIcon className="w-4 h-4" />
-                      General
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('nas')}
-                      className={clsx(
-                        'flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium',
-                        activeTab === 'nas'
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
-                      )}
-                    >
-                      <ServerIcon className="w-4 h-4" />
-                      Assigned NAS
-                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                        {assignedNAS.length}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('services')}
-                      className={clsx(
-                        'flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium',
-                        activeTab === 'services'
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
-                      )}
-                    >
-                      <CubeIcon className="w-4 h-4" />
-                      Assigned Services
-                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                        {assignedServices.filter(s => s.enabled).length}
-                      </span>
-                    </button>
-                  </nav>
+            {/* General Tab */}
+            {(activeTab === 'general' || !editingReseller) && (
+              <form onSubmit={handleSubmit} className="modal-body" style={{ overflow: 'auto', flex: 1 }}>
+                <div className="wb-group mb-3">
+                  <div className="wb-group-title">Account</div>
+                  <div className="wb-group-body">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label className="label">Username</label>
+                        <input type="text" name="username" value={formData.username} onChange={handleChange} className="input" required />
+                      </div>
+                      <div>
+                        <label className="label">Password</label>
+                        <input type="password" name="password" value={formData.password} onChange={handleChange} className="input"
+                          placeholder={editingReseller ? 'Leave blank to keep current' : ''}
+                          required={!editingReseller} />
+                      </div>
+                      <div>
+                        <label className="label">Full Name</label>
+                        <input type="text" name="fullname" value={formData.fullname} onChange={handleChange} className="input" />
+                      </div>
+                      <div>
+                        <label className="label">Company</label>
+                        <input type="text" name="company" value={formData.company} onChange={handleChange} className="input" />
+                      </div>
+                      <div>
+                        <label className="label">Email</label>
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="input" />
+                      </div>
+                      <div>
+                        <label className="label">Phone</label>
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <label className="label">Address</label>
+                      <textarea name="address" value={formData.address} onChange={handleChange} className="input" rows={2} />
+                    </div>
+                  </div>
                 </div>
-              )}
 
-              {/* General Tab */}
-              {(activeTab === 'general' || !editingReseller) && (
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Username</label>
-                      <input
-                        type="text"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        className="input"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Password</label>
-                      <input
-                        type="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder={editingReseller ? 'Leave blank to keep current' : ''}
-                        required={!editingReseller}
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Full Name</label>
-                      <input
-                        type="text"
-                        name="fullname"
-                        value={formData.fullname}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Company</label>
-                      <input
-                        type="text"
-                        name="company"
-                        value={formData.company}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Email</label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Phone</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className="input"
-                      />
+                <div className="wb-group mb-3">
+                  <div className="wb-group-title">Billing</div>
+                  <div className="wb-group-body">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label className="label">Initial Balance ($)</label>
+                        <input type="number" name="balance" value={formData.balance} onChange={handleChange} className="input" step="0.01" disabled={!!editingReseller} />
+                      </div>
+                      <div>
+                        <label className="label">Credit Limit ($)</label>
+                        <input type="number" name="credit_limit" value={formData.credit_limit} onChange={handleChange} className="input" step="0.01" />
+                      </div>
+                      <div>
+                        <label className="label">Discount (%)</label>
+                        <input type="number" name="discount" value={formData.discount} onChange={handleChange} className="input" min="0" max="100" />
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="label">Address</label>
-                    <textarea
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      className="input"
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="label">Initial Balance ($)</label>
-                      <input
-                        type="number"
-                        name="balance"
-                        value={formData.balance}
-                        onChange={handleChange}
-                        className="input"
-                        step="0.01"
-                        disabled={editingReseller}
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Credit Limit ($)</label>
-                      <input
-                        type="number"
-                        name="credit_limit"
-                        value={formData.credit_limit}
-                        onChange={handleChange}
-                        className="input"
-                        step="0.01"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Discount (%)</label>
-                      <input
-                        type="number"
-                        name="discount"
-                        value={formData.discount}
-                        onChange={handleChange}
-                        className="input"
-                        min="0"
-                        max="100"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Parent Reseller (Optional)</label>
-                      <select
-                        name="parent_id"
-                        value={formData.parent_id}
-                        onChange={handleChange}
-                        className="input"
-                      >
-                        <option value="">No Parent (Direct Reseller)</option>
-                        {resellers
-                          ?.filter((r) => r.id !== editingReseller?.id)
-                          .map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.user?.username || r.username} - {r.name || r.company}
-                            </option>
+                <div className="wb-group mb-3">
+                  <div className="wb-group-title">Settings</div>
+                  <div className="wb-group-body">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label className="label">Parent Reseller</label>
+                        <select name="parent_id" value={formData.parent_id} onChange={handleChange} className="input">
+                          <option value="">No Parent (Direct)</option>
+                          {resellers
+                            ?.filter((r) => r.id !== editingReseller?.id)
+                            .map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.user?.username || r.username} - {r.name || r.company}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Permission Group</label>
+                        <select name="permission_group" value={formData.permission_group} onChange={handleChange} className="input">
+                          <option value="">No Permission Group</option>
+                          {permissionGroups?.map((g) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
                           ))}
-                      </select>
+                        </select>
+                      </div>
                     </div>
-
-                    <div>
-                      <label className="label">Permission Group</label>
-                      <select
-                        name="permission_group"
-                        value={formData.permission_group}
-                        onChange={handleChange}
-                        className="input"
-                      >
-                        <option value="">No Permission Group</option>
-                        {permissionGroups?.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="mt-2">
+                      <label className="label">Notes</label>
+                      <textarea name="notes" value={formData.notes} onChange={handleChange} className="input" rows={2} />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="label">Notes</label>
-                    <textarea
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleChange}
-                      className="input"
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="border-t pt-4 space-y-3">
-                    <label className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={formData.is_active}
-                        onChange={handleChange}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span>Active Reseller</span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id="rebrand_enabled"
-                        checked={formData.rebrand_enabled || false}
-                        onChange={e => setFormData(p => ({ ...p, rebrand_enabled: e.target.checked }))}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
-                      />
-                      <label htmlFor="rebrand_enabled" className="text-sm text-gray-700 dark:text-gray-300">
-                        Enable Rebranding (allow reseller to customize their panel appearance)
+                    <div className="mt-2 flex flex-col gap-2">
+                      <label className="flex items-center gap-2 text-[12px]">
+                        <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} />
+                        Active Reseller
+                      </label>
+                      <label className="flex items-center gap-2 text-[12px]">
+                        <input type="checkbox" id="rebrand_enabled" checked={formData.rebrand_enabled || false}
+                          onChange={e => setFormData(p => ({ ...p, rebrand_enabled: e.target.checked }))} />
+                        Enable Rebranding
                       </label>
                     </div>
-                    {/* Custom Domain */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Custom Domain
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.custom_domain}
+                    <div className="mt-2">
+                      <label className="label">Custom Domain</label>
+                      <input type="text" value={formData.custom_domain}
                         onChange={e => setFormData(p => ({ ...p, custom_domain: e.target.value.toLowerCase().trim() }))}
-                        placeholder="portal.myisp.com"
-                        className="input w-full font-mono text-sm"
+                        placeholder="portal.myisp.com" className="input font-mono" />
+                      <div className="text-[11px] text-gray-500 mt-0.5">A record must point to this server's IP.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-footer">
+                  <button type="button" onClick={closeModal} className="btn btn-sm">Cancel</button>
+                  <button type="submit" disabled={saveMutation.isLoading} className="btn btn-sm btn-primary">
+                    {saveMutation.isLoading ? 'Saving...' : editingReseller ? 'Update' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* NAS Tab */}
+            {activeTab === 'nas' && editingReseller && (
+              <div className="modal-body" style={{ overflow: 'auto', flex: 1 }}>
+                <p className="text-[12px] text-gray-600 dark:text-gray-400 mb-2">
+                  Select the NAS devices this reseller can manage.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }} className="max-h-80 overflow-y-auto">
+                  {allNAS?.map((nas) => (
+                    <label
+                      key={nas.id}
+                      className={clsx(
+                        'flex items-center gap-2 p-2 border cursor-pointer text-[12px]',
+                        assignedNAS.includes(nas.id)
+                          ? 'border-[#316AC5] bg-[#e8f0ff]'
+                          : 'border-[#a0a0a0] bg-white'
+                      )}
+                      style={{ borderRadius: 2 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={assignedNAS.includes(nas.id)}
+                        onChange={() => handleNASToggle(nas.id)}
                       />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Reseller's custom portal domain. They must point an A record to this server's IP.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onClick={closeModal} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={saveMutation.isLoading} className="btn-primary">
-                      {saveMutation.isLoading ? 'Saving...' : editingReseller ? 'Update' : 'Create'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* NAS Tab */}
-              {activeTab === 'nas' && editingReseller && (
-                <div className="p-6 space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    Select the NAS devices this reseller can manage. Reseller will only see subscribers on these NAS.
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                    {allNAS?.map((nas) => (
-                      <label
-                        key={nas.id}
-                        className={clsx(
-                          'flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors',
-                          assignedNAS.includes(nas.id)
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={assignedNAS.includes(nas.id)}
-                          onChange={() => handleNASToggle(nas.id)}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                        <div>
-                          <div className="font-medium">{nas.name}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{nas.ip_address}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  {(!allNAS || allNAS.length === 0) && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                      No NAS devices found
-                    </div>
-                  )}
-                  <div className="flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onClick={closeModal} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={saveNASAssignments}
-                      disabled={saveNASAssignmentsMutation.isLoading}
-                      className="btn-primary"
-                    >
-                      {saveNASAssignmentsMutation.isLoading ? 'Saving...' : 'Save NAS Assignments'}
-                    </button>
-                  </div>
+                      <div>
+                        <div className="font-semibold">{nas.name}</div>
+                        <div className="text-[11px] text-gray-500">{nas.ip_address}</div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
-              )}
-
-              {/* Services Tab */}
-              {activeTab === 'services' && editingReseller && (
-                <div className="p-6 space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    Select which services this reseller can sell. You can set custom prices for each service.
-                  </p>
-                  <div className="max-h-96 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="text-left px-3 py-2">Service</th>
-                          <th className="text-left px-3 py-2">Base Price</th>
-                          <th className="text-left px-3 py-2">Custom Price</th>
-                          <th className="text-left px-3 py-2">Custom Day Price</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {allServices?.map((service) => {
-                          const assignment = assignedServices.find(s => s.service_id === service.id)
-                          const isEnabled = assignment?.enabled || false
-                          return (
-                            <tr key={service.id} className={clsx(isEnabled && 'bg-primary-50')}>
-                              <td className="px-3 py-2">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={isEnabled}
-                                    onChange={() => handleServiceToggle(service.id)}
-                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                  />
-                                  <span className="font-medium">{service.name}</span>
-                                </label>
-                              </td>
-                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                                ${service.price?.toFixed(2)}
-                              </td>
-                              <td className="px-3 py-2">
-                                <input
-                                  type="number"
-                                  value={assignment?.custom_price || ''}
-                                  onChange={(e) => handleServicePriceChange(service.id, 'custom_price', e.target.value)}
-                                  placeholder="Same as base"
-                                  className="input w-24 py-1 px-2 text-sm"
-                                  step="0.01"
-                                  disabled={!isEnabled}
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <input
-                                  type="number"
-                                  value={assignment?.custom_day_price || ''}
-                                  onChange={(e) => handleServicePriceChange(service.id, 'custom_day_price', e.target.value)}
-                                  placeholder="Auto"
-                                  className="input w-24 py-1 px-2 text-sm"
-                                  step="0.01"
-                                  disabled={!isEnabled}
-                                />
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {(!allServices || allServices.length === 0) && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                      No services found
-                    </div>
-                  )}
-                  <div className="flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onClick={closeModal} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={saveServiceAssignments}
-                      disabled={saveServiceAssignmentsMutation.isLoading}
-                      className="btn-primary"
-                    >
-                      {saveServiceAssignmentsMutation.isLoading ? 'Saving...' : 'Save Service Assignments'}
-                    </button>
-                  </div>
+                {(!allNAS || allNAS.length === 0) && (
+                  <div className="text-center py-4 text-[12px] text-gray-500">No NAS devices found</div>
+                )}
+                <div className="modal-footer" style={{ marginTop: 8 }}>
+                  <button type="button" onClick={closeModal} className="btn btn-sm">Cancel</button>
+                  <button type="button" onClick={saveNASAssignments} disabled={saveNASAssignmentsMutation.isLoading} className="btn btn-sm btn-primary">
+                    {saveNASAssignmentsMutation.isLoading ? 'Saving...' : 'Save NAS Assignments'}
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Services Tab */}
+            {activeTab === 'services' && editingReseller && (
+              <div className="modal-body" style={{ overflow: 'auto', flex: 1 }}>
+                <p className="text-[12px] text-gray-600 dark:text-gray-400 mb-2">
+                  Select which services this reseller can sell. Set custom prices per service.
+                </p>
+                <div className="table-container max-h-80 overflow-y-auto">
+                  <table className="table table-compact">
+                    <thead className="sticky top-0">
+                      <tr>
+                        <th>Service</th>
+                        <th>Base Price</th>
+                        <th>Custom Price</th>
+                        <th>Custom Day Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allServices?.map((service) => {
+                        const assignment = assignedServices.find(s => s.service_id === service.id)
+                        const isEnabled = assignment?.enabled || false
+                        return (
+                          <tr key={service.id} className={clsx(isEnabled && 'bg-[#e8f0ff]')}>
+                            <td>
+                              <label className="flex items-center gap-2 cursor-pointer text-[12px]">
+                                <input type="checkbox" checked={isEnabled} onChange={() => handleServiceToggle(service.id)} />
+                                <span className="font-semibold">{service.name}</span>
+                              </label>
+                            </td>
+                            <td className="text-[12px] text-gray-600 dark:text-gray-400">${service.price?.toFixed(2)}</td>
+                            <td>
+                              <input type="number" value={assignment?.custom_price || ''}
+                                onChange={(e) => handleServicePriceChange(service.id, 'custom_price', e.target.value)}
+                                placeholder="Same" className="input input-sm" style={{ width: 80 }} step="0.01" disabled={!isEnabled} />
+                            </td>
+                            <td>
+                              <input type="number" value={assignment?.custom_day_price || ''}
+                                onChange={(e) => handleServicePriceChange(service.id, 'custom_day_price', e.target.value)}
+                                placeholder="Auto" className="input input-sm" style={{ width: 80 }} step="0.01" disabled={!isEnabled} />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {(!allServices || allServices.length === 0) && (
+                  <div className="text-center py-4 text-[12px] text-gray-500">No services found</div>
+                )}
+                <div className="modal-footer" style={{ marginTop: 8 }}>
+                  <button type="button" onClick={closeModal} className="btn btn-sm">Cancel</button>
+                  <button type="button" onClick={saveServiceAssignments} disabled={saveServiceAssignmentsMutation.isLoading} className="btn btn-sm btn-primary">
+                    {saveServiceAssignmentsMutation.isLoading ? 'Saving...' : 'Save Service Assignments'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Transfer Modal */}
       {showTransferModal && selectedReseller && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowTransferModal(false)} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h2 className="text-xl font-semibold">Transfer Balance</h2>
-                <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  Transfer balance to <span className="font-semibold">{selectedReseller.username}</span>
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  Current Balance: <span className="font-semibold text-green-600">${selectedReseller.balance?.toFixed(2)}</span>
-                </p>
-                <div>
-                  <label className="label">Amount ($)</label>
-                  <input
-                    type="number"
-                    value={transferAmount}
-                    onChange={(e) => setTransferAmount(e.target.value)}
-                    className="input"
-                    step="0.01"
-                    min="0.01"
-                    required
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => setShowTransferModal(false)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => transferMutation.mutate({ id: selectedReseller.id, amount: transferAmount })}
-                    disabled={!transferAmount || transferMutation.isLoading}
-                    className="btn-primary"
-                  >
-                    {transferMutation.isLoading ? 'Transferring...' : 'Transfer'}
-                  </button>
-                </div>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <span>Transfer Balance</span>
+              <button onClick={() => setShowTransferModal(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 14 }}>X</button>
+            </div>
+            <div className="modal-body">
+              <p className="text-[12px] text-gray-700 dark:text-gray-300 mb-1">
+                Transfer to <strong>{selectedReseller.username}</strong>
+              </p>
+              <p className="text-[11px] text-gray-500 mb-3">
+                Current Balance: <span className="font-semibold text-green-600">${selectedReseller.balance?.toFixed(2)}</span>
+              </p>
+              <label className="label">Amount ($)</label>
+              <input type="number" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)}
+                className="input" step="0.01" min="0.01" required />
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setShowTransferModal(false)} className="btn btn-sm">Cancel</button>
+              <button onClick={() => transferMutation.mutate({ id: selectedReseller.id, amount: transferAmount })}
+                disabled={!transferAmount || transferMutation.isLoading} className="btn btn-sm btn-success">
+                {transferMutation.isLoading ? 'Transferring...' : 'Transfer'}
+              </button>
             </div>
           </div>
         </div>
@@ -1069,49 +877,29 @@ export default function Resellers() {
 
       {/* Withdraw Modal */}
       {showWithdrawModal && selectedReseller && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowWithdrawModal(false)} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h2 className="text-xl font-semibold">Withdraw Balance</h2>
-                <button onClick={() => setShowWithdrawModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  Withdraw balance from <span className="font-semibold">{selectedReseller.username}</span>
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  Current Balance: <span className="font-semibold text-green-600">${selectedReseller.balance?.toFixed(2)}</span>
-                </p>
-                <div>
-                  <label className="label">Amount ($)</label>
-                  <input
-                    type="number"
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    className="input"
-                    step="0.01"
-                    min="0.01"
-                    max={selectedReseller.balance}
-                    required
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => setShowWithdrawModal(false)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => withdrawMutation.mutate({ id: selectedReseller.id, amount: withdrawAmount })}
-                    disabled={!withdrawAmount || withdrawMutation.isLoading}
-                    className="btn-primary"
-                  >
-                    {withdrawMutation.isLoading ? 'Withdrawing...' : 'Withdraw'}
-                  </button>
-                </div>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <span>Withdraw Balance</span>
+              <button onClick={() => setShowWithdrawModal(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 14 }}>X</button>
+            </div>
+            <div className="modal-body">
+              <p className="text-[12px] text-gray-700 dark:text-gray-300 mb-1">
+                Withdraw from <strong>{selectedReseller.username}</strong>
+              </p>
+              <p className="text-[11px] text-gray-500 mb-3">
+                Current Balance: <span className="font-semibold text-green-600">${selectedReseller.balance?.toFixed(2)}</span>
+              </p>
+              <label className="label">Amount ($)</label>
+              <input type="number" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)}
+                className="input" step="0.01" min="0.01" max={selectedReseller.balance} required />
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setShowWithdrawModal(false)} className="btn btn-sm">Cancel</button>
+              <button onClick={() => withdrawMutation.mutate({ id: selectedReseller.id, amount: withdrawAmount })}
+                disabled={!withdrawAmount || withdrawMutation.isLoading} className="btn btn-sm btn-danger">
+                {withdrawMutation.isLoading ? 'Withdrawing...' : 'Withdraw'}
+              </button>
             </div>
           </div>
         </div>

@@ -643,8 +643,10 @@ export default function Services() {
         enableSorting: true,
         cell: ({ row }) => (
           <div>
-            <div className="font-medium">{row.original.name}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{row.original.description}</div>
+            <div className="font-semibold text-[12px]">{row.original.name}</div>
+            {row.original.description && (
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">{row.original.description}</div>
+            )}
           </div>
         ),
       },
@@ -655,9 +657,9 @@ export default function Services() {
         accessorFn: (row) => row.download_speed || 0,
         sortingFn: 'basic',
         cell: ({ row }) => (
-          <div className="text-sm">
-            <div>↓ {row.original.download_speed} kb</div>
-            <div>↑ {row.original.upload_speed} kb</div>
+          <div className="text-[12px]">
+            <div>DL {row.original.download_speed} kb</div>
+            <div>UL {row.original.upload_speed} kb</div>
           </div>
         ),
       },
@@ -672,21 +674,21 @@ export default function Services() {
         accessorKey: 'validity_days',
         header: 'Validity',
         enableSorting: false,
-        cell: ({ row }) => `${row.original.validity_days} days`,
+        cell: ({ row }) => `${row.original.validity_days}d`,
       },
       {
         accessorKey: 'quota',
         header: 'Quota',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="text-sm">
+          <div className="text-[12px]">
             {row.original.daily_quota || row.original.monthly_quota ? (
               <>
-                <div>Daily: {row.original.daily_quota ? (row.original.daily_quota / (1024 * 1024 * 1024)).toFixed(0) : '∞'} GB</div>
-                <div>Monthly: {row.original.monthly_quota ? (row.original.monthly_quota / (1024 * 1024 * 1024)).toFixed(0) : '∞'} GB</div>
+                <div>D: {row.original.daily_quota ? (row.original.daily_quota / (1024 * 1024 * 1024)).toFixed(0) : '--'} GB</div>
+                <div>M: {row.original.monthly_quota ? (row.original.monthly_quota / (1024 * 1024 * 1024)).toFixed(0) : '--'} GB</div>
               </>
             ) : (
-              <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">Unlimited</span>
+              <span className="text-gray-400 dark:text-gray-500">Unlim</span>
             )}
           </div>
         ),
@@ -696,40 +698,34 @@ export default function Services() {
         header: 'Pool',
         enableSorting: false,
         cell: ({ row }) => (
-          <span className={clsx('text-sm', row.original.pool_name ? 'text-gray-900' : 'text-gray-400')}>
-            {row.original.pool_name || 'None'}
+          <span className={clsx('text-[12px]', row.original.pool_name ? '' : 'text-gray-400 dark:text-gray-500')}>
+            {row.original.pool_name || '-'}
           </span>
         ),
       },
       {
         accessorKey: 'fup',
-        header: 'FUP Tiers',
+        header: 'FUP',
         enableSorting: false,
         cell: ({ row }) => {
           const s = row.original
           const hasFUP = s.fup1_download_speed > 0 || s.fup2_download_speed > 0 || s.fup3_download_speed > 0
           return (
-            <div className="text-xs">
+            <div className="text-[11px]">
               {hasFUP ? (
                 <>
                   {s.fup1_threshold > 0 && s.fup1_download_speed > 0 && (
-                    <div className="text-orange-600">
-                      FUP1: {Math.round(s.fup1_threshold / 1024 / 1024 / 1024)}GB → {s.fup1_download_speed}k/{s.fup1_upload_speed}k
-                    </div>
+                    <div><span className="fup-badge-1">1</span> {Math.round(s.fup1_threshold / 1024 / 1024 / 1024)}G&rarr;{s.fup1_download_speed}k</div>
                   )}
                   {s.fup2_threshold > 0 && s.fup2_download_speed > 0 && (
-                    <div className="text-red-600">
-                      FUP2: {Math.round(s.fup2_threshold / 1024 / 1024 / 1024)}GB → {s.fup2_download_speed}k/{s.fup2_upload_speed}k
-                    </div>
+                    <div><span className="fup-badge-2">2</span> {Math.round(s.fup2_threshold / 1024 / 1024 / 1024)}G&rarr;{s.fup2_download_speed}k</div>
                   )}
                   {s.fup3_threshold > 0 && s.fup3_download_speed > 0 && (
-                    <div className="text-purple-600">
-                      FUP3: {Math.round(s.fup3_threshold / 1024 / 1024 / 1024)}GB → {s.fup3_download_speed}k/{s.fup3_upload_speed}k
-                    </div>
+                    <div><span className="fup-badge-3">3</span> {Math.round(s.fup3_threshold / 1024 / 1024 / 1024)}G&rarr;{s.fup3_download_speed}k</div>
                   )}
                 </>
               ) : (
-                <span className="text-gray-400 dark:text-gray-500 dark:text-gray-400">None</span>
+                <span className="text-gray-400 dark:text-gray-500">-</span>
               )}
             </div>
           )
@@ -740,7 +736,7 @@ export default function Services() {
         header: 'Status',
         enableSorting: false,
         cell: ({ row }) => (
-          <span className={clsx('badge', row.original.is_active ? 'badge-success' : 'badge-gray')}>
+          <span className={clsx(row.original.is_active ? 'badge-success' : 'badge-gray')}>
             {row.original.is_active ? 'Active' : 'Inactive'}
           </span>
         ),
@@ -750,14 +746,14 @@ export default function Services() {
         header: 'Actions',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
             {hasPermission('services.edit') && (
               <button
                 onClick={() => openModal(row.original)}
-                className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded"
+                className="btn btn-xs"
                 title="Edit"
               >
-                <PencilIcon className="w-4 h-4" />
+                <PencilIcon className="w-3.5 h-3.5" />
               </button>
             )}
             {hasPermission('services.delete') && (
@@ -767,10 +763,10 @@ export default function Services() {
                     deleteMutation.mutate(row.original.id)
                   }
                 }}
-                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                className="btn btn-xs btn-danger"
                 title="Delete"
               >
-                <TrashIcon className="w-4 h-4" />
+                <TrashIcon className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -789,120 +785,123 @@ export default function Services() {
     getSortedRowModel: getSortedRowModel(),
   })
 
+  // Inline style helpers for compact modal form
+  const inputStyle = { fontSize: 11, height: 24 }
+  const sectionStyle = { borderTop: '1px solid #c0c0c0', paddingTop: 8, marginTop: 8 }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Services</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Manage internet service plans</p>
-        </div>
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Toolbar */}
+      <div className="wb-toolbar" style={{ justifyContent: 'space-between' }}>
+        <span className="text-[13px] font-semibold">Services</span>
         {hasPermission('services.create') && (
-          <button onClick={() => openModal()} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center">
-            <PlusIcon className="w-4 h-4" />
+          <button onClick={() => openModal()} className="btn btn-sm btn-primary">
+            <PlusIcon className="w-3.5 h-3.5 mr-1" />
             Add Service
           </button>
         )}
       </div>
 
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id}>
-                      {header.column.getCanSort() ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="flex items-center gap-1 cursor-pointer select-none hover:text-primary-600 dark:hover:text-primary-400"
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {{
-                            asc: <ChevronUpIcon className="w-4 h-4 text-primary-600 dark:text-primary-400" />,
-                            desc: <ChevronDownIcon className="w-4 h-4 text-primary-600 dark:text-primary-400" />,
-                          }[header.column.getIsSorted()] ?? <ChevronUpDownIcon className="w-3.5 h-3.5 text-gray-400" />}
-                        </button>
-                      ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
-                      )}
-                    </th>
+      {/* Table */}
+      <div className="table-container" style={{ borderTop: 0 }}>
+        <table className="table">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id}>
+                    {header.column.getCanSort() ? (
+                      <button
+                        type="button"
+                        onClick={header.column.getToggleSortingHandler()}
+                        className="flex items-center gap-1 cursor-pointer select-none"
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {{
+                          asc: <ChevronUpIcon className="w-3 h-3" />,
+                          desc: <ChevronDownIcon className="w-3 h-3" />,
+                        }[header.column.getIsSorted()] ?? <ChevronUpDownIcon className="w-3 h-3 text-gray-400" />}
+                      </button>
+                    ) : (
+                      flexRender(header.column.columnDef.header, header.getContext())
+                    )}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4 text-[12px] text-gray-500">
+                  Loading services...
+                </td>
+              </tr>
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4 text-[12px] text-gray-500">
+                  No services found
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => handleRowClick(row.original)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
                   ))}
                 </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                    No services found
-                  </td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                    onClick={() => handleRowClick(row.original)}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Statusbar */}
+      <div className="wb-statusbar">
+        <span>{services?.length || 0} service(s)</span>
+        <span>{services?.filter(s => s.is_active).length || 0} active</span>
       </div>
 
       {/* Duplicate Modal */}
       {showDuplicateModal && duplicatingService && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowDuplicateModal(false)} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Duplicate Service</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Copy all settings from <span className="font-medium text-gray-700 dark:text-gray-300">{duplicatingService.name}</span>
-                </p>
-                <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                  <div>Speed: ↓{duplicatingService.download_speed}kb / ↑{duplicatingService.upload_speed}kb</div>
-                  <div>Price: ${duplicatingService.price?.toFixed(2)} | Validity: {duplicatingService.validity_days} days</div>
-                  {duplicatingService.pool_name && <div>Pool: {duplicatingService.pool_name}</div>}
-                </div>
-                <form onSubmit={handleDuplicate} className="mt-4">
-                  <label className="label">New Service Name</label>
-                  <input
-                    type="text"
-                    value={duplicateName}
-                    onChange={(e) => setDuplicateName(e.target.value)}
-                    className="input w-full"
-                    autoFocus
-                    required
-                  />
-                  <div className="flex justify-end gap-3 mt-4">
-                    <button type="button" onClick={() => setShowDuplicateModal(false)} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={duplicateMutation.isLoading} className="btn-primary">
-                      {duplicateMutation.isLoading ? 'Duplicating...' : 'Duplicate'}
-                    </button>
-                  </div>
-                </form>
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <span>Duplicate Service</span>
+              <button onClick={() => setShowDuplicateModal(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 14 }}>X</button>
+            </div>
+            <div className="modal-body">
+              <p className="text-[12px] text-gray-600 dark:text-gray-300 mb-2">
+                Copy all settings from <strong>{duplicatingService.name}</strong>
+              </p>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-3" style={{ lineHeight: '1.4' }}>
+                <div>Speed: DL {duplicatingService.download_speed}kb / UL {duplicatingService.upload_speed}kb</div>
+                <div>Price: ${duplicatingService.price?.toFixed(2)} | Validity: {duplicatingService.validity_days} days</div>
+                {duplicatingService.pool_name && <div>Pool: {duplicatingService.pool_name}</div>}
               </div>
+              <form onSubmit={handleDuplicate}>
+                <label className="label">New Service Name</label>
+                <input
+                  type="text"
+                  value={duplicateName}
+                  onChange={(e) => setDuplicateName(e.target.value)}
+                  className="input"
+                  autoFocus
+                  required
+                />
+                <div className="modal-footer" style={{ marginTop: 8, padding: 0, border: 'none' }}>
+                  <button type="button" onClick={() => setShowDuplicateModal(false)} className="btn btn-sm">Cancel</button>
+                  <button type="submit" disabled={duplicateMutation.isLoading} className="btn btn-sm btn-primary">
+                    {duplicateMutation.isLoading ? 'Duplicating...' : 'Duplicate'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -910,801 +909,296 @@ export default function Services() {
 
       {/* Edit/Create Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h2 className="text-xl font-semibold">
-                  {editingService ? 'Edit Service' : 'Add Service'}
-                </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 640, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
+            <div className="modal-header">
+              <span>{editingService ? 'Edit Service' : 'Add Service'}</span>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 16 }}>X</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="modal-body" style={{ padding: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="label">Service Name</label>
+                  <input type="text" name="name" value={formData.name} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} required />
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="label">Description</label>
+                  <textarea name="description" value={formData.description} onChange={handleChange} className="input" rows={2} style={{ fontSize: 11, width: '100%' }} />
+                </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="label">Service Name</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="input"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="label">Description</label>
-                    <textarea
-                      name="description"
-                      value={formData.description}
-                      onChange={handleChange}
-                      className="input"
-                      rows={2}
-                    />
-                  </div>
+              {/* Speed Settings */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 6 }}>Speed Settings</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div><label className="label">Download Speed (kb)</label><input type="number" name="download_speed" value={formData.download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} placeholder="e.g., 4000" required /></div>
+                  <div><label className="label">Upload Speed (kb)</label><input type="number" name="upload_speed" value={formData.upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} placeholder="e.g., 1400" required /></div>
                 </div>
+              </div>
 
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Speed Settings</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Download Speed (kb)</label>
-                      <input
-                        type="number"
-                        name="download_speed"
-                        value={formData.download_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 4000 for 4Mbps"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Upload Speed (kb)</label>
-                      <input
-                        type="number"
-                        name="upload_speed"
-                        value={formData.upload_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 1400 for 1.4Mbps"
-                        required
-                      />
-                    </div>
-                  </div>
+              {/* Pricing & Validity */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 6 }}>Pricing & Validity</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div><label className="label">Price ($)</label><input type="number" name="price" value={formData.price} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} step="0.01" required /></div>
+                  <div><label className="label">Validity (Days)</label><input type="number" name="validity_days" value={formData.validity_days} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} required /></div>
                 </div>
+              </div>
 
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Pricing & Validity</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Price ($)</label>
-                      <input
-                        type="number"
-                        name="price"
-                        value={formData.price}
-                        onChange={handleChange}
-                        className="input"
-                        step="0.01"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Validity (Days)</label>
-                      <input
-                        type="number"
-                        name="validity_days"
-                        value={formData.validity_days}
-                        onChange={handleChange}
-                        className="input"
-                        required
-                      />
-                    </div>
-                  </div>
+              {/* Quota Settings */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 6 }}>Quota Settings (0 = Unlimited)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div><label className="label">Daily Quota (GB)</label><input type="number" name="daily_quota" value={formData.daily_quota} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label">Monthly Quota (GB)</label><input type="number" name="monthly_quota" value={formData.monthly_quota} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
                 </div>
+              </div>
 
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Quota Settings (0 = Unlimited)</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Daily Quota (GB)</label>
-                      <input
-                        type="number"
-                        name="daily_quota"
-                        value={formData.daily_quota}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Monthly Quota (GB)</label>
-                      <input
-                        type="number"
-                        name="monthly_quota"
-                        value={formData.monthly_quota}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                  </div>
+              {/* Burst Settings */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 6 }}>Burst Settings (Mikrotik)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div><label className="label">Burst Download (kb)</label><input type="number" name="burst_download" value={formData.burst_download} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label">Burst Upload (kb)</label><input type="number" name="burst_upload" value={formData.burst_upload} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label">Burst Threshold (%)</label><input type="number" name="burst_threshold" value={formData.burst_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label">Burst Time (seconds)</label><input type="number" name="burst_time" value={formData.burst_time} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
                 </div>
+              </div>
 
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Burst Settings (Mikrotik)</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Burst Download (kb)</label>
-                      <input
-                        type="number"
-                        name="burst_download"
-                        value={formData.burst_download}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 8000"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Burst Upload (kb)</label>
-                      <input
-                        type="number"
-                        name="burst_upload"
-                        value={formData.burst_upload}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Burst Threshold (%)</label>
-                      <input
-                        type="number"
-                        name="burst_threshold"
-                        value={formData.burst_threshold}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Burst Time (seconds)</label>
-                      <input
-                        type="number"
-                        name="burst_time"
-                        value={formData.burst_time}
-                        onChange={handleChange}
-                        className="input"
-                      />
-                    </div>
+              {/* RADIUS Settings */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 6 }}>RADIUS Settings</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label className="label">Select NAS/Router</label>
+                    <select value={selectedNasId || ''} onChange={(e) => { const nasId = e.target.value ? parseInt(e.target.value) : null; setSelectedNasId(nasId); setFormData(prev => ({ ...prev, nas_id: nasId })); if (nasId) { fetchIPPoolsForService(nasId) } else { setIpPools([]) } }} className="input" style={{ ...inputStyle, width: '100%' }}>
+                      <option value="">-- Select NAS --</option>
+                      {nasList?.filter(n => n.is_active).map(nas => (<option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>))}
+                    </select>
                   </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">RADIUS Settings</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Select NAS/Router</label>
-                      <select
-                        value={selectedNasId || ''}
-                        onChange={(e) => {
-                          const nasId = e.target.value ? parseInt(e.target.value) : null
-                          setSelectedNasId(nasId)
-                          setFormData(prev => ({ ...prev, nas_id: nasId }))
-                          if (nasId) {
-                            fetchIPPoolsForService(nasId)
-                          } else {
-                            setIpPools([])
-                          }
-                        }}
-                        className="input"
-                      >
-                        <option value="">-- Select NAS to fetch pools --</option>
-                        {nasList?.filter(n => n.is_active).map(nas => (
-                          <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select router to load available IP pools</p>
-                    </div>
-                    <div>
-                      <label className="label">IP Pool Name</label>
-                      {ipPoolsLoading ? (
-                        <div className="input flex items-center text-gray-500 dark:text-gray-400">
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Loading pools...
-                        </div>
-                      ) : ipPools.length > 0 || formData.pool_name ? (
-                        <select
-                          name="pool_name"
-                          value={formData.pool_name}
-                          onChange={handleChange}
-                          className="input"
-                        >
-                          <option value="">-- Select Pool --</option>
-                          {/* Show current pool_name as option if not in ipPools list */}
-                          {formData.pool_name && !ipPools.find(p => p.name === formData.pool_name) && (
-                            <option key={formData.pool_name} value={formData.pool_name}>
-                              {formData.pool_name} (current)
-                            </option>
-                          )}
-                          {ipPools.map(pool => (
-                            <option key={pool.name} value={pool.name}>
-                              {pool.name} ({pool.ranges})
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          name="pool_name"
-                          value={formData.pool_name}
-                          onChange={handleChange}
-                          className="input"
-                          placeholder={selectedNasId ? "No pools found - enter manually" : "Select NAS first or enter manually"}
-                        />
-                      )}
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {formData.pool_name ? (
-                          <span className="text-green-600 dark:text-green-400">Selected: {formData.pool_name}</span>
-                        ) : (
-                          "Pool for Framed-Pool RADIUS attribute"
+                  <div>
+                    <label className="label">IP Pool Name</label>
+                    {ipPoolsLoading ? (
+                      <div className="input" style={{ ...inputStyle, display: 'flex', alignItems: 'center', color: '#888' }}>Loading pools...</div>
+                    ) : ipPools.length > 0 || formData.pool_name ? (
+                      <select name="pool_name" value={formData.pool_name} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }}>
+                        <option value="">-- Select Pool --</option>
+                        {formData.pool_name && !ipPools.find(p => p.name === formData.pool_name) && (
+                          <option key={formData.pool_name} value={formData.pool_name}>{formData.pool_name} (current)</option>
                         )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Daily FUP (Resets Every Day at Midnight)</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Set up to 3 FUP tiers. When daily usage exceeds a threshold, the specified speed is applied.
-                    Speed is in Kbps (e.g., 700 = 700k).
-                  </p>
-
-                  {/* FUP Tier 1 */}
-                  <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-orange-50 rounded-lg">
-                    <div>
-                      <label className="label text-orange-700">FUP1 Threshold (GB)</label>
-                      <input
-                        type="number"
-                        name="fup1_threshold"
-                        value={formData.fup1_threshold}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 7"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-orange-700">Download (Kbps)</label>
-                      <input
-                        type="number"
-                        name="fup1_download_speed"
-                        value={formData.fup1_download_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 700"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-orange-700">Upload (Kbps)</label>
-                      <input
-                        type="number"
-                        name="fup1_upload_speed"
-                        value={formData.fup1_upload_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 700"
-                      />
-                    </div>
-                  </div>
-
-                  {/* FUP Tier 2 */}
-                  <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-red-50 rounded-lg">
-                    <div>
-                      <label className="label text-red-700">FUP2 Threshold (GB)</label>
-                      <input
-                        type="number"
-                        name="fup2_threshold"
-                        value={formData.fup2_threshold}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 9"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-red-700">Download (Kbps)</label>
-                      <input
-                        type="number"
-                        name="fup2_download_speed"
-                        value={formData.fup2_download_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 500"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-red-700">Upload (Kbps)</label>
-                      <input
-                        type="number"
-                        name="fup2_upload_speed"
-                        value={formData.fup2_upload_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* FUP Tier 3 */}
-                  <div className="grid grid-cols-3 gap-4 p-3 bg-purple-50 rounded-lg">
-                    <div>
-                      <label className="label text-purple-700">FUP3 Threshold (GB)</label>
-                      <input
-                        type="number"
-                        name="fup3_threshold"
-                        value={formData.fup3_threshold}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 11"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-purple-700">Download (Kbps)</label>
-                      <input
-                        type="number"
-                        name="fup3_download_speed"
-                        value={formData.fup3_download_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 300"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-purple-700">Upload (Kbps)</label>
-                      <input
-                        type="number"
-                        name="fup3_upload_speed"
-                        value={formData.fup3_upload_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 300"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3">Monthly FUP (Resets on Subscription Renewal)</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    When monthly usage exceeds the threshold, the specified speed is applied.
-                    Resets when the user renews their subscription.
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-4 p-3 bg-cyan-50 dark:bg-cyan-900/30 rounded-lg">
-                    <div>
-                      <label className="label text-cyan-700">Threshold (GB)</label>
-                      <input
-                        type="number"
-                        name="monthly_fup1_threshold"
-                        value={formData.monthly_fup1_threshold}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 100"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-cyan-700">Download (Kbps)</label>
-                      <input
-                        type="number"
-                        name="monthly_fup1_download_speed"
-                        value={formData.monthly_fup1_download_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 500"
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-cyan-700">Upload (Kbps)</label>
-                      <input
-                        type="number"
-                        name="monthly_fup1_upload_speed"
-                        value={formData.monthly_fup1_upload_speed}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="e.g., 500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-medium">Free Hours — Quota Discount (Automatic)</h3>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="time_based_speed_enabled"
-                        checked={formData.time_based_speed_enabled}
-                        onChange={handleChange}
-                        className="toggle toggle-primary"
-                      />
-                      <span className={`text-sm font-medium ${formData.time_based_speed_enabled ? 'text-green-600' : 'text-gray-500'}`}>
-                        {formData.time_based_speed_enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </label>
-                  </div>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Give customers free quota during specified hours. Set 100% = completely free (no quota counted), 70% = 70% free (only 30% counted), 0% = no discount. Use Bandwidth Rules to boost speed separately.
-                  </p>
-
-                  <div className={`grid grid-cols-2 gap-4 mb-4 ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <div className="p-3 bg-indigo-50 rounded-lg">
-                      <label className="label text-indigo-700 mb-2">From Time</label>
-                      <div className="flex gap-2 items-center">
-                        <select
-                          name="time_from_hour"
-                          value={formData.time_from_hour}
-                          onChange={handleChange}
-                          className="input w-20"
-                        >
-                          {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => (
-                            <option key={h} value={h}>{h}</option>
-                          ))}
-                        </select>
-                        <span className="font-bold">:</span>
-                        <select
-                          name="time_from_minute"
-                          value={formData.time_from_minute}
-                          onChange={handleChange}
-                          className="input w-20"
-                        >
-                          {[0, 15, 30, 45].map(m => (
-                            <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
-                          ))}
-                        </select>
-                        <select
-                          name="time_from_ampm"
-                          value={formData.time_from_ampm}
-                          onChange={handleChange}
-                          className="input w-20 font-semibold"
-                        >
-                          <option value="AM">AM</option>
-                          <option value="PM">PM</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-indigo-50 rounded-lg">
-                      <label className="label text-indigo-700 mb-2">To Time</label>
-                      <div className="flex gap-2 items-center">
-                        <select
-                          name="time_to_hour"
-                          value={formData.time_to_hour}
-                          onChange={handleChange}
-                          className="input w-20"
-                        >
-                          {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => (
-                            <option key={h} value={h}>{h}</option>
-                          ))}
-                        </select>
-                        <span className="font-bold">:</span>
-                        <select
-                          name="time_to_minute"
-                          value={formData.time_to_minute}
-                          onChange={handleChange}
-                          className="input w-20"
-                        >
-                          {[0, 15, 30, 45].map(m => (
-                            <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
-                          ))}
-                        </select>
-                        <select
-                          name="time_to_ampm"
-                          value={formData.time_to_ampm}
-                          onChange={handleChange}
-                          className="input w-20 font-semibold"
-                        >
-                          <option value="AM">AM</option>
-                          <option value="PM">PM</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`grid grid-cols-2 gap-4 p-3 bg-indigo-50 rounded-lg ${!formData.time_based_speed_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <div>
-                      <label className="label text-indigo-700">Quota Free % (Download)</label>
-                      <input
-                        type="number"
-                        name="time_download_ratio"
-                        value={formData.time_download_ratio}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="100"
-                        min="0"
-                        max="100"
-                      />
-                      <p className="text-xs text-indigo-500 mt-1">100% = fully free, 70% = 30% counted</p>
-                    </div>
-                    <div>
-                      <label className="label text-indigo-700">Quota Free % (Upload)</label>
-                      <input
-                        type="number"
-                        name="time_upload_ratio"
-                        value={formData.time_upload_ratio}
-                        onChange={handleChange}
-                        className="input"
-                        placeholder="100"
-                        min="0"
-                        max="100"
-                      />
-                      <p className="text-xs text-indigo-500 mt-1">100% = fully free, 70% = 30% counted</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-3 flex items-center gap-2">
-                    <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400" />
-                    CDN Configuration
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Configure which CDNs apply to this service with custom speed limits and bypass options.
-                  </p>
-
-                  {/* Add CDN dropdown */}
-                  {cdnList && cdnList.length > 0 && (
-                    <div className="mb-4">
-                      <select
-                        className="input"
-                        value=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            addCDNConfig(parseInt(e.target.value))
-                          }
-                        }}
-                      >
-                        <option value="">+ Add CDN...</option>
-                        {cdnList.filter(cdn => !serviceCDNs.find(sc => sc.cdn_id === cdn.id)).map(cdn => (
-                          <option key={cdn.id} value={cdn.id}>{cdn.name}</option>
-                        ))}
+                        {ipPools.map(pool => (<option key={pool.name} value={pool.name}>{pool.name} ({pool.ranges})</option>))}
                       </select>
-                    </div>
-                  )}
-
-                  {/* CDN configurations list */}
-                  {serviceCDNs.length > 0 ? (
-                    <div className="space-y-3">
-                      {serviceCDNs.map((sc) => (
-                        <div key={sc.cdn_id} className="p-3 bg-gray-50 rounded-lg border">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <GlobeAltIcon className="w-5 h-5 text-indigo-500" />
-                              <span className="font-medium">{getCDNName(sc.cdn_id)}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeCDNConfig(sc.cdn_id)}
-                              className="text-red-500 hover:text-red-700 p-1"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <label className="label text-xs">Speed Limit (Mbps)</label>
-                              <input
-                                type="number"
-                                value={sc.speed_limit === 0 ? '' : sc.speed_limit}
-                                onChange={(e) => updateCDNConfig(sc.cdn_id, 'speed_limit', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                                className="input text-sm"
-                                placeholder="0 = unlimited"
-                                min="0"
-                              />
-                            </div>
-                            <div className="flex items-end">
-                              <label className="flex items-center gap-2 pb-2">
-                                <input
-                                  type="checkbox"
-                                  checked={sc.bypass_quota}
-                                  onChange={(e) => updateCDNConfig(sc.cdn_id, 'bypass_quota', e.target.checked)}
-                                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                />
-                                <span className="text-sm text-green-700 font-medium">Bypass Quota</span>
-                              </label>
-                            </div>
-                            <div className="flex flex-col">
-                              <label className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={sc.is_active}
-                                  onChange={(e) => updateCDNConfig(sc.cdn_id, 'is_active', e.target.checked)}
-                                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                />
-                                <span className="text-sm">Active</span>
-                              </label>
-                              <span className="text-xs text-gray-400 mt-1">Show in Live Graph</span>
-                            </div>
-                          </div>
-
-                          {/* PCQ Mode Option */}
-                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center gap-4">
-                              <label className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={sc.pcq_enabled}
-                                  onChange={(e) => {
-                                    const enabled = e.target.checked
-                                    const autoNasId = selectedNasId || formData.nas_id || null
-                                    if (enabled && autoNasId && !sc.pcq_nas_id) {
-                                      updateCDNConfigMultiple(sc.cdn_id, { pcq_enabled: true, pcq_nas_id: autoNasId })
-                                      fetchPoolsForCDN(sc.cdn_id, autoNasId)
-                                    } else {
-                                      updateCDNConfig(sc.cdn_id, 'pcq_enabled', enabled)
-                                    }
-                                  }}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                                />
-                                <span className="text-sm text-blue-700 font-medium">PCQ Mode</span>
-                              </label>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">(Shared queue for all subscribers)</span>
-                            </div>
-                            {sc.pcq_enabled && (
-                              <div className="mt-2 p-3 bg-blue-50 rounded space-y-3">
-                                {/* NAS Selector - hidden if service already has NAS selected in RADIUS Settings */}
-                                {(() => {
-                                  const serviceNasId = selectedNasId || formData.nas_id || null
-                                  const serviceNas = serviceNasId ? nasList?.find(n => n.id === serviceNasId) : null
-                                  if (serviceNas) {
-                                    return (
-                                      <div className="text-xs text-blue-700">
-                                        NAS: <span className="font-medium">{serviceNas.name} ({serviceNas.ip_address})</span>
-                                        <span className="text-gray-400 ml-1">— from RADIUS Settings</span>
-                                      </div>
-                                    )
-                                  }
-                                  return (
-                                    <div>
-                                      <label className="label text-xs text-blue-700">Select NAS</label>
-                                      <select
-                                        value={sc.pcq_nas_id || ''}
-                                        onChange={(e) => {
-                                          const nasId = e.target.value ? parseInt(e.target.value) : null
-                                          updateCDNConfigMultiple(sc.cdn_id, { pcq_nas_id: nasId, pcq_target_pools: '' })
-                                          if (nasId) { fetchPoolsForCDN(sc.cdn_id, nasId) }
-                                        }}
-                                        className="input text-sm"
-                                      >
-                                        <option value="">-- Select NAS --</option>
-                                        {nasList?.filter(n => n.is_active).map(nas => (
-                                          <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  )
-                                })()}
-
-                                {/* Pool Selector */}
-                                {sc.pcq_nas_id && (
-                                  <div>
-                                    <label className="label text-xs text-blue-700">Select Pools (Target)</label>
-                                    {pcqPools[sc.cdn_id]?.loading ? (
-                                      <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Loading pools...</div>
-                                    ) : pcqPools[sc.cdn_id]?.pools?.length > 0 ? (
-                                      <div className="grid grid-cols-2 gap-2 mt-1">
-                                        {pcqPools[sc.cdn_id].pools.filter(pool =>
-                                          !formData.pool_name || pool.name === formData.pool_name
-                                        ).map(pool => {
-                                          const selectedPools = sc.pcq_target_pools ? sc.pcq_target_pools.split(',') : []
-                                          const isSelected = selectedPools.includes(pool.ranges)
-                                          return (
-                                            <label key={pool.name} className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-blue-50">
-                                              <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={(e) => {
-                                                  let newPools = [...selectedPools]
-                                                  if (e.target.checked) {
-                                                    newPools.push(pool.ranges)
-                                                  } else {
-                                                    newPools = newPools.filter(p => p !== pool.ranges)
-                                                  }
-                                                  updateCDNConfig(sc.cdn_id, 'pcq_target_pools', newPools.filter(p => p).join(','))
-                                                }}
-                                                className="rounded border-gray-300 text-blue-600"
-                                              />
-                                              <div>
-                                                <div className="text-sm font-medium">{pool.name}</div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{pool.ranges}</div>
-                                              </div>
-                                            </label>
-                                          )
-                                        })}
-                                      </div>
-                                    ) : (
-                                      <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                                        <button
-                                          type="button"
-                                          onClick={() => fetchPoolsForCDN(sc.cdn_id, sc.pcq_nas_id)}
-                                          className="text-blue-600 hover:underline"
-                                        >
-                                          Click to fetch pools from NAS
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* PCQ Limit Settings */}
-                                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-blue-200">
-                                  <div>
-                                    <label className="label text-xs text-blue-700">PCQ Limit (KiB)</label>
-                                    <input
-                                      type="number"
-                                      value={sc.pcq_limit}
-                                      onChange={(e) => updateCDNConfig(sc.cdn_id, 'pcq_limit', parseInt(e.target.value) || 50)}
-                                      className="input text-sm"
-                                      min="1"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="label text-xs text-blue-700">PCQ Total Limit (KiB)</label>
-                                    <input
-                                      type="number"
-                                      value={sc.pcq_total_limit}
-                                      onChange={(e) => updateCDNConfig(sc.cdn_id, 'pcq_total_limit', parseInt(e.target.value) || 2000)}
-                                      className="input text-sm"
-                                      min="1"
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Selected Pools Summary */}
-                                {sc.pcq_target_pools && (
-                                  <div className="text-xs text-blue-600 bg-blue-100 p-2 rounded">
-                                    <strong>Target:</strong> {sc.pcq_target_pools}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-400 text-sm">
-                      No CDNs configured. Select a CDN from the dropdown above.
-                    </div>
-                  )}
+                    ) : (
+                      <input type="text" name="pool_name" value={formData.pool_name} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }}
+                        placeholder={selectedNasId ? "No pools found" : "Select NAS first"} />
+                    )}
+                  </div>
                 </div>
+              </div>
 
-                <div className="border-t pt-4">
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      name="is_active"
-                      checked={formData.is_active}
-                      onChange={handleChange}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span>Active Service</span>
+              {/* Daily FUP */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 4 }}>Daily FUP (Resets Every Day)</div>
+                <p className="text-[11px] text-gray-500 mb-2">Speed in Kbps (e.g., 700 = 700k).</p>
+                {/* FUP1 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6, padding: 6, border: '1px solid #e0a060', backgroundColor: '#fff8f0' }}>
+                  <div><label className="label" style={{ color: '#e65100' }}>FUP1 Threshold (GB)</label><input type="number" name="fup1_threshold" value={formData.fup1_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#e65100' }}>Download (Kbps)</label><input type="number" name="fup1_download_speed" value={formData.fup1_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#e65100' }}>Upload (Kbps)</label><input type="number" name="fup1_upload_speed" value={formData.fup1_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                </div>
+                {/* FUP2 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6, padding: 6, border: '1px solid #e06060', backgroundColor: '#fff0f0' }}>
+                  <div><label className="label" style={{ color: '#c62828' }}>FUP2 Threshold (GB)</label><input type="number" name="fup2_threshold" value={formData.fup2_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#c62828' }}>Download (Kbps)</label><input type="number" name="fup2_download_speed" value={formData.fup2_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#c62828' }}>Upload (Kbps)</label><input type="number" name="fup2_upload_speed" value={formData.fup2_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                </div>
+                {/* FUP3 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: 6, border: '1px solid #a060c0', backgroundColor: '#f8f0ff' }}>
+                  <div><label className="label" style={{ color: '#6a1b9a' }}>FUP3 Threshold (GB)</label><input type="number" name="fup3_threshold" value={formData.fup3_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#6a1b9a' }}>Download (Kbps)</label><input type="number" name="fup3_download_speed" value={formData.fup3_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#6a1b9a' }}>Upload (Kbps)</label><input type="number" name="fup3_upload_speed" value={formData.fup3_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                </div>
+              </div>
+
+              {/* Monthly FUP */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 4 }}>Monthly FUP (Resets on Renewal)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: 6, border: '1px solid #60a0c0', backgroundColor: '#f0f8ff' }}>
+                  <div><label className="label" style={{ color: '#00695c' }}>Threshold (GB)</label><input type="number" name="monthly_fup1_threshold" value={formData.monthly_fup1_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#00695c' }}>Download (Kbps)</label><input type="number" name="monthly_fup1_download_speed" value={formData.monthly_fup1_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div><label className="label" style={{ color: '#00695c' }}>Upload (Kbps)</label><input type="number" name="monthly_fup1_upload_speed" value={formData.monthly_fup1_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
+                </div>
+              </div>
+
+              {/* Free Hours */}
+              <div style={sectionStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div className="wb-group-title" style={{ fontSize: 11 }}>Free Hours -- Quota Discount</div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                    <input type="checkbox" name="time_based_speed_enabled" checked={formData.time_based_speed_enabled} onChange={handleChange} />
+                    <span className="text-[11px]" style={{ color: formData.time_based_speed_enabled ? '#2e7d32' : '#888' }}>
+                      {formData.time_based_speed_enabled ? 'Enabled' : 'Disabled'}
+                    </span>
                   </label>
                 </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <button type="button" onClick={closeModal} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saveMutation.isLoading || (editingService && !cdnsLoaded)} className="btn-primary">
-                    {saveMutation.isLoading ? 'Saving...' : (!cdnsLoaded && editingService) ? 'Loading CDNs...' : editingService ? 'Update' : 'Create'}
-                  </button>
+                <p className="text-[11px] text-gray-500 mb-2">100% = fully free, 70% = 30% counted, 0% = no discount.</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, opacity: formData.time_based_speed_enabled ? 1 : 0.5, pointerEvents: formData.time_based_speed_enabled ? 'auto' : 'none' }}>
+                  <div style={{ padding: 6, border: '1px solid #a0a0c0', backgroundColor: '#f0f0ff' }}>
+                    <label className="label" style={{ color: '#303f9f' }}>From Time</label>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <select name="time_from_hour" value={formData.time_from_hour} onChange={handleChange} className="input" style={{ ...inputStyle, width: 50 }}>
+                        {[12,1,2,3,4,5,6,7,8,9,10,11].map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <span style={{ fontWeight: 'bold' }}>:</span>
+                      <select name="time_from_minute" value={formData.time_from_minute} onChange={handleChange} className="input" style={{ ...inputStyle, width: 50 }}>
+                        {[0,15,30,45].map(m => <option key={m} value={m}>{m.toString().padStart(2,'0')}</option>)}
+                      </select>
+                      <select name="time_from_ampm" value={formData.time_from_ampm} onChange={handleChange} className="input" style={{ ...inputStyle, width: 50, fontWeight: 600 }}>
+                        <option value="AM">AM</option><option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ padding: 6, border: '1px solid #a0a0c0', backgroundColor: '#f0f0ff' }}>
+                    <label className="label" style={{ color: '#303f9f' }}>To Time</label>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <select name="time_to_hour" value={formData.time_to_hour} onChange={handleChange} className="input" style={{ ...inputStyle, width: 50 }}>
+                        {[12,1,2,3,4,5,6,7,8,9,10,11].map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <span style={{ fontWeight: 'bold' }}>:</span>
+                      <select name="time_to_minute" value={formData.time_to_minute} onChange={handleChange} className="input" style={{ ...inputStyle, width: 50 }}>
+                        {[0,15,30,45].map(m => <option key={m} value={m}>{m.toString().padStart(2,'0')}</option>)}
+                      </select>
+                      <select name="time_to_ampm" value={formData.time_to_ampm} onChange={handleChange} className="input" style={{ ...inputStyle, width: 50, fontWeight: 600 }}>
+                        <option value="AM">AM</option><option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-              </form>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6, padding: 6, border: '1px solid #a0a0c0', backgroundColor: '#f0f0ff', opacity: formData.time_based_speed_enabled ? 1 : 0.5, pointerEvents: formData.time_based_speed_enabled ? 'auto' : 'none' }}>
+                  <div><label className="label" style={{ color: '#303f9f' }}>Quota Free % (Download)</label><input type="number" name="time_download_ratio" value={formData.time_download_ratio} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} min="0" max="100" /></div>
+                  <div><label className="label" style={{ color: '#303f9f' }}>Quota Free % (Upload)</label><input type="number" name="time_upload_ratio" value={formData.time_upload_ratio} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} min="0" max="100" /></div>
+                </div>
+              </div>
+
+              {/* CDN Configuration */}
+              <div style={sectionStyle}>
+                <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 4 }}>CDN Configuration</div>
+                {cdnList && cdnList.length > 0 && (
+                  <div style={{ marginBottom: 6 }}>
+                    <select className="input" style={inputStyle} value="" onChange={(e) => { if (e.target.value) addCDNConfig(parseInt(e.target.value)) }}>
+                      <option value="">+ Add CDN...</option>
+                      {cdnList.filter(cdn => !serviceCDNs.find(sc => sc.cdn_id === cdn.id)).map(cdn => (<option key={cdn.id} value={cdn.id}>{cdn.name}</option>))}
+                    </select>
+                  </div>
+                )}
+                {serviceCDNs.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {serviceCDNs.map((sc) => (
+                      <div key={sc.cdn_id} style={{ padding: 6, border: '1px solid #c0c0c0', backgroundColor: '#f8f8f8' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span className="font-medium text-[12px]">{getCDNName(sc.cdn_id)}</span>
+                          <button type="button" onClick={() => removeCDNConfig(sc.cdn_id)} className="btn btn-xs btn-danger">Remove</button>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                          <div>
+                            <label className="label" style={{ fontSize: 10 }}>Speed Limit (Mbps)</label>
+                            <input type="number" value={sc.speed_limit === 0 ? '' : sc.speed_limit} onChange={(e) => updateCDNConfig(sc.cdn_id, 'speed_limit', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)} className="input" style={{ ...inputStyle, width: '100%' }} min="0" placeholder="0=unlim" />
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <input type="checkbox" checked={sc.bypass_quota} onChange={(e) => updateCDNConfig(sc.cdn_id, 'bypass_quota', e.target.checked)} />
+                              <span className="text-[11px]" style={{ color: '#2e7d32', fontWeight: 600 }}>Bypass Quota</span>
+                            </label>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <input type="checkbox" checked={sc.is_active} onChange={(e) => updateCDNConfig(sc.cdn_id, 'is_active', e.target.checked)} />
+                              <span className="text-[11px]">Active</span>
+                            </label>
+                          </div>
+                        </div>
+                        {/* PCQ */}
+                        <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px solid #d0d0d0' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <input type="checkbox" checked={sc.pcq_enabled} onChange={(e) => {
+                              const enabled = e.target.checked; const autoNasId = selectedNasId || formData.nas_id || null
+                              if (enabled && autoNasId && !sc.pcq_nas_id) { updateCDNConfigMultiple(sc.cdn_id, { pcq_enabled: true, pcq_nas_id: autoNasId }); fetchPoolsForCDN(sc.cdn_id, autoNasId) }
+                              else { updateCDNConfig(sc.cdn_id, 'pcq_enabled', enabled) }
+                            }} />
+                            <span className="text-[11px] font-medium" style={{ color: '#1565c0' }}>PCQ Mode</span>
+                          </label>
+                          {sc.pcq_enabled && (
+                            <div style={{ marginTop: 4, padding: 4, backgroundColor: '#e8f0ff', border: '1px solid #a0c0e0' }}>
+                              {(() => {
+                                const serviceNasId = selectedNasId || formData.nas_id || null
+                                const serviceNas = serviceNasId ? nasList?.find(n => n.id === serviceNasId) : null
+                                if (serviceNas) return <div className="text-[11px]" style={{ color: '#1565c0' }}>NAS: <strong>{serviceNas.name}</strong> (from RADIUS Settings)</div>
+                                return (
+                                  <div><label className="label" style={{ fontSize: 10, color: '#1565c0' }}>Select NAS</label>
+                                    <select value={sc.pcq_nas_id || ''} onChange={(e) => { const nasId = e.target.value ? parseInt(e.target.value) : null; updateCDNConfigMultiple(sc.cdn_id, { pcq_nas_id: nasId, pcq_target_pools: '' }); if (nasId) fetchPoolsForCDN(sc.cdn_id, nasId) }} className="input" style={{ ...inputStyle, width: '100%' }}>
+                                      <option value="">-- Select NAS --</option>{nasList?.filter(n => n.is_active).map(nas => <option key={nas.id} value={nas.id}>{nas.name} ({nas.ip_address})</option>)}
+                                    </select></div>
+                                )
+                              })()}
+                              {sc.pcq_nas_id && (
+                                <div style={{ marginTop: 4 }}>
+                                  <label className="label" style={{ fontSize: 10, color: '#1565c0' }}>Select Pools (Target)</label>
+                                  {pcqPools[sc.cdn_id]?.loading ? (
+                                    <div className="text-[11px] text-gray-500">Loading pools...</div>
+                                  ) : pcqPools[sc.cdn_id]?.pools?.length > 0 ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                                      {pcqPools[sc.cdn_id].pools.filter(pool => !formData.pool_name || pool.name === formData.pool_name).map(pool => {
+                                        const selectedPools = sc.pcq_target_pools ? sc.pcq_target_pools.split(',') : []
+                                        const isSelected = selectedPools.includes(pool.ranges)
+                                        return (
+                                          <label key={pool.name} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, backgroundColor: 'white', border: '1px solid #c0c0c0', cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={isSelected} onChange={(e) => {
+                                              let newPools = [...selectedPools]; if (e.target.checked) newPools.push(pool.ranges); else newPools = newPools.filter(p => p !== pool.ranges)
+                                              updateCDNConfig(sc.cdn_id, 'pcq_target_pools', newPools.filter(p => p).join(','))
+                                            }} />
+                                            <div><div className="text-[11px] font-medium">{pool.name}</div><div className="text-[10px] text-gray-500">{pool.ranges}</div></div>
+                                          </label>
+                                        )
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <button type="button" onClick={() => fetchPoolsForCDN(sc.cdn_id, sc.pcq_nas_id)} className="text-[11px]" style={{ color: '#1565c0', cursor: 'pointer', background: 'none', border: 'none' }}>Click to fetch pools</button>
+                                  )}
+                                </div>
+                              )}
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 4, paddingTop: 4, borderTop: '1px solid #a0c0e0' }}>
+                                <div><label className="label" style={{ fontSize: 10, color: '#1565c0' }}>PCQ Limit (KiB)</label><input type="number" value={sc.pcq_limit} onChange={(e) => updateCDNConfig(sc.cdn_id, 'pcq_limit', parseInt(e.target.value) || 50)} className="input" style={{ ...inputStyle, width: '100%' }} min="1" /></div>
+                                <div><label className="label" style={{ fontSize: 10, color: '#1565c0' }}>PCQ Total (KiB)</label><input type="number" value={sc.pcq_total_limit} onChange={(e) => updateCDNConfig(sc.cdn_id, 'pcq_total_limit', parseInt(e.target.value) || 2000)} className="input" style={{ ...inputStyle, width: '100%' }} min="1" /></div>
+                              </div>
+                              {sc.pcq_target_pools && <div className="text-[11px]" style={{ marginTop: 4, padding: 4, backgroundColor: '#d0e8ff', color: '#1565c0' }}><strong>Target:</strong> {sc.pcq_target_pools}</div>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-[12px] text-gray-400" style={{ padding: 12 }}>No CDNs configured.</div>
+                )}
+              </div>
+
+              {/* Active checkbox */}
+              <div style={sectionStyle}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} />
+                  <span className="text-[12px]">Active Service</span>
+                </label>
+              </div>
+
+              {/* Footer buttons */}
+              <div className="modal-footer" style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 4, paddingTop: 8, borderTop: '1px solid #c0c0c0' }}>
+                <button type="button" onClick={closeModal} className="btn btn-sm">Cancel</button>
+                <button type="submit" disabled={saveMutation.isLoading || (editingService && !cdnsLoaded)} className="btn btn-sm btn-primary">
+                  {saveMutation.isLoading ? 'Saving...' : (!cdnsLoaded && editingService) ? 'Loading CDNs...' : editingService ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

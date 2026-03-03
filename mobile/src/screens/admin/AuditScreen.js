@@ -17,6 +17,7 @@ import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { auditApi } from '../../services/api';
 import { formatDate, getTimeAgo } from '../../utils/format';
 
@@ -128,25 +129,20 @@ const AuditRow = ({ entry, onPress }) => {
 };
 
 const auditRowStyles = StyleSheet.create({
-  container: { marginHorizontal: spacing.base, marginBottom: spacing.sm },
+  container: { marginHorizontal: spacing.sm, marginBottom: spacing.xs },
   row: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
-      android: { elevation: 2 },
-    }),
   },
   indicator: {
-    width: 4,
+    width: 3,
   },
   content: {
     flex: 1,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   topLine: {
     flexDirection: 'row',
@@ -175,7 +171,7 @@ const auditRowStyles = StyleSheet.create({
   actionBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   actionText: {
     ...typography.caption,
@@ -197,7 +193,7 @@ const auditRowStyles = StyleSheet.create({
     ...typography.caption,
     color: colors.textLight,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 11,
+    fontSize: 12,
   },
 });
 
@@ -256,27 +252,25 @@ const detailStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 48 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    ...shadows.sm,
   },
-  headerTitle: { ...typography.h3, color: colors.text, flex: 1, marginRight: spacing.md },
-  closeButton: { fontSize: 20, color: colors.textSecondary, paddingHorizontal: spacing.sm },
+  headerTitle: { ...typography.h3, color: colors.text, flex: 1, marginRight: spacing.sm },
+  closeButton: { fontSize: 15, color: colors.textSecondary, paddingHorizontal: spacing.xs },
   body: { flex: 1 },
-  bodyContent: { paddingHorizontal: spacing.base, paddingTop: spacing.lg },
+  bodyContent: { paddingHorizontal: spacing.sm, paddingTop: spacing.md },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.base,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   field: {
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
@@ -285,7 +279,7 @@ const detailStyles = StyleSheet.create({
     color: colors.textLight,
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     marginBottom: spacing.xs,
   },
   fieldValue: {
@@ -348,20 +342,20 @@ const filterStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    gap: spacing.sm,
+    borderBottomColor: colors.border,
+    gap: spacing.xs,
   },
   filterBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   filterBtnActive: {
     backgroundColor: colors.primary,
@@ -377,8 +371,8 @@ const filterStyles = StyleSheet.create({
     fontWeight: '600',
   },
   clearBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   clearBtnText: {
     ...typography.bodySmall,
@@ -390,31 +384,31 @@ const filterStyles = StyleSheet.create({
 const filterPanelStyles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.border,
   },
   label: {
     ...typography.caption,
     color: colors.textSecondary,
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: spacing.base,
-    marginBottom: spacing.sm,
+    letterSpacing: 0.3,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
   },
   chipsContainer: {
-    paddingHorizontal: spacing.base,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
   },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.background,
-    marginRight: spacing.sm,
+    backgroundColor: colors.surface,
+    marginRight: spacing.xs,
   },
   chipActive: {
     backgroundColor: colors.primary,
@@ -659,13 +653,13 @@ const footerStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
   },
   text: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginLeft: spacing.sm,
+    marginLeft: spacing.xs,
   },
 });
 
@@ -673,42 +667,41 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     backgroundColor: colors.surface,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.base,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    ...shadows.sm,
   },
-  headerTitle: { ...typography.h2, color: colors.text },
+  headerTitle: { ...typography.h3, color: colors.text },
   searchContainer: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.border,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    height: 40,
+    paddingHorizontal: spacing.sm,
+    height: 44,
   },
-  searchIcon: { fontSize: 14, marginRight: spacing.sm },
+  searchIcon: { fontSize: 12, marginRight: spacing.xs },
   searchInput: {
     flex: 1,
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     paddingVertical: 0,
   },
   clearSearch: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textLight,
-    paddingLeft: spacing.sm,
+    paddingLeft: spacing.xs,
   },
-  listContent: { paddingTop: spacing.md, paddingBottom: spacing.tabBar },
+  listContent: { paddingTop: spacing.sm, paddingBottom: spacing.tabBar },
   listContentEmpty: { flex: 1, justifyContent: 'center' },
 });

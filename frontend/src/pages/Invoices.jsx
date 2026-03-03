@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import { formatDate } from '../utils/timezone'
 
-const STATUS_COLORS = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  completed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  refunded: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+const STATUS_BADGE = {
+  pending: 'badge-warning',
+  completed: 'badge-success',
+  failed: 'badge-danger',
+  refunded: 'badge-gray'
 }
 
 export default function Invoices() {
@@ -109,7 +109,7 @@ export default function Invoices() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin h-5 w-5 border-2 border-[#316AC5] border-t-transparent" style={{ borderRadius: '50%' }}></div>
       </div>
     )
   }
@@ -118,22 +118,25 @@ export default function Invoices() {
   const meta = data?.meta || {}
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Invoices</h1>
+    <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Toolbar */}
+      <div className="wb-toolbar justify-between">
+        <span className="text-[13px] font-semibold">Invoices</span>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="btn btn-primary"
         >
           Create Invoice
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+      {/* Filter */}
+      <div className="wb-toolbar">
         <select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-          className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+          className="input"
+          style={{ width: 'auto', minWidth: 140 }}
         >
           <option value="">All Status</option>
           <option value="pending">Pending</option>
@@ -142,47 +145,38 @@ export default function Invoices() {
         </select>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
+      {/* Table */}
+      <div className="table-container">
+        <table className="table">
+          <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice #</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subscriber</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Paid</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Due Date</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+              <th>Invoice #</th>
+              <th>Subscriber</th>
+              <th>Total</th>
+              <th>Paid</th>
+              <th>Status</th>
+              <th>Due Date</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody>
             {invoices.map(invoice => (
               <tr key={invoice.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                  {invoice.invoice_number}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  {invoice.subscriber?.username || 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  ${invoice.total?.toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  ${invoice.amount_paid?.toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs rounded-full ${STATUS_COLORS[invoice.status] || 'bg-gray-100'}`}>
+                <td className="font-semibold">{invoice.invoice_number}</td>
+                <td>{invoice.subscriber?.username || 'N/A'}</td>
+                <td>${invoice.total?.toFixed(2)}</td>
+                <td>${invoice.amount_paid?.toFixed(2)}</td>
+                <td>
+                  <span className={STATUS_BADGE[invoice.status] || 'badge-gray'}>
                     {invoice.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-                  {formatDate(invoice.due_date)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td>{formatDate(invoice.due_date)}</td>
+                <td style={{ textAlign: 'right' }}>
                   {invoice.status !== 'completed' && (
                     <button
                       onClick={() => handlePayment(invoice)}
-                      className="text-green-600 hover:text-green-900 mr-3"
+                      className="btn btn-success btn-xs mr-1"
                     >
                       Add Payment
                     </button>
@@ -190,7 +184,7 @@ export default function Invoices() {
                   {invoice.status !== 'completed' && (
                     <button
                       onClick={() => deleteMutation.mutate(invoice.id)}
-                      className="text-red-600 hover:text-red-900"
+                      className="btn btn-danger btn-xs"
                     >
                       Delete
                     </button>
@@ -200,132 +194,139 @@ export default function Invoices() {
             ))}
           </tbody>
         </table>
-
-        {meta.totalPages > 1 && (
-          <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
-            <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
-              Page {page} of {meta.totalPages} ({meta.total} total)
-            </span>
-            <div className="space-x-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPage(p => p + 1)}
-                disabled={page >= meta.totalPages}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Pagination */}
+      {meta.totalPages > 1 && (
+        <div className="wb-statusbar">
+          <span>
+            Page {page} of {meta.totalPages} ({meta.total} total)
+          </span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="btn btn-sm"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= meta.totalPages}
+              className="btn btn-sm"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create Invoice Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold mb-4">Create Invoice</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Subscriber ID</label>
-                  <input
-                    type="number"
-                    value={formData.subscriber_id}
-                    onChange={(e) => setFormData({ ...formData, subscriber_id: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Due Date</label>
-                  <input
-                    type="date"
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Items</label>
-                {formData.items.map((item, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Description"
-                      value={item.description}
-                      onChange={(e) => updateItem(index, 'description', e.target.value)}
-                      className="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    />
+        <div className="modal-overlay">
+          <div className="modal modal-lg">
+            <div className="modal-header">
+              <span>Create Invoice</span>
+              <button onClick={() => setShowModal(false)} className="text-white hover:text-gray-200 text-[13px] leading-none">&times;</button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label">Subscriber ID</label>
                     <input
                       type="number"
-                      placeholder="Qty"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                      className="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      value={formData.subscriber_id}
+                      onChange={(e) => setFormData({ ...formData, subscriber_id: e.target.value })}
+                      className="input"
+                      required
                     />
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Price"
-                      value={item.unit_price}
-                      onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
-                      className="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    />
-                    {formData.items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        className="px-2 text-red-600 hover:text-red-800"
-                      >
-                        X
-                      </button>
-                    )}
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  + Add Item
-                </button>
-              </div>
+                  <div>
+                    <label className="label">Due Date</label>
+                    <input
+                      type="date"
+                      value={formData.due_date}
+                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                      className="input"
+                    />
+                  </div>
+                </div>
 
-              <div className="text-right text-lg font-semibold">
-                Total: ${calculateTotal().toFixed(2)}
-              </div>
+                <div>
+                  <label className="label">Items</label>
+                  {formData.items.map((item, index) => (
+                    <div key={index} className="flex gap-1 mb-1">
+                      <input
+                        type="text"
+                        placeholder="Description"
+                        value={item.description}
+                        onChange={(e) => updateItem(index, 'description', e.target.value)}
+                        className="input flex-1"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                        className="input"
+                        style={{ width: 60 }}
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        value={item.unit_price}
+                        onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
+                        className="input"
+                        style={{ width: 80 }}
+                      />
+                      {formData.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="btn btn-danger btn-xs"
+                        >
+                          X
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="btn btn-sm mt-1"
+                  >
+                    + Add Item
+                  </button>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  rows={3}
-                />
-              </div>
+                <div className="text-right text-[13px] font-semibold">
+                  Total: ${calculateTotal().toFixed(2)}
+                </div>
 
-              <div className="flex justify-end space-x-3 pt-4">
+                <div>
+                  <label className="label">Notes</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="input"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:bg-gray-600"
+                  className="btn"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  className="btn btn-primary"
                 >
                   Create Invoice
                 </button>
@@ -337,59 +338,64 @@ export default function Invoices() {
 
       {/* Payment Modal */}
       {showPaymentModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">Add Payment</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Invoice: {selectedInvoice.invoice_number} |
-              Balance: ${(selectedInvoice.total - selectedInvoice.amount_paid).toFixed(2)}
-            </p>
-            <form onSubmit={submitPayment} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={paymentData.amount}
-                  onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  required
-                />
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: 400 }}>
+            <div className="modal-header">
+              <span>Add Payment</span>
+              <button onClick={() => setShowPaymentModal(false)} className="text-white hover:text-gray-200 text-[13px] leading-none">&times;</button>
+            </div>
+            <form onSubmit={submitPayment}>
+              <div className="modal-body space-y-2">
+                <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                  Invoice: {selectedInvoice.invoice_number} |
+                  Balance: ${(selectedInvoice.total - selectedInvoice.amount_paid).toFixed(2)}
+                </p>
+                <div>
+                  <label className="label">Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={paymentData.amount}
+                    onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
+                    className="input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">Method</label>
+                  <select
+                    value={paymentData.method}
+                    onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
+                    className="input"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="online">Online</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Reference</label>
+                  <input
+                    type="text"
+                    value={paymentData.reference}
+                    onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
+                    className="input"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Method</label>
-                <select
-                  value={paymentData.method}
-                  onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="online">Online</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-500 dark:text-gray-400">Reference</label>
-                <input
-                  type="text"
-                  value={paymentData.reference}
-                  onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:bg-gray-600"
+                  className="btn"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={paymentMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                  className="btn btn-success"
                 >
                   Add Payment
                 </button>

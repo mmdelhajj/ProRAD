@@ -14,87 +14,64 @@ import {
   ClockIcon,
   CpuChipIcon,
   CircleStackIcon,
+  ExclamationTriangleIcon,
+  CalendarDaysIcon,
+  BanknotesIcon,
+  UserGroupIcon,
+  WifiIcon,
 } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
-function SystemMetricCard({ title, value, icon: Icon, color = 'blue' }) {
-  const colorClasses = {
-    blue: {
-      bg: 'bg-blue-500',
-      track: 'bg-blue-100 dark:bg-blue-900/30',
-      text: 'text-blue-600 dark:text-blue-400',
-      iconBg: 'bg-blue-50 dark:bg-blue-900/50',
-    },
-    green: {
-      bg: 'bg-green-500',
-      track: 'bg-green-100 dark:bg-green-900/30',
-      text: 'text-green-600 dark:text-green-400',
-      iconBg: 'bg-green-50 dark:bg-green-900/50',
-    },
-    purple: {
-      bg: 'bg-purple-500',
-      track: 'bg-purple-100 dark:bg-purple-900/30',
-      text: 'text-purple-600 dark:text-purple-400',
-      iconBg: 'bg-purple-50 dark:bg-purple-900/50',
-    },
-  }
-
-  const colors = colorClasses[color]
+function SystemMetricBar({ label, value }) {
   const percentage = value || 0
+  const barColor =
+    percentage < 50
+      ? '#4CAF50'
+      : percentage < 80
+        ? '#FF9800'
+        : '#f44336'
 
   return (
-    <div className="stat-card">
-      <div className="flex items-center gap-4">
-        <div className={clsx('p-3 rounded-xl', colors.iconBg)}>
-          <Icon className={clsx('w-6 h-6', colors.text)} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <div className="flex items-center gap-3 mt-1">
-            <div className={clsx('flex-1 h-2.5 rounded-full', colors.track)}>
-              <div
-                className={clsx('h-2.5 rounded-full transition-all duration-500', colors.bg)}
-                style={{ width: `${Math.min(percentage, 100)}%` }}
-              />
-            </div>
-            <span className={clsx('text-lg font-bold', colors.text)}>{percentage}%</span>
-          </div>
-        </div>
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="text-[11px] text-gray-700 dark:text-[#ccc] w-[50px] flex-shrink-0">{label}</span>
+      <div className="flex-1 h-[4px] bg-[#e0e0e0] dark:bg-[#555]" style={{ borderRadius: '1px' }}>
+        <div
+          className="h-full transition-all duration-500"
+          style={{
+            width: `${Math.min(percentage, 100)}%`,
+            backgroundColor: barColor,
+            borderRadius: '1px',
+          }}
+        />
       </div>
+      <span className="text-[11px] font-semibold w-[36px] text-right" style={{ color: barColor }}>
+        {percentage}%
+      </span>
     </div>
   )
 }
 
-function StatCard({ title, value, icon: Icon, trend, color = 'primary' }) {
-  const colors = {
-    primary: 'bg-primary-50 text-primary-600',
-    green: 'bg-green-50 text-green-600',
-    red: 'bg-red-50 text-red-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-    blue: 'bg-blue-50 text-blue-600',
-    purple: 'bg-purple-50 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300',
-  }
-
+function StatBox({ label, value, trend, icon: Icon, iconColor }) {
   return (
-    <div className="stat-card">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{title}</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{value}</p>
-          {trend !== undefined && (
-            <div className={clsx('flex items-center mt-1 text-sm', trend >= 0 ? 'text-green-600' : 'text-red-600')}>
-              {trend >= 0 ? (
-                <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
-              ) : (
-                <ArrowTrendingDownIcon className="w-4 h-4 mr-1" />
-              )}
-              {Math.abs(trend)}%
-            </div>
-          )}
+    <div className="stat-card flex items-center gap-2 px-3 py-2">
+      {Icon && (
+        <div className="flex-shrink-0">
+          <Icon className="w-4 h-4" style={{ color: iconColor || '#4a7ab5' }} />
         </div>
-        <div className={clsx('p-3 rounded-xl', colors[color])}>
-          <Icon className="w-6 h-6" />
-        </div>
+      )}
+      <div className="min-w-0">
+        <div className="text-[16px] font-bold text-gray-900 dark:text-[#e0e0e0] leading-tight">{value}</div>
+        <div className="text-[10px] text-gray-500 dark:text-[#aaa]">{label}</div>
+        {trend !== undefined && (
+          <div className={clsx('flex items-center mt-0.5 text-[10px]', trend >= 0 ? 'text-[#4CAF50]' : 'text-[#f44336]')}>
+            {trend >= 0 ? (
+              <ArrowTrendingUpIcon className="w-3 h-3 mr-0.5" />
+            ) : (
+              <ArrowTrendingDownIcon className="w-3 h-3 mr-0.5" />
+            )}
+            {Math.abs(trend)}%
+          </div>
+        )}
       </div>
     </div>
   )
@@ -147,9 +124,11 @@ export default function Dashboard() {
   const lineChartOption = {
     tooltip: {
       trigger: 'axis',
+      textStyle: { fontSize: 10 },
     },
     legend: {
       data: ['New', 'Expired'],
+      textStyle: { fontSize: 10 },
     },
     grid: {
       left: '3%',
@@ -194,6 +173,7 @@ export default function Dashboard() {
     legend: {
       orient: 'vertical',
       left: 'left',
+      textStyle: { fontSize: 10 },
     },
     series: [
       {
@@ -202,9 +182,9 @@ export default function Dashboard() {
         radius: ['40%', '70%'],
         avoidLabelOverlap: false,
         itemStyle: {
-          borderRadius: 10,
+          borderRadius: 2,
           borderColor: '#fff',
-          borderWidth: 2,
+          borderWidth: 1,
         },
         label: {
           show: false,
@@ -212,7 +192,7 @@ export default function Dashboard() {
         emphasis: {
           label: {
             show: true,
-            fontSize: 14,
+            fontSize: 11,
             fontWeight: 'bold',
           },
         },
@@ -223,299 +203,312 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center h-64" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+        <div className="text-[11px] text-gray-500 dark:text-[#aaa]">Loading dashboard...</div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Welcome to {companyName || 'ISP'} Management System</p>
+    <div className="space-y-2" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
+      {/* Page Header */}
+      <div className="wb-toolbar">
+        <span className="text-[13px] font-semibold">Dashboard - {companyName || 'ISP'} Management System</span>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Subscribers"
-          value={stats?.total_subscribers?.toLocaleString() || 0}
-          icon={UsersIcon}
-          color="primary"
-        />
-        <StatCard
-          title="Online Now"
-          value={stats?.online_subscribers?.toLocaleString() || 0}
-          icon={SignalIcon}
-          color="green"
-        />
-        <StatCard
-          title="Expired"
-          value={stats?.expired_subscribers?.toLocaleString() || 0}
-          icon={ClockIcon}
-          color="red"
-        />
-        <StatCard
-          title="Expiring Soon"
-          value={stats?.expiring_subscribers?.toLocaleString() || 0}
-          icon={ClockIcon}
-          color="yellow"
-        />
+      {/* Subscriber Stats */}
+      <div className="wb-group">
+        <div className="wb-group-title text-[11px]">Subscribers</div>
+        <div className="wb-group-body p-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+            <StatBox
+              label="Total Subscribers"
+              value={stats?.total_subscribers?.toLocaleString() || 0}
+              icon={UsersIcon}
+              iconColor="#4a7ab5"
+            />
+            <StatBox
+              label="Online Now"
+              value={stats?.online_subscribers?.toLocaleString() || 0}
+              icon={WifiIcon}
+              iconColor="#4CAF50"
+            />
+            <StatBox
+              label="Expired"
+              value={stats?.expired_subscribers?.toLocaleString() || 0}
+              icon={ExclamationTriangleIcon}
+              iconColor="#f44336"
+            />
+            <StatBox
+              label="Expiring Soon"
+              value={stats?.expiring_subscribers?.toLocaleString() || 0}
+              icon={CalendarDaysIcon}
+              iconColor="#FF9800"
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Today's Revenue"
-          value={`$${stats?.today_revenue?.toFixed(2) || '0.00'}`}
-          icon={CurrencyDollarIcon}
-          color="green"
-        />
-        <StatCard
-          title="Month Revenue"
-          value={`$${stats?.month_revenue?.toFixed(2) || '0.00'}`}
-          icon={CurrencyDollarIcon}
-          color="blue"
-        />
-        <StatCard
-          title="Active Sessions"
-          value={stats?.active_sessions?.toLocaleString() || 0}
-          icon={ServerIcon}
-          color="purple"
-        />
-        <StatCard
-          title="Total Resellers"
-          value={stats?.total_resellers?.toLocaleString() || 0}
-          icon={UsersIcon}
-          color="primary"
-        />
+      {/* Revenue & Sessions Stats */}
+      <div className="wb-group">
+        <div className="wb-group-title text-[11px]">Revenue & Sessions</div>
+        <div className="wb-group-body p-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+            <StatBox
+              label="Today's Revenue"
+              value={`$${stats?.today_revenue?.toFixed(2) || '0.00'}`}
+              icon={BanknotesIcon}
+              iconColor="#4CAF50"
+            />
+            <StatBox
+              label="Month Revenue"
+              value={`$${stats?.month_revenue?.toFixed(2) || '0.00'}`}
+              icon={CurrencyDollarIcon}
+              iconColor="#2196F3"
+            />
+            <StatBox
+              label="Active Sessions"
+              value={stats?.active_sessions?.toLocaleString() || 0}
+              icon={SignalIcon}
+              iconColor="#FF9800"
+            />
+            <StatBox
+              label="Total Resellers"
+              value={stats?.total_resellers?.toLocaleString() || 0}
+              icon={UserGroupIcon}
+              iconColor="#9C27B0"
+            />
+          </div>
+        </div>
       </div>
 
       {/* System Metrics - Admin Only */}
       {isAdmin() && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <SystemMetricCard
-            title="CPU"
-            value={systemMetrics?.cpu_percent}
-            icon={CpuChipIcon}
-            color="blue"
-          />
-          <SystemMetricCard
-            title="Memory"
-            value={systemMetrics?.memory_percent}
-            icon={ServerIcon}
-            color="green"
-          />
-          <SystemMetricCard
-            title="HDD"
-            value={systemMetrics?.disk_percent}
-            icon={CircleStackIcon}
-            color="purple"
-          />
+        <div className="wb-group">
+          <div className="wb-group-title text-[11px]">System Metrics</div>
+          <div className="wb-group-body p-2">
+            <SystemMetricBar label="CPU" value={systemMetrics?.cpu_percent} />
+            <SystemMetricBar label="Memory" value={systemMetrics?.memory_percent} />
+            <SystemMetricBar label="HDD" value={systemMetrics?.disk_percent} />
+          </div>
         </div>
       )}
 
       {/* Server Capacity & Cluster - Admin Only */}
       {isAdmin() && systemCapacity && (
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Server Capacity</h2>
+        <div className="wb-group">
+          <div className="wb-group-title text-[11px] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>Server Capacity</span>
               {systemCapacity.cluster_enabled ? (
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                <span className="badge-info">
                   Cluster: {systemCapacity.online_nodes}/{systemCapacity.total_nodes} Online
                 </span>
               ) : (
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-                  Standalone
-                </span>
+                <span className="badge-gray">Standalone</span>
               )}
             </div>
             <span className={clsx(
-              'px-3 py-1 rounded-full text-sm font-medium',
-              systemCapacity.status === 'healthy' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-              systemCapacity.status === 'warning' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-              systemCapacity.status === 'critical' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+              'badge',
+              systemCapacity.status === 'healthy' && 'badge-success',
+              systemCapacity.status === 'warning' && 'badge-warning',
+              systemCapacity.status === 'critical' && 'badge-danger'
             )}>
               {systemCapacity.status === 'healthy' ? 'Healthy' : systemCapacity.status === 'warning' ? 'Warning' : 'Critical'}
             </span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{systemCapacity.online_users?.toLocaleString()}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Online Users</p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{systemCapacity.recommended_capacity?.toLocaleString()}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Recommended (70%)</p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{systemCapacity.maximum_capacity?.toLocaleString()}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Maximum</p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{systemCapacity.usage_percent}%</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Usage</p>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600 dark:text-gray-400">Capacity Usage</span>
-              <span className="font-medium text-gray-900 dark:text-white">{systemCapacity.online_users?.toLocaleString()} / {systemCapacity.maximum_capacity?.toLocaleString()} users</span>
-            </div>
-            <div className="w-full h-3 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-              <div
-                className={clsx(
-                  'h-full rounded-full transition-all duration-500',
-                  systemCapacity.usage_percent < 70 && 'bg-green-500',
-                  systemCapacity.usage_percent >= 70 && systemCapacity.usage_percent < 90 && 'bg-yellow-500',
-                  systemCapacity.usage_percent >= 90 && 'bg-red-500'
-                )}
-                style={{ width: `${Math.min(systemCapacity.usage_percent, 100)}%` }}
+          <div className="wb-group-body p-2 space-y-2">
+            {/* Capacity Stats Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+              <StatBox
+                label="Online Users"
+                value={systemCapacity.online_users?.toLocaleString()}
+                icon={WifiIcon}
+                iconColor="#4CAF50"
+              />
+              <StatBox
+                label="Recommended (70%)"
+                value={systemCapacity.recommended_capacity?.toLocaleString()}
+                icon={ServerIcon}
+                iconColor="#2196F3"
+              />
+              <StatBox
+                label="Maximum"
+                value={systemCapacity.maximum_capacity?.toLocaleString()}
+                icon={CpuChipIcon}
+                iconColor="#FF9800"
+              />
+              <StatBox
+                label="Usage"
+                value={`${systemCapacity.usage_percent}%`}
+                icon={CircleStackIcon}
+                iconColor="#9C27B0"
               />
             </div>
-          </div>
 
-          {/* Cluster Nodes */}
-          {systemCapacity.nodes && systemCapacity.nodes.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {systemCapacity.cluster_enabled ? 'Cluster Nodes' : 'Server Specs'}
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-600">
-                      <th className="pb-2 pr-4">Server</th>
-                      <th className="pb-2 pr-4">Role</th>
-                      <th className="pb-2 pr-4">Status</th>
-                      <th className="pb-2 pr-4">CPU</th>
-                      <th className="pb-2 pr-4">RAM</th>
-                      <th className="pb-2 pr-4">Capacity</th>
-                      {systemCapacity.cluster_enabled && <th className="pb-2 pr-4">CPU%</th>}
-                      {systemCapacity.cluster_enabled && <th className="pb-2">MEM%</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {systemCapacity.nodes.map((node, idx) => (
-                      <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                        <td className="py-2 pr-4">
-                          <div className="font-medium text-gray-900 dark:text-white">{node.name}</div>
-                          <div className="text-gray-500 dark:text-gray-400">{node.ip}</div>
-                        </td>
-                        <td className="py-2 pr-4">
-                          <span className={clsx(
-                            'px-2 py-0.5 rounded text-xs',
-                            node.role === 'main' && 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-                            node.role === 'secondary' && 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-                            node.role === 'standalone' && 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                          )}>
-                            {node.role}
-                          </span>
-                        </td>
-                        <td className="py-2 pr-4">
-                          <span className={clsx(
-                            'px-2 py-0.5 rounded text-xs',
-                            node.status === 'online' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-                            node.status === 'offline' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                          )}>
-                            {node.status}
-                          </span>
-                        </td>
-                        <td className="py-2 pr-4 text-gray-900 dark:text-white">{node.cpu_cores} cores</td>
-                        <td className="py-2 pr-4 text-gray-900 dark:text-white">{node.ram_gb} GB</td>
-                        <td className="py-2 pr-4 font-medium text-gray-900 dark:text-white">{node.capacity?.toLocaleString()}</td>
-                        {systemCapacity.cluster_enabled && (
-                          <td className="py-2 pr-4 text-gray-900 dark:text-white">{node.cpu_usage?.toFixed(1)}%</td>
-                        )}
-                        {systemCapacity.cluster_enabled && (
-                          <td className="py-2 text-gray-900 dark:text-white">{node.mem_usage?.toFixed(1)}%</td>
-                        )}
+            {/* Capacity Usage Bar */}
+            <div>
+              <div className="flex justify-between text-[10px] mb-0.5">
+                <span className="text-gray-600 dark:text-[#aaa]">Capacity Usage</span>
+                <span className="font-semibold text-gray-800 dark:text-[#e0e0e0]">{systemCapacity.online_users?.toLocaleString()} / {systemCapacity.maximum_capacity?.toLocaleString()} users</span>
+              </div>
+              <div className="w-full h-[4px] bg-[#e0e0e0] dark:bg-[#555]" style={{ borderRadius: '1px' }}>
+                <div
+                  className="h-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(systemCapacity.usage_percent, 100)}%`,
+                    backgroundColor: systemCapacity.usage_percent < 70 ? '#4CAF50' : systemCapacity.usage_percent < 90 ? '#FF9800' : '#f44336',
+                    borderRadius: '1px',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Cluster Nodes */}
+            {systemCapacity.nodes && systemCapacity.nodes.length > 0 && (
+              <div>
+                <div className="text-[11px] font-semibold text-gray-700 dark:text-[#ccc] mb-1">
+                  {systemCapacity.cluster_enabled ? 'Cluster Nodes' : 'Server Specs'}
+                </div>
+                <div className="table-container">
+                  <table className="table table-compact">
+                    <thead>
+                      <tr>
+                        <th>Server</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>CPU</th>
+                        <th>RAM</th>
+                        <th>Capacity</th>
+                        {systemCapacity.cluster_enabled && <th>CPU%</th>}
+                        {systemCapacity.cluster_enabled && <th>MEM%</th>}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {systemCapacity.nodes.map((node, idx) => (
+                        <tr key={idx}>
+                          <td>
+                            <div className="font-semibold text-[11px] text-gray-900 dark:text-[#e0e0e0]">{node.name}</div>
+                            <div className="text-[9px] text-gray-500 dark:text-[#aaa]">{node.ip}</div>
+                          </td>
+                          <td>
+                            <span className={clsx(
+                              'badge',
+                              node.role === 'main' && 'badge-info',
+                              node.role === 'secondary' && 'badge-purple',
+                              node.role === 'standalone' && 'badge-gray'
+                            )}>
+                              {node.role}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={clsx(
+                              'badge',
+                              node.status === 'online' && 'badge-success',
+                              node.status === 'offline' && 'badge-danger'
+                            )}>
+                              {node.status}
+                            </span>
+                          </td>
+                          <td>{node.cpu_cores} cores</td>
+                          <td>{node.ram_gb} GB</td>
+                          <td className="font-semibold">{node.capacity?.toLocaleString()}</td>
+                          {systemCapacity.cluster_enabled && (
+                            <td>{node.cpu_usage?.toFixed(1)}%</td>
+                          )}
+                          {systemCapacity.cluster_enabled && (
+                            <td>{node.mem_usage?.toFixed(1)}%</td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Capacity Formula Explanation */}
+            <div className="border border-[#a0a0a0] dark:border-[#555] bg-[#f7f7f7] dark:bg-[#333] p-2" style={{ borderRadius: '2px' }}>
+              <div className="text-[10px] font-semibold text-gray-700 dark:text-[#ccc] mb-1">Capacity Formula</div>
+              <div className="text-[10px] text-gray-600 dark:text-[#aaa] space-y-0.5">
+                <div><span className="font-mono bg-[#e0e0e0] dark:bg-[#444] px-0.5" style={{ borderRadius: '1px' }}>{systemCapacity.total_cpu_cores} cores x 2000</span> = {(systemCapacity.total_cpu_cores * 2000).toLocaleString()} base users/CPU</div>
+                <div><span className="font-mono bg-[#e0e0e0] dark:bg-[#444] px-0.5" style={{ borderRadius: '1px' }}>x {systemCapacity.storage_multiplier}</span> storage factor ({systemCapacity.storage_type?.toUpperCase()})</div>
+                <div><span className="font-mono bg-[#e0e0e0] dark:bg-[#444] px-0.5" style={{ borderRadius: '1px' }}>x {systemCapacity.interim_factor}</span> interim factor ({systemCapacity.interim_interval} min)</div>
+                <div><span className="font-mono bg-[#e0e0e0] dark:bg-[#444] px-0.5" style={{ borderRadius: '1px' }}>x {systemCapacity.safety_margin}</span> safety margin (15% reserve)</div>
+                <div className="pt-1 border-t border-[#a0a0a0] dark:border-[#555]">
+                  <span className="font-semibold">= {systemCapacity.maximum_capacity?.toLocaleString()} max users</span>
+                  {systemCapacity.limiting_factor && (
+                    <span className="ml-2 text-gray-500 dark:text-[#aaa]">(limited by {systemCapacity.limiting_factor?.toUpperCase()})</span>
+                  )}
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Capacity Formula Explanation */}
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs">
-            <div className="font-medium text-blue-800 dark:text-blue-300 mb-1">Capacity Formula</div>
-            <div className="text-blue-700 dark:text-blue-400 space-y-1">
-              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">{systemCapacity.total_cpu_cores} cores × 2000</span> = {(systemCapacity.total_cpu_cores * 2000).toLocaleString()} base users/CPU</div>
-              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">× {systemCapacity.storage_multiplier}</span> storage factor ({systemCapacity.storage_type?.toUpperCase()})</div>
-              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">× {systemCapacity.interim_factor}</span> interim factor ({systemCapacity.interim_interval} min)</div>
-              <div><span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">× {systemCapacity.safety_margin}</span> safety margin (15% reserve)</div>
-              <div className="pt-1 border-t border-blue-200 dark:border-blue-700">
-                <span className="font-medium">= {systemCapacity.maximum_capacity?.toLocaleString()} max users</span>
-                {systemCapacity.limiting_factor && (
-                  <span className="ml-2 text-blue-600 dark:text-blue-400">(limited by {systemCapacity.limiting_factor?.toUpperCase()})</span>
-                )}
-              </div>
+            {/* Server Details */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-0.5 text-[10px] text-gray-500 dark:text-[#aaa]">
+              <div><span className="font-semibold text-gray-700 dark:text-[#ccc]">CPU Model:</span> {systemCapacity.cpu_model?.split('@')[0]?.trim() || 'N/A'}</div>
+              <div><span className="font-semibold text-gray-700 dark:text-[#ccc]">DB Writes/sec:</span> {systemCapacity.db_writes_per_sec}</div>
+              <div><span className="font-semibold text-gray-700 dark:text-[#ccc]">NAS Routers:</span> {systemCapacity.nas_count}</div>
+              <div><span className="font-semibold text-gray-700 dark:text-[#ccc]">Total Subs:</span> {systemCapacity.total_subscribers?.toLocaleString()}</div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4 text-xs text-gray-500 dark:text-gray-400">
-            <div><span className="font-medium">CPU Model:</span> {systemCapacity.cpu_model?.split('@')[0]?.trim() || 'N/A'}</div>
-            <div><span className="font-medium">DB Writes/sec:</span> {systemCapacity.db_writes_per_sec}</div>
-            <div><span className="font-medium">NAS Routers:</span> {systemCapacity.nas_count}</div>
-            <div><span className="font-medium">Total Subs:</span> {systemCapacity.total_subscribers?.toLocaleString()}</div>
           </div>
         </div>
       )}
 
-
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New vs Expired Users</h2>
-          <ReactECharts option={lineChartOption} style={{ height: '300px' }} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+        <div className="lg:col-span-2 wb-group">
+          <div className="wb-group-title text-[11px]">New vs Expired Users</div>
+          <div className="wb-group-body p-2">
+            <ReactECharts option={lineChartOption} style={{ height: '240px' }} />
+          </div>
         </div>
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Users by Service</h2>
-          <ReactECharts option={pieChartOption} style={{ height: '300px' }} />
+        <div className="wb-group">
+          <div className="wb-group-title text-[11px]">Users by Service</div>
+          <div className="wb-group-body p-2">
+            <ReactECharts option={pieChartOption} style={{ height: '240px' }} />
+          </div>
         </div>
       </div>
 
       {/* Recent Transactions */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Transactions</h2>
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>User</th>
-                <th>Amount</th>
-                <th>Description</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {transactions?.map((tx) => (
-                <tr key={tx.id}>
-                  <td>{formatDate(tx.created_at)}</td>
-                  <td>
-                    <span className={clsx('badge', tx.type === 'renewal' ? 'badge-success' : tx.type === 'new' ? 'badge-info' : 'badge-gray')}>
-                      {tx.type}
-                    </span>
-                  </td>
-                  <td>{tx.subscriber?.username || '-'}</td>
-                  <td className={tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    ${Math.abs(tx.amount).toFixed(2)}
-                  </td>
-                  <td className="max-w-xs truncate">{tx.description}</td>
-                </tr>
-              )) || (
+      <div className="wb-group">
+        <div className="wb-group-title text-[11px]">Recent Transactions</div>
+        <div className="wb-group-body p-0">
+          <div className="table-container" style={{ border: 'none' }}>
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="text-center text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">No transactions</td>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>User</th>
+                  <th>Amount</th>
+                  <th>Description</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {transactions?.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>{formatDate(tx.created_at)}</td>
+                    <td>
+                      <span className={clsx('badge', tx.type === 'renewal' ? 'badge-success' : tx.type === 'new' ? 'badge-info' : 'badge-gray')}>
+                        {tx.type}
+                      </span>
+                    </td>
+                    <td>{tx.subscriber?.username || '-'}</td>
+                    <td style={{ color: tx.amount >= 0 ? '#4CAF50' : '#f44336' }}>
+                      ${Math.abs(tx.amount).toFixed(2)}
+                    </td>
+                    <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.description}</td>
+                  </tr>
+                )) || (
+                  <tr>
+                    <td colSpan={5} className="text-center text-gray-500 dark:text-[#aaa]">No transactions</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

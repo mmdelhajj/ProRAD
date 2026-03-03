@@ -20,6 +20,7 @@ import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 import { nasApi } from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -71,21 +72,21 @@ const FormField = ({ label, value, onChangeText, placeholder, keyboardType, secu
 );
 
 const formFieldStyles = StyleSheet.create({
-  container: { marginBottom: spacing.base },
+  container: { marginBottom: spacing.sm },
   label: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     fontWeight: '600',
     marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    ...typography.body,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
+    ...typography.bodySmall,
     color: colors.text,
   },
 });
@@ -108,12 +109,12 @@ const detailFieldStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  label: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
-  value: { ...typography.body, color: colors.text, fontWeight: '500', flex: 1, textAlign: 'right' },
+  label: { ...typography.caption, color: colors.textSecondary, flex: 1 },
+  value: { ...typography.bodySmall, color: colors.text, fontWeight: '500', flex: 1, textAlign: 'right' },
 });
 
 // ---------------------------------------------------------------------------
@@ -156,47 +157,42 @@ const NASRow = ({ nas, onPress }) => {
 };
 
 const nasRowStyles = StyleSheet.create({
-  container: { marginHorizontal: spacing.base, marginBottom: spacing.sm },
+  container: { marginHorizontal: spacing.sm, marginBottom: spacing.xs },
   row: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
-      android: { elevation: 2 },
-    }),
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    padding: spacing.sm,
   },
-  dotContainer: { justifyContent: 'flex-start', paddingTop: 5, marginRight: spacing.md },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  dotContainer: { justifyContent: 'flex-start', paddingTop: 3, marginRight: spacing.sm },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   info: { flex: 1 },
-  name: { ...typography.body, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  name: { ...typography.bodySmall, fontWeight: '700', color: colors.text, marginBottom: 1 },
   ip: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 12,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   typeTag: {
     backgroundColor: colors.primary + '15',
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   typeTagText: { ...typography.caption, color: colors.primary, fontWeight: '600' },
   sessionsTag: {
     backgroundColor: colors.textSecondary + '12',
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   sessionsTagText: { ...typography.caption, color: colors.textSecondary, fontWeight: '600' },
-  rightSide: { justifyContent: 'center', marginLeft: spacing.md },
-  chevron: { ...typography.h3, color: colors.textLight },
+  rightSide: { justifyContent: 'center', marginLeft: spacing.sm },
+  chevron: { ...typography.h4, color: colors.textLight },
 });
 
 // ---------------------------------------------------------------------------
@@ -501,14 +497,14 @@ const NASDetailModal = ({ nas, visible, onClose, onSave, onDelete, onTestConnect
 };
 
 const typePickerStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.xs },
+  row: { flexDirection: 'row', gap: spacing.xs, paddingVertical: spacing.xs },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { ...typography.bodySmall, color: colors.textSecondary, fontWeight: '500' },
@@ -520,18 +516,18 @@ const toggleStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
-    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+    paddingVertical: spacing.xs,
   },
-  label: { ...typography.body, color: colors.text, fontWeight: '500' },
+  label: { ...typography.bodySmall, color: colors.text, fontWeight: '500' },
 });
 
 const editButtonsStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   cancelBtn: {
     flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -539,8 +535,8 @@ const editButtonsStyles = StyleSheet.create({
   cancelText: { ...typography.button, color: colors.textSecondary },
   saveBtn: {
     flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
   },
@@ -548,39 +544,38 @@ const editButtonsStyles = StyleSheet.create({
 });
 
 const sectionStyles = StyleSheet.create({
-  title: { ...typography.label, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
+  title: { ...typography.label, color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.xs },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.base,
+    borderRadius: borderRadius.sm,
+    ...shadows.sm,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
 });
 
 const actionsStyles = StyleSheet.create({
-  container: { gap: spacing.sm },
-  btn: { paddingVertical: spacing.md, borderRadius: borderRadius.md, alignItems: 'center' },
+  container: { gap: spacing.xs },
+  btn: { paddingVertical: spacing.sm, borderRadius: borderRadius.sm, alignItems: 'center' },
   btnText: { ...typography.button, color: colors.textInverse },
 });
 
 const poolStyles = StyleSheet.create({
-  emptyText: { ...typography.bodySmall, color: colors.textSecondary, paddingVertical: spacing.md, textAlign: 'center' },
+  emptyText: { ...typography.caption, color: colors.textSecondary, paddingVertical: spacing.sm, textAlign: 'center' },
   poolRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  poolName: { ...typography.body, color: colors.text, fontWeight: '600' },
+  poolName: { ...typography.bodySmall, color: colors.text, fontWeight: '600' },
   poolRange: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 11,
+    fontSize: 12,
   },
 });
 
@@ -590,25 +585,24 @@ const modalStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: Platform.OS === 'ios' ? 48 : spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    ...shadows.sm,
   },
-  headerTitle: { ...typography.h3, color: colors.text, flex: 1, marginRight: spacing.md },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  headerTitle: { ...typography.h4, color: colors.text, flex: 1, marginRight: spacing.sm },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   editBtn: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     backgroundColor: colors.primary + '15',
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
   },
-  editBtnText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
-  closeButton: { fontSize: 20, color: colors.textSecondary, paddingHorizontal: spacing.sm },
+  editBtnText: { ...typography.caption, color: colors.primary, fontWeight: '600' },
+  closeButton: { fontSize: 15, color: colors.textSecondary, paddingHorizontal: spacing.xs },
   body: { flex: 1 },
-  bodyContent: { paddingHorizontal: spacing.base, paddingTop: spacing.md },
+  bodyContent: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
 });
 
 // ---------------------------------------------------------------------------
@@ -725,10 +719,10 @@ const CreateNASModal = ({ visible, onClose, onSubmit }) => {
 const createBtnStyles = StyleSheet.create({
   btn: {
     backgroundColor: colors.primary,
-    paddingVertical: spacing.md + 2,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   text: { ...typography.button, color: colors.textInverse },
 });
@@ -875,36 +869,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    ...shadows.sm,
   },
-  headerTitle: { ...typography.h2, color: colors.text },
+  headerTitle: { ...typography.h3, color: colors.text },
   countBadge: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    marginLeft: spacing.md,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.sm,
   },
   countBadgeText: { ...typography.caption, color: colors.textInverse, fontWeight: '700' },
-  listContent: { paddingTop: spacing.md, paddingBottom: spacing.tabBar },
+  listContent: { paddingTop: spacing.sm, paddingBottom: spacing.tabBar },
   listContentEmpty: { flex: 1, justifyContent: 'center' },
   fab: {
     position: 'absolute',
-    right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: { shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8 },
-      android: { elevation: 6 },
-    }),
+    ...shadows.md,
   },
-  fabIcon: { fontSize: 28, color: colors.textInverse, fontWeight: '300', marginTop: -1 },
+  fabIcon: { fontSize: 22, color: colors.textInverse, fontWeight: '300', marginTop: -1 },
 });

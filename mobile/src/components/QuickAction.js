@@ -36,7 +36,7 @@ const QuickAction = ({
       onPress={handlePress}
       style={styles.container}
     >
-      <View style={[styles.iconCircle, { backgroundColor: color + '15' }]}>
+      <View style={[styles.iconCircle, { backgroundColor: color + '12' }]}>
         <Text style={[styles.iconText, { color }]}>{icon}</Text>
       </View>
       <Text style={styles.label} numberOfLines={2}>
@@ -50,27 +50,27 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xs,
-    width: 80,
+    width: 72,
   },
   iconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
   iconText: {
-    fontSize: 22,
+    fontSize: 20,
   },
   label: {
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
     fontWeight: '500',
-    lineHeight: 14,
+    lineHeight: 15,
   },
 });
 

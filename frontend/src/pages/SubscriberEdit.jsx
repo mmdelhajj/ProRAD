@@ -740,19 +740,19 @@ export default function SubscriberEdit() {
   if (!isNew && isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin h-8 w-8 border-b-2 border-[#4a6984]"></div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: 11 }}>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-[13px] font-semibold text-gray-900 dark:text-white">
             {isNew ? 'Add Subscriber' : `Edit: ${subscriber?.username}`}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">
             {isNew ? 'Create a new PPPoE subscriber' : 'Manage subscriber details'}
           </p>
         </div>
@@ -764,7 +764,7 @@ export default function SubscriberEdit() {
             <span className="badge badge-gray">Offline</span>
           )}
           {!isNew && subscriber?.fup_level > 0 && (
-            <span className="px-2.5 py-1 text-xs font-bold bg-red-500 text-white rounded-full animate-pulse">
+            <span className="px-2 py-0.5 text-[11px] font-bold bg-red-500 text-white animate-pulse">
               FUP {subscriber.fup_level === 1 ? '(Daily)' : '(Monthly)'}
             </span>
           )}
@@ -773,37 +773,36 @@ export default function SubscriberEdit() {
 
       {/* Tabs */}
       {!isNew && (
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="-mb-px flex space-x-8">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={clsx(
-                  'flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm',
-                  activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
-                )}
-              >
-                <tab.icon className="w-5 h-5" />
+        <div className="flex border-b border-[#a0a0a0] bg-[#f0f0f0] dark:bg-[#444] dark:border-[#555]">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={clsx(
+                activeTab === tab.id
+                  ? 'px-3 py-1.5 text-[12px] border border-[#a0a0a0] border-b-0 bg-white font-semibold -mb-px dark:bg-[#333] dark:border-[#555]'
+                  : 'px-3 py-1.5 text-[12px] bg-[#e8e8e8] text-[#666] dark:bg-[#444] dark:text-[#aaa]'
+              )}
+            >
+              <span className="flex items-center gap-1.5">
+                <tab.icon className="w-3.5 h-3.5" />
                 {tab.name}
-              </button>
-            ))}
-          </nav>
+              </span>
+            </button>
+          ))}
         </div>
       )}
 
       {/* Info Tab */}
       {(isNew || activeTab === 'info') && (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {/* Account Info */}
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Account Information</h3>
-              <div className="space-y-4">
+            <div className="card p-3">
+              <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Account Information</h3>
+              <div className="space-y-2">
                 <div>
-                  <label className="label">Username (PPPoE) {!isNew && <span className="text-xs text-gray-400 ml-1">(locked)</span>}</label>
+                  <label className="label">Username (PPPoE) {!isNew && <span className="text-[11px] text-gray-400 ml-1">(locked)</span>}</label>
                   <input
                     type="text"
                     name="username"
@@ -898,9 +897,9 @@ export default function SubscriberEdit() {
                       name="override_price"
                       checked={formData.override_price}
                       onChange={handleChange}
-                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="w-4 h-4 border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
-                    <label htmlFor="override_price" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <label htmlFor="override_price" className="text-[12px] text-gray-700 dark:text-gray-300 cursor-pointer">
                       Override service price for this subscriber
                     </label>
                   </div>
@@ -916,7 +915,7 @@ export default function SubscriberEdit() {
                       className="input"
                     />
                   ) : (
-                    <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                    <div className="text-[12px] text-gray-500 dark:text-gray-400 px-2 py-1.5 bg-gray-50 dark:bg-gray-700 border border-[#a0a0a0] dark:border-[#555]">
                       Using service default: ${services?.find(s => s.id == formData.service_id)?.price ?? '—'}
                     </div>
                   )}
@@ -965,9 +964,9 @@ export default function SubscriberEdit() {
             </div>
 
             {/* Personal Info */}
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h3>
-              <div className="space-y-4">
+            <div className="card p-3">
+              <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Personal Information</h3>
+              <div className="space-y-2">
                 <div>
                   <label className="label">Full Name</label>
                   <input
@@ -1008,7 +1007,7 @@ export default function SubscriberEdit() {
                     rows={3}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="label">Region</label>
                     <input
@@ -1030,7 +1029,7 @@ export default function SubscriberEdit() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="label">Nationality</label>
                     <select
@@ -1196,11 +1195,11 @@ export default function SubscriberEdit() {
             </div>
 
             {/* Connection Settings */}
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Connection Settings</h3>
-              <div className="space-y-4">
+            <div className="card p-3">
+              <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Connection Settings</h3>
+              <div className="space-y-2">
                 <div>
-                  <label className="label">MAC Address {!isNew && <span className="text-xs text-gray-400 ml-1">(locked)</span>}</label>
+                  <label className="label">MAC Address {!isNew && <span className="text-[11px] text-gray-400 ml-1">(locked)</span>}</label>
                   <input
                     type="text"
                     name="mac_address"
@@ -1215,7 +1214,7 @@ export default function SubscriberEdit() {
                     placeholder="Leave empty - auto-saves on first connect"
                     disabled={!isNew}
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Leave empty to auto-capture MAC on first connection</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Leave empty to auto-capture MAC on first connection</p>
                 </div>
                 <label className="flex items-center gap-3">
                   <input
@@ -1223,11 +1222,11 @@ export default function SubscriberEdit() {
                     name="save_mac"
                     checked={formData.save_mac}
                     onChange={handleChange}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   <div>
                     <span className="font-medium">Save MAC</span>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">Lock to current MAC address (reject other devices)</p>
+                    <p className="text-[12px] text-gray-500 dark:text-gray-400">Lock to current MAC address (reject other devices)</p>
                   </div>
                 </label>
                 <div>
@@ -1268,9 +1267,9 @@ export default function SubscriberEdit() {
 
             {/* Bandwidth Rules - Only show for existing subscribers with permission */}
             {!isNew && hasPermission('subscribers.bandwidth_rules') && (
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bandwidth Rules</h3>
+              <div className="card p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white">Bandwidth Rules</h3>
                   <button
                     type="button"
                     onClick={() => openBandwidthRuleModal()}
@@ -1279,7 +1278,7 @@ export default function SubscriberEdit() {
                     Add Rule
                   </button>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-[12px] text-gray-500 mb-3">
                   Custom speed overrides for this subscriber. Set duration for temporary speed changes.
                 </p>
 
@@ -1294,17 +1293,17 @@ export default function SubscriberEdit() {
                         <div
                           key={rule.id}
                           className={clsx(
-                            'border rounded-lg p-4',
-                            !rule.enabled || isExpired ? 'border-gray-100 bg-gray-50 opacity-60' : 'border-gray-200 bg-white'
+                            'border p-3',
+                            !rule.enabled || isExpired ? 'border-[#ccc] bg-gray-50 opacity-60' : 'border-[#a0a0a0] bg-white'
                           )}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <span className={clsx(
-                                'px-2 py-1 text-xs font-medium rounded',
+                                'px-1.5 py-0.5 text-[11px] font-medium border',
                                 rule.rule_type === 'internet'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300'
+                                  ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                  : 'bg-purple-50 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 border-purple-300'
                               )}>
                                 {rule.rule_type === 'internet' ? 'Internet' : (rule.cdn_name || 'CDN')}
                               </span>
@@ -1313,7 +1312,7 @@ export default function SubscriberEdit() {
                                   {rule.rule_type === 'cdn' ? `${Math.round(rule.download_speed / 1000)}M` : `${rule.download_speed}k / ${rule.upload_speed}k`}
                                 </p>
                                 <p className={clsx(
-                                  'text-sm',
+                                  'text-[12px]',
                                   isExpired ? 'text-red-500' : 'text-gray-500'
                                 )}>
                                   {timeRemaining}
@@ -1324,14 +1323,14 @@ export default function SubscriberEdit() {
                               <button
                                 type="button"
                                 onClick={() => openBandwidthRuleModal(rule)}
-                                className="text-primary-600 hover:text-primary-800 text-sm"
+                                className="text-primary-600 hover:text-primary-800 text-[12px]"
                               >
                                 Edit
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDeleteBandwidthRule(rule.id)}
-                                className="text-red-600 hover:text-red-800 text-sm"
+                                className="text-red-600 hover:text-red-800 text-[12px]"
                               >
                                 Delete
                               </button>
@@ -1346,9 +1345,9 @@ export default function SubscriberEdit() {
             )}
 
             {/* Status & Options */}
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Status & Options</h3>
-              <div className="space-y-4">
+            <div className="card p-3">
+              <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Status & Options</h3>
+              <div className="space-y-2">
                 <div>
                   <label className="label">Status</label>
                   <select
@@ -1368,7 +1367,7 @@ export default function SubscriberEdit() {
                     name="auto_renew"
                     checked={formData.auto_renew}
                     onChange={handleChange}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   <span>Auto Renew</span>
                 </label>
@@ -1395,7 +1394,7 @@ export default function SubscriberEdit() {
                       <button
                         type="button"
                         onClick={() => { setFormData(prev => ({ ...prev, latitude: 0, longitude: 0 })); setMapFlyTarget(null) }}
-                        className="text-xs text-red-500 hover:text-red-700 font-normal"
+                        className="text-[11px] text-red-500 hover:text-red-700 font-normal"
                       >
                         Clear
                       </button>
@@ -1409,7 +1408,7 @@ export default function SubscriberEdit() {
                       value={formData.latitude || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setMapFlyTarget([formData.latitude, formData.longitude]) } }}
-                      className="input flex-1 text-sm"
+                      className="input flex-1 text-[12px]"
                     />
                     <input
                       type="number"
@@ -1418,12 +1417,12 @@ export default function SubscriberEdit() {
                       value={formData.longitude || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setMapFlyTarget([formData.latitude, formData.longitude]) } }}
-                      className="input flex-1 text-sm"
+                      className="input flex-1 text-[12px]"
                     />
                     <button
                       type="button"
                       onClick={() => setMapFlyTarget([formData.latitude, formData.longitude])}
-                      className="btn-secondary text-sm px-3"
+                      className="btn btn-secondary text-[12px] px-3"
                       title="Go to coordinates"
                     >
                       Go
@@ -1458,7 +1457,7 @@ export default function SubscriberEdit() {
                           { enableHighAccuracy: true, timeout: 10000 }
                         )
                       }}
-                      className="btn-secondary text-sm px-3 flex items-center gap-1 whitespace-nowrap"
+                      className="btn btn-secondary text-[12px] px-3 flex items-center gap-1 whitespace-nowrap"
                       title="Use my current location"
                     >
                       {gettingLocation ? (
@@ -1473,7 +1472,7 @@ export default function SubscriberEdit() {
                     </button>
                   </div>
                   {!isLoading && (
-                    <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                    <div className="overflow-hidden border border-[#a0a0a0] dark:border-[#555]">
                       <LocationMap
                         lat={formData.latitude}
                         lng={formData.longitude}
@@ -1487,14 +1486,14 @@ export default function SubscriberEdit() {
                   )}
                   {formData.latitude !== 0 && formData.longitude !== 0 && (
                     <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-gray-400">
+                      <p className="text-[11px] text-gray-400">
                         📍 {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
                       </p>
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${formData.latitude},${formData.longitude}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="btn-secondary text-xs px-3 py-1 flex items-center gap-1"
+                        className="btn btn-secondary text-[11px] px-3 py-1 flex items-center gap-1"
                       >
                         <MapPinIcon className="w-3.5 h-3.5" />
                         Navigate
@@ -1507,15 +1506,15 @@ export default function SubscriberEdit() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-4">
-            <Link to="/subscribers" className="btn-secondary">
+          <div className="flex items-center justify-end gap-2">
+            <Link to="/subscribers" className="btn btn-secondary">
               Cancel
             </Link>
             {hasPermission(isNew ? 'subscribers.create' : 'subscribers.edit') && (
               <button
                 type="submit"
                 disabled={saveMutation.isLoading}
-                className="btn-primary"
+                className="btn btn-primary"
               >
                 {saveMutation.isLoading ? 'Saving...' : isNew ? 'Create Subscriber' : 'Save Changes'}
               </button>
@@ -1526,16 +1525,16 @@ export default function SubscriberEdit() {
 
       {/* Usage Tab */}
       {!isNew && activeTab === 'usage' && (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* Monthly Summary */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Monthly</h3>
-            <div className="flex items-end gap-8 h-48">
+          <div className="card p-3">
+            <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-2 pb-1 border-b border-[#ccc] dark:border-[#555]">Monthly</h3>
+            <div className="flex items-end gap-4 h-48">
               {/* Download Bar */}
               <div className="flex flex-col items-center flex-1">
-                <div className="w-full max-w-[120px] bg-gray-100 rounded-t relative h-40 flex items-end">
+                <div className="w-full max-w-[120px] bg-gray-100 border border-[#a0a0a0] relative h-40 flex items-end">
                   <div
-                    className="w-full rounded-t transition-all duration-500"
+                    className="w-full transition-all duration-500"
                     style={{
                       height: (() => {
                         const used = monthlyQuota?.download_used || 0
@@ -1554,22 +1553,22 @@ export default function SubscriberEdit() {
                     }}
                   />
                 </div>
-                <div className="mt-3 text-center">
-                  <div className="text-2xl font-bold text-teal-500">
+                <div className="mt-2 text-center">
+                  <div className="text-[13px] font-bold text-teal-500">
                     {((monthlyQuota?.download_used || 0) / 1073741824).toFixed(2)} GB
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400">
                     {monthlyQuota?.download_limit > 0 ? `/ ${(monthlyQuota.download_limit / 1073741824).toFixed(0)} GB` : 'Unlimited'}
                   </div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Download</div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Download</div>
                 </div>
               </div>
 
               {/* Upload Bar */}
               <div className="flex flex-col items-center flex-1">
-                <div className="w-full max-w-[120px] bg-gray-100 rounded-t relative h-40 flex items-end">
+                <div className="w-full max-w-[120px] bg-gray-100 border border-[#a0a0a0] relative h-40 flex items-end">
                   <div
-                    className="w-full rounded-t transition-all duration-500"
+                    className="w-full transition-all duration-500"
                     style={{
                       height: (() => {
                         const used = monthlyQuota?.upload_used || 0
@@ -1588,22 +1587,22 @@ export default function SubscriberEdit() {
                     }}
                   />
                 </div>
-                <div className="mt-3 text-center">
-                  <div className="text-2xl font-bold text-orange-500">
+                <div className="mt-2 text-center">
+                  <div className="text-[13px] font-bold text-orange-500">
                     {((monthlyQuota?.upload_used || 0) / 1073741824).toFixed(2)} GB
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400">
                     {monthlyQuota?.upload_limit > 0 ? `/ ${(monthlyQuota.upload_limit / 1073741824).toFixed(0)} GB` : 'Unlimited'}
                   </div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Upload</div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Upload</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Daily Usage Chart */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily</h3>
+          <div className="card p-3">
+            <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Daily</h3>
             <ReactECharts
               option={{
                 tooltip: {
@@ -1666,22 +1665,22 @@ export default function SubscriberEdit() {
           </div>
 
           {/* Daily Quota Summary */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Today's Usage</h3>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="text-center p-4 bg-teal-50 rounded-lg">
-                <div className="text-3xl font-bold text-teal-600">
+          <div className="card p-3">
+            <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Today's Usage</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-3 bg-teal-50 border border-[#a0a0a0]">
+                <div className="text-[13px] font-bold text-teal-600">
                   {((dailyQuota?.download_used || 0) / 1073741824).toFixed(2)} GB
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">
                   Download {dailyQuota?.download_limit > 0 && `/ ${(dailyQuota.download_limit / 1073741824).toFixed(0)} GB`}
                 </div>
               </div>
-              <div className="text-center p-4 bg-orange-50 rounded-lg">
-                <div className="text-3xl font-bold text-orange-600">
+              <div className="text-center p-3 bg-orange-50 border border-[#a0a0a0]">
+                <div className="text-[13px] font-bold text-orange-600">
                   {((dailyQuota?.upload_used || 0) / 1073741824).toFixed(2)} GB
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">
                   Upload {dailyQuota?.upload_limit > 0 && `/ ${(dailyQuota.upload_limit / 1073741824).toFixed(0)} GB`}
                 </div>
               </div>
@@ -1692,21 +1691,21 @@ export default function SubscriberEdit() {
 
       {/* Live Graph Tab */}
       {!isNew && activeTab === 'graph' && (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* Current Stats */}
           {subscriber?.is_online && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                <div className="card p-4 text-center">
-                  <div className="text-3xl font-bold text-green-500">{currentBandwidth.download}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Download (Mbps)</div>
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="card p-2 text-center">
+                  <div className="text-[13px] font-bold text-green-500">{currentBandwidth.download}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Download (Mbps)</div>
                 </div>
-                <div className="card p-4 text-center">
-                  <div className="text-3xl font-bold text-blue-500">{currentBandwidth.upload}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Upload (Mbps)</div>
+                <div className="card p-2 text-center">
+                  <div className="text-[13px] font-bold text-blue-500">{currentBandwidth.upload}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Upload (Mbps)</div>
                 </div>
-                <div className="card p-4 text-center" style={{ borderTop: '3px solid #F59E0B' }}>
-                  <div className={`text-3xl font-bold ${
+                <div className="card p-2 text-center" style={{ borderTop: '2px solid #F59E0B' }}>
+                  <div className={`text-[13px] font-bold ${
                     !livePing.ok             ? 'text-gray-400 dark:text-gray-500' :
                     livePing.ms < 20         ? 'text-green-500' :
                     livePing.ms < 80         ? 'text-yellow-500' :
@@ -1714,28 +1713,28 @@ export default function SubscriberEdit() {
                   }`}>
                     {livePing.ok ? `${livePing.ms.toFixed(1)}` : '—'}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Latency (ms)</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Latency (ms)</div>
                 </div>
-                <div className="card p-4 text-center">
-                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">{currentBandwidth.ipAddress || '-'}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">IP Address</div>
+                <div className="card p-2 text-center">
+                  <div className="text-[12px] font-semibold text-gray-700 dark:text-gray-300">{currentBandwidth.ipAddress || '-'}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">IP Address</div>
                 </div>
-                <div className="card p-4 text-center">
-                  <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">{currentBandwidth.uptime || '-'}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Uptime</div>
+                <div className="card p-2 text-center">
+                  <div className="text-[12px] font-semibold text-gray-700 dark:text-gray-300">{currentBandwidth.uptime || '-'}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Uptime</div>
                 </div>
               </div>
 
               {/* CDN Traffic Stats - Show live rate in Mbps */}
               {cdnList.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                   {cdnList.map(cdn => {
                     const cdnRateData = cdnDataRefs.current[cdn.id] || []
                     const currentRate = cdnRateData.length > 0 ? cdnRateData[cdnRateData.length - 1] : 0
                     return (
-                      <div key={cdn.id} className="card p-3 text-center" style={{ borderTop: `3px solid ${cdn.color}` }}>
-                        <div className="text-xl font-bold" style={{ color: cdn.color }}>{currentRate.toFixed(2)} Mbps</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{cdn.name}</div>
+                      <div key={cdn.id} className="card p-2 text-center" style={{ borderTop: `2px solid ${cdn.color}` }}>
+                        <div className="text-[12px] font-bold" style={{ color: cdn.color }}>{currentRate.toFixed(2)} Mbps</div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">{cdn.name}</div>
                       </div>
                     )
                   })}
@@ -1744,14 +1743,14 @@ export default function SubscriberEdit() {
 
               {/* Port Rule Traffic Stats - Show live rate in Mbps */}
               {portRuleList.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                   {portRuleList.map(pr => {
                     const prRateData = portRuleDataRefs.current[pr.id] || []
                     const currentRate = prRateData.length > 0 ? prRateData[prRateData.length - 1] : 0
                     return (
-                      <div key={pr.id} className="card p-3 text-center" style={{ borderTop: `3px dashed ${pr.color}` }}>
-                        <div className="text-xl font-bold" style={{ color: pr.color }}>{currentRate.toFixed(2)} Mbps</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Port: {pr.name}</div>
+                      <div key={pr.id} className="card p-2 text-center" style={{ borderTop: `2px dashed ${pr.color}` }}>
+                        <div className="text-[12px] font-bold" style={{ color: pr.color }}>{currentRate.toFixed(2)} Mbps</div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">Port: {pr.name}</div>
                       </div>
                     )
                   })}
@@ -1761,30 +1760,30 @@ export default function SubscriberEdit() {
           )}
 
           {/* Chart */}
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Live Bandwidth Graph</h3>
+          <div className="card p-3">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white">Live Bandwidth Graph</h3>
               {subscriber?.is_online && (
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                  <div className="flex items-center gap-1.5 text-[11px] text-green-600">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex h-2.5 w-2.5 bg-green-500"></span>
                     </span>
                     Live (updating every 2s)
                   </div>
                   {livePing.ok ? (
-                    <div className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full ${
+                    <div className={`flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 border border-[#a0a0a0] ${
                       livePing.ms < 20  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
                       livePing.ms < 80  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
                                           'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
                     }`}>
-                      <SignalIcon className="h-3.5 w-3.5" />
+                      <SignalIcon className="h-3 w-3" />
                       {livePing.ms.toFixed(1)} ms
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
-                      <SignalIcon className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 border border-[#a0a0a0] bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
+                      <SignalIcon className="h-3 w-3" />
                       — ms
                     </div>
                   )}
@@ -1800,7 +1799,7 @@ export default function SubscriberEdit() {
                 style={{ height: '400px' }}
               />
             ) : (
-              <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
                 Subscriber is offline. Live graph is only available when connected.
               </div>
             )}
@@ -1810,8 +1809,8 @@ export default function SubscriberEdit() {
 
       {/* Invoices Tab */}
       {!isNew && activeTab === 'invoices' && (
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Invoices & Payments</h3>
+        <div className="card p-3">
+          <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Invoices & Payments</h3>
           <div className="table-container">
             <table className="table">
               <thead>
@@ -1837,8 +1836,8 @@ export default function SubscriberEdit() {
 
       {/* Logs Tab */}
       {!isNew && activeTab === 'logs' && (
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Session & Activity Logs</h3>
+        <div className="card p-3">
+          <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Session & Activity Logs</h3>
           <div className="table-container">
             <table className="table">
               <thead>
@@ -1889,26 +1888,26 @@ export default function SubscriberEdit() {
                     }
 
                     return (
-                      <tr key={session.acctsessionid || idx} className={isActive ? 'bg-green-50' : ''}>
-                        <td className="font-mono text-sm">
+                      <tr key={session.acctsessionid || idx} className={isActive ? 'bg-[#e8ffe8]' : ''}>
+                        <td className="font-mono text-[12px]">
                           {session.acctsessionid}
                           {isActive && (
-                            <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+                            <span className="ml-2 px-1.5 py-0.5 text-[11px] bg-green-100 text-green-800 border border-green-300">
                               Active
                             </span>
                           )}
                         </td>
-                        <td className="text-sm">
+                        <td className="text-[12px]">
                           {formatDateTime(session.acctstarttime)}
                         </td>
-                        <td className="text-sm">
+                        <td className="text-[12px]">
                           {formatDateTime(session.acctstoptime)}
                         </td>
-                        <td className="text-sm">{duration}</td>
-                        <td className="font-mono text-sm">{session.framedipaddress || '-'}</td>
-                        <td className="font-mono text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">{session.callingstationid || '-'}</td>
-                        <td className="text-sm text-green-600">{formatBytes(session.acctoutputoctets)}</td>
-                        <td className="text-sm text-blue-600">{formatBytes(session.acctinputoctets)}</td>
+                        <td className="text-[12px]">{duration}</td>
+                        <td className="font-mono text-[12px]">{session.framedipaddress || '-'}</td>
+                        <td className="font-mono text-[12px] text-gray-500 dark:text-gray-400">{session.callingstationid || '-'}</td>
+                        <td className="text-[12px] text-green-600">{formatBytes(session.acctoutputoctets)}</td>
+                        <td className="text-[12px] text-blue-600">{formatBytes(session.acctinputoctets)}</td>
                       </tr>
                     )
                   })
@@ -1921,13 +1920,15 @@ export default function SubscriberEdit() {
 
       {/* Bandwidth Rule Modal */}
       {showBandwidthRuleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingBandwidthRule ? 'Edit Bandwidth Rule' : 'Add Bandwidth Rule'}
-            </h3>
+        <div className="modal-overlay">
+          <div className="modal w-full max-w-md mx-4">
+            <div className="modal-header">
+              <h3 className="text-[12px] font-semibold">
+                {editingBandwidthRule ? 'Edit Bandwidth Rule' : 'Add Bandwidth Rule'}
+              </h3>
+            </div>
 
-            <div className="space-y-4">
+            <div className="modal-body space-y-2">
               <div>
                 <label className="label">Rule Type</label>
                 <select
@@ -1941,7 +1942,7 @@ export default function SubscriberEdit() {
               </div>
 
               {bandwidthRuleForm.rule_type === 'cdn' ? (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <div>
                     <label className="label">Select CDN</label>
                     {filteredCDNsForNAS.length > 0 ? (
@@ -1958,7 +1959,7 @@ export default function SubscriberEdit() {
                         ))}
                       </select>
                     ) : (
-                      <p className="text-sm text-gray-500 italic">No CDNs available for this NAS</p>
+                      <p className="text-[12px] text-gray-500 italic">No CDNs available for this NAS</p>
                     )}
                   </div>
                   {bandwidthRuleForm.cdn_id && (
@@ -1978,18 +1979,18 @@ export default function SubscriberEdit() {
                           ))}
                         </select>
                       ) : (
-                        <p className="text-sm text-gray-500 italic">No speeds configured for this CDN</p>
+                        <p className="text-[12px] text-gray-500 italic">No speeds configured for this CDN</p>
                       )}
                     </div>
                   )}
                   {currentCDNs.length > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
                       Current service CDNs: {currentCDNs.map(c => `${c.cdn_name} ${c.speed_limit}M`).join(', ')}
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="label">Download (kbps)</label>
                     <input
@@ -2031,7 +2032,7 @@ export default function SubscriberEdit() {
                   <option value="14d">14 Days</option>
                   <option value="30d">30 Days</option>
                 </select>
-                <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                   {bandwidthRuleForm.duration === 'permanent'
                     ? 'Rule will apply until manually disabled or deleted'
                     : 'After duration expires, subscriber returns to normal service speed'}
@@ -2043,13 +2044,13 @@ export default function SubscriberEdit() {
                   type="checkbox"
                   checked={bandwidthRuleForm.enabled}
                   onChange={(e) => setBandwidthRuleForm({ ...bandwidthRuleForm, enabled: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
                 <span>Enabled</span>
               </label>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="modal-footer">
               <button
                 type="button"
                 onClick={() => {

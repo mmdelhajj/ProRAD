@@ -19,6 +19,7 @@ import useServerStore from '../../store/serverStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { shadows } from '../../theme/shadows';
 
 const APP_VERSION = Constants.expoConfig?.version || '1.0.0';
 
@@ -397,13 +398,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.xl,
   },
   content: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.base,
+    ...shadows.md,
   },
 
   // Banners
@@ -411,10 +416,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef2f2',
     borderWidth: 1,
     borderColor: '#fecaca',
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
   },
   bannerText: {
     ...typography.bodySmall,
@@ -425,10 +430,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fffbeb',
     borderWidth: 1,
     borderColor: '#fde68a',
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
   },
   bannerIdleText: {
     ...typography.bodySmall,
@@ -439,23 +444,24 @@ const styles = StyleSheet.create({
   // Logo
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing.base,
+    marginBottom: spacing.md,
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: borderRadius.lg,
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.md,
   },
   defaultLogo: {
-    width: 80,
-    height: 80,
-    borderRadius: borderRadius.lg,
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.sm,
   },
   defaultLogoIcon: {
-    fontSize: 36,
+    fontSize: 26,
   },
 
   // Server name & subtitle
@@ -466,10 +472,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   subtitle: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.base,
   },
 
   // Error
@@ -479,13 +485,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef2f2',
     borderWidth: 1,
     borderColor: '#fecaca',
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.base,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
   },
   errorIcon: {
-    fontSize: 16,
+    fontSize: 13,
     marginRight: spacing.sm,
   },
   errorText: {
@@ -498,7 +504,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   errorDismissText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.danger,
     fontWeight: '600',
   },
@@ -510,41 +516,43 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-    height: 52,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.sm,
+    height: 48,
     overflow: 'hidden',
   },
   inputIconContainer: {
-    width: 48,
+    width: 32,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.toolbar,
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
   },
   inputIcon: {
-    fontSize: 18,
+    fontSize: 14,
   },
   input: {
     flex: 1,
     height: '100%',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     ...typography.body,
     color: colors.text,
   },
   passwordInput: {
-    paddingRight: 48,
+    paddingRight: 32,
   },
   eyeButton: {
     position: 'absolute',
     right: 0,
-    width: 48,
+    width: 32,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
   eyeIcon: {
-    fontSize: 18,
+    fontSize: 14,
     opacity: 0.6,
   },
 
@@ -552,14 +560,14 @@ const styles = StyleSheet.create({
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     paddingVertical: spacing.xs,
   },
   checkbox: {
-    width: 22,
-    height: 22,
+    width: 16,
+    height: 16,
     borderRadius: borderRadius.sm,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
@@ -572,37 +580,30 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: colors.textInverse,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     marginTop: -1,
   },
   rememberText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
 
   // Sign in button
   signInButton: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    height: 52,
+    borderRadius: borderRadius.sm,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    ...shadows.sm,
   },
   signInButtonDisabled: {
-    opacity: 0.6,
-    shadowOpacity: 0,
-    elevation: 0,
+    opacity: 0.5,
   },
   signInButtonText: {
     ...typography.button,
     color: colors.textInverse,
-    fontSize: 16,
   },
 
   // Biometric
@@ -610,26 +611,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.base,
-    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.surface,
   },
   biometricIcon: {
-    fontSize: 22,
+    fontSize: 16,
     marginRight: spacing.sm,
   },
   biometricText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '600',
   },
 
   // Divider
   divider: {
-    marginVertical: spacing.xl,
+    marginVertical: spacing.base,
     alignItems: 'center',
   },
   dividerLine: {
@@ -641,10 +642,10 @@ const styles = StyleSheet.create({
   // Change server
   changeServerButton: {
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   changeServerText: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textLight,
     textAlign: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
 
   // Version
@@ -662,6 +663,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textLight,
     textAlign: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
 });

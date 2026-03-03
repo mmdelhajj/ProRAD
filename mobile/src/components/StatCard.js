@@ -8,6 +8,7 @@ import {
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
+import { shadows } from '../theme/shadows';
 
 const StatCard = ({
   label,
@@ -76,20 +77,14 @@ const StatCard = ({
 const styles = StyleSheet.create({
   touchable: {
     flex: 1,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
   },
   container: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: borderRadius.md,
     overflow: 'hidden',
+    ...shadows.sm,
   },
   topBorder: {
     height: 3,
@@ -101,29 +96,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   iconContainer: {
     width: 36,
     height: 36,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconText: {
-    fontSize: 18,
+    fontSize: 16,
   },
   trendBadge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
   },
   trendText: {
     ...typography.caption,
     fontWeight: '600',
   },
   value: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.text,
     marginBottom: 2,
   },

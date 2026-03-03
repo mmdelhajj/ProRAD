@@ -165,21 +165,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: spacing.xxxl + spacing.base,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingTop: spacing.xxxl + spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   closeButton: {
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeText: {
-    fontSize: 18,
+    fontSize: 14,
     color: colors.textSecondary,
     fontWeight: '600',
   },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   headerSpacer: {
-    width: 32,
+    width: 24,
   },
 
   // Scroll content
@@ -196,30 +196,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.base,
+    padding: spacing.md,
     paddingBottom: spacing.tabBar,
   },
 
   // Category picker
   fieldWrapper: {
-    marginBottom: spacing.base,
+    marginBottom: spacing.md,
   },
   fieldLabel: {
     ...typography.label,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   categoryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   categoryChip: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 1,
+    borderRadius: borderRadius.sm,
     backgroundColor: colors.surfaceHover,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   categoryChipActive: {
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   categoryChipText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
     fontWeight: '500',
   },
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
 
   // Submit
   submitWrapper: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
 });
 
