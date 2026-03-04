@@ -19,6 +19,7 @@ type Client struct {
 	Address  string
 	Username string
 	Password string
+	FTPPort  int
 	conn     net.Conn
 	timeout  time.Duration
 }
@@ -417,12 +418,16 @@ func (c *Client) ExportConfig() (string, error) {
 		host = host[:idx]
 	}
 
-	ftpAddr := fmt.Sprintf("%s:21", host)
+	ftpPort := c.FTPPort
+	if ftpPort == 0 {
+		ftpPort = 21
+	}
+	ftpAddr := fmt.Sprintf("%s:%d", host, ftpPort)
 	ftpConn, err := net.DialTimeout("tcp", ftpAddr, 5*time.Second)
 	if err != nil {
 		// FTP not available - try to read via API /file/print contents (small files)
 		c.removeFile(tempFileName + ".rsc")
-		return "", fmt.Errorf("FTP connection failed (port 21): %v", err)
+		return "", fmt.Errorf("FTP connection failed (port %d): %v", ftpPort, err)
 	}
 	ftpConn.Close()
 
@@ -440,7 +445,11 @@ func (c *Client) ExportConfig() (string, error) {
 
 // downloadFileViaFTP downloads a file from MikroTik using FTP with the same credentials.
 func (c *Client) downloadFileViaFTP(host, filename string) (string, error) {
-	ftpConn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:21", host), 5*time.Second)
+	ftpPort := c.FTPPort
+	if ftpPort == 0 {
+		ftpPort = 21
+	}
+	ftpConn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, ftpPort), 5*time.Second)
 	if err != nil {
 		return "", err
 	}

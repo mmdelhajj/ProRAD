@@ -117,6 +117,7 @@ type CreateNasRequest struct {
 	APIPort     int    `json:"api_port"`
 	APISSLPort  int    `json:"api_ssl_port"`
 	UseSSL      bool   `json:"use_ssl"`
+	FTPPort     int    `json:"ftp_port"`
 }
 
 // Create creates a new NAS device
@@ -161,6 +162,7 @@ func (h *NasHandler) Create(c *fiber.Ctx) error {
 		APIPort:     req.APIPort,
 		APISSLPort:  req.APISSLPort,
 		UseSSL:      req.UseSSL,
+		FTPPort:     req.FTPPort,
 		IsActive:    true,
 	}
 
@@ -182,6 +184,9 @@ func (h *NasHandler) Create(c *fiber.Ctx) error {
 	}
 	if nas.APISSLPort == 0 {
 		nas.APISSLPort = 8729
+	}
+	if nas.FTPPort == 0 {
+		nas.FTPPort = 21
 	}
 	if nas.ShortName == "" {
 		nas.ShortName = req.Name
@@ -282,6 +287,7 @@ func (h *NasHandler) Update(c *fiber.Ctx) error {
 		"api_port":     "api_port",
 		"api_ssl_port": "api_ssl_port",
 		"use_ssl":      "use_ssl",
+		"ftp_port":     "ftp_port",
 		"is_active":    "is_active",
 	}
 

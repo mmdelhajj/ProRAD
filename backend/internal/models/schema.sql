@@ -214,6 +214,7 @@ CREATE TABLE IF NOT EXISTS nas_devices (
     api_port INTEGER DEFAULT 8728,
     api_ssl_port INTEGER DEFAULT 8729,
     use_ssl BOOLEAN DEFAULT false,
+    ftp_port INTEGER DEFAULT 21,
     subscriber_pools VARCHAR(500),
     allowed_realms VARCHAR(500),
     is_active BOOLEAN DEFAULT true,

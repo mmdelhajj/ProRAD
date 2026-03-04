@@ -52,6 +52,7 @@ export default function Nas() {
     api_username: '',
     api_password: '',
     coa_port: 1700,
+    ftp_port: 21,
     is_active: true,
     subscriber_pools: '',
     allowed_realms: '',
@@ -130,6 +131,7 @@ export default function Nas() {
         api_username: nas.api_username || '',
         api_password: nas.api_password || '',
         coa_port: nas.coa_port || 3799,
+        ftp_port: nas.ftp_port || 21,
         is_active: nas.is_active ?? true,
         subscriber_pools: nas.subscriber_pools || '',
         allowed_realms: nas.allowed_realms || '',
@@ -148,6 +150,7 @@ export default function Nas() {
         api_username: '',
         api_password: '',
         coa_port: 1700,
+        ftp_port: 21,
         is_active: true,
         subscriber_pools: '',
         allowed_realms: '',
@@ -500,7 +503,7 @@ export default function Nas() {
                   <div className="wb-group">
                     <div className="wb-group-title">Mikrotik API Settings</div>
                     <div className="wb-group-body space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="label">API Port</label>
                           <input type="text" name="api_port" value={formData.api_port} onChange={handleChange} className="input" />
@@ -508,6 +511,10 @@ export default function Nas() {
                         <div>
                           <label className="label">CoA Port</label>
                           <input type="text" name="coa_port" value={formData.coa_port} onChange={handleChange} className="input" />
+                        </div>
+                        <div>
+                          <label className="label">FTP Port</label>
+                          <input type="text" name="ftp_port" value={formData.ftp_port || 21} onChange={handleChange} className="input" placeholder="21" />
                         </div>
                       </div>
                       <div>

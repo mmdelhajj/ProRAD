@@ -894,6 +894,23 @@ export default function Backups() {
         {/* MikroTik Backup Tab */}
         {activeTab === 'mikrotik' && (
           <div className="space-y-3">
+            {/* FTP Requirement Notice */}
+            <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 text-[12px]" style={{ borderRadius: '2px' }}>
+              <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-800 dark:text-amber-300">FTP service must be enabled on MikroTik</p>
+                <p className="text-amber-700 dark:text-amber-400 mt-0.5">
+                  This feature uses FTP to download the router configuration. Enable FTP on your MikroTik:
+                </p>
+                <code className="block mt-1 px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 text-[11px]" style={{ borderRadius: '2px' }}>
+                  /ip service enable ftp
+                </code>
+                <p className="text-amber-700 dark:text-amber-400 mt-1">
+                  If your FTP port is not the default (21), you can change it in <strong>NAS/Routers</strong> settings (FTP Port field).
+                </p>
+              </div>
+            </div>
+
             {/* NAS Selection */}
             <div className="wb-group">
               <div className="wb-group-title flex items-center justify-between">

@@ -40,6 +40,7 @@ type Nas struct {
 	APIPort         int            `gorm:"column:api_port;default:8728" json:"api_port"`
 	APISSLPort      int            `gorm:"column:api_ssl_port;default:8729" json:"api_ssl_port"`
 	UseSSL          bool           `gorm:"column:use_ssl;default:false" json:"use_ssl"`
+	FTPPort         int            `gorm:"column:ftp_port;default:21" json:"ftp_port"`
 
 	// PCQ/CDN Settings
 	SubscriberPools string         `gorm:"column:subscriber_pools;size:500" json:"subscriber_pools"` // Comma-separated pool names or CIDRs for PCQ target

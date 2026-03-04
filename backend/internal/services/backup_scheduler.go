@@ -1074,6 +1074,7 @@ func (s *BackupSchedulerService) ExportMikroTikConfigs(timestamp string, nasIDs 
 	for _, nas := range nasDevices {
 		apiAddr := fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort)
 		client := mikrotik.NewClient(apiAddr, nas.APIUsername, nas.APIPassword)
+		client.FTPPort = nas.FTPPort
 
 		configText, err := client.ExportConfig()
 		client.Close()
