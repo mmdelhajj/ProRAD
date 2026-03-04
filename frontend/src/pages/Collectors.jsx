@@ -13,6 +13,7 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
@@ -199,6 +200,7 @@ export default function Collectors() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Subscriber</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Amount</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Notes</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Auto-Renew</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Created</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
@@ -206,15 +208,45 @@ export default function Collectors() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {assignments.length === 0 ? (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">No assignments</td></tr>
+                  <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-400">No assignments</td></tr>
                 ) : assignments.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 dark:text-white">{a.subscriber?.full_name || 'Unknown'}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{a.subscriber?.phone}</div>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">{a.subscriber?.full_name || 'Unknown'}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{a.subscriber?.phone}</div>
+                          {a.subscriber?.address && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500">{a.subscriber.address}</div>
+                          )}
+                        </div>
+                        {a.subscriber?.latitude && a.subscriber?.longitude && a.subscriber.latitude !== 0 && (
+                          <button
+                            onClick={() => window.open(`https://www.google.com/maps?q=${a.subscriber.latitude},${a.subscriber.longitude}`, '_blank')}
+                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                            title="Open Map"
+                          >
+                            <MapPinIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">${(a.amount || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">{statusBadge(a.status)}</td>
+                    <td className="px-4 py-3">
+                      {a.notes ? (
+                        <div className={`text-sm ${a.status === 'failed' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {a.notes}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                      {a.collected_at && (
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {a.status === 'collected' ? 'Collected' : a.status === 'failed' ? 'Failed' : ''}: {new Date(a.collected_at).toLocaleString()}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{a.auto_renew ? 'Yes' : 'No'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                       {new Date(a.created_at).toLocaleDateString()}

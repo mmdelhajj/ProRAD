@@ -549,7 +549,9 @@ func (h *CollectorHandler) MarkFailed(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Assignment is not pending"})
 	}
 
+	now := time.Now()
 	assignment.Status = "failed"
+	assignment.CollectedAt = &now // reuse as "resolved at" timestamp
 	if req.Notes != "" {
 		assignment.Notes = req.Notes
 	}
