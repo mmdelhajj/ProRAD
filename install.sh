@@ -323,6 +323,32 @@ else
     show_ok "cloudflared already installed"
 fi
 
+# Install fail2ban for SSH brute force protection
+if ! command -v fail2ban-client &>/dev/null; then
+    show_info "Installing fail2ban..."
+    apt-get install -y -qq fail2ban > /dev/null 2>&1
+    cat > /etc/fail2ban/jail.local << 'FAIL2BANEOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+banaction = iptables-multiport
+ignoreip = 127.0.0.1/8
+
+[sshd]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+maxretry = 5
+bantime = 3600
+FAIL2BANEOF
+    systemctl enable fail2ban > /dev/null 2>&1
+    systemctl restart fail2ban > /dev/null 2>&1
+    show_ok "fail2ban installed (SSH: 5 attempts → 1h ban)"
+else
+    show_ok "fail2ban already installed"
+fi
+
 # ============================================
 # STEP 4: Download ProxPanel
 # ============================================
@@ -341,8 +367,9 @@ fi
 
 show_info "Downloading version ${DOWNLOAD_VERSION}..."
 
+# Use the dedicated fresh-install download endpoint (has fallback to static file)
 (
-    curl -s -o proxpanel.tar.gz "${LICENSE_SERVER}/api/v1/update/download/${DOWNLOAD_VERSION}?license_key=${LICENSE_KEY}" 2>/dev/null
+    curl -s -o proxpanel.tar.gz "${LICENSE_SERVER}/api/v1/download/proxpanel?license_key=${LICENSE_KEY}" 2>/dev/null
 ) &
 spinner $! "Downloading package..."
 

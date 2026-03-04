@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+  <head>
+    <script>
+      // Ensure light mode by default - only use dark if explicitly saved
+      (function() {
+        try {
+          var theme = localStorage.getItem('theme');
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ISP Management" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/assets/manifest-pLUnuot9.json" />
+    <link rel="apple-touch-icon" href="/assets/icon-192-B-OjCZyu.png" />
+    <title>ISP Management System</title>
+    <link rel="modulepreload" crossorigin href="/assets/react-vendor-C4Xey-hE-CVkDQ3LR.js">
+    <link rel="modulepreload" crossorigin href="/assets/data-vendor-C6mPcuPT-DdxkeGGy.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-vendor-1qsLX2mU-BSf4e9YO.js">
+    <link rel="modulepreload" crossorigin href="/assets/chart-vendor-Be69IwoK-CUBTv-x3.js">
+    <script type="module" crossorigin src="/assets/index-BGS2r99B.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DqdciXXZ.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
