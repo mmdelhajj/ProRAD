@@ -355,7 +355,7 @@ function CreateAssignmentModal({ collectors, onClose, onCreated }) {
 
   const { data: subscribersData, isLoading: loadingSubs } = useQuery({
     queryKey: ['subscribers-for-assign', searchTerm],
-    queryFn: () => subscriberApi.list({ search: searchTerm, limit: 50, status: 'active' }),
+    queryFn: () => subscriberApi.list({ search: searchTerm || undefined, limit: 500 }),
     select: (res) => res.data?.data || [],
   })
 
