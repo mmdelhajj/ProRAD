@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import { useThemeStore } from '../store/themeStore'
@@ -133,8 +134,10 @@ const allNavigation = [
   { name: 'Backups', href: '/backups', icon: CloudArrowUpIcon, permission: 'backups.view' },
   { name: 'Settings', href: '/settings', icon: CogIcon, permission: 'settings.view' },
   { name: 'Change Bulk', href: '/change-bulk', icon: QueueListIcon, permission: 'subscribers.change_bulk' },
+  { name: 'Collectors', href: '/collectors', icon: BanknotesIcon, permission: 'collectors.view' },
   { name: 'Sharing Detection', href: '/sharing', icon: ShieldExclamationIcon, permission: 'admin' },
   { name: 'Diagnostic Tools', href: '/diagnostic-tools', icon: WrenchScrewdriverIcon, permission: 'admin' },
+  { name: 'My Collections', href: '/collector', icon: BanknotesIcon, permission: null, collectorOnly: true },
 ]
 
 export default function Layout({ children }) {
@@ -146,11 +149,22 @@ export default function Layout({ children }) {
 
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, hasPermission, isAdmin, isReseller, refreshUser } = useAuthStore()
+  const { user, logout, hasPermission, isAdmin, isReseller, isCollector, refreshUser } = useAuthStore()
   const { companyName, fetchBranding, loaded } = useBrandingStore()
   const { theme, toggleTheme } = useThemeStore()
   const queryClient = useQueryClient()
   const inactivityTimer = useRef(null)
+  const sessionRemainingRef = useRef(null)
+  const [sessionRemaining, setSessionRemaining] = useState(null)
+  const [sessionTimeoutMin, setSessionTimeoutMin] = useState(10)
+
+  // Fetch session_timeout setting
+  useEffect(() => {
+    api.get('/settings/session_timeout').then(res => {
+      const val = parseInt(res.data?.data?.value || res.data?.value, 10)
+      if (val > 0) setSessionTimeoutMin(val)
+    }).catch(() => {})
+  }, [])
 
   // Fetch branding on mount
   useEffect(() => {
@@ -176,24 +190,37 @@ export default function Layout({ children }) {
     return () => clearInterval(interval)
   }, [queryClient])
 
-  // Inactivity logout after 10 minutes
+  // Inactivity logout with configurable timeout + countdown
   useEffect(() => {
-    const TIMEOUT = 10 * 60 * 1000
+    const totalSec = sessionTimeoutMin * 60
+    const TIMEOUT = totalSec * 1000
+    setSessionRemaining(totalSec)
+    sessionRemainingRef.current = totalSec
+
     const resetTimer = () => {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+      sessionRemainingRef.current = totalSec
+      setSessionRemaining(totalSec)
       inactivityTimer.current = setTimeout(() => {
         logout()
         navigate('/login?reason=idle')
       }, TIMEOUT)
     }
+
+    const countdownInterval = setInterval(() => {
+      sessionRemainingRef.current = Math.max(0, sessionRemainingRef.current - 1)
+      setSessionRemaining(sessionRemainingRef.current)
+    }, 1000)
+
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click']
     events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
     resetTimer()
     return () => {
       events.forEach(e => window.removeEventListener(e, resetTimer))
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+      clearInterval(countdownInterval)
     }
-  }, [logout, navigate])
+  }, [logout, navigate, sessionTimeoutMin])
 
   // Handle session expired
   useEffect(() => {
@@ -208,6 +235,10 @@ export default function Layout({ children }) {
   // Filter and order navigation based on permissions + saved order
   useEffect(() => {
     const filtered = allNavigation.filter((item) => {
+      // Collector users only see collectorOnly items
+      if (isCollector()) return !!item.collectorOnly
+      // Non-collector users never see collectorOnly items
+      if (item.collectorOnly) return false
       if (item.rebrandOnly) return isReseller() && user?.reseller?.rebrand_enabled
       if (item.permission === null) return true
       if (item.permission === 'admin') return isAdmin()
@@ -217,7 +248,7 @@ export default function Layout({ children }) {
     const savedOrder = getSavedMenuOrder()
     const ordered = applyMenuOrder(filtered, savedOrder)
     setOrderedNav(ordered)
-  }, [hasPermission, isAdmin, isReseller, user])
+  }, [hasPermission, isAdmin, isReseller, isCollector, user])
 
   const handleLogout = () => {
     logout()
@@ -276,6 +307,8 @@ export default function Layout({ children }) {
     localStorage.removeItem('menuHidden')
     setHiddenItems(new Set())
     const filtered = allNavigation.filter((item) => {
+      if (isCollector()) return !!item.collectorOnly
+      if (item.collectorOnly) return false
       if (item.rebrandOnly) return isReseller() && user?.reseller?.rebrand_enabled
       if (item.permission === null) return true
       if (item.permission === 'admin') return isAdmin()
@@ -478,7 +511,7 @@ export default function Layout({ children }) {
               Balance: ${parseFloat(user?.reseller?.balance ?? 0).toFixed(2)}
             </span>
           )}
-          <Clock />
+          <Clock sessionRemaining={sessionRemaining} />
           <UpdateNotification />
           {/* Window controls */}
           <div className="hidden lg:flex items-center gap-0.5 ml-2">

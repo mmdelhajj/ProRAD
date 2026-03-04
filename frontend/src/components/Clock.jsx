@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { fetchTimezone, getTimezone, onTimezoneChange } from '../utils/timezone'
 import api from '../services/api'
 
-export default function Clock() {
+export default function Clock({ sessionRemaining }) {
   const [time, setTime] = useState('')
   const [date, setDate] = useState('')
   const [timezone, setTimezone] = useState(getTimezone() || '')
@@ -79,11 +79,27 @@ export default function Clock() {
     return () => clearInterval(interval)
   }, [timezone])
 
+  const formatSessionRemaining = (seconds) => {
+    if (seconds == null || seconds < 0) return ''
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
+  const sessionColor = sessionRemaining != null
+    ? sessionRemaining <= 30 ? 'text-red-400' : sessionRemaining <= 120 ? 'text-yellow-300' : 'text-green-300'
+    : ''
+
   return (
     <>
       {uptime !== null && (
         <span className="hidden lg:inline">
           Uptime: <span className="font-mono">{formatUptime(uptime)}</span>
+        </span>
+      )}
+      {sessionRemaining != null && (
+        <span className={`hidden lg:inline ${sessionColor}`}>
+          Session: <span className="font-mono">{formatSessionRemaining(sessionRemaining)}</span>
         </span>
       )}
       <span className="hidden sm:inline">

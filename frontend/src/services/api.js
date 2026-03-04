@@ -461,3 +461,22 @@ export const tunnelApi = {
   disable: () => api.post('/system/tunnel/disable'),
   saveCredentials: (data) => api.post('/system/tunnel/credentials', data),
 }
+
+// Collector management (admin/reseller)
+export const collectorApi = {
+  list: () => api.get('/collectors'),
+  get: (id) => api.get(`/collectors/${id}`),
+  getAssignments: (id, params) => api.get(`/collectors/${id}/assignments`, { params }),
+  createAssignment: (data) => api.post('/collectors/assignments', data),
+  deleteAssignment: (id) => api.delete(`/collectors/assignments/${id}`),
+  getReport: (params) => api.get('/collectors/report', { params }),
+}
+
+// Collector self-service
+export const collectionApi = {
+  dashboard: () => api.get('/collector/dashboard'),
+  listAssignments: (params) => api.get('/collector/assignments', { params }),
+  getAssignment: (id) => api.get(`/collector/assignments/${id}`),
+  markCollected: (id, data) => api.post(`/collector/assignments/${id}/collect`, data),
+  markFailed: (id, data) => api.post(`/collector/assignments/${id}/fail`, data),
+}

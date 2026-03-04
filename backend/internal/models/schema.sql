@@ -1189,3 +1189,29 @@ CREATE TABLE IF NOT EXISTS reseller_brandings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Collection assignments (collector feature)
+CREATE TABLE IF NOT EXISTS collection_assignments (
+    id               SERIAL PRIMARY KEY,
+    collector_id     INTEGER NOT NULL REFERENCES users(id),
+    subscriber_id    INTEGER NOT NULL REFERENCES subscribers(id),
+    reseller_id      INTEGER NOT NULL DEFAULT 0,
+    invoice_id       INTEGER REFERENCES invoices(id),
+    status           VARCHAR(20) NOT NULL DEFAULT 'pending',
+    auto_renew       BOOLEAN NOT NULL DEFAULT false,
+    send_notification BOOLEAN NOT NULL DEFAULT true,
+    amount           DECIMAL(15,2) DEFAULT 0,
+    notes            TEXT,
+    collected_at     TIMESTAMP WITH TIME ZONE,
+    payment_id       INTEGER REFERENCES payments(id),
+    created_by       INTEGER NOT NULL,
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Collector permissions
+INSERT INTO permissions (name, description) VALUES ('collector.view', 'Collector sees own assignments') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('collector.collect', 'Collector can mark collected') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('collectors.view', 'View collector list and assignments') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('collectors.create', 'Create collection assignments') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('collectors.reports', 'View collector performance reports') ON CONFLICT (name) DO NOTHING;

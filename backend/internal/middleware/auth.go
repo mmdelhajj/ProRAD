@@ -224,6 +224,34 @@ func GetCurrentResellerID(c *fiber.Ctx) *uint {
 	return resellerID
 }
 
+// CollectorOnly middleware restricts access to collector users only (user_type=5)
+func CollectorOnly() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userType := c.Locals("userType").(models.UserType)
+		if userType != models.UserTypeCollector {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "Collector access required",
+			})
+		}
+		return c.Next()
+	}
+}
+
+// AdminOrReseller middleware restricts access to admin or reseller users
+func AdminOrReseller() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userType := c.Locals("userType").(models.UserType)
+		if userType != models.UserTypeAdmin && userType != models.UserTypeReseller {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "Admin or reseller access required",
+			})
+		}
+		return c.Next()
+	}
+}
+
 // RequirePermission middleware checks if user has a specific permission
 // Admins always have all permissions
 // Resellers must have the permission in their permission group

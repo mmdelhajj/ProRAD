@@ -364,6 +364,14 @@ if [ $TAR_EXIT -ne 0 ]; then
     show_fail "Extraction failed (exit code $TAR_EXIT) - package may be corrupted"
 fi
 
+# Handle versioned directory (proxpanel-X.X.X or proxpanel-pkg) — flatten before validation
+for dir in proxpanel-*/; do
+    if [ -d "$dir" ]; then
+        mv "${dir}"* . 2>/dev/null || true
+        rm -rf "$dir" 2>/dev/null || true
+    fi
+done
+
 # Validate critical files exist after extraction
 if [ ! -f "backend/proisp-api/proisp-api" ]; then
     show_fail "Extraction failed - API binary not found after extraction"
@@ -371,14 +379,6 @@ fi
 if [ ! -d "frontend/dist" ] || [ -z "$(ls -A frontend/dist 2>/dev/null)" ]; then
     show_fail "Extraction failed - frontend dist is empty after extraction"
 fi
-
-# Handle versioned directory (proxpanel-X.X.X or proxpanel-pkg)
-for dir in proxpanel-*/; do
-    if [ -d "$dir" ]; then
-        mv "${dir}"* . 2>/dev/null || true
-        rm -rf "$dir" 2>/dev/null || true
-    fi
-done
 
 rm -f proxpanel.tar.gz
 chmod +x backend/proisp-api/proisp-api backend/proisp-radius/proisp-radius 2>/dev/null || true

@@ -196,4 +196,9 @@ export const useAuthStore = create((set, get) => ({
     const user = get().user
     return user?.user_type === 'reseller'
   },
+
+  isCollector: () => {
+    const user = get().user
+    return user?.user_type === 'collector'
+  },
 }))

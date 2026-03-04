@@ -40,6 +40,8 @@ const Profile = lazy(() => import('./pages/Profile'))
 const DiagnosticTools = lazy(() => import('./pages/DiagnosticTools'))
 const WhatsAppSettings = lazy(() => import('./pages/WhatsAppSettings'))
 const ResellerBranding = lazy(() => import('./pages/ResellerBranding'))
+const Collectors = lazy(() => import('./pages/Collectors'))
+const CollectorView = lazy(() => import('./pages/CollectorView'))
 
 // Loading fallback component
 function PageLoader() {
@@ -156,6 +158,8 @@ function App() {
                   <Route path="/diagnostic-tools" element={<PermissionRoute adminOnly><DiagnosticTools /></PermissionRoute>} />
                   <Route path="/whatsapp" element={<PermissionRoute permission="notifications.whatsapp"><WhatsAppSettings /></PermissionRoute>} />
                   <Route path="/reseller-branding" element={<ResellerBranding />} />
+                  <Route path="/collectors" element={<PermissionRoute permission="collectors.view"><Collectors /></PermissionRoute>} />
+                  <Route path="/collector" element={<CollectorView />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>

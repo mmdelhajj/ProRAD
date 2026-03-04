@@ -209,3 +209,30 @@ func (StaticIPPrice) TableName() string {
 func (StaticIPRental) TableName() string {
 	return "static_ip_rentals"
 }
+
+// CollectionAssignment represents a subscriber assigned to a collector for payment collection
+type CollectionAssignment struct {
+	ID               uint           `gorm:"column:id;primaryKey" json:"id"`
+	CollectorID      uint           `gorm:"column:collector_id;not null;index" json:"collector_id"`
+	Collector        *User          `gorm:"-" json:"collector,omitempty"`
+	SubscriberID     uint           `gorm:"column:subscriber_id;not null;index" json:"subscriber_id"`
+	Subscriber       *Subscriber    `gorm:"-" json:"subscriber,omitempty"`
+	ResellerID       uint           `gorm:"column:reseller_id;not null;default:0" json:"reseller_id"`
+	InvoiceID        *uint          `gorm:"column:invoice_id" json:"invoice_id"`
+	Invoice          *Invoice       `gorm:"-" json:"invoice,omitempty"`
+	Status           string         `gorm:"column:status;size:20;not null;default:pending" json:"status"` // pending/collected/failed/cancelled
+	AutoRenew        bool           `gorm:"column:auto_renew;not null;default:false" json:"auto_renew"`
+	SendNotification bool           `gorm:"column:send_notification;not null;default:true" json:"send_notification"`
+	Amount           float64        `gorm:"column:amount;type:decimal(15,2);default:0" json:"amount"`
+	Notes            string         `gorm:"column:notes;type:text" json:"notes"`
+	CollectedAt      *time.Time     `gorm:"column:collected_at" json:"collected_at"`
+	PaymentID        *uint          `gorm:"column:payment_id" json:"payment_id"`
+	Payment          *Payment       `gorm:"-" json:"payment,omitempty"`
+	CreatedBy        uint           `gorm:"column:created_by;not null" json:"created_by"`
+	CreatedAt        time.Time      `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt        time.Time      `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (CollectionAssignment) TableName() string {
+	return "collection_assignments"
+}

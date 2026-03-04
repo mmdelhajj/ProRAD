@@ -228,6 +228,7 @@ func main() {
 	diagnosticHandler := handlers.NewDiagnosticHandler()
 	sslHandler := handlers.NewSSLHandler()
 	tunnelHandler := handlers.NewTunnelHandler()
+	collectorHandler := handlers.NewCollectorHandler()
 
 	// API routes
 	api := app.Group("/api")
@@ -515,6 +516,23 @@ func main() {
 	cluster.Post("/promote-to-main", clusterHandler.PromoteToMain)
 	cluster.Post("/test-source-connection", clusterHandler.TestSourceConnection)
 	cluster.Post("/recover-from-server", clusterHandler.RecoverFromServer)
+
+	// Collector management routes (admin/reseller)
+	collectors := protected.Group("/collectors", middleware.AdminOrReseller())
+	collectors.Get("/", middleware.RequirePermission("collectors.view"), collectorHandler.ListCollectors)
+	collectors.Get("/report", middleware.RequirePermission("collectors.reports"), collectorHandler.CollectorReport)
+	collectors.Get("/:id", middleware.RequirePermission("collectors.view"), collectorHandler.GetCollector)
+	collectors.Get("/:id/assignments", middleware.RequirePermission("collectors.view"), collectorHandler.GetCollectorAssignments)
+	collectors.Post("/assignments", middleware.RequirePermission("collectors.create"), collectorHandler.CreateAssignment)
+	collectors.Delete("/assignments/:id", middleware.RequirePermission("collectors.create"), collectorHandler.DeleteAssignment)
+
+	// Collector self-service routes (collector only)
+	collector := protected.Group("/collector", middleware.CollectorOnly())
+	collector.Get("/dashboard", collectorHandler.MyDashboard)
+	collector.Get("/assignments", collectorHandler.MyAssignments)
+	collector.Get("/assignments/:id", collectorHandler.GetMyAssignment)
+	collector.Post("/assignments/:id/collect", collectorHandler.MarkCollected)
+	collector.Post("/assignments/:id/fail", collectorHandler.MarkFailed)
 
 	// User management routes
 	users := protected.Group("/users")
