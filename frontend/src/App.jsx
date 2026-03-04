@@ -52,9 +52,9 @@ function PageLoader() {
   )
 }
 
-// Admin/Reseller private route - redirects customers to portal
+// Admin/Reseller private route - redirects customers to portal, collectors to their page
 function PrivateRoute({ children }) {
-  const { isAuthenticated, isCustomer, refreshUser } = useAuthStore()
+  const { isAuthenticated, isCustomer, isCollector, refreshUser } = useAuthStore()
 
   // Refresh user data (including permissions) on mount and periodically
   useEffect(() => {
@@ -81,6 +81,15 @@ function PrivateRoute({ children }) {
     return <Navigate to="/portal" replace />
   }
 
+  return children
+}
+
+// Route that redirects collectors to their own page
+function DashboardRoute({ children }) {
+  const { isCollector } = useAuthStore()
+  if (isCollector()) {
+    return <Navigate to="/collector" replace />
+  }
   return children
 }
 
@@ -127,7 +136,7 @@ function App() {
             <Layout>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/" element={<DashboardRoute><Dashboard /></DashboardRoute>} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/subscribers" element={<PermissionRoute permission="subscribers.view"><Subscribers /></PermissionRoute>} />
                   <Route path="/subscribers/new" element={<PermissionRoute permission="subscribers.create"><SubscriberEdit /></PermissionRoute>} />
