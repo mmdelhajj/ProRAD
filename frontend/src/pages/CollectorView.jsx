@@ -3,9 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { collectionApi } from '../services/api'
 import {
   BanknotesIcon,
-  ClipboardDocumentCheckIcon,
-  ClockIcon,
-  CurrencyDollarIcon,
   CheckCircleIcon,
   XCircleIcon,
   MapPinIcon,
@@ -21,7 +18,6 @@ export default function CollectorView() {
   const [failModal, setFailModal] = useState(null)
   const queryClient = useQueryClient()
 
-  // Dashboard stats
   const { data: dashboardData } = useQuery({
     queryKey: ['collector-dashboard'],
     queryFn: () => collectionApi.dashboard(),
@@ -29,219 +25,218 @@ export default function CollectorView() {
     refetchInterval: 30000,
   })
 
-  // Assignments
   const { data: assignmentsData, isLoading } = useQuery({
     queryKey: ['my-assignments', statusFilter],
     queryFn: () => collectionApi.listAssignments({ status: statusFilter || undefined }),
     select: (res) => res.data?.data || [],
   })
 
-  const dashboard = dashboardData || {}
+  const d = dashboardData || {}
   const assignments = assignmentsData || []
 
-  const stats = [
-    { label: 'Pending', value: dashboard.pending_count || 0, icon: ClockIcon, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
-    { label: 'Today', value: dashboard.collected_today || 0, icon: ClipboardDocumentCheckIcon, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-    { label: 'Total Collected', value: dashboard.total_collected || 0, icon: CheckCircleIcon, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
-    { label: 'Total Amount', value: `$${(dashboard.total_amount || 0).toFixed(2)}`, icon: CurrencyDollarIcon, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  ]
-
   const filterTabs = [
-    { id: '', label: 'All' },
-    { id: 'pending', label: 'Pending' },
-    { id: 'collected', label: 'Collected' },
-    { id: 'failed', label: 'Failed' },
+    { id: '', label: 'All', count: null },
+    { id: 'pending', label: 'Pending', count: d.pending_count },
+    { id: 'collected', label: 'Collected', count: d.total_collected },
+    { id: 'failed', label: 'Failed', count: null },
   ]
 
   const openMap = (lat, lng) => {
     window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')
   }
 
+  const invalidate = () => {
+    queryClient.invalidateQueries(['my-assignments'])
+    queryClient.invalidateQueries(['collector-dashboard'])
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <BanknotesIcon className="h-7 w-7 text-green-600" />
+    <div className="space-y-3">
+      {/* Header + Stats inline */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <BanknotesIcon className="h-5 w-5 text-green-600" />
           My Collections
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View and manage your assigned collections</p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className={`${stat.bg} rounded-lg p-4`}>
-            <div className="flex items-center gap-3">
-              <stat.icon className={`h-8 w-8 ${stat.color}`} />
-              <div>
-                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</div>
-              </div>
-            </div>
+        <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-yellow-50 dark:bg-yellow-900/20">
+            <span className="font-bold text-yellow-700 dark:text-yellow-400">{d.pending_count || 0}</span>
+            <span className="text-yellow-600 dark:text-yellow-500 text-xs">Pending</span>
           </div>
-        ))}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/20">
+            <span className="font-bold text-blue-700 dark:text-blue-400">{d.collected_today || 0}</span>
+            <span className="text-blue-600 dark:text-blue-500 text-xs">Today</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 dark:bg-green-900/20">
+            <span className="font-bold text-green-700 dark:text-green-400">{d.total_collected || 0}</span>
+            <span className="text-green-600 dark:text-green-500 text-xs">Collected</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-900/20">
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">${(d.total_amount || 0).toFixed(0)}</span>
+            <span className="text-emerald-600 dark:text-emerald-500 text-xs">Total</span>
+          </div>
+        </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto">
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
         {filterTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setStatusFilter(tab.id)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
               statusFilter === tab.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             {tab.label}
+            {tab.count != null && tab.count > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-[10px]">{tab.count}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Assignment Cards (mobile-friendly) */}
+      {/* Assignments Table */}
       {isLoading ? (
-        <div className="text-center py-12 text-gray-400">Loading...</div>
+        <div className="text-center py-8 text-gray-400 text-sm">Loading...</div>
       ) : assignments.length === 0 ? (
-        <div className="text-center py-12">
-          <BanknotesIcon className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No assignments found</p>
+        <div className="text-center py-8">
+          <BanknotesIcon className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">No assignments found</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {assignments.map((a) => {
-            const sub = a.subscriber_info || a.subscriber || {}
-            const isPending = a.status === 'pending'
-            return (
-              <div
-                key={a.id}
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow border-l-4 p-4 space-y-3 ${
-                  a.status === 'pending' ? 'border-l-yellow-500' :
-                  a.status === 'collected' ? 'border-l-green-500' :
-                  a.status === 'failed' ? 'border-l-red-500' : 'border-l-gray-300'
-                }`}
-              >
-                {/* Subscriber info */}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
-                      {sub.full_name || 'Unknown'}
-                    </h3>
-                    {sub.phone && (
-                      <a href={`tel:${sub.phone}`} className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 mt-0.5">
-                        <PhoneIcon className="h-3.5 w-3.5" />
-                        {sub.phone}
-                      </a>
-                    )}
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    a.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                    a.status === 'collected' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                    a.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase">Subscriber</th>
+                <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">Address</th>
+                <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
+                <th className="px-3 py-2 text-center text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                <th className="px-3 py-2 text-center text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+              {assignments.map((a) => {
+                const sub = a.subscriber_info || a.subscriber || {}
+                const isPending = a.status === 'pending'
+                const hasMap = sub.latitude && sub.longitude && sub.latitude !== 0
+                return (
+                  <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 ${
+                    isPending ? '' : 'opacity-75'
                   }`}>
-                    {a.status}
-                  </span>
-                </div>
+                    {/* Subscriber */}
+                    <td className="px-3 py-2">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
+                        {sub.full_name || 'Unknown'}
+                      </div>
+                      {sub.phone && (
+                        <a href={`tel:${sub.phone}`} className="inline-flex items-center gap-0.5 text-xs text-blue-600 dark:text-blue-400">
+                          <PhoneIcon className="h-3 w-3" />
+                          {sub.phone}
+                        </a>
+                      )}
+                      {/* Address on mobile (hidden on sm+) */}
+                      <div className="sm:hidden text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">
+                        {[sub.building, sub.address, sub.region].filter(Boolean).join(', ')}
+                      </div>
+                    </td>
 
-                {/* Address */}
-                {(sub.address || sub.region || sub.building) && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {[sub.building, sub.address, sub.region].filter(Boolean).join(', ')}
-                  </div>
-                )}
+                    {/* Address - desktop */}
+                    <td className="px-3 py-2 hidden sm:table-cell">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 leading-tight max-w-[200px]">
+                        {[sub.building, sub.address, sub.region].filter(Boolean).join(', ') || '—'}
+                      </div>
+                      {a.invoice && (
+                        <div className="text-[10px] text-gray-400 mt-0.5">Inv #{a.invoice.invoice_number}</div>
+                      )}
+                    </td>
 
-                {/* Invoice / Amount */}
-                <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
-                  <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {a.invoice ? `Invoice #${a.invoice.invoice_number}` : 'Amount Due'}
-                    </div>
-                    <div className="text-xl font-bold text-gray-900 dark:text-white">
-                      ${(a.amount || 0).toFixed(2)}
-                    </div>
-                  </div>
-                  {a.auto_renew && (
-                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full">
-                      Auto-Renew
-                    </span>
-                  )}
-                </div>
+                    {/* Amount */}
+                    <td className="px-3 py-2 text-right">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">${(a.amount || 0).toFixed(2)}</div>
+                      {a.auto_renew && (
+                        <div className="text-[10px] text-blue-600 dark:text-blue-400">auto-renew</div>
+                      )}
+                    </td>
 
-                {/* Notes */}
-                {a.notes && (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    {a.notes}
-                  </div>
-                )}
+                    {/* Status */}
+                    <td className="px-3 py-2 text-center">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${
+                        a.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                        a.status === 'collected' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                        a.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {a.status}
+                      </span>
+                      {a.notes && a.status !== 'pending' && (
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 italic max-w-[80px] mx-auto truncate" title={a.notes}>
+                          {a.notes}
+                        </div>
+                      )}
+                      {a.collected_at && (
+                        <div className="text-[10px] text-gray-400 mt-0.5">
+                          {new Date(a.collected_at).toLocaleDateString()}
+                        </div>
+                      )}
+                    </td>
 
-                {/* Collected at */}
-                {a.collected_at && (
-                  <div className="text-xs text-gray-400">
-                    Collected: {new Date(a.collected_at).toLocaleString()}
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                <div className="flex gap-2 pt-1">
-                  {sub.latitude && sub.longitude && sub.latitude !== 0 && (
-                    <button
-                      onClick={() => openMap(sub.latitude, sub.longitude)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    >
-                      <MapPinIcon className="h-4 w-4" />
-                      Map
-                    </button>
-                  )}
-                  {isPending && (
-                    <>
-                      <button
-                        onClick={() => setCollectModal(a)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700"
-                      >
-                        <CheckCircleIcon className="h-4 w-4" />
-                        Collected
-                      </button>
-                      <button
-                        onClick={() => setFailModal(a)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                      >
-                        <XCircleIcon className="h-4 w-4" />
-                        Failed
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+                    {/* Actions */}
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-center gap-1">
+                        {hasMap && (
+                          <button
+                            onClick={() => openMap(sub.latitude, sub.longitude)}
+                            className="p-1 rounded text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                            title="Open Map"
+                          >
+                            <MapPinIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                        {isPending && (
+                          <>
+                            <button
+                              onClick={() => setCollectModal(a)}
+                              className="p-1 rounded text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
+                              title="Mark Collected"
+                            >
+                              <CheckCircleIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setFailModal(a)}
+                              className="p-1 rounded text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                              title="Mark Failed"
+                            >
+                              <XCircleIcon className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Mark Collected Modal */}
+      {/* Modals */}
       {collectModal && (
         <CollectModal
           assignment={collectModal}
           onClose={() => setCollectModal(null)}
-          onSuccess={() => {
-            setCollectModal(null)
-            queryClient.invalidateQueries(['my-assignments'])
-            queryClient.invalidateQueries(['collector-dashboard'])
-          }}
+          onSuccess={() => { setCollectModal(null); invalidate() }}
         />
       )}
-
-      {/* Mark Failed Modal */}
       {failModal && (
         <FailModal
           assignment={failModal}
           onClose={() => setFailModal(null)}
-          onSuccess={() => {
-            setFailModal(null)
-            queryClient.invalidateQueries(['my-assignments'])
-            queryClient.invalidateQueries(['collector-dashboard'])
-          }}
+          onSuccess={() => { setFailModal(null); invalidate() }}
         />
       )}
     </div>
@@ -255,73 +250,52 @@ function CollectModal({ assignment, onClose, onSuccess }) {
 
   const mutation = useMutation({
     mutationFn: (data) => collectionApi.markCollected(assignment.id, data),
-    onSuccess: () => {
-      toast.success('Payment collected successfully!')
-      onSuccess()
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to record collection'),
+    onSuccess: () => { toast.success('Payment collected!'); onSuccess() },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   })
+
+  const sub = assignment.subscriber_info || assignment.subscriber || {}
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <CheckCircleIcon className="h-5 w-5 text-green-600" />
-            Mark as Collected
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+            <CheckCircleIcon className="h-4 w-4 text-green-600" />
+            Collect Payment
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
         </div>
-
-        <div className="px-6 py-4 space-y-4">
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            Subscriber: <strong>{assignment.subscriber_info?.full_name || assignment.subscriber?.full_name || 'Unknown'}</strong>
+        <div className="px-4 py-3 space-y-3">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {sub.full_name} {sub.phone ? `· ${sub.phone}` : ''}
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount Collected</label>
-            <input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-              className="input w-full"
-            />
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Amount</label>
+            <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+              className="input w-full text-sm" />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reference (optional)</label>
-            <input
-              type="text"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              className="input w-full"
-              placeholder="Receipt number..."
-            />
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Reference</label>
+            <input type="text" value={reference} onChange={(e) => setReference(e.target.value)}
+              className="input w-full text-sm" placeholder="Receipt #" />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className="input w-full"
-              placeholder="Additional notes..."
-            />
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Notes</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              className="input w-full text-sm" placeholder="Optional notes..." />
           </div>
         </div>
-
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <button onClick={onClose} className="btn btn-secondary text-xs px-3 py-1.5">Cancel</button>
           <button
             onClick={() => mutation.mutate({ amount, notes, reference })}
             disabled={mutation.isLoading || amount <= 0}
-            className="btn btn-primary bg-green-600 hover:bg-green-700"
+            className="btn text-xs px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
           >
-            {mutation.isLoading ? 'Recording...' : 'Confirm Collection'}
+            {mutation.isLoading ? 'Saving...' : 'Confirm'}
           </button>
         </div>
       </div>
@@ -334,51 +308,42 @@ function FailModal({ assignment, onClose, onSuccess }) {
 
   const mutation = useMutation({
     mutationFn: (data) => collectionApi.markFailed(assignment.id, data),
-    onSuccess: () => {
-      toast.success('Assignment marked as failed')
-      onSuccess()
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update'),
+    onSuccess: () => { toast.success('Marked as failed'); onSuccess() },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   })
+
+  const sub = assignment.subscriber_info || assignment.subscriber || {}
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
-            Mark as Failed
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+            <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />
+            Mark Failed
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
         </div>
-
-        <div className="px-6 py-4 space-y-4">
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            Subscriber: <strong>{assignment.subscriber_info?.full_name || assignment.subscriber?.full_name || 'Unknown'}</strong>
+        <div className="px-4 py-3 space-y-3">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {sub.full_name} · ${(assignment.amount || 0).toFixed(2)}
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason / Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="input w-full"
-              placeholder="Why the collection failed..."
-            />
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Reason</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              className="input w-full text-sm" placeholder="Not at home, refused, etc." />
           </div>
         </div>
-
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <button onClick={onClose} className="btn btn-secondary text-xs px-3 py-1.5">Cancel</button>
           <button
             onClick={() => mutation.mutate({ notes })}
             disabled={mutation.isLoading}
-            className="btn bg-red-600 text-white hover:bg-red-700"
+            className="btn text-xs px-3 py-1.5 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
           >
-            {mutation.isLoading ? 'Updating...' : 'Mark Failed'}
+            {mutation.isLoading ? 'Saving...' : 'Mark Failed'}
           </button>
         </div>
       </div>
