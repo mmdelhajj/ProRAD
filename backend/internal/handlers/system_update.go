@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -590,8 +591,12 @@ func (h *SystemUpdateHandler) performUpdate(version string) {
 	os.Remove("/tmp/proisp-api-backup")
 	os.Remove("/tmp/proisp-radius-backup")
 
-	// Step 5: Update version file
-	h.setStatus("finalize", 80, "Finalizing update...")
+	// Step 6: Install cloudflared if not present (for Remote Access tunnel feature)
+	h.setStatus("dependencies", 82, "Checking dependencies...")
+	h.installCloudflaredIfMissing()
+
+	// Step 7: Update version file
+	h.setStatus("finalize", 85, "Finalizing update...")
 	os.WriteFile(filepath.Join(h.installDir, "VERSION"), []byte(version), 0644)
 
 	// Step 6: Report success to license server
@@ -632,6 +637,25 @@ func (h *SystemUpdateHandler) hasSSLConfigured(nginxConfPath string) bool {
 	}
 	return bytes.Contains(data, []byte("listen 443 ssl")) ||
 		bytes.Contains(data, []byte("ssl_certificate"))
+}
+
+// installCloudflaredIfMissing installs cloudflared on the host if not present (for Remote Access tunnel feature)
+func (h *SystemUpdateHandler) installCloudflaredIfMissing() {
+	// Check if cloudflared exists on host via nsenter
+	out, err := exec.Command("nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "which", "cloudflared").CombinedOutput()
+	if err == nil && strings.TrimSpace(string(out)) != "" {
+		log.Println("Update: cloudflared already installed on host")
+		return
+	}
+
+	log.Println("Update: Installing cloudflared on host for Remote Access tunnel feature...")
+	installCmd := `curl -fsSL --max-time 60 -o /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && chmod +x /usr/local/bin/cloudflared`
+	cmd := exec.Command("nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "bash", "-c", installCmd)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("Update: cloudflared install failed (optional - needed only for Remote Access): %v — %s", err, string(output))
+	} else {
+		log.Println("Update: cloudflared installed successfully on host")
+	}
 }
 
 func (h *SystemUpdateHandler) downloadFile(url, dest string) error {
