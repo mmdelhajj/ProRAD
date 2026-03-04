@@ -23,7 +23,7 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.351"
+VERSION="1.0.358"
 
 step_count=8
 current_step=0
@@ -391,6 +391,11 @@ if [ -d "frontend" ]; then
     fi
 fi
 
+# Create VERSION file (safety net in case package doesn't include one)
+if [ ! -f VERSION ]; then
+    echo "${DOWNLOAD_VERSION}" > VERSION
+fi
+
 show_ok "ProxPanel v${DOWNLOAD_VERSION} downloaded"
 
 # ============================================
@@ -426,49 +431,154 @@ fi
 cat > nginx.conf << 'NGINXEOF'
 server {
     listen 80;
+    server_name _;
     root /usr/share/nginx/html;
     index index.html;
-    client_max_body_size 100M;
 
+    # Allow large uploads (backups, cloud backup uploads)
+    client_max_body_size 600m;
+
+    # Hide nginx version
+    server_tokens off;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Gzip compression
     gzip on;
     gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
     gzip_min_length 1024;
-    gzip_types text/plain text/css text/xml text/javascript application/javascript application/json application/xml;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        application/x-javascript
+        image/svg+xml
+        font/woff
+        font/woff2;
 
-    location = /index.html {
-        add_header Cache-Control "no-store, no-cache, must-revalidate";
-        expires -1;
-    }
+    # Block sensitive files
+    location ~ /\. { deny all; }
+    location ~* \.(env|bak|backup|old|sql|log)$ { deny all; }
 
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api {
+    # Streaming API endpoints — no buffering for SSE / live results
+    location /api/settings/ssl-stream {
         proxy_pass http://proxpanel-api:8080;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        chunked_transfer_encoding on;
+    }
+
+    location /api/reseller/branding/ssl {
+        proxy_pass http://proxpanel-api:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        chunked_transfer_encoding on;
+    }
+
+    location /api/diagnostic/ping-stream {
+        proxy_pass http://proxpanel-api:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 120s;
+        chunked_transfer_encoding on;
+    }
+
+    # Local backup upload — large body, no buffering, long timeout
+    location = /api/backups/upload {
+        proxy_pass http://proxpanel-api:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 600m;
         proxy_connect_timeout 60s;
         proxy_send_timeout 300s;
         proxy_read_timeout 300s;
+        proxy_request_buffering off;
     }
 
-    location ^~ /uploads {
+    # Cloud backup upload — large body + long timeout
+    location ~ ^/api/backups/[^/]+/cloud-upload$ {
         proxy_pass http://proxpanel-api:8080;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 600m;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_request_buffering off;
     }
 
+    # Proxy API requests to backend
+    location /api/ {
+        proxy_pass http://proxpanel-api:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Serve uploaded files (logos, favicons, etc.)
+    location ^~ /uploads/ {
+        alias /usr/share/nginx/html/uploads/;
+    }
+
+    # Health check
     location /health {
-        return 200 "healthy\n";
-        add_header Content-Type text/plain;
+        proxy_pass http://proxpanel-api:8080;
+        proxy_http_version 1.1;
+    }
+
+    # index.html — NO CACHE (so updates are seen immediately)
+    location = /index.html {
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+        expires -1;
+    }
+
+    # SPA fallback — serve index.html for all routes
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+    }
+
+    # Cache static assets (JS/CSS have unique hashes, safe to cache long)
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
     }
 }
 NGINXEOF

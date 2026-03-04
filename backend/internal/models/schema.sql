@@ -1076,12 +1076,15 @@ CREATE TABLE IF NOT EXISTS cluster_nodes (
     server_role VARCHAR(20),
     server_name VARCHAR(100),
     server_ip VARCHAR(45),
+    version VARCHAR(20),
     status VARCHAR(20) DEFAULT 'offline',
     db_sync_status VARCHAR(20) DEFAULT 'offline',
     redis_sync_status VARCHAR(20) DEFAULT 'offline',
     db_replication_lag INTEGER DEFAULT 0,
     cpu_usage DECIMAL(5,2) DEFAULT 0,
     memory_usage DECIMAL(5,2) DEFAULT 0,
+    cpu_cores INTEGER DEFAULT 0,
+    ram_gb INTEGER DEFAULT 0,
     disk_usage DECIMAL(5,2) DEFAULT 0,
     last_heartbeat TIMESTAMP,
     last_sync_time TIMESTAMP,
@@ -1177,6 +1180,7 @@ DO $$ BEGIN
 END $$;
 
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS rebrand_enabled BOOLEAN DEFAULT false;
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS custom_domain VARCHAR(255);
 
 -- Reseller branding customization
 CREATE TABLE IF NOT EXISTS reseller_brandings (
@@ -1216,3 +1220,14 @@ INSERT INTO permissions (name, description) VALUES ('collector.collect', 'Collec
 INSERT INTO permissions (name, description) VALUES ('collectors.view', 'View collector list and assignments') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('collectors.create', 'Create collection assignments') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('collectors.reports', 'View collector performance reports') ON CONFLICT (name) DO NOTHING;
+
+-- Daily usage history (saves daily counters before reset for accurate past-day charts)
+CREATE TABLE IF NOT EXISTS daily_usage_history (
+    id BIGSERIAL PRIMARY KEY,
+    subscriber_id INTEGER NOT NULL,
+    date DATE NOT NULL,
+    download_bytes BIGINT DEFAULT 0,
+    upload_bytes BIGINT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(subscriber_id, date)
+);
