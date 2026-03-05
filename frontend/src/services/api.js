@@ -209,6 +209,9 @@ export const subscriberApi = {
   updateBandwidthRule: (id, ruleId, data) => api.put(`/subscribers/${id}/bandwidth-rules/${ruleId}`, data),
   deleteBandwidthRule: (id, ruleId) => api.delete(`/subscribers/${id}/bandwidth-rules/${ruleId}`),
   getCDNUpgrades: (id) => api.get(`/subscribers/${id}/cdn-upgrades`),
+  // WAN Management Check
+  wanCheckSkip: (id) => api.post(`/subscribers/${id}/wan-check-skip`),
+  wanCheckRecheck: (id) => api.post(`/subscribers/${id}/wan-check-recheck`),
 }
 
 export const serviceApi = {

@@ -419,6 +419,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
     auto_recharge BOOLEAN DEFAULT false,
     auto_recharge_days INTEGER DEFAULT 0,
     whatsapp_notifications BOOLEAN DEFAULT false,
+    wan_check_status VARCHAR(20) DEFAULT 'unchecked',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
@@ -1231,3 +1232,6 @@ CREATE TABLE IF NOT EXISTS daily_usage_history (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(subscriber_id, date)
 );
+
+-- WAN Management Check column (v1.0.352+)
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS wan_check_status VARCHAR(20) DEFAULT 'unchecked';

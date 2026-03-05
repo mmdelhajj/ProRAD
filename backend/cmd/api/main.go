@@ -342,6 +342,9 @@ func main() {
 	subscribers.Put("/:id/bandwidth-rules/:ruleId", middleware.RequirePermission("subscribers.edit"), subscriberHandler.UpdateBandwidthRule)
 	subscribers.Delete("/:id/bandwidth-rules/:ruleId", middleware.RequirePermission("subscribers.edit"), subscriberHandler.DeleteBandwidthRule)
 	subscribers.Get("/:id/cdn-upgrades", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetCDNUpgrades)
+	// WAN Management Check routes
+	subscribers.Post("/:id/wan-check-skip", middleware.AdminOnly(), subscriberHandler.SkipWanCheck)
+	subscribers.Post("/:id/wan-check-recheck", middleware.AdminOnly(), subscriberHandler.RecheckWan)
 
 	// Service routes
 	services := protected.Group("/services")

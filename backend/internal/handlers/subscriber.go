@@ -5129,3 +5129,65 @@ func (h *SubscriberHandler) BulkImportExcel(c *fiber.Ctx) error {
 		},
 	})
 }
+
+// SkipWanCheck marks a subscriber's WAN check as skipped (admin override).
+// If the subscriber was previously blocked, they need to reconnect to get
+// normal speed (CoA rate-limit is session-based, not radreply-based).
+func (h *SubscriberHandler) SkipWanCheck(c *fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "message": "Invalid subscriber ID"})
+	}
+
+	var sub models.Subscriber
+	if err := database.DB.First(&sub, id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "message": "Subscriber not found"})
+	}
+
+	if err := database.DB.Model(&sub).Update("wan_check_status", "skipped").Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "message": "Failed to update status"})
+	}
+
+	// If subscriber is online and was blocked, disconnect them so they
+	// reconnect with normal speed from radreply.
+	if sub.IsOnline && sub.WanCheckStatus == "failed" && sub.NasID != nil {
+		var nas models.Nas
+		if err := database.DB.First(&nas, *sub.NasID).Error; err == nil {
+			client := mikrotik.NewClient(
+				fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+				nas.APIUsername,
+				nas.APIPassword,
+			)
+			defer client.Close()
+			if err := client.DisconnectUser(sub.Username); err != nil {
+				log.Printf("WanCheck: Failed to disconnect %s after skip: %v", sub.Username, err)
+			} else {
+				log.Printf("WanCheck: Disconnected %s after skip (will reconnect with normal speed)", sub.Username)
+			}
+		}
+	}
+
+	log.Printf("WanCheck: Admin skipped WAN check for subscriber %s (ID=%d)", sub.Username, sub.ID)
+	return c.JSON(fiber.Map{"success": true, "message": "WAN check skipped"})
+}
+
+// RecheckWan resets a subscriber's WAN check status to 'unchecked' so
+// QuotaSync will re-check on the next cycle.
+func (h *SubscriberHandler) RecheckWan(c *fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "message": "Invalid subscriber ID"})
+	}
+
+	var sub models.Subscriber
+	if err := database.DB.First(&sub, id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "message": "Subscriber not found"})
+	}
+
+	if err := database.DB.Model(&sub).Update("wan_check_status", "unchecked").Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "message": "Failed to update status"})
+	}
+
+	log.Printf("WanCheck: Admin triggered re-check for subscriber %s (ID=%d)", sub.Username, sub.ID)
+	return c.JSON(fiber.Map{"success": true, "message": "WAN check will re-run on next cycle"})
+}

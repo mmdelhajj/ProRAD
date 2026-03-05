@@ -4170,6 +4170,85 @@ func (c *Client) Ping(ip string, count int, size int) (*PingResult, error) {
 	return result, nil
 }
 
+// CheckPort checks if a TCP port is open on a remote IP via MikroTik /tool/fetch.
+// Returns true if port is open (fetch gets a response or HTTP error), false if closed/timeout.
+func (c *Client) CheckPort(ip string, port int) (bool, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return false, err
+		}
+	}
+
+	// Set a short timeout for the check
+	c.conn.SetDeadline(time.Now().Add(8 * time.Second))
+
+	// Use /tool/fetch to check if port is open
+	url := fmt.Sprintf("http://%s:%d/", ip, port)
+	c.sendWord("/tool/fetch")
+	c.sendWord("=url=" + url)
+	c.sendWord("=mode=http")
+	c.sendWord("=keep-result=no")
+	c.sendWord("=duration=3s")
+	c.sendWord("")
+
+	// Read response - if we get any reply (even error), port is open
+	portOpen := false
+	for {
+		word, err := c.readWord()
+		if err != nil {
+			break
+		}
+
+		if word == "!done" {
+			// fetch completed - port was reachable
+			portOpen = true
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+			}
+			break
+		}
+
+		if word == "!re" {
+			// Got a response entry - port is open
+			portOpen = true
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+			}
+		}
+
+		if word == "!trap" {
+			// Error response - check if it's "connection refused" vs timeout
+			trapMsg := ""
+			for {
+				attr, err := c.readWord()
+				if err != nil || attr == "" {
+					break
+				}
+				if strings.HasPrefix(attr, "=message=") {
+					trapMsg = strings.TrimPrefix(attr, "=message=")
+				}
+			}
+			// "connection refused" or "reset" = port closed
+			// "400 Bad Request" or other HTTP errors = port OPEN (web server responded)
+			if strings.Contains(trapMsg, "connection refused") || strings.Contains(trapMsg, "connection timed out") {
+				portOpen = false
+			} else {
+				// Any other error (HTTP 401, 403, etc.) means port is open
+				portOpen = true
+			}
+			break
+		}
+	}
+
+	return portOpen, nil
+}
+
 // parseMikrotikTime parses MikroTik time formats into milliseconds
 // Formats: "301us", "94ms514us", "1s200ms", "5ms", "0ms", "1s", plain number "5"
 func parseMikrotikTime(timeStr string) float64 {

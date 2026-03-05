@@ -817,10 +817,12 @@ export default function Settings() {
       { key: 'max_sessions_per_user', label: 'Max Sessions Per User', type: 'number', placeholder: '1' },
       { key: 'accounting_interval', label: 'Accounting Interval (sec)', type: 'number', placeholder: '300' },
       { key: 'idle_timeout', label: 'Idle Timeout (sec)', type: 'number', placeholder: '600' },
-      { key: 'simultaneous_use', label: 'Allow Simultaneous Use', type: 'toggle' },
-      { key: 'mac_auth_enabled', label: 'MAC Authentication', type: 'toggle' },
+      { key: 'simultaneous_use', label: 'Allow Simultaneous Use', type: 'toggle', description: 'Allow subscribers to have multiple active PPPoE sessions at the same time. Each subscriber\'s session limit is set individually (default: 1).' },
+      { key: 'mac_auth_enabled', label: 'MAC Authentication', type: 'toggle', description: 'Bind subscribers to their MAC address. Prevents connecting from a different device without resetting MAC first.' },
       { key: 'block_on_daily_quota_exceeded', label: 'Block Internet on Daily Quota Exceeded', type: 'toggle', description: 'When enabled, users will lose internet completely when daily quota is exceeded. When disabled, users get reduced FUP speed.' },
       { key: 'block_on_monthly_quota_exceeded', label: 'Block Internet on Monthly Quota Exceeded', type: 'toggle', description: 'When enabled, users will lose internet completely when monthly quota is exceeded. When disabled, users get reduced FUP speed.' },
+      { key: 'wan_check_enabled', label: 'WAN Management Check', type: 'toggle', description: 'Block new subscribers until router ICMP (ping) and WAN management port are reachable. Existing subscribers are grandfathered.' },
+      { key: 'wan_check_port', label: 'WAN Management Port', type: 'number', placeholder: '8084', description: 'TCP port to check on subscriber router (e.g. 8084 for MikroTik WAN management).' },
     ],
     notifications: [], // Custom rendering below
     security: [

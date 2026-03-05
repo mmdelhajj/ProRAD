@@ -275,6 +275,12 @@ func (s *QuotaSyncService) syncAllQuotas() {
 	// This kicks dynamic users who got a static IP from the pool
 	s.detectAndResolveStaticIPConflicts()
 
+	// WAN Management Check: grandfather all currently-online subscribers
+	// who were connected before the feature was enabled (idempotent).
+	if isWanCheckEnabled() {
+		grandfatherExistingSubscribers()
+	}
+
 	// Get all online subscribers with their NAS and Service
 	var subscribers []models.Subscriber
 	if err := database.DB.Preload("Nas").Preload("Service").
@@ -547,11 +553,16 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 			)
 		}
 
+		// WAN Management Check (highest priority - before FUP)
+		freshSub.Service = sub.Service // Copy service from original (not preloaded in fresh)
+		if s.checkWanManagement(client, nas, &freshSub, session.Address, session.SessionID) {
+			continue // blocked by WAN check, skip all speed processing
+		}
+
 		// Check and enforce FUP (Fair Usage Policy)
 		// Use freshSub to get current FUP level (may have been reset)
 		newTotalDaily := newDailyDownload + newDailyUpload
 		newTotalMonthly := newMonthlyDownload + newMonthlyUpload
-		freshSub.Service = sub.Service // Copy service from original (not preloaded in fresh)
 		s.checkAndEnforceFUP(client, nas, &freshSub, session.Address, session.SessionID, newTotalDaily, newTotalMonthly)
 
 		// Fire quota_warning rules if monthly quota threshold reached (only when data was used this cycle)
@@ -1962,4 +1973,128 @@ func formatFUPQuota(bytes int64) string {
 		return fmt.Sprintf("%.2f MB", float64(bytes)/1024/1024)
 	}
 	return fmt.Sprintf("%d KB", bytes/1024)
+}
+
+// ============================================================
+// WAN Management Check — blocks new subscribers until router
+// has ICMP + management port enabled
+// ============================================================
+
+// isWanCheckEnabled reads the wan_check_enabled setting
+func isWanCheckEnabled() bool {
+	var pref models.SystemPreference
+	if err := database.DB.Where("key = ?", "wan_check_enabled").First(&pref).Error; err != nil {
+		return false
+	}
+	return pref.Value == "true" || pref.Value == "1"
+}
+
+// getWanCheckPort reads the wan_check_port setting (default 8084)
+func getWanCheckPort() int {
+	var pref models.SystemPreference
+	if err := database.DB.Where("key = ?", "wan_check_port").First(&pref).Error; err != nil {
+		return 8084
+	}
+	port, err := strconv.Atoi(pref.Value)
+	if err != nil || port <= 0 || port > 65535 {
+		return 8084
+	}
+	return port
+}
+
+// grandfatherExistingSubscribers marks all subscribers that still have
+// the default 'unchecked' status as 'ok' (one-time migration when feature
+// is first enabled). Only subscribers who are currently online get
+// grandfathered; newly connecting ones will be checked normally.
+func grandfatherExistingSubscribers() {
+	result := database.DB.Model(&models.Subscriber{}).
+		Where("wan_check_status = ? AND is_online = ?", "unchecked", true).
+		Update("wan_check_status", "ok")
+	if result.RowsAffected > 0 {
+		log.Printf("WanCheck: Grandfathered %d existing online subscribers as 'ok'", result.RowsAffected)
+	}
+}
+
+// checkWanManagement performs the WAN management check for a subscriber.
+// Returns true if the subscriber is BLOCKED (caller should skip FUP/speed).
+// Returns false if check passed or feature is disabled.
+func (s *QuotaSyncService) checkWanManagement(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) bool {
+	if !isWanCheckEnabled() {
+		return false
+	}
+
+	status := sub.WanCheckStatus
+
+	// Already passed or skipped — nothing to do
+	if status == "ok" || status == "skipped" {
+		return false
+	}
+
+	// First time the feature is enabled: grandfather all currently-online
+	// subscribers who haven't been checked yet.  We detect "first time" by
+	// looking at a lightweight flag cached in the service struct; to keep
+	// things simple we just grandfather on every cycle if we see unchecked
+	// online users.  The UPDATE is idempotent.
+	if status == "" || status == "unchecked" {
+		// The subscriber might have been online before the feature was enabled.
+		// Quick heuristic: if they were already online at the START of this sync
+		// cycle and have accumulated quota, they're existing — grandfather them.
+		if sub.DailyDownloadUsed > 0 || sub.MonthlyDownloadUsed > 0 {
+			database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).
+				Update("wan_check_status", "ok")
+			log.Printf("WanCheck: Grandfathered existing subscriber %s as 'ok' (has usage history)", sub.Username)
+			return false
+		}
+	}
+
+	// ----- Perform the actual check -----
+	port := getWanCheckPort()
+
+	// Step 1: Ping (3 packets)
+	pingResult, err := client.Ping(sessionIP, 3, 0)
+	if err != nil || pingResult == nil || pingResult.Received == 0 {
+		// Ping failed — block
+		s.applyWanBlock(client, nas, sub, sessionIP, sessionID, "ICMP unreachable")
+		return true
+	}
+
+	// Step 2: Check management port
+	portOpen, err := client.CheckPort(sessionIP, port)
+	if err != nil || !portOpen {
+		s.applyWanBlock(client, nas, sub, sessionIP, sessionID, fmt.Sprintf("port %d closed", port))
+		return true
+	}
+
+	// Both checks passed — mark as OK permanently
+	database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).
+		Update("wan_check_status", "ok")
+	log.Printf("WanCheck: %s PASSED (ping OK, port %d open) — marked as ok", sub.Username, port)
+
+	// If the subscriber was previously blocked (failed), restore normal speed
+	if status == "failed" {
+		s.restoreOriginalSpeedIfNeeded(client, nas, sub, sessionIP, sessionID)
+	}
+
+	return false
+}
+
+// applyWanBlock rate-limits a subscriber to 1k/1k and marks them as failed.
+func (s *QuotaSyncService) applyWanBlock(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID, reason string) {
+	// Only log on first failure or status change
+	if sub.WanCheckStatus != "failed" {
+		log.Printf("WanCheck: BLOCKING %s — %s (applying 1k/1k)", sub.Username, reason)
+	}
+
+	database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).
+		Update("wan_check_status", "failed")
+
+	// Apply 1k/1k via MikroTik API, fallback to CoA
+	blockRate := "1k/1k" // upload/download
+	if err := client.UpdateUserRateLimitWithIP(sub.Username, sessionIP, 1, 1); err != nil {
+		log.Printf("WanCheck: API rate-limit failed for %s: %v, trying CoA", sub.Username, err)
+		coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+		if err := coaClient.UpdateRateLimitViaRadclient(sub.Username, sessionID, blockRate); err != nil {
+			log.Printf("WanCheck: CoA also failed for %s: %v", sub.Username, err)
+		}
+	}
 }

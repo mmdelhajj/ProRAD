@@ -92,6 +92,9 @@ type Subscriber struct {
 	// Notifications
 	WhatsAppNotifications bool `gorm:"column:whatsapp_notifications;default:false" json:"whatsapp_notifications"`
 
+	// WAN Management Check
+	WanCheckStatus string `gorm:"column:wan_check_status;size:20;default:unchecked" json:"wan_check_status"`
+
 	// Timestamps
 	CreatedAt       time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"column:updated_at" json:"updated_at"`

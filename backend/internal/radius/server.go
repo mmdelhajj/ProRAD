@@ -758,6 +758,19 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 				updates["nas_id"] = *nasIDPtr
 			}
 			database.DB.Model(&models.Subscriber{}).Where("username = ?", username).Updates(updates)
+
+			// WAN Management Check: if enabled and subscriber is unchecked,
+			// log that QuotaSync will perform the check on the next cycle.
+			if getSettingBool("wan_check_enabled", false) {
+				var wanStatus string
+				database.DB.Model(&models.Subscriber{}).
+					Select("wan_check_status").
+					Where("username = ?", username).
+					Pluck("wan_check_status", &wanStatus)
+				if wanStatus == "" || wanStatus == "unchecked" {
+					log.Printf("WanCheck: New session for %s — will be checked on next QuotaSync cycle", username)
+				}
+			}
 		}(nasID)
 
 	case rfc2866.AcctStatusType_Value_Stop:

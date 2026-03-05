@@ -42,6 +42,7 @@ import {
   CheckIcon,
   SignalIcon,
   MapPinIcon,
+  ShieldExclamationIcon,
 } from '@heroicons/react/24/outline'
 // clsx not needed - WinBox design uses inline styles and design system classes
 import toast from 'react-hot-toast'
@@ -115,7 +116,7 @@ const formatBytes = (bytes) => {
 export default function Subscribers() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { hasPermission } = useAuthStore()
+  const { hasPermission, isAdmin } = useAuthStore()
   const fileInputRef = useRef(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(25)
@@ -520,6 +521,24 @@ export default function Subscribers() {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete'),
   })
 
+  const wanSkipMutation = useMutation({
+    mutationFn: (id) => subscriberApi.wanCheckSkip(id),
+    onSuccess: () => {
+      toast.success('WAN check skipped — subscriber will reconnect with normal speed')
+      queryClient.invalidateQueries(['subscribers'])
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to skip WAN check'),
+  })
+
+  const wanRecheckMutation = useMutation({
+    mutationFn: (id) => subscriberApi.wanCheckRecheck(id),
+    onSuccess: () => {
+      toast.success('WAN re-check queued — will run on next cycle')
+      queryClient.invalidateQueries(['subscribers'])
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to queue re-check'),
+  })
+
   // Execute action on selected subscribers
   const executeAction = (action) => {
     const ids = Array.from(selectedIds)
@@ -702,6 +721,12 @@ export default function Subscribers() {
             >
               {row.original.username}
             </Link>
+            {row.original.wan_check_status === 'failed' && (
+              <ShieldExclamationIcon style={{ width: 14, height: 14, color: '#EF4444', flexShrink: 0 }} title="WAN check failed — blocked" />
+            )}
+            {row.original.wan_check_status === 'unchecked' && row.original.is_online && (
+              <ShieldExclamationIcon style={{ width: 14, height: 14, color: '#F59E0B', flexShrink: 0 }} title="WAN check pending" />
+            )}
             {row.original.is_online && hasPermission('subscribers.torch') && (
               <button
                 onClick={(e) => {
@@ -1217,6 +1242,18 @@ export default function Subscribers() {
               <WifiIcon style={{ width: 14, height: 14, marginRight: 2 }} />
               <span className="hide-mobile">Ping</span>
             </button>
+          )}
+          {isAdmin() && selectedCount === 1 && selectedSubscribers[0]?.wan_check_status === 'failed' && (
+            <>
+              <button onClick={() => wanSkipMutation.mutate(selectedSubscribers[0].id)} className="btn btn-sm" title="Skip WAN Check" style={{ color: '#F59E0B' }}>
+                <ShieldExclamationIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+                <span className="hide-mobile">Skip WAN</span>
+              </button>
+              <button onClick={() => wanRecheckMutation.mutate(selectedSubscribers[0].id)} className="btn btn-sm" title="Re-check WAN">
+                <ArrowPathIcon style={{ width: 14, height: 14, marginRight: 2 }} />
+                <span className="hide-mobile">Re-check</span>
+              </button>
+            </>
           )}
 
           <span className="wb-toolbar-separator hide-mobile" />
