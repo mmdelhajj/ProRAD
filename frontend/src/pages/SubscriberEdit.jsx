@@ -18,7 +18,6 @@ import {
   CircleStackIcon,
   SignalIcon,
   MapPinIcon,
-  ServerIcon,
 } from '@heroicons/react/24/outline'
 import { InvoiceDetailModal } from './Invoices'
 import 'leaflet/dist/leaflet.css'
@@ -140,9 +139,6 @@ export default function SubscriberEdit() {
   const portRulePrevBytesRef = useRef({}) // { rule_id: previous_bytes }
   const [portRuleList, setPortRuleList] = useState([]) // List of port rules with their colors
   const [livePing, setLivePing] = useState({ ms: 0, ok: false }) // Live ping to subscriber
-  const [portCheckModal, setPortCheckModal] = useState(false)
-  const [portCheckPort, setPortCheckPort] = useState('80')
-  const [portCheckLoading, setPortCheckLoading] = useState(false)
   const pingDataRef = useRef(Array(30).fill(null)) // RTT history (null = timeout)
 
   const [formData, setFormData] = useState({
@@ -546,31 +542,6 @@ export default function SubscriberEdit() {
       clearInterval(intervalId)
     }
   }, [activeTab, subscriber?.is_online, isNew, id])
-
-  const handlePortCheck = async () => {
-    const port = parseInt(portCheckPort)
-    if (!port || port < 1 || port > 65535) {
-      toast.error('Port must be between 1 and 65535')
-      return
-    }
-    setPortCheckLoading(true)
-    try {
-      const res = await subscriberApi.portCheck(id, port)
-      const data = res.data.data
-      setPortCheckModal(false)
-      if (data.status === 'open') {
-        toast.success(`Port ${data.port} is OPEN on ${data.ip} (${data.response_time.toFixed(0)}ms)`)
-      } else if (data.status === 'closed') {
-        toast.error(`Port ${data.port} is CLOSED on ${data.ip}`)
-      } else {
-        toast(`Port ${data.port} is FILTERED on ${data.ip} (no response)`, { icon: '⚠️' })
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Port check failed')
-    } finally {
-      setPortCheckLoading(false)
-    }
-  }
 
   const saveMutation = useMutation({
     mutationFn: (data) =>
@@ -1847,16 +1818,6 @@ export default function SubscriberEdit() {
                       — ms
                     </div>
                   )}
-                  {hasPermission('subscribers.port_check') && (
-                    <button
-                      onClick={() => { setPortCheckModal(true); setPortCheckPort('80') }}
-                      className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 border border-[#a0a0a0] bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:bg-purple-900/50"
-                      title="Port Check"
-                    >
-                      <ServerIcon className="h-3 w-3" />
-                      Port Check
-                    </button>
-                  )}
                 </div>
               )}
             </div>
@@ -2187,47 +2148,6 @@ export default function SubscriberEdit() {
         </div>
       )}
 
-      {/* Port Check Modal */}
-      {portCheckModal && (
-        <div className="modal-overlay" onClick={() => setPortCheckModal(false)}>
-          <div className="modal" style={{ maxWidth: '340px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ background: 'linear-gradient(to bottom, #7B1FA2, #6A1B9A)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <ServerIcon style={{ width: 16, height: 16 }} />
-                <span>Port Check — {subscriber?.username}</span>
-              </div>
-              <button onClick={() => setPortCheckModal(false)} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
-                ×
-              </button>
-            </div>
-            <div className="modal-body">
-              <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
-                Check if a TCP port is open on {currentBandwidth.ipAddress || subscriber?.ip_address || subscriber?.static_ip || 'subscriber IP'}
-              </p>
-              <div>
-                <label className="label">Port Number</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="65535"
-                  value={portCheckPort}
-                  onChange={(e) => setPortCheckPort(e.target.value)}
-                  className="input w-full"
-                  placeholder="80"
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePortCheck() } }}
-                  autoFocus
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button onClick={() => setPortCheckModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
-              <button onClick={handlePortCheck} disabled={portCheckLoading} className="btn btn-primary btn-sm">
-                {portCheckLoading ? 'Checking...' : 'Check Port'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

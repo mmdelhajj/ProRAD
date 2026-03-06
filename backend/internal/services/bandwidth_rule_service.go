@@ -239,6 +239,11 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribers(rule *BandwidthRule, na
 			continue
 		}
 
+		// Skip users blocked by WAN Management Check — don't override their 1k/1k
+		if sub.WanCheckStatus == "failed" {
+			continue
+		}
+
 		// Skip if user already has a higher priority rule applied
 		s.mu.RLock()
 		if applied, exists := s.appliedToUsers[sub.Username]; exists {
@@ -476,6 +481,11 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribersCount(rule *BandwidthRul
 
 	for _, sub := range subscribers {
 		if sub.Service.ID == 0 {
+			continue
+		}
+
+		// Skip users blocked by WAN Management Check — don't override their 1k/1k
+		if sub.WanCheckStatus == "failed" {
 			continue
 		}
 

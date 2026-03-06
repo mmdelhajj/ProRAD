@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { subscriberApi, serviceApi, nasApi, resellerApi } from '../services/api'
+import { subscriberApi, serviceApi, nasApi, resellerApi, settingsApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { formatDate } from '../utils/timezone'
 import {
@@ -212,10 +212,6 @@ export default function Subscribers() {
   const [torchModal, setTorchModal] = useState(null)
   // Map modal state
   const [mapModal, setMapModal] = useState(null)
-  // Port check modal state
-  const [portCheckModal, setPortCheckModal] = useState(null)
-  const [portCheckPort, setPortCheckPort] = useState('80')
-  const [portCheckLoading, setPortCheckLoading] = useState(false)
   const [torchData, setTorchData] = useState(null)
   const [torchLoading, setTorchLoading] = useState(false)
   const [torchAutoRefresh, setTorchAutoRefresh] = useState(true)
@@ -252,6 +248,12 @@ export default function Subscribers() {
   const { data: resellers } = useQuery({
     queryKey: ['resellers-list'],
     queryFn: () => resellerApi.list().then((r) => r.data.data),
+  })
+
+  const { data: wanCheckPort } = useQuery({
+    queryKey: ['wan-check-port'],
+    queryFn: () => settingsApi.get('wan_check_port').then((r) => parseInt(r.data?.data?.value) || 8084),
+    staleTime: 5 * 60 * 1000,
   })
 
   // Get selected subscribers
@@ -481,31 +483,6 @@ export default function Subscribers() {
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to ping'),
   })
-
-  const handlePortCheck = async () => {
-    const port = parseInt(portCheckPort)
-    if (!port || port < 1 || port > 65535) {
-      toast.error('Port must be between 1 and 65535')
-      return
-    }
-    setPortCheckLoading(true)
-    try {
-      const res = await subscriberApi.portCheck(portCheckModal.id, port)
-      const data = res.data.data
-      setPortCheckModal(null)
-      if (data.status === 'open') {
-        toast.success(`Port ${data.port} is OPEN on ${data.ip} (${data.response_time.toFixed(0)}ms)`)
-      } else if (data.status === 'closed') {
-        toast.error(`Port ${data.port} is CLOSED on ${data.ip}`)
-      } else {
-        toast(`Port ${data.port} is FILTERED on ${data.ip} (no response)`, { icon: '⚠️' })
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Port check failed')
-    } finally {
-      setPortCheckLoading(false)
-    }
-  }
 
   const deleteMutation = useMutation({
     mutationFn: (id) => subscriberApi.delete(id),
@@ -763,6 +740,17 @@ export default function Subscribers() {
             >
               {row.original.username}
             </Link>
+            {row.original.port_open && row.original.is_online && (
+              <a
+                href={`http://${row.original.ip_address || row.original.static_ip}:${wanCheckPort || 8084}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title={`Open ${row.original.ip_address || row.original.static_ip}:${wanCheckPort || 8084}`}
+              >
+                <ServerIcon style={{ width: 14, height: 14, color: '#4CAF50', flexShrink: 0, cursor: 'pointer' }} />
+              </a>
+            )}
             {row.original.wan_check_status === 'failed' && (
               <ShieldExclamationIcon style={{ width: 14, height: 14, color: '#EF4444', flexShrink: 0 }} title="WAN check failed — blocked" />
             )}
@@ -781,19 +769,6 @@ export default function Subscribers() {
                 title="Live Traffic (Torch)"
               >
                 <SignalIcon style={{ width: 14, height: 14 }} />
-              </button>
-            )}
-            {row.original.is_online && hasPermission('subscribers.port_check') && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setPortCheckModal(row.original)
-                  setPortCheckPort('80')
-                }}
-                style={{ color: '#9C27B0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                title="Port Check"
-              >
-                <ServerIcon style={{ width: 14, height: 14 }} />
               </button>
             )}
             {row.original.latitude && row.original.longitude && parseFloat(row.original.latitude) !== 0 && (
@@ -2130,48 +2105,6 @@ export default function Subscribers() {
                 <MapPinIcon style={{ width: 12, height: 12, marginRight: 3 }} />
                 Navigate
               </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Port Check Modal */}
-      {portCheckModal && (
-        <div className="modal-overlay" onClick={() => setPortCheckModal(null)}>
-          <div className="modal" style={{ maxWidth: '340px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ background: 'linear-gradient(to bottom, #7B1FA2, #6A1B9A)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <ServerIcon style={{ width: 16, height: 16 }} />
-                <span>Port Check — {portCheckModal.username}</span>
-              </div>
-              <button onClick={() => setPortCheckModal(null)} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
-                <XMarkIcon style={{ width: 14, height: 14 }} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
-                Check if a TCP port is open on {portCheckModal.ip_address || portCheckModal.static_ip || 'subscriber IP'}
-              </p>
-              <div>
-                <label className="label">Port Number</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="65535"
-                  value={portCheckPort}
-                  onChange={(e) => setPortCheckPort(e.target.value)}
-                  className="input w-full"
-                  placeholder="80"
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePortCheck() } }}
-                  autoFocus
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button onClick={() => setPortCheckModal(null)} className="btn btn-secondary btn-sm">Cancel</button>
-              <button onClick={handlePortCheck} disabled={portCheckLoading} className="btn btn-primary btn-sm">
-                {portCheckLoading ? 'Checking...' : 'Check Port'}
-              </button>
             </div>
           </div>
         </div>

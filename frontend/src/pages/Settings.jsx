@@ -813,6 +813,7 @@ export default function Settings() {
     radius: [
       { key: 'daily_quota_reset_time', label: 'Daily Quota Reset Time', type: 'time', placeholder: '00:00' },
       { key: 'notification_send_time', label: 'Notification Send Time', type: 'time', placeholder: '08:00', description: 'Time to send expiry warning and expired notifications daily' },
+      { key: 'invoice_days_before_expiry', label: 'Invoice Days Before Expiry', type: 'number', placeholder: '7', description: 'Auto-generate invoices this many days before subscriber expiry (requires Auto Invoice enabled per subscriber)' },
       { key: 'default_session_timeout', label: 'Default Session Timeout (sec)', type: 'number', placeholder: '86400' },
       { key: 'max_sessions_per_user', label: 'Max Sessions Per User', type: 'number', placeholder: '1' },
       { key: 'accounting_interval', label: 'Accounting Interval (sec)', type: 'number', placeholder: '300' },

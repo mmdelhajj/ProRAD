@@ -86,19 +86,25 @@ type Subscriber struct {
 	SimultaneousSessions int        `gorm:"column:simultaneous_sessions;default:1" json:"simultaneous_sessions"`
 
 	// Auto-recharge
-	AutoRecharge    bool `gorm:"column:auto_recharge;default:false" json:"auto_recharge"`
-	AutoRechargeDays int `gorm:"column:auto_recharge_days;default:0" json:"auto_recharge_days"`
+	AutoRecharge     bool `gorm:"column:auto_recharge;default:false" json:"auto_recharge"`
+	AutoRechargeDays int  `gorm:"column:auto_recharge_days;default:0" json:"auto_recharge_days"`
+	AutoInvoice      bool `gorm:"column:auto_invoice;default:false" json:"auto_invoice"`
 
 	// Notifications
 	WhatsAppNotifications bool `gorm:"column:whatsapp_notifications;default:false" json:"whatsapp_notifications"`
 
 	// WAN Management Check
 	WanCheckStatus string `gorm:"column:wan_check_status;size:20;default:unchecked" json:"wan_check_status"`
+	PortOpen       bool   `gorm:"column:port_open;default:false" json:"port_open"`
+
+	// Deletion tracking
+	DeletedByID   *uint  `gorm:"column:deleted_by_id" json:"deleted_by_id"`
+	DeletedByName string `gorm:"column:deleted_by_name;size:100" json:"deleted_by_name"`
 
 	// Timestamps
 	CreatedAt       time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"column:updated_at" json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`
+	DeletedAt       gorm.DeletedAt `gorm:"column:deleted_at;index" json:"deleted_at"`
 }
 
 // Switch represents a network switch/location

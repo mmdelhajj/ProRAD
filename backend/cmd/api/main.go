@@ -147,6 +147,10 @@ func main() {
 	invoiceGenerationService := services.NewInvoiceGenerationService()
 	invoiceGenerationService.Start()
 
+	// Start port scan service (checks WAN port on online subscribers every 5 min)
+	portScanService := services.NewPortScanService()
+	portScanService.Start()
+
 	// Warmup subscriber cache for online users (improves RADIUS performance)
 	go database.WarmupSubscriberCache()
 

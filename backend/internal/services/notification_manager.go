@@ -208,6 +208,15 @@ func (m *NotificationManager) getDefaultEmailTemplate(notifType NotificationType
 <p>We have received your payment of <strong>{{amount}}</strong>.</p>
 <p>Thank you!</p>
 `,
+		NotifyInvoice: `
+<h2>Invoice {{invoice_number}}</h2>
+<p>Dear {{full_name}},</p>
+<p>A new invoice has been generated for your internet service.</p>
+<p><strong>Amount:</strong> {{amount}}<br>
+<strong>Due Date:</strong> {{expiry_date}}<br>
+<strong>Service:</strong> {{service_name}}</p>
+<p>Please make the payment before the due date to avoid service interruption.</p>
+`,
 	}
 
 	if template, ok := templates[notifType]; ok {
@@ -224,6 +233,7 @@ func (m *NotificationManager) getDefaultSMSTemplate(notifType NotificationType) 
 		NotifyRenewal:        "{{company_name}}: Your subscription renewed! New expiry: {{expiry_date}}",
 		NotifyQuotaLow:       "{{company_name}}: Low quota warning! Remaining: {{quota_remaining}}",
 		NotifyPaymentReceived: "{{company_name}}: Payment of {{amount}} received. Thank you!",
+		NotifyInvoice:         "{{company_name}}: Invoice {{invoice_number}} for {{amount}} due {{expiry_date}}. Please pay to avoid interruption.",
 	}
 
 	if template, ok := templates[notifType]; ok {
@@ -275,6 +285,16 @@ Your data quota is running low:
 Amount: *{{amount}}*
 
 Thank you for your payment!`,
+		NotifyInvoice: `📄 *Invoice {{invoice_number}}*
+
+Dear {{full_name}},
+
+A new invoice has been generated:
+• *Amount:* {{amount}}
+• *Due Date:* {{expiry_date}}
+• *Service:* {{service_name}}
+
+Please pay before the due date to avoid disconnection.`,
 	}
 
 	if template, ok := templates[notifType]; ok {

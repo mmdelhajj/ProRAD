@@ -443,6 +443,12 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		}
 	}
 
+	// WAN Management Check: all users start at 1k/1k until port check passes
+	if getSettingBool("wan_check_enabled", false) && subscriber.WanCheckStatus != "ok" && subscriber.WanCheckStatus != "skipped" {
+		rateLimit = "1k/1k"
+		log.Printf("WanCheck: Enforcing 1k/1k for %s (wan_check_status=%s, pending verification)", username, subscriber.WanCheckStatus)
+	}
+
 	if rateLimit != "" {
 		// Set as vendor-specific attribute (Mikrotik-Rate-Limit)
 		// Vendor ID: 14988, Attribute: 8

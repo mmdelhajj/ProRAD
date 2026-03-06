@@ -218,6 +218,7 @@ type QuotaSyncService struct {
 	stopChan              chan struct{}
 	wg                    sync.WaitGroup
 	timeBasedSpeedState   map[string]*TimeSpeedState // username -> time-based speed state
+	wanCheckCooldown      map[uint]time.Time         // subscriber ID -> last WAN check time
 	mu                    sync.RWMutex
 	syncMu                sync.Mutex // prevents concurrent syncAllQuotas runs
 }
@@ -228,6 +229,7 @@ func NewQuotaSyncService(interval time.Duration) *QuotaSyncService {
 		interval:            interval,
 		stopChan:            make(chan struct{}),
 		timeBasedSpeedState: make(map[string]*TimeSpeedState),
+		wanCheckCooldown:    make(map[uint]time.Time),
 	}
 }
 
@@ -275,11 +277,7 @@ func (s *QuotaSyncService) syncAllQuotas() {
 	// This kicks dynamic users who got a static IP from the pool
 	s.detectAndResolveStaticIPConflicts()
 
-	// WAN Management Check: grandfather all currently-online subscribers
-	// who were connected before the feature was enabled (idempotent).
-	if isWanCheckEnabled() {
-		grandfatherExistingSubscribers()
-	}
+	// WAN Management Check is handled per-subscriber in checkWanManagement()
 
 	// Get all online subscribers with their NAS and Service
 	var subscribers []models.Subscriber
@@ -324,11 +322,33 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 
 	now := getNow()
 
+	// Batch fetch ALL active sessions from MikroTik in ONE API call
+	allSessions, err := client.GetActiveSessionMap()
+	if err != nil {
+		log.Printf("QuotaSync: Failed to batch-fetch sessions from NAS %s: %v, falling back to individual queries", nas.Name, err)
+		allSessions = nil // will fall back to individual GetActiveSession calls
+	} else {
+		log.Printf("QuotaSync: Batch-fetched %d active sessions from NAS %s for %d DB subscribers", len(allSessions), nas.Name, len(subscribers))
+	}
+
 	for _, sub := range subscribers {
-		session, err := client.GetActiveSession(sub.Username)
-		if err != nil {
+		var session *mikrotik.ActiveSession
+
+		if allSessions != nil {
+			// Fast O(1) lookup from batch result
+			session = allSessions[sub.Username]
+		} else {
+			// Fallback: individual query (slow but safe)
+			var getErr error
+			session, getErr = client.GetActiveSession(sub.Username)
+			if getErr != nil {
+				session = nil
+			}
+		}
+
+		if session == nil {
 			// Session ended - mark user as offline and clear IP
-			log.Printf("QuotaSync: GetActiveSession failed for %s: %v - marking offline", sub.Username, err)
+			log.Printf("QuotaSync: No active session for %s on NAS %s - marking offline", sub.Username, nas.Name)
 			result := database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).Updates(map[string]interface{}{
 				"is_online":             false,
 				"ip_address":            nil, // Clear IP so it doesn't show as duplicate
@@ -2018,6 +2038,10 @@ func grandfatherExistingSubscribers() {
 // checkWanManagement performs the WAN management check for a subscriber.
 // Returns true if the subscriber is BLOCKED (caller should skip FUP/speed).
 // Returns false if check passed or feature is disabled.
+//
+// Logic: RADIUS starts ALL new users at 1k/1k. This function checks the port
+// and RESTORES full speed when it's open. No temp speed restore needed for
+// first check (user is already at 1k/1k from RADIUS).
 func (s *QuotaSyncService) checkWanManagement(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) bool {
 	if !isWanCheckEnabled() {
 		return false
@@ -2030,31 +2054,36 @@ func (s *QuotaSyncService) checkWanManagement(client *mikrotik.Client, nas *mode
 		return false
 	}
 
-	// First time the feature is enabled: grandfather all currently-online
-	// subscribers who haven't been checked yet.  We detect "first time" by
-	// looking at a lightweight flag cached in the service struct; to keep
-	// things simple we just grandfather on every cycle if we see unchecked
-	// online users.  The UPDATE is idempotent.
-	if status == "" || status == "unchecked" {
-		// The subscriber might have been online before the feature was enabled.
-		// Quick heuristic: if they were already online at the START of this sync
-		// cycle and have accumulated quota, they're existing — grandfather them.
-		if sub.DailyDownloadUsed > 0 || sub.MonthlyDownloadUsed > 0 {
-			database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).
-				Update("wan_check_status", "ok")
-			log.Printf("WanCheck: Grandfathered existing subscriber %s as 'ok' (has usage history)", sub.Username)
-			return false
+	// For already-failed users, re-check every 1 minute (not every 30s)
+	if status == "failed" {
+		if lastCheck, ok := s.wanCheckCooldown[sub.ID]; ok {
+			if time.Since(lastCheck) < 1*time.Minute {
+				return true // still blocked, skip re-check
+			}
 		}
 	}
 
 	// ----- Perform the actual check -----
 	port := getWanCheckPort()
 
+	// For failed users being re-checked: temporarily restore speed so
+	// /tool/fetch can get through the 1k/1k throttle to test the port.
+	// For "unchecked" users: RADIUS already set 1k/1k but /tool/fetch runs
+	// from MikroTik (not through the user's connection), so no restore needed.
+	if status == "failed" {
+		if sub.Service != nil {
+			tempRate := fmt.Sprintf("%dk/%dk", sub.Service.UploadSpeed, sub.Service.DownloadSpeed)
+			coaClient := radius.NewCOAClient(nas.IPAddress, nas.CoAPort, nas.Secret)
+			_ = coaClient.UpdateRateLimitViaRadclient(sub.Username, sessionID, tempRate)
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
 	// Step 1: Ping (3 packets)
 	pingResult, err := client.Ping(sessionIP, 3, 0)
 	if err != nil || pingResult == nil || pingResult.Received == 0 {
-		// Ping failed — block
 		s.applyWanBlock(client, nas, sub, sessionIP, sessionID, "ICMP unreachable")
+		s.wanCheckCooldown[sub.ID] = time.Now()
 		return true
 	}
 
@@ -2062,18 +2091,20 @@ func (s *QuotaSyncService) checkWanManagement(client *mikrotik.Client, nas *mode
 	portResult, err := client.PortCheck(sessionIP, port, 3)
 	if err != nil || !portResult.Open {
 		s.applyWanBlock(client, nas, sub, sessionIP, sessionID, fmt.Sprintf("port %d closed", port))
+		s.wanCheckCooldown[sub.ID] = time.Now()
 		return true
 	}
 
-	// Both checks passed — mark as OK permanently
+	// Both checks passed — mark as OK and set port_open for icon display
 	database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).
-		Update("wan_check_status", "ok")
-	log.Printf("WanCheck: %s PASSED (ping OK, port %d open) — marked as ok", sub.Username, port)
+		Updates(map[string]interface{}{"wan_check_status": "ok", "port_open": true})
+	log.Printf("WanCheck: %s PASSED (ping OK, port %d open) — restoring full speed", sub.Username, port)
 
-	// If the subscriber was previously blocked (failed), restore normal speed
-	if status == "failed" {
-		s.restoreOriginalSpeedIfNeeded(client, nas, sub, sessionIP, sessionID)
-	}
+	// Clean up cooldown entry
+	delete(s.wanCheckCooldown, sub.ID)
+
+	// Restore original speed (user was at 1k/1k from RADIUS or from previous block)
+	s.restoreOriginalSpeedIfNeeded(client, nas, sub, sessionIP, sessionID)
 
 	return false
 }
@@ -2086,7 +2117,7 @@ func (s *QuotaSyncService) applyWanBlock(client *mikrotik.Client, nas *models.Na
 	}
 
 	database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).
-		Update("wan_check_status", "failed")
+		Updates(map[string]interface{}{"wan_check_status": "failed", "port_open": false})
 
 	// Apply 1k/1k via MikroTik API, fallback to CoA
 	blockRate := "1k/1k" // upload/download

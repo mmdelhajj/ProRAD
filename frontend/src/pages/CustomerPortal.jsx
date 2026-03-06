@@ -53,6 +53,10 @@ export default function CustomerPortal() {
   const [showCreateTicket, setShowCreateTicket] = useState(false)
   const [ticketForm, setTicketForm] = useState({ subject: '', description: '', category: 'general' })
   const [replyText, setReplyText] = useState('')
+  const [invoices, setInvoices] = useState([])
+  const [viewInvoiceId, setViewInvoiceId] = useState(null)
+  const [viewInvoice, setViewInvoice] = useState(null)
+  const [viewLoading, setViewLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [loading, setLoading] = useState(true)
 
@@ -142,6 +146,36 @@ export default function CustomerPortal() {
     }
   }
 
+  const fetchInvoices = async () => {
+    try {
+      const res = await api.get('/customer/invoices')
+      if (res.data.success) {
+        setInvoices(res.data.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch invoices', err)
+    }
+  }
+
+  const openInvoice = async (invoiceId) => {
+    setViewInvoiceId(invoiceId)
+    setViewLoading(true)
+    try {
+      const res = await api.get(`/customer/invoices/${invoiceId}`)
+      if (res.data.success) {
+        setViewInvoice(res.data.data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch invoice', err)
+    }
+    setViewLoading(false)
+  }
+
+  const closeInvoice = () => {
+    setViewInvoiceId(null)
+    setViewInvoice(null)
+  }
+
   const handleCreateTicket = async (e) => {
     e.preventDefault()
     try {
@@ -175,6 +209,8 @@ export default function CustomerPortal() {
       fetchSessions()
     } else if (isCustomer && activeTab === 'usage') {
       fetchUsageHistory()
+    } else if (isCustomer && activeTab === 'invoices') {
+      fetchInvoices()
     } else if (isCustomer && activeTab === 'tickets') {
       fetchTickets()
     }
@@ -222,7 +258,7 @@ export default function CustomerPortal() {
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-3 mt-3">
         <div className="flex gap-0 border-b border-[#a0a0a0] dark:border-[#555]">
-          {['dashboard', 'sessions', 'usage', 'tickets'].map((tab) => (
+          {['dashboard', 'sessions', 'usage', 'invoices', 'tickets'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -516,6 +552,212 @@ export default function CustomerPortal() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'invoices' && !viewInvoiceId && (
+          <div className="space-y-3">
+            <div className="card p-3">
+              <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">My Invoices</h3>
+              {invoices.length === 0 ? (
+                <div className="text-center text-gray-500 dark:text-gray-400 py-8 text-[12px]">
+                  No invoices found
+                </div>
+              ) : (
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Invoice #</th>
+                        <th>Amount</th>
+                        <th>Paid</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                        <th>Type</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {invoices.map((inv) => (
+                        <tr key={inv.id}>
+                          <td className="text-[11px]">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '-'}</td>
+                          <td className="text-[11px] font-medium">{inv.invoice_number}</td>
+                          <td className="text-[11px] font-medium">${(inv.total || 0).toFixed(2)}</td>
+                          <td className="text-[11px]">${(inv.amount_paid || 0).toFixed(2)}</td>
+                          <td>
+                            <span className={`inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded ${
+                              inv.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
+                              inv.status === 'overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+                              'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                            }`}>
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="text-[11px]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '-'}</td>
+                          <td>
+                            <span className={`inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded ${
+                              inv.auto_generated
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {inv.auto_generated ? 'Auto' : 'Manual'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              onClick={() => openInvoice(inv.id)}
+                              className="inline-block px-2 py-0.5 text-[10px] font-medium rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'invoices' && viewInvoiceId && (
+          <div className="space-y-3">
+            <div className="card p-3">
+              <div className="flex items-center justify-between mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">
+                <button
+                  onClick={closeInvoice}
+                  className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  &larr; Back to Invoices
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="no-print inline-block px-2 py-0.5 text-[10px] font-medium rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  Print / Save PDF
+                </button>
+              </div>
+
+              {viewLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin h-5 w-5 border-2 border-[#316AC5] border-t-transparent" style={{ borderRadius: '50%' }}></div>
+                </div>
+              ) : !viewInvoice ? (
+                <div className="text-center text-gray-500 py-12 text-[12px]">Invoice not found</div>
+              ) : (
+                <div className="invoice-print-area bg-white text-black" style={{ padding: 24, fontSize: 12, fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                    <div>
+                      <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: '#1a1a1a' }}>INVOICE</h1>
+                      <p style={{ fontSize: 13, color: '#555', margin: '4px 0 0' }}>{viewInvoice.invoice_number}</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', ...(viewInvoice.status === 'completed' ? { background: '#dcfce7', color: '#166534' } : viewInvoice.status === 'failed' ? { background: '#fee2e2', color: '#991b1b' } : { background: '#fef9c3', color: '#854d0e' }) }}>
+                        {viewInvoice.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Dates */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                    <div>
+                      <div style={{ marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, color: '#888' }}>Created: </span>
+                        <span style={{ fontSize: 11 }}>{viewInvoice.created_at ? new Date(viewInvoice.created_at).toLocaleDateString() : '-'}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 10, color: '#888' }}>Due Date: </span>
+                        <span style={{ fontSize: 11, fontWeight: 600 }}>{viewInvoice.due_date ? new Date(viewInvoice.due_date).toLocaleDateString() : '-'}</span>
+                      </div>
+                      {viewInvoice.paid_date && (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ fontSize: 10, color: '#888' }}>Paid: </span>
+                          <span style={{ fontSize: 11, color: '#166534' }}>{new Date(viewInvoice.paid_date).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
+                    {viewInvoice.billing_period_start && viewInvoice.billing_period_end && (
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: 10, color: '#888' }}>Billing Period: </span>
+                        <span style={{ fontSize: 11 }}>{new Date(viewInvoice.billing_period_start).toLocaleDateString()} — {new Date(viewInvoice.billing_period_end).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Items Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 6px', fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Description</th>
+                        <th style={{ textAlign: 'center', padding: '8px 6px', fontSize: 10, color: '#888', textTransform: 'uppercase', width: 60 }}>Qty</th>
+                        <th style={{ textAlign: 'right', padding: '8px 6px', fontSize: 10, color: '#888', textTransform: 'uppercase', width: 90 }}>Unit Price</th>
+                        <th style={{ textAlign: 'right', padding: '8px 6px', fontSize: 10, color: '#888', textTransform: 'uppercase', width: 90 }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(viewInvoice.items || viewInvoice.Items || []).map((item, i) => (
+                        <tr key={item.id || i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '8px 6px', fontSize: 12 }}>{item.description}</td>
+                          <td style={{ padding: '8px 6px', fontSize: 12, textAlign: 'center' }}>{item.quantity}</td>
+                          <td style={{ padding: '8px 6px', fontSize: 12, textAlign: 'right' }}>${(item.unit_price || 0).toFixed(2)}</td>
+                          <td style={{ padding: '8px 6px', fontSize: 12, textAlign: 'right' }}>${(item.total || item.unit_price * item.quantity || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Summary */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ width: 220 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
+                        <span style={{ color: '#555' }}>Subtotal</span>
+                        <span>${(viewInvoice.sub_total || viewInvoice.SubTotal || 0).toFixed(2)}</span>
+                      </div>
+                      {(viewInvoice.tax || 0) > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
+                          <span style={{ color: '#555' }}>Tax</span>
+                          <span>${(viewInvoice.tax).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 14, fontWeight: 700, borderTop: '2px solid #1a1a1a', marginTop: 4 }}>
+                        <span>Total</span>
+                        <span>${(viewInvoice.total || 0).toFixed(2)}</span>
+                      </div>
+                      {(viewInvoice.amount_paid || 0) > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
+                          <span style={{ color: '#166534' }}>Amount Paid</span>
+                          <span style={{ color: '#166534' }}>-${(viewInvoice.amount_paid).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {(viewInvoice.total - (viewInvoice.amount_paid || 0)) > 0.01 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, fontWeight: 700, borderTop: '1px solid #e5e7eb' }}>
+                          <span style={{ color: '#991b1b' }}>Balance Due</span>
+                          <span style={{ color: '#991b1b' }}>${(viewInvoice.total - (viewInvoice.amount_paid || 0)).toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {viewInvoice.notes && (
+                    <div style={{ marginTop: 16, padding: '10px 12px', background: '#f9fafb', borderRadius: 4, border: '1px solid #e5e7eb' }}>
+                      <p style={{ fontSize: 10, color: '#888', textTransform: 'uppercase', margin: '0 0 4px' }}>Notes</p>
+                      <p style={{ fontSize: 11, color: '#333', margin: 0, whiteSpace: 'pre-wrap' }}>{viewInvoice.notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <style>{`
+              @media print {
+                body * { visibility: hidden !important; }
+                .invoice-print-area, .invoice-print-area * { visibility: visible !important; }
+                .invoice-print-area { position: fixed; left: 0; top: 0; width: 100%; background: white !important; padding: 40px !important; z-index: 99999; }
+                .no-print { display: none !important; }
+              }
+            `}</style>
           </div>
         )}
 

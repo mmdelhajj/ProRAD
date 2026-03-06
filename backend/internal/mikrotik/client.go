@@ -614,6 +614,61 @@ type ActiveSession struct {
 	TxRate     int64  `json:"tx_rate"`  // Current tx rate in bytes/sec
 }
 
+// GetActiveSessionMap fetches ALL active PPP sessions from MikroTik in a single API call.
+// Returns a map of username -> *ActiveSession for O(1) lookup.
+// This is much faster than calling GetActiveSession per-user when processing many subscribers.
+func (c *Client) GetActiveSessionMap() (map[string]*ActiveSession, error) {
+	if c.conn == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	c.conn.SetDeadline(time.Now().Add(c.timeout * 3)) // longer timeout for bulk fetch
+
+	c.sendWord("/ppp/active/print")
+	c.sendWord("")
+
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all sessions: %v", err)
+	}
+
+	sessions := make(map[string]*ActiveSession)
+	var current *ActiveSession
+
+	for _, word := range response {
+		if word == "!re" {
+			if current != nil && current.Name != "" {
+				sessions[current.Name] = current
+			}
+			current = &ActiveSession{}
+		} else if current != nil {
+			if strings.HasPrefix(word, "=.id=") {
+				current.ID = strings.TrimPrefix(word, "=.id=")
+			} else if strings.HasPrefix(word, "=name=") {
+				current.Name = strings.TrimPrefix(word, "=name=")
+			} else if strings.HasPrefix(word, "=service=") {
+				current.Service = strings.TrimPrefix(word, "=service=")
+			} else if strings.HasPrefix(word, "=caller-id=") {
+				current.CallerID = strings.TrimPrefix(word, "=caller-id=")
+			} else if strings.HasPrefix(word, "=address=") {
+				current.Address = strings.TrimPrefix(word, "=address=")
+			} else if strings.HasPrefix(word, "=uptime=") {
+				current.Uptime = strings.TrimPrefix(word, "=uptime=")
+			} else if strings.HasPrefix(word, "=session-id=") {
+				current.SessionID = strings.TrimPrefix(word, "=session-id=")
+			}
+		}
+	}
+	// Don't forget the last session
+	if current != nil && current.Name != "" {
+		sessions[current.Name] = current
+	}
+
+	log.Printf("MikroTik: Fetched %d active PPP sessions in bulk", len(sessions))
+	return sessions, nil
+}
+
 // GetActiveSession gets bandwidth info for an active PPPoE session
 func (c *Client) GetActiveSession(username string) (*ActiveSession, error) {
 	if c.conn == nil {
@@ -970,12 +1025,15 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 
 	// Find the main PPPoE queue (matches target but has NO dst - not a CDN queue)
 	// Also try matching with -1, -2, -3 suffixes for dynamic PPPoE queues
+	// AND with @domain suffixes (e.g. <pppoe-user@domain.com>)
 	interfaceTargets := []string{
 		interfaceTarget,                              // <pppoe-username>
 		"<pppoe-" + username + "-1>",                 // <pppoe-username-1>
 		"<pppoe-" + username + "-2>",                 // <pppoe-username-2>
 		"<pppoe-" + username + "-3>",                 // <pppoe-username-3>
 	}
+	// Prefix for domain-suffix matching: <pppoe-username@
+	domainPrefix := "<pppoe-" + username + "@"
 	for _, q := range queues {
 		// Skip CDN queues (they have dst set)
 		if q.dst != "" {
@@ -987,6 +1045,13 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 				queueID = q.id
 				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s", q.id, q.name, q.target, username)
 				break
+			}
+		}
+		// Match by domain suffix: <pppoe-username@domain>
+		if queueID == "" {
+			if strings.HasPrefix(q.name, domainPrefix) || strings.HasPrefix(q.target, domainPrefix) {
+				queueID = q.id
+				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s via domain prefix", q.id, q.name, q.target, username)
 			}
 		}
 		// Also match by IP target
@@ -4212,7 +4277,12 @@ func (c *Client) PortCheck(ip string, port int, timeoutSec int) (*PortCheckResul
 	c.sendWord(fmt.Sprintf("=duration=%ds", timeoutSec))
 	c.sendWord("")
 
-	// Read response
+	// Read response — parse !re status attributes to determine if port is actually open.
+	// MikroTik /tool/fetch sends !re progress updates (status=connecting, status=finished, etc.)
+	// We must check the status value, not just assume !re means port is open.
+	fetchStatus := ""     // last seen =status= value from !re
+	fetchDownloaded := "" // =downloaded= value
+	gotTrap := false
 	for {
 		word, err := c.readWord()
 		if err != nil {
@@ -4222,10 +4292,23 @@ func (c *Client) PortCheck(ip string, port int, timeoutSec int) (*PortCheckResul
 		}
 
 		if word == "!done" {
-			// fetch completed successfully - port is open
-			result.Open = true
-			result.Status = "open"
 			result.ResponseTime = float64(time.Since(startTime).Milliseconds())
+			if !gotTrap {
+				// Determine result from fetch status
+				statusLower := strings.ToLower(fetchStatus)
+				if statusLower == "finished" || statusLower == "done" {
+					// Fetch completed successfully — port is open
+					result.Open = true
+					result.Status = "open"
+				} else if fetchDownloaded != "" && fetchDownloaded != "0" {
+					// Got actual data — port is open
+					result.Open = true
+					result.Status = "open"
+				} else {
+					// Status still "connecting" or empty when duration expired — port not reachable
+					result.Status = "filtered"
+				}
+			}
 			for {
 				attr, err := c.readWord()
 				if err != nil || attr == "" {
@@ -4236,19 +4319,23 @@ func (c *Client) PortCheck(ip string, port int, timeoutSec int) (*PortCheckResul
 		}
 
 		if word == "!re" {
-			// Got a response entry - port is open
-			result.Open = true
-			result.Status = "open"
-			result.ResponseTime = float64(time.Since(startTime).Milliseconds())
+			// Parse attributes from progress reply
 			for {
 				attr, err := c.readWord()
 				if err != nil || attr == "" {
 					break
 				}
+				if strings.HasPrefix(attr, "=status=") {
+					fetchStatus = strings.TrimPrefix(attr, "=status=")
+				}
+				if strings.HasPrefix(attr, "=downloaded=") {
+					fetchDownloaded = strings.TrimPrefix(attr, "=downloaded=")
+				}
 			}
 		}
 
 		if word == "!trap" {
+			gotTrap = true
 			trapMsg := ""
 			for {
 				attr, err := c.readWord()
@@ -4261,16 +4348,18 @@ func (c *Client) PortCheck(ip string, port int, timeoutSec int) (*PortCheckResul
 			}
 			result.ResponseTime = float64(time.Since(startTime).Milliseconds())
 
-			if strings.Contains(trapMsg, "connection refused") || strings.Contains(trapMsg, "reset") {
+			trapLower := strings.ToLower(trapMsg)
+			if strings.Contains(trapLower, "connection refused") || strings.Contains(trapLower, "reset") {
 				result.Status = "closed"
 				result.Error = trapMsg
-			} else if strings.Contains(trapMsg, "connection timed out") || strings.Contains(trapMsg, "timeout") {
+			} else if strings.Contains(trapLower, "connection timed out") || strings.Contains(trapLower, "timeout") {
 				result.Status = "filtered"
 				result.Error = trapMsg
 			} else {
 				// Any other error (HTTP 400, 401, 403, etc.) means TCP connected = port open
 				result.Open = true
 				result.Status = "open"
+				result.Error = trapMsg
 			}
 			break
 		}

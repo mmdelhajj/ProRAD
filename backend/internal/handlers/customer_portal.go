@@ -763,3 +763,67 @@ func (h *CustomerPortalHandler) ReplyTicket(c *fiber.Ctx) error {
 		},
 	})
 }
+
+// Invoices returns invoices for the logged-in customer
+func (h *CustomerPortalHandler) Invoices(c *fiber.Ctx) error {
+	username := c.Locals("customer_username").(string)
+
+	var subscriber models.Subscriber
+	if err := database.DB.Where("username = ?", username).First(&subscriber).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Subscriber not found",
+		})
+	}
+
+	var invoices []models.Invoice
+	database.DB.Where("subscriber_id = ?", subscriber.ID).
+		Order("created_at DESC").
+		Find(&invoices)
+
+	// Load items manually (gorm:"-" prevents Preload)
+	for i := range invoices {
+		var items []models.InvoiceItem
+		database.DB.Where("invoice_id = ?", invoices[i].ID).Find(&items)
+		invoices[i].Items = items
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    invoices,
+	})
+}
+
+// GetInvoice returns a single invoice for the logged-in customer
+func (h *CustomerPortalHandler) GetInvoice(c *fiber.Ctx) error {
+	username := c.Locals("customer_username").(string)
+	invoiceID := c.Params("id")
+
+	var subscriber models.Subscriber
+	if err := database.DB.Where("username = ?", username).First(&subscriber).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Subscriber not found",
+		})
+	}
+
+	var invoice models.Invoice
+	if err := database.DB.Where("id = ? AND subscriber_id = ?", invoiceID, subscriber.ID).
+		First(&invoice).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Invoice not found",
+		})
+	}
+
+	// Load items and subscriber manually
+	var items []models.InvoiceItem
+	database.DB.Where("invoice_id = ?", invoice.ID).Find(&items)
+	invoice.Items = items
+	invoice.Subscriber = subscriber
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    invoice,
+	})
+}
