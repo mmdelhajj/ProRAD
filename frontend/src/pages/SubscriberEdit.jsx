@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { subscriberApi, serviceApi, nasApi, resellerApi, cdnApi } from '../services/api'
+import api, { subscriberApi, serviceApi, nasApi, resellerApi, cdnApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { formatDateTime } from '../utils/timezone'
 import toast from 'react-hot-toast'
@@ -18,7 +18,9 @@ import {
   CircleStackIcon,
   SignalIcon,
   MapPinIcon,
+  ServerIcon,
 } from '@heroicons/react/24/outline'
+import { InvoiceDetailModal } from './Invoices'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
@@ -109,6 +111,7 @@ export default function SubscriberEdit() {
   }
 
   const [activeTab, setActiveTab] = useState(getInitialTab)
+  const [viewInvoiceId, setViewInvoiceId] = useState(null)
 
   // Save tab to localStorage when it changes
   const handleTabChange = (tabId) => {
@@ -137,6 +140,9 @@ export default function SubscriberEdit() {
   const portRulePrevBytesRef = useRef({}) // { rule_id: previous_bytes }
   const [portRuleList, setPortRuleList] = useState([]) // List of port rules with their colors
   const [livePing, setLivePing] = useState({ ms: 0, ok: false }) // Live ping to subscriber
+  const [portCheckModal, setPortCheckModal] = useState(false)
+  const [portCheckPort, setPortCheckPort] = useState('80')
+  const [portCheckLoading, setPortCheckLoading] = useState(false)
   const pingDataRef = useRef(Array(30).fill(null)) // RTT history (null = timeout)
 
   const [formData, setFormData] = useState({
@@ -155,6 +161,7 @@ export default function SubscriberEdit() {
     reseller_id: '',
     status: 1,
     auto_renew: false,
+    auto_invoice: false,
     mac_address: '',
     save_mac: true,
     static_ip: '',
@@ -206,6 +213,14 @@ export default function SubscriberEdit() {
     enabled: !isNew && !!id,
   })
   const bandwidthRules = bandwidthRulesResponse?.data || []
+
+  // Invoices for this subscriber
+  const { data: invoicesResponse, refetch: refetchInvoices } = useQuery({
+    queryKey: ['subscriber-invoices', id],
+    queryFn: () => api.get(`/invoices?subscriber_id=${id}&limit=50`).then((r) => r.data),
+    enabled: !isNew && !!id && activeTab === 'invoices',
+  })
+  const subscriberInvoices = invoicesResponse?.data || []
 
   // CDN upgrades
   const { data: cdnUpgradesResponse } = useQuery({
@@ -343,6 +358,7 @@ export default function SubscriberEdit() {
         reseller_id: subscriber.reseller_id || '',
         status: subscriber.status ?? 1,
         auto_renew: subscriber.auto_renew ?? false,
+        auto_invoice: subscriber.auto_invoice ?? false,
         mac_address: subscriber.mac_address || '',
         save_mac: subscriber.save_mac ?? false,
         static_ip: subscriber.static_ip || '',
@@ -530,6 +546,31 @@ export default function SubscriberEdit() {
       clearInterval(intervalId)
     }
   }, [activeTab, subscriber?.is_online, isNew, id])
+
+  const handlePortCheck = async () => {
+    const port = parseInt(portCheckPort)
+    if (!port || port < 1 || port > 65535) {
+      toast.error('Port must be between 1 and 65535')
+      return
+    }
+    setPortCheckLoading(true)
+    try {
+      const res = await subscriberApi.portCheck(id, port)
+      const data = res.data.data
+      setPortCheckModal(false)
+      if (data.status === 'open') {
+        toast.success(`Port ${data.port} is OPEN on ${data.ip} (${data.response_time.toFixed(0)}ms)`)
+      } else if (data.status === 'closed') {
+        toast.error(`Port ${data.port} is CLOSED on ${data.ip}`)
+      } else {
+        toast(`Port ${data.port} is FILTERED on ${data.ip} (no response)`, { icon: '⚠️' })
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Port check failed')
+    } finally {
+      setPortCheckLoading(false)
+    }
+  }
 
   const saveMutation = useMutation({
     mutationFn: (data) =>
@@ -1371,6 +1412,16 @@ export default function SubscriberEdit() {
                   />
                   <span>Auto Renew</span>
                 </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    name="auto_invoice"
+                    checked={formData.auto_invoice}
+                    onChange={handleChange}
+                    className="border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span>Auto Generate Invoice</span>
+                </label>
                 <div>
                   <label className="label">Notes</label>
                   <textarea
@@ -1447,9 +1498,18 @@ export default function SubscriberEdit() {
                           (err) => {
                             setGettingLocation(false)
                             if (err.code === 1) {
-                              alert('Location blocked by Safari.\n\nSafari stores a separate permission per website. To reset it:\n\n1. Open iPhone Settings\n2. Go to Safari → Advanced → Website Data\n3. Find this website and swipe to delete it\n4. Reload the page — Safari will ask permission again\n5. Tap "Allow"\n\nAlternatively:\nSettings → Privacy & Security → Location Services → Safari Websites → set to "While Using"')
+                              const ua = navigator.userAgent || ''
+                              const isIOS = /iPhone|iPad|iPod/i.test(ua)
+                              const isAndroid = /Android/i.test(ua)
+                              if (isIOS) {
+                                alert('Location blocked by Safari.\n\nTo enable location:\n\n1. Open iPhone Settings\n2. Go to Safari → Advanced → Website Data\n3. Find this website and swipe to delete it\n4. Reload the page — Safari will ask permission again\n5. Tap "Allow"\n\nAlternatively:\nSettings → Privacy & Security → Location Services → Safari Websites → set to "While Using"')
+                              } else if (isAndroid) {
+                                alert('Location permission denied.\n\nTo enable location on Android:\n\n1. Tap the lock/tune icon in the browser address bar\n2. Tap "Permissions" or "Site settings"\n3. Set Location to "Allow"\n4. Reload the page\n\nOr in Android Settings:\nSettings → Apps → Chrome (or your browser) → Permissions → Location → Allow')
+                              } else {
+                                alert('Location permission denied.\n\nPlease allow location access in your browser settings and try again.')
+                              }
                             } else if (err.code === 2) {
-                              alert('GPS unavailable. Make sure Location Services is ON in Settings → Privacy & Security → Location Services.')
+                              alert('GPS unavailable. Make sure Location Services is ON in your device settings.')
                             } else {
                               alert('Location timed out. Make sure GPS is enabled and try again.')
                             }
@@ -1787,6 +1847,16 @@ export default function SubscriberEdit() {
                       — ms
                     </div>
                   )}
+                  {hasPermission('subscribers.port_check') && (
+                    <button
+                      onClick={() => { setPortCheckModal(true); setPortCheckPort('80') }}
+                      className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 border border-[#a0a0a0] bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:bg-purple-900/50"
+                      title="Port Check"
+                    >
+                      <ServerIcon className="h-3 w-3" />
+                      Port Check
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1818,19 +1888,62 @@ export default function SubscriberEdit() {
                   <th>Date</th>
                   <th>Invoice #</th>
                   <th>Amount</th>
+                  <th>Paid</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th>Due Date</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                <tr>
-                  <td colSpan={5} className="text-center text-gray-500 py-8">
-                    No invoices found
-                  </td>
-                </tr>
+                {subscriberInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center text-gray-500 py-8">
+                      No invoices found
+                    </td>
+                  </tr>
+                ) : (
+                  subscriberInvoices.map((inv) => (
+                    <tr key={inv.id}>
+                      <td className="text-[11px]">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '-'}</td>
+                      <td className="text-[11px] font-medium">
+                        {inv.invoice_number}
+                        {inv.auto_generated && (
+                          <span className="ml-1 px-1.5 py-0.5 text-[9px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded">Auto</span>
+                        )}
+                      </td>
+                      <td className="text-[11px] font-medium">${(inv.total || 0).toFixed(2)}</td>
+                      <td className="text-[11px]">${(inv.amount_paid || 0).toFixed(2)}</td>
+                      <td>
+                        <span className={`badge ${
+                          inv.status === 'completed' ? 'badge-success' :
+                          inv.status === 'overdue' ? 'badge-danger' :
+                          'badge-warning'
+                        }`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="text-[11px]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '-'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          onClick={() => setViewInvoiceId(inv.id)}
+                          className="btn btn-xs"
+                          title="View Invoice"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+          {viewInvoiceId && (
+            <InvoiceDetailModal
+              invoiceId={viewInvoiceId}
+              onClose={() => setViewInvoiceId(null)}
+            />
+          )}
         </div>
       )}
 
@@ -2068,6 +2181,48 @@ export default function SubscriberEdit() {
                 className="btn btn-primary"
               >
                 {saveBandwidthRuleMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Port Check Modal */}
+      {portCheckModal && (
+        <div className="modal-overlay" onClick={() => setPortCheckModal(false)}>
+          <div className="modal" style={{ maxWidth: '340px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(to bottom, #7B1FA2, #6A1B9A)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ServerIcon style={{ width: 16, height: 16 }} />
+                <span>Port Check — {subscriber?.username}</span>
+              </div>
+              <button onClick={() => setPortCheckModal(false)} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
+                Check if a TCP port is open on {currentBandwidth.ipAddress || subscriber?.ip_address || subscriber?.static_ip || 'subscriber IP'}
+              </p>
+              <div>
+                <label className="label">Port Number</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="65535"
+                  value={portCheckPort}
+                  onChange={(e) => setPortCheckPort(e.target.value)}
+                  className="input w-full"
+                  placeholder="80"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePortCheck() } }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setPortCheckModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
+              <button onClick={handlePortCheck} disabled={portCheckLoading} className="btn btn-primary btn-sm">
+                {portCheckLoading ? 'Checking...' : 'Check Port'}
               </button>
             </div>
           </div>

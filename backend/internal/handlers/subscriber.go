@@ -1116,7 +1116,7 @@ func (h *SubscriberHandler) Update(c *fiber.Ctx) error {
 		"nationality", "country", "note", "service_id", "switch_id", "nas_id",
 		"latitude", "longitude", "save_mac", "auto_recharge", "auto_recharge_days",
 		"status", "static_ip", "simultaneous_sessions", "expiry_date",
-		"auto_renew", "reseller_id",
+		"auto_renew", "auto_invoice", "reseller_id",
 		"price", "override_price",
 	}
 
@@ -1389,8 +1389,14 @@ func (h *SubscriberHandler) Delete(c *fiber.Ctx) error {
 	database.DB.Where("username = ?", subscriber.Username).Delete(&models.RadReply{})
 	database.DB.Where("username = ?", subscriber.Username).Delete(&models.RadUserGroup{})
 
-	// Soft delete subscriber
-	if err := database.DB.Delete(&subscriber).Error; err != nil {
+	// Soft delete subscriber + set deleted_by fields in one operation
+	user := middleware.GetCurrentUser(c)
+	now := time.Now()
+	if err := database.DB.Model(&subscriber).Updates(map[string]interface{}{
+		"deleted_by_id":   user.ID,
+		"deleted_by_name": user.Username,
+		"deleted_at":      now,
+	}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to delete subscriber",
@@ -1398,7 +1404,6 @@ func (h *SubscriberHandler) Delete(c *fiber.Ctx) error {
 	}
 
 	// Create audit log
-	user := middleware.GetCurrentUser(c)
 	auditLog := models.AuditLog{
 		UserID:      user.ID,
 		Username:    user.Username,
@@ -2074,6 +2079,7 @@ func (h *SubscriberHandler) BulkUpdate(c *fiber.Ctx) error {
 	allowedFields := map[string]bool{
 		"service_id": true, "status": true, "nas_id": true,
 		"region": true, "note": true, "auto_recharge": true,
+		"auto_invoice": true,
 	}
 
 	updates := make(map[string]interface{})
@@ -2475,8 +2481,13 @@ func (h *SubscriberHandler) BulkAction(c *fiber.Ctx) error {
 			database.DB.Where("username = ?", sub.Username).Delete(&models.RadCheck{})
 			database.DB.Where("username = ?", sub.Username).Delete(&models.RadReply{})
 			database.DB.Where("username = ?", sub.Username).Delete(&models.RadAcct{})
-			// Delete subscriber (soft delete if model supports it, otherwise hard delete)
-			if err := database.DB.Delete(&sub).Error; err != nil {
+			// Soft delete + set deleted_by in one operation
+			now := time.Now()
+			if err := database.DB.Model(&sub).Updates(map[string]interface{}{
+				"deleted_by_id":   user.ID,
+				"deleted_by_name": user.Username,
+				"deleted_at":      now,
+			}).Error; err != nil {
 				log.Printf("BulkAction: Failed to delete subscriber %d: %v", sub.ID, err)
 				failed++
 				continue
@@ -2902,8 +2913,13 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 
 		case "delete":
 			actionName = "Delete"
-			// Soft delete subscriber
-			database.DB.Delete(&sub)
+			// Soft delete + set deleted_by in one operation
+			now := time.Now()
+			database.DB.Model(&sub).Updates(map[string]interface{}{
+				"deleted_by_id":   user.ID,
+				"deleted_by_name": user.Username,
+				"deleted_at":      now,
+			})
 			// Remove from radcheck/radreply
 			database.DB.Where("username = ?", sub.Username).Delete(&models.RadCheck{})
 			database.DB.Where("username = ?", sub.Username).Delete(&models.RadReply{})
@@ -2999,6 +3015,10 @@ func (h *SubscriberHandler) ListArchived(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "25"))
 	search := c.Query("search", "")
+	resellerIDFilter := c.Query("reseller_id", "")
+	deletedByFilter := c.Query("deleted_by", "")
+	fromDate := c.Query("from", "")
+	toDate := c.Query("to", "")
 
 	if page < 1 {
 		page = 1
@@ -3011,10 +3031,9 @@ func (h *SubscriberHandler) ListArchived(c *fiber.Ctx) error {
 	query := database.DB.Unscoped().Model(&models.Subscriber{}).
 		Where("deleted_at IS NOT NULL")
 
+	// Resellers always see only their own archived subscribers (no view_all bypass)
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
-		if !checkUserPermission(user, "subscribers.view_all") {
-			query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
-		}
+		query = query.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
 	}
 
 	if search != "" {
@@ -3022,16 +3041,80 @@ func (h *SubscriberHandler) ListArchived(c *fiber.Ctx) error {
 		query = query.Where("username ILIKE ? OR full_name ILIKE ?", searchPattern, searchPattern)
 	}
 
+	// Filter by reseller who owns the subscriber
+	if resellerIDFilter != "" {
+		if rid, err := strconv.Atoi(resellerIDFilter); err == nil {
+			query = query.Where("reseller_id = ?", rid)
+		}
+	}
+
+	// Filter by who deleted
+	if deletedByFilter != "" {
+		if dby, err := strconv.Atoi(deletedByFilter); err == nil {
+			query = query.Where("deleted_by_id = ?", dby)
+		}
+	}
+
+	// Date range filter on deleted_at
+	if fromDate != "" {
+		query = query.Where("deleted_at >= ?", fromDate)
+	}
+	if toDate != "" {
+		query = query.Where("deleted_at < ?::date + interval '1 day'", toDate)
+	}
+
 	var total int64
 	query.Count(&total)
 
 	var subscribers []models.Subscriber
-	if err := query.Offset(offset).Limit(limit).Order("deleted_at DESC").Find(&subscribers).Error; err != nil {
+	if err := query.Preload("Service").Preload("Reseller").Preload("Reseller.User").Offset(offset).Limit(limit).Order("deleted_at DESC").Find(&subscribers).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to fetch archived subscribers",
 		})
 	}
+
+	// Stats queries (independent of search/filter params)
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startOfWeek := startOfDay.AddDate(0, 0, -int(now.Weekday()))
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	var deletedToday, deletedThisWeek, deletedThisMonth int64
+
+	statsQuery := func(since time.Time) int64 {
+		var count int64
+		q := database.DB.Unscoped().Model(&models.Subscriber{}).Where("deleted_at IS NOT NULL AND deleted_at >= ?", since)
+		if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+			q = q.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+		}
+		q.Count(&count)
+		return count
+	}
+	deletedToday = statsQuery(startOfDay)
+	deletedThisWeek = statsQuery(startOfWeek)
+	deletedThisMonth = statsQuery(startOfMonth)
+
+	// Top deleters this month
+	type deleterStat struct {
+		DeletedByID uint   `json:"deleted_by_id"`
+		Name        string `json:"name"`
+		Count       int64  `json:"count"`
+	}
+	var topDeleters []deleterStat
+
+	topDeletersQuery := database.DB.Unscoped().Model(&models.Subscriber{}).
+		Select("deleted_by_id, deleted_by_name as name, COUNT(*) as count").
+		Where("deleted_at IS NOT NULL AND deleted_by_name IS NOT NULL AND deleted_by_name != '' AND deleted_at >= ?", startOfMonth).
+		Group("deleted_by_id, deleted_by_name").
+		Order("count DESC").
+		Limit(10)
+
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		topDeletersQuery = topDeletersQuery.Where("reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)", *user.ResellerID, *user.ResellerID)
+	}
+
+	topDeletersQuery.Find(&topDeleters)
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -3041,6 +3124,12 @@ func (h *SubscriberHandler) ListArchived(c *fiber.Ctx) error {
 			"limit":      limit,
 			"total":      total,
 			"totalPages": (total + int64(limit) - 1) / int64(limit),
+		},
+		"stats": fiber.Map{
+			"deleted_today":      deletedToday,
+			"deleted_this_week":  deletedThisWeek,
+			"deleted_this_month": deletedThisMonth,
+			"top_deleters":       topDeleters,
 		},
 	})
 }
@@ -4090,6 +4179,81 @@ func (h *SubscriberHandler) Ping(c *fiber.Ctx) error {
 			"output":  output.String(),
 			"success": pingResult.Received > 0,
 		},
+	})
+}
+
+// PortCheck checks if a TCP port is open on subscriber's IP via MikroTik /tool/fetch
+func (h *SubscriberHandler) PortCheck(c *fiber.Ctx) error {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
+	}
+
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid subscriber ID"})
+	}
+
+	var req struct {
+		Port int `json:"port"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request body"})
+	}
+	if req.Port < 1 || req.Port > 65535 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Port must be between 1 and 65535"})
+	}
+
+	var subscriber models.Subscriber
+	if err := database.DB.First(&subscriber, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Subscriber not found"})
+	}
+
+	// Get IP address
+	ipAddress := subscriber.IPAddress
+	if ipAddress == "" {
+		ipAddress = subscriber.StaticIP
+	}
+	if ipAddress == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "No IP address available"})
+	}
+
+	// Get NAS
+	if subscriber.NasID == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "No NAS assigned to subscriber"})
+	}
+
+	var nas models.Nas
+	if err := database.DB.First(&nas, *subscriber.NasID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "NAS not found"})
+	}
+
+	// Connect to MikroTik
+	client := mikrotik.NewClient(
+		fmt.Sprintf("%s:%d", nas.IPAddress, nas.APIPort),
+		nas.APIUsername,
+		nas.APIPassword,
+	)
+	defer client.Close()
+
+	result, err := client.PortCheck(ipAddress, req.Port, 3)
+	if err != nil {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Port check completed",
+			"data": fiber.Map{
+				"ip":     ipAddress,
+				"port":   req.Port,
+				"status": "error",
+				"error":  err.Error(),
+			},
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Port check completed",
+		"data":    result,
 	})
 }
 

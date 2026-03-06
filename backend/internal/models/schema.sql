@@ -58,6 +58,7 @@ INSERT INTO permissions (name, description) VALUES ('subscribers.ping_all', 'Pin
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_graph', 'View live user graph') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_graph_all', 'View live user graph for all') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.torch', 'View live torch traffic') ON CONFLICT (name) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES ('subscribers.port_check', 'Check subscriber port') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.bandwidth_rules', 'Manage subscriber bandwidth rules') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_fup', 'View FUP level in list') ON CONFLICT (name) DO NOTHING;
 INSERT INTO permissions (name, description) VALUES ('subscribers.view_logs', 'View logs for subscribers') ON CONFLICT (name) DO NOTHING;
@@ -420,6 +421,8 @@ CREATE TABLE IF NOT EXISTS subscribers (
     auto_recharge_days INTEGER DEFAULT 0,
     whatsapp_notifications BOOLEAN DEFAULT false,
     wan_check_status VARCHAR(20) DEFAULT 'unchecked',
+    deleted_by_id INTEGER,
+    deleted_by_name VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
@@ -1235,3 +1238,19 @@ CREATE TABLE IF NOT EXISTS daily_usage_history (
 
 -- WAN Management Check column (v1.0.352+)
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS wan_check_status VARCHAR(20) DEFAULT 'unchecked';
+
+-- Deletion tracking columns (v1.0.352+)
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS deleted_by_name VARCHAR(100);
+
+-- Auto-invoice toggle (v1.0.361+)
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS auto_invoice BOOLEAN DEFAULT false;
+
+-- Invoice billing period for dedup + auto-generated flag (v1.0.361+)
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS billing_period_start TIMESTAMP;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS billing_period_end TIMESTAMP;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS auto_generated BOOLEAN DEFAULT false;
+
+-- Default invoice generation setting
+INSERT INTO system_preferences (key, value, value_type)
+VALUES ('invoice_days_before_expiry', '7', 'int') ON CONFLICT (key) DO NOTHING;

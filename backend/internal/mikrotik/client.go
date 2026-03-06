@@ -4170,17 +4170,38 @@ func (c *Client) Ping(ip string, count int, size int) (*PingResult, error) {
 	return result, nil
 }
 
-// CheckPort checks if a TCP port is open on a remote IP via MikroTik /tool/fetch.
-// Returns true if port is open (fetch gets a response or HTTP error), false if closed/timeout.
-func (c *Client) CheckPort(ip string, port int) (bool, error) {
+// PortCheckResult contains the result of a port check operation
+type PortCheckResult struct {
+	Open         bool    `json:"open"`
+	Status       string  `json:"status"`        // "open", "closed", "filtered"
+	ResponseTime float64 `json:"response_time"`  // ms
+	Error        string  `json:"error,omitempty"`
+	IP           string  `json:"ip"`
+	Port         int     `json:"port"`
+}
+
+// PortCheck checks if a TCP port is open on a remote IP via MikroTik /tool/fetch.
+// Uses HTTP fetch to attempt TCP connection; parses result to determine open/closed/filtered.
+func (c *Client) PortCheck(ip string, port int, timeoutSec int) (*PortCheckResult, error) {
 	if c.conn == nil {
 		if err := c.Connect(); err != nil {
-			return false, err
+			return nil, err
 		}
 	}
 
-	// Set a short timeout for the check
-	c.conn.SetDeadline(time.Now().Add(8 * time.Second))
+	if timeoutSec <= 0 {
+		timeoutSec = 3
+	}
+
+	result := &PortCheckResult{
+		IP:   ip,
+		Port: port,
+	}
+
+	startTime := time.Now()
+
+	// Set deadline for the entire operation
+	c.conn.SetDeadline(time.Now().Add(time.Duration(timeoutSec+5) * time.Second))
 
 	// Use /tool/fetch to check if port is open
 	url := fmt.Sprintf("http://%s:%d/", ip, port)
@@ -4188,20 +4209,23 @@ func (c *Client) CheckPort(ip string, port int) (bool, error) {
 	c.sendWord("=url=" + url)
 	c.sendWord("=mode=http")
 	c.sendWord("=keep-result=no")
-	c.sendWord("=duration=3s")
+	c.sendWord(fmt.Sprintf("=duration=%ds", timeoutSec))
 	c.sendWord("")
 
-	// Read response - if we get any reply (even error), port is open
-	portOpen := false
+	// Read response
 	for {
 		word, err := c.readWord()
 		if err != nil {
-			break
+			result.Status = "filtered"
+			result.ResponseTime = float64(time.Since(startTime).Milliseconds())
+			return result, nil
 		}
 
 		if word == "!done" {
-			// fetch completed - port was reachable
-			portOpen = true
+			// fetch completed successfully - port is open
+			result.Open = true
+			result.Status = "open"
+			result.ResponseTime = float64(time.Since(startTime).Milliseconds())
 			for {
 				attr, err := c.readWord()
 				if err != nil || attr == "" {
@@ -4213,7 +4237,9 @@ func (c *Client) CheckPort(ip string, port int) (bool, error) {
 
 		if word == "!re" {
 			// Got a response entry - port is open
-			portOpen = true
+			result.Open = true
+			result.Status = "open"
+			result.ResponseTime = float64(time.Since(startTime).Milliseconds())
 			for {
 				attr, err := c.readWord()
 				if err != nil || attr == "" {
@@ -4223,7 +4249,6 @@ func (c *Client) CheckPort(ip string, port int) (bool, error) {
 		}
 
 		if word == "!trap" {
-			// Error response - check if it's "connection refused" vs timeout
 			trapMsg := ""
 			for {
 				attr, err := c.readWord()
@@ -4234,19 +4259,24 @@ func (c *Client) CheckPort(ip string, port int) (bool, error) {
 					trapMsg = strings.TrimPrefix(attr, "=message=")
 				}
 			}
-			// "connection refused" or "reset" = port closed
-			// "400 Bad Request" or other HTTP errors = port OPEN (web server responded)
-			if strings.Contains(trapMsg, "connection refused") || strings.Contains(trapMsg, "connection timed out") {
-				portOpen = false
+			result.ResponseTime = float64(time.Since(startTime).Milliseconds())
+
+			if strings.Contains(trapMsg, "connection refused") || strings.Contains(trapMsg, "reset") {
+				result.Status = "closed"
+				result.Error = trapMsg
+			} else if strings.Contains(trapMsg, "connection timed out") || strings.Contains(trapMsg, "timeout") {
+				result.Status = "filtered"
+				result.Error = trapMsg
 			} else {
-				// Any other error (HTTP 401, 403, etc.) means port is open
-				portOpen = true
+				// Any other error (HTTP 400, 401, 403, etc.) means TCP connected = port open
+				result.Open = true
+				result.Status = "open"
 			}
 			break
 		}
 	}
 
-	return portOpen, nil
+	return result, nil
 }
 
 // parseMikrotikTime parses MikroTik time formats into milliseconds

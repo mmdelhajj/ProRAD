@@ -43,6 +43,7 @@ import {
   SignalIcon,
   MapPinIcon,
   ShieldExclamationIcon,
+  ServerIcon,
 } from '@heroicons/react/24/outline'
 // clsx not needed - WinBox design uses inline styles and design system classes
 import toast from 'react-hot-toast'
@@ -132,6 +133,12 @@ export default function Subscribers() {
   const [sorting, setSorting] = useState([])
   const [viewMode, setViewMode] = useState('active')
 
+  // Archived view filters
+  const [archivedResellerId, setArchivedResellerId] = useState('')
+  const [archivedDeletedBy, setArchivedDeletedBy] = useState('')
+  const [archivedFromDate, setArchivedFromDate] = useState('')
+  const [archivedToDate, setArchivedToDate] = useState('')
+
   // Selected rows - stores subscriber IDs
   const [selectedIds, setSelectedIds] = useState(new Set())
 
@@ -205,16 +212,26 @@ export default function Subscribers() {
   const [torchModal, setTorchModal] = useState(null)
   // Map modal state
   const [mapModal, setMapModal] = useState(null)
+  // Port check modal state
+  const [portCheckModal, setPortCheckModal] = useState(null)
+  const [portCheckPort, setPortCheckPort] = useState('80')
+  const [portCheckLoading, setPortCheckLoading] = useState(false)
   const [torchData, setTorchData] = useState(null)
   const [torchLoading, setTorchLoading] = useState(false)
   const [torchAutoRefresh, setTorchAutoRefresh] = useState(true)
 
   // Fetch subscribers
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, resellerId, fupLevel, viewMode, monthlyFup, sortBy],
+    queryKey: ['subscribers', page, limit, search, status, serviceId, nasId, resellerId, fupLevel, viewMode, monthlyFup, sortBy, archivedResellerId, archivedDeletedBy, archivedFromDate, archivedToDate],
     queryFn: () => {
       if (viewMode === 'archived') {
-        return subscriberApi.listArchived({ page, limit, search }).then((r) => r.data)
+        return subscriberApi.listArchived({
+          page, limit, search,
+          reseller_id: archivedResellerId || undefined,
+          deleted_by: archivedDeletedBy || undefined,
+          from: archivedFromDate || undefined,
+          to: archivedToDate || undefined,
+        }).then((r) => r.data)
       }
       return subscriberApi
         .list({ page, limit, search, status, service_id: serviceId, nas_id: nasId, reseller_id: resellerId, fup_level: fupLevel, monthly_fup: monthlyFup ? 'true' : '', sort_by: sortBy })
@@ -464,6 +481,31 @@ export default function Subscribers() {
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to ping'),
   })
+
+  const handlePortCheck = async () => {
+    const port = parseInt(portCheckPort)
+    if (!port || port < 1 || port > 65535) {
+      toast.error('Port must be between 1 and 65535')
+      return
+    }
+    setPortCheckLoading(true)
+    try {
+      const res = await subscriberApi.portCheck(portCheckModal.id, port)
+      const data = res.data.data
+      setPortCheckModal(null)
+      if (data.status === 'open') {
+        toast.success(`Port ${data.port} is OPEN on ${data.ip} (${data.response_time.toFixed(0)}ms)`)
+      } else if (data.status === 'closed') {
+        toast.error(`Port ${data.port} is CLOSED on ${data.ip}`)
+      } else {
+        toast(`Port ${data.port} is FILTERED on ${data.ip} (no response)`, { icon: '⚠️' })
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Port check failed')
+    } finally {
+      setPortCheckLoading(false)
+    }
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (id) => subscriberApi.delete(id),
@@ -741,6 +783,19 @@ export default function Subscribers() {
                 <SignalIcon style={{ width: 14, height: 14 }} />
               </button>
             )}
+            {row.original.is_online && hasPermission('subscribers.port_check') && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setPortCheckModal(row.original)
+                  setPortCheckPort('80')
+                }}
+                style={{ color: '#9C27B0', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                title="Port Check"
+              >
+                <ServerIcon style={{ width: 14, height: 14 }} />
+              </button>
+            )}
             {row.original.latitude && row.original.longitude && parseFloat(row.original.latitude) !== 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); setMapModal(row.original) }}
@@ -845,7 +900,7 @@ export default function Subscribers() {
           )
         },
       }] : []),
-      ...(visibleColumns.daily_quota ? [{
+      ...(visibleColumns.daily_quota && viewMode !== 'archived' ? [{
         id: 'daily_quota',
         header: () => (
           <button
@@ -906,7 +961,7 @@ export default function Subscribers() {
           )
         },
       }] : []),
-      ...(visibleColumns.status ? [{
+      ...(visibleColumns.status && viewMode !== 'archived' ? [{
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => {
@@ -918,7 +973,7 @@ export default function Subscribers() {
           )
         },
       }] : []),
-      ...(visibleColumns.expiry_date ? [{
+      ...(visibleColumns.expiry_date && viewMode !== 'archived' ? [{
         accessorKey: 'expiry_date',
         header: 'Expiry',
         cell: ({ row }) => {
@@ -938,7 +993,7 @@ export default function Subscribers() {
           )
         },
       }] : []),
-      ...(visibleColumns.last_seen ? [{
+      ...(visibleColumns.last_seen && viewMode !== 'archived' ? [{
         accessorKey: 'last_seen',
         header: 'Last Seen',
         cell: ({ row }) => {
@@ -965,7 +1020,7 @@ export default function Subscribers() {
           return <span style={{ fontSize: '10px', color: '#666' }}>{timeAgo}</span>
         },
       }] : []),
-      ...(visibleColumns.monthly_quota ? [{
+      ...(visibleColumns.monthly_quota && viewMode !== 'archived' ? [{
         id: 'monthly_quota',
         header: 'Monthly',
         cell: ({ row }) => {
@@ -1041,9 +1096,21 @@ export default function Subscribers() {
         ),
       }] : []),
       ...(viewMode === 'archived' ? [{
+        accessorKey: 'deleted_by_name',
+        header: 'Deleted By',
+        cell: ({ row }) => (
+          <span style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+            {row.original.deleted_by_name || <span style={{ color: '#999' }}>—</span>}
+          </span>
+        ),
+      }, {
         accessorKey: 'deleted_at',
         header: 'Deleted At',
-        cell: ({ row }) => formatDate(row.original.deleted_at),
+        cell: ({ row }) => (
+          <span style={{ fontSize: '10px', color: '#666', whiteSpace: 'nowrap' }}>
+            {row.original.deleted_at ? formatDate(row.original.deleted_at) : '—'}
+          </span>
+        ),
       }] : []),
     ],
     [viewMode, visibleColumns, sortBy, page, limit, selectedIds, allSelected]
@@ -1086,8 +1153,121 @@ export default function Subscribers() {
       {/* === Main panel === */}
       <div className="card" style={{ borderTop: '1px solid #a0a0a0' }}>
 
-        {/* === Stats Row === */}
-        <div className="flex items-center gap-3 px-2 py-1 border-b border-[#ccc] dark:border-[#374151] bg-[#f8f8f8] dark:bg-[#1f2937] flex-wrap text-[11px]">
+        {/* === Archived Stats + Filters === */}
+        {viewMode === 'archived' && (
+          <>
+            {/* Stats cards — clickable to filter by date */}
+            <div className="flex items-center gap-3 px-3 py-2 border-b border-[#ccc] dark:border-[#374151] bg-[#fafafa] dark:bg-[#1f2937] flex-wrap text-[11px]">
+              <div
+                className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer border ${archivedFromDate === new Date().toISOString().split('T')[0] && !archivedToDate ? 'bg-red-200 dark:bg-red-800/50 border-red-400 dark:border-red-600' : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/50'}`}
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0]
+                  if (archivedFromDate === today && !archivedToDate) { setArchivedFromDate(''); } else { setArchivedFromDate(today); setArchivedToDate(''); }
+                  setPage(1)
+                }}
+              >
+                <TrashIcon style={{ width: 12, height: 12, color: '#dc2626' }} />
+                <strong className="text-red-600 dark:text-red-400">{stats.deleted_today || 0}</strong>
+                <span className="text-[#666] dark:text-gray-400">Today</span>
+              </div>
+              <div
+                className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer border ${(() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return archivedFromDate === d.toISOString().split('T')[0] && !archivedToDate })() ? 'bg-orange-200 dark:bg-orange-800/50 border-orange-400 dark:border-orange-600' : 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/50'}`}
+                onClick={() => {
+                  const d = new Date(); d.setDate(d.getDate() - d.getDay())
+                  const weekStart = d.toISOString().split('T')[0]
+                  if (archivedFromDate === weekStart && !archivedToDate) { setArchivedFromDate(''); } else { setArchivedFromDate(weekStart); setArchivedToDate(''); }
+                  setPage(1)
+                }}
+              >
+                <CalendarDaysIcon style={{ width: 12, height: 12, color: '#ea580c' }} />
+                <strong className="text-orange-600 dark:text-orange-400">{stats.deleted_this_week || 0}</strong>
+                <span className="text-[#666] dark:text-gray-400">This Week</span>
+              </div>
+              <div
+                className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer border ${(() => { const d = new Date(); return archivedFromDate === `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01` && !archivedToDate })() ? 'bg-blue-200 dark:bg-blue-800/50 border-blue-400 dark:border-blue-600' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50'}`}
+                onClick={() => {
+                  const d = new Date()
+                  const monthStart = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`
+                  if (archivedFromDate === monthStart && !archivedToDate) { setArchivedFromDate(''); } else { setArchivedFromDate(monthStart); setArchivedToDate(''); }
+                  setPage(1)
+                }}
+              >
+                <CalendarDaysIcon style={{ width: 12, height: 12, color: '#2563eb' }} />
+                <strong className="text-blue-600 dark:text-blue-400">{stats.deleted_this_month || 0}</strong>
+                <span className="text-[#666] dark:text-gray-400">This Month</span>
+              </div>
+              {stats.top_deleters && stats.top_deleters.length > 0 && (
+                <>
+                  <span className="w-px h-4 bg-[#ccc] dark:bg-[#4b5563]" />
+                  <span className="text-[10px] text-[#888] dark:text-gray-500">Top:</span>
+                  {stats.top_deleters.slice(0, 5).map((d, i) => (
+                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      {d.name} <strong>({d.count})</strong>
+                    </span>
+                  ))}
+                </>
+              )}
+              <div className="ml-auto flex items-center gap-1">
+                <strong className="text-[#333] dark:text-gray-200">{data?.meta?.total || 0}</strong>
+                <span className="text-[#666] dark:text-gray-400">Total Archived</span>
+              </div>
+            </div>
+            {/* Filters row */}
+            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#ccc] dark:border-[#374151] bg-white dark:bg-[#111827] flex-wrap text-[11px]">
+              {resellers && resellers.length > 0 && (
+                <select
+                  value={archivedResellerId}
+                  onChange={(e) => { setArchivedResellerId(e.target.value); setPage(1); }}
+                  className="text-[11px] px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-white"
+                  style={{ maxWidth: 140 }}
+                >
+                  <option value="">All Resellers</option>
+                  {resellers.map((r) => (
+                    <option key={r.id} value={r.id}>{r.user?.username || r.company_name || `Reseller #${r.id}`}</option>
+                  ))}
+                </select>
+              )}
+              <select
+                value={archivedDeletedBy}
+                onChange={(e) => { setArchivedDeletedBy(e.target.value); setPage(1); }}
+                className="text-[11px] px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-white"
+                style={{ maxWidth: 140 }}
+              >
+                <option value="">Deleted By: All</option>
+                {stats.top_deleters && stats.top_deleters.map((d, i) => (
+                  <option key={i} value={d.deleted_by_id}>{d.name} ({d.count})</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={archivedFromDate}
+                onChange={(e) => { setArchivedFromDate(e.target.value); setPage(1); }}
+                className="text-[11px] px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-white"
+                placeholder="From"
+                title="From date"
+              />
+              <input
+                type="date"
+                value={archivedToDate}
+                onChange={(e) => { setArchivedToDate(e.target.value); setPage(1); }}
+                className="text-[11px] px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-white"
+                placeholder="To"
+                title="To date"
+              />
+              {(archivedResellerId || archivedDeletedBy || archivedFromDate || archivedToDate) && (
+                <button
+                  onClick={() => { setArchivedResellerId(''); setArchivedDeletedBy(''); setArchivedFromDate(''); setArchivedToDate(''); setPage(1); }}
+                  className="text-[10px] px-1.5 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* === Stats Row (Active view) === */}
+        {viewMode === 'active' && <div className="flex items-center gap-3 px-2 py-1 border-b border-[#ccc] dark:border-[#374151] bg-[#f8f8f8] dark:bg-[#1f2937] flex-wrap text-[11px]">
           <div
             className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${status === 'online' ? 'bg-[#e8f5e9] dark:bg-green-900/40' : ''}`}
             onClick={() => { setStatus(status === 'online' ? '' : 'online'); setPage(1); }}
@@ -1176,7 +1356,7 @@ export default function Subscribers() {
             <strong className="text-[#333] dark:text-gray-200">{data?.meta?.total || 0}</strong>
             <span className="text-[#666] dark:text-gray-400">Total</span>
           </div>
-        </div>
+        </div>}
 
         {/* === Toolbar === */}
         <div className="wb-toolbar" style={{ flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 20 }}>
@@ -1950,6 +2130,48 @@ export default function Subscribers() {
                 <MapPinIcon style={{ width: 12, height: 12, marginRight: 3 }} />
                 Navigate
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Port Check Modal */}
+      {portCheckModal && (
+        <div className="modal-overlay" onClick={() => setPortCheckModal(null)}>
+          <div className="modal" style={{ maxWidth: '340px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(to bottom, #7B1FA2, #6A1B9A)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ServerIcon style={{ width: 16, height: 16 }} />
+                <span>Port Check — {portCheckModal.username}</span>
+              </div>
+              <button onClick={() => setPortCheckModal(null)} className="btn btn-ghost btn-xs" style={{ color: 'white' }}>
+                <XMarkIcon style={{ width: 14, height: 14 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
+                Check if a TCP port is open on {portCheckModal.ip_address || portCheckModal.static_ip || 'subscriber IP'}
+              </p>
+              <div>
+                <label className="label">Port Number</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="65535"
+                  value={portCheckPort}
+                  onChange={(e) => setPortCheckPort(e.target.value)}
+                  className="input w-full"
+                  placeholder="80"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePortCheck() } }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setPortCheckModal(null)} className="btn btn-secondary btn-sm">Cancel</button>
+              <button onClick={handlePortCheck} disabled={portCheckLoading} className="btn btn-primary btn-sm">
+                {portCheckLoading ? 'Checking...' : 'Check Port'}
+              </button>
             </div>
           </div>
         </div>

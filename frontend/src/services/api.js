@@ -175,6 +175,7 @@ export default api
 export const subscriberApi = {
   list: (params) => api.get('/subscribers', { params }),
   listArchived: (params) => api.get('/subscribers/archived', { params }),
+  getArchivedStats: () => api.get('/subscribers/archived', { params: { page: 1, limit: 1 } }),
   get: (id) => api.get(`/subscribers/${id}`),
   create: (data) => api.post('/subscribers', data),
   update: (id, data) => api.put(`/subscribers/${id}`, data),
@@ -194,6 +195,7 @@ export const subscriberApi = {
   deactivate: (id) => api.post(`/subscribers/${id}/deactivate`),
   refill: (id, data) => api.post(`/subscribers/${id}/refill`, data),
   ping: (id) => api.post(`/subscribers/${id}/ping`),
+  portCheck: (id, port) => api.post(`/subscribers/${id}/port-check`, { port }),
   getPassword: (id) => api.get(`/subscribers/${id}/password`),
   getBandwidth: (id) => api.get(`/subscribers/${id}/bandwidth`),
   getTorch: (id, duration = 3) => api.get(`/subscribers/${id}/torch?duration=${duration}`),

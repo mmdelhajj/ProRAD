@@ -2059,8 +2059,8 @@ func (s *QuotaSyncService) checkWanManagement(client *mikrotik.Client, nas *mode
 	}
 
 	// Step 2: Check management port
-	portOpen, err := client.CheckPort(sessionIP, port)
-	if err != nil || !portOpen {
+	portResult, err := client.PortCheck(sessionIP, port, 3)
+	if err != nil || !portResult.Open {
 		s.applyWanBlock(client, nas, sub, sessionIP, sessionID, fmt.Sprintf("port %d closed", port))
 		return true
 	}

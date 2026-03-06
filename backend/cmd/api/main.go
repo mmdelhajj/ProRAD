@@ -143,6 +143,10 @@ func main() {
 	dailyNotificationService := services.NewDailyNotificationService()
 	dailyNotificationService.Start()
 
+	// Start invoice generation service (auto-generates invoices before subscriber expiry)
+	invoiceGenerationService := services.NewInvoiceGenerationService()
+	invoiceGenerationService.Start()
+
 	// Warmup subscriber cache for online users (improves RADIUS performance)
 	go database.WarmupSubscriberCache()
 
@@ -272,6 +276,8 @@ func main() {
 	customerProtected.Get("/tickets/:id", customerHandler.GetTicket)
 	customerProtected.Post("/tickets", customerHandler.CreateTicket)
 	customerProtected.Post("/tickets/:id/reply", customerHandler.ReplyTicket)
+	customerProtected.Get("/invoices", customerHandler.Invoices)
+	customerProtected.Get("/invoices/:id", customerHandler.GetInvoice)
 
 	// Critical system routes - auth only, NO license check (for fixing license/restart issues)
 	criticalSystem := api.Group("", middleware.AuthRequired(cfg))
@@ -333,6 +339,7 @@ func main() {
 	subscribers.Post("/:id/deactivate", middleware.RequirePermission("subscribers.inactivate"), subscriberHandler.Deactivate)
 	subscribers.Post("/:id/refill", middleware.RequirePermission("subscribers.refill_quota"), subscriberHandler.Refill)
 	subscribers.Post("/:id/ping", middleware.RequirePermission("subscribers.ping"), subscriberHandler.Ping)
+	subscribers.Post("/:id/port-check", middleware.RequirePermission("subscribers.port_check"), subscriberHandler.PortCheck)
 	subscribers.Get("/:id/password", middleware.RequirePermission("subscribers.view"), subscriberHandler.GetPassword)
 	subscribers.Get("/:id/bandwidth", middleware.RequirePermission("subscribers.view_graph"), subscriberHandler.GetBandwidth)
 	subscribers.Get("/:id/torch", middleware.RequirePermission("subscribers.torch"), subscriberHandler.GetTorch)
