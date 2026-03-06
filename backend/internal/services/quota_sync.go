@@ -332,21 +332,18 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 	}
 
 	for _, sub := range subscribers {
-		var session *mikrotik.ActiveSession
-
+		// Step 1: Check if user is connected (fast batch lookup or individual check)
+		isConnected := false
 		if allSessions != nil {
 			// Fast O(1) lookup from batch result
-			session = allSessions[sub.Username]
+			isConnected = allSessions[sub.Username] != nil
 		} else {
-			// Fallback: individual query (slow but safe)
-			var getErr error
-			session, getErr = client.GetActiveSession(sub.Username)
-			if getErr != nil {
-				session = nil
-			}
+			// Fallback: individual query
+			s, err := client.GetActiveSession(sub.Username)
+			isConnected = err == nil && s != nil
 		}
 
-		if session == nil {
+		if !isConnected {
 			// Session ended - mark user as offline and clear IP
 			log.Printf("QuotaSync: No active session for %s on NAS %s - marking offline", sub.Username, nas.Name)
 			result := database.DB.Model(&models.Subscriber{}).Where("id = ?", sub.ID).Updates(map[string]interface{}{
@@ -370,6 +367,13 @@ func (s *QuotaSyncService) syncNasSubscribers(nas *models.Nas, subscribers []mod
 			if err := client.RemoveSubscriberCDNOverrideQueue(sub.Username, getQuotaSyncCompanyName()); err != nil {
 				log.Printf("QuotaSync: Failed to remove CDN override queue for %s: %v", sub.Username, err)
 			}
+			continue
+		}
+		// Step 2: User is connected — get full session with traffic bytes
+		session, err := client.GetActiveSession(sub.Username)
+		if err != nil || session == nil {
+			// Race condition: user disconnected between batch check and individual query
+			log.Printf("QuotaSync: %s connected in batch but GetActiveSession failed: %v - skipping", sub.Username, err)
 			continue
 		}
 		log.Printf("QuotaSync: Got session for %s: IP=%s, SessionID=%s, ID=%s", sub.Username, session.Address, session.SessionID, session.ID)
