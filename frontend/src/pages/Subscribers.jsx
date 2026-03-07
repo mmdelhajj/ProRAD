@@ -256,6 +256,12 @@ export default function Subscribers() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const { data: wanCheckEnabled } = useQuery({
+    queryKey: ['wan-check-enabled'],
+    queryFn: () => settingsApi.get('wan_check_enabled').then((r) => r.data?.data?.value === 'true'),
+    staleTime: 5 * 60 * 1000,
+  })
+
   // Get selected subscribers
   const selectedSubscribers = useMemo(() => {
     const rows = data?.data || []
@@ -740,7 +746,7 @@ export default function Subscribers() {
             >
               {row.original.username}
             </Link>
-            {row.original.port_open && row.original.is_online && (
+            {wanCheckEnabled && row.original.port_open && row.original.is_online && (
               <a
                 href={`http://${row.original.ip_address || row.original.static_ip}:${wanCheckPort || 8084}`}
                 target="_blank"
@@ -751,10 +757,10 @@ export default function Subscribers() {
                 <ServerIcon style={{ width: 14, height: 14, color: '#4CAF50', flexShrink: 0, cursor: 'pointer' }} />
               </a>
             )}
-            {row.original.wan_check_status === 'failed' && (
+            {wanCheckEnabled && row.original.wan_check_status === 'failed' && (
               <ShieldExclamationIcon style={{ width: 14, height: 14, color: '#EF4444', flexShrink: 0 }} title="WAN check failed — blocked" />
             )}
-            {row.original.wan_check_status === 'unchecked' && row.original.is_online && (
+            {wanCheckEnabled && row.original.wan_check_status === 'unchecked' && row.original.is_online && (
               <ShieldExclamationIcon style={{ width: 14, height: 14, color: '#F59E0B', flexShrink: 0 }} title="WAN check pending" />
             )}
             {row.original.is_online && hasPermission('subscribers.torch') && (
