@@ -55,15 +55,38 @@ func (h *InvoiceHandler) List(c *fiber.Ctx) error {
 	var invoices []models.Invoice
 	query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&invoices)
 
-	// Load items and subscribers manually (gorm:"-" prevents Preload)
-	for i := range invoices {
-		var items []models.InvoiceItem
-		database.DB.Where("invoice_id = ?", invoices[i].ID).Find(&items)
-		invoices[i].Items = items
+	// Batch-load items and subscribers (avoid N+1 queries)
+	if len(invoices) > 0 {
+		invoiceIDs := make([]uint, len(invoices))
+		subscriberIDs := make([]uint, 0, len(invoices))
+		for i, inv := range invoices {
+			invoiceIDs[i] = inv.ID
+			if inv.SubscriberID > 0 {
+				subscriberIDs = append(subscriberIDs, inv.SubscriberID)
+			}
+		}
 
-		var sub models.Subscriber
-		if database.DB.First(&sub, "id = ?", invoices[i].SubscriberID).Error == nil {
-			invoices[i].Subscriber = sub
+		var allItems []models.InvoiceItem
+		database.DB.Where("invoice_id IN ?", invoiceIDs).Find(&allItems)
+		itemsByInvoice := make(map[uint][]models.InvoiceItem)
+		for _, item := range allItems {
+			itemsByInvoice[item.InvoiceID] = append(itemsByInvoice[item.InvoiceID], item)
+		}
+
+		subByID := make(map[uint]models.Subscriber)
+		if len(subscriberIDs) > 0 {
+			var subs []models.Subscriber
+			database.DB.Where("id IN ?", subscriberIDs).Find(&subs)
+			for _, sub := range subs {
+				subByID[sub.ID] = sub
+			}
+		}
+
+		for i := range invoices {
+			invoices[i].Items = itemsByInvoice[invoices[i].ID]
+			if sub, ok := subByID[invoices[i].SubscriberID]; ok {
+				invoices[i].Subscriber = sub
+			}
 		}
 	}
 

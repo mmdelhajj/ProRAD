@@ -219,6 +219,7 @@ type QuotaSyncService struct {
 	wg                    sync.WaitGroup
 	timeBasedSpeedState   map[string]*TimeSpeedState // username -> time-based speed state
 	wanCheckCooldown      map[uint]time.Time         // subscriber ID -> last WAN check time
+	wanCheckWasEnabled    bool                       // tracks previous state to detect enable transition
 	mu                    sync.RWMutex
 	syncMu                sync.Mutex // prevents concurrent syncAllQuotas runs
 }
@@ -2047,7 +2048,22 @@ func grandfatherExistingSubscribers() {
 // and RESTORES full speed when it's open. No temp speed restore needed for
 // first check (user is already at 1k/1k from RADIUS).
 func (s *QuotaSyncService) checkWanManagement(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) bool {
-	if !isWanCheckEnabled() {
+	enabled := isWanCheckEnabled()
+	if !enabled {
+		s.wanCheckWasEnabled = false
+		return false
+	}
+
+	// Detect disabled → enabled transition: grandfather all currently-online
+	// subscribers as "ok" so they skip the check. Without this, ALL online
+	// subscribers would be checked simultaneously, creating a MikroTik API/CoA
+	// storm that can overwhelm the router and destroy manual queues.
+	if !s.wanCheckWasEnabled {
+		s.wanCheckWasEnabled = true
+		grandfatherExistingSubscribers()
+		// Skip ALL WAN checks this cycle — subscribers were loaded before
+		// grandfathering updated the DB, so their in-memory status is stale.
+		// Next cycle (30s) will load fresh "ok" statuses from DB.
 		return false
 	}
 

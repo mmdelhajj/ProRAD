@@ -11,16 +11,11 @@ import (
 const (
 	// Cache key prefixes
 	CacheKeySettings       = "proisp:settings"
-	CacheKeyNASList        = "proisp:nas:list"
-	CacheKeyServices       = "proisp:services:all"
-	CacheKeyNAS            = "proisp:nas:"
 	CacheKeyTokenBlacklist = "proisp:token:blacklist:" // Token blacklist for logout
 	CacheKeyDashboardStats = "proisp:dashboard:stats:" // Dashboard stats cache
 
 	// Cache TTLs
 	CacheTTLSettings       = 5 * time.Minute
-	CacheTTLNAS            = 2 * time.Minute
-	CacheTTLServices       = 2 * time.Minute
 	CacheTTLDashboardStats = 30 * time.Second // Dashboard stats refresh every 30s
 )
 
@@ -68,17 +63,6 @@ func CacheDeletePattern(pattern string) error {
 		return Redis.Del(ctx, keys...).Err()
 	}
 	return nil
-}
-
-// InvalidateNASCache clears all NAS-related caches
-func InvalidateNASCache() {
-	CacheDelete(CacheKeyNASList)
-	CacheDeletePattern(CacheKeyNAS + "*")
-}
-
-// InvalidateServicesCache clears all services-related caches
-func InvalidateServicesCache() {
-	CacheDelete(CacheKeyServices)
 }
 
 // InvalidateSettingsCache clears settings cache

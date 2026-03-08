@@ -3,7 +3,8 @@ import { dashboardApi } from '../services/api'
 import { formatDate } from '../utils/timezone'
 import { useBrandingStore } from '../store/brandingStore'
 import { useAuthStore } from '../store/authStore'
-import ReactECharts from 'echarts-for-react'
+import { lazy, Suspense } from 'react'
+const ReactECharts = lazy(() => import('echarts-for-react'))
 import {
   UsersIcon,
   SignalIcon,
@@ -460,13 +461,17 @@ export default function Dashboard() {
         <div className="lg:col-span-2 wb-group">
           <div className="wb-group-title text-[11px]">New vs Expired Users</div>
           <div className="wb-group-body p-2">
-            <ReactECharts option={lineChartOption} style={{ height: '240px' }} />
+            <Suspense fallback={<div style={{ height: '240px' }} />}>
+              <ReactECharts option={lineChartOption} style={{ height: '240px' }} />
+            </Suspense>
           </div>
         </div>
         <div className="wb-group">
           <div className="wb-group-title text-[11px]">Users by Service</div>
           <div className="wb-group-body p-2">
-            <ReactECharts option={pieChartOption} style={{ height: '240px' }} />
+            <Suspense fallback={<div style={{ height: '240px' }} />}>
+              <ReactECharts option={pieChartOption} style={{ height: '240px' }} />
+            </Suspense>
           </div>
         </div>
       </div>

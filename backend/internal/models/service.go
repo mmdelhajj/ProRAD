@@ -129,28 +129,3 @@ func (ResellerService) TableName() string {
 	return "reseller_services"
 }
 
-// GetSpeedString returns formatted speed string
-func (s *Service) GetDownloadSpeedFormatted() string {
-	if s.DownloadSpeedStr != "" {
-		return s.DownloadSpeedStr
-	}
-	return formatSpeed(s.DownloadSpeed)
-}
-
-func (s *Service) GetUploadSpeedFormatted() string {
-	if s.UploadSpeedStr != "" {
-		return s.UploadSpeedStr
-	}
-	return formatSpeed(s.UploadSpeed)
-}
-
-func formatSpeed(bps int64) string {
-	if bps >= 1000000000 {
-		return string(bps/1000000000) + "G"
-	} else if bps >= 1000000 {
-		return string(bps/1000000) + "M"
-	} else if bps >= 1000 {
-		return string(bps/1000) + "K"
-	}
-	return string(bps)
-}

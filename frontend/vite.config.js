@@ -39,8 +39,7 @@ export default defineConfig({
           'ui-vendor': ['@heroicons/react', 'react-hot-toast', 'clsx'],
           // Table/grid (heavy)
           'table-vendor': ['@tanstack/react-table'],
-          // Charts (heavy, only loaded when needed)
-          'chart-vendor': ['echarts', 'echarts-for-react'],
+          // Charts are lazy-loaded — no manual chunk needed
         },
       },
       plugins: [

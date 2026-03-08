@@ -49,32 +49,48 @@ func (h *CollectorHandler) ListCollectors(c *fiber.Ctx) error {
 		TotalAmount    float64 `json:"total_amount"`
 	}
 
+	// Batch-fetch all collector stats in one query (avoid N+1)
+	collectorIDs := make([]uint, len(collectors))
+	for i, col := range collectors {
+		collectorIDs[i] = col.ID
+	}
+
+	type batchStats struct {
+		CollectorID    uint    `gorm:"column:collector_id"`
+		TotalAssigned  int64   `gorm:"column:total_assigned"`
+		TotalCollected int64   `gorm:"column:total_collected"`
+		TotalPending   int64   `gorm:"column:total_pending"`
+		TotalAmount    float64 `gorm:"column:total_amount"`
+	}
+
+	var statsList []batchStats
+	if len(collectorIDs) > 0 {
+		database.DB.Model(&models.CollectionAssignment{}).
+			Select(`collector_id,
+				COUNT(*) as total_assigned,
+				COUNT(CASE WHEN status = 'collected' THEN 1 END) as total_collected,
+				COUNT(CASE WHEN status = 'pending' THEN 1 END) as total_pending,
+				COALESCE(SUM(CASE WHEN status = 'collected' THEN amount ELSE 0 END), 0) as total_amount`).
+			Where("collector_id IN ?", collectorIDs).
+			Group("collector_id").
+			Scan(&statsList)
+	}
+
+	statsMap := make(map[uint]batchStats)
+	for _, s := range statsList {
+		statsMap[s.CollectorID] = s
+	}
+
 	var result []CollectorWithStats
 	for _, col := range collectors {
-		var stats CollectorWithStats
-		stats.User = col
-
-		database.DB.Model(&models.CollectionAssignment{}).
-			Where("collector_id = ?", col.ID).
-			Count(&stats.TotalAssigned)
-
-		database.DB.Model(&models.CollectionAssignment{}).
-			Where("collector_id = ? AND status = ?", col.ID, "collected").
-			Count(&stats.TotalCollected)
-
-		database.DB.Model(&models.CollectionAssignment{}).
-			Where("collector_id = ? AND status = ?", col.ID, "pending").
-			Count(&stats.TotalPending)
-
-		var totalAmount *float64
-		database.DB.Model(&models.CollectionAssignment{}).
-			Where("collector_id = ? AND status = ?", col.ID, "collected").
-			Select("COALESCE(SUM(amount), 0)").Scan(&totalAmount)
-		if totalAmount != nil {
-			stats.TotalAmount = *totalAmount
-		}
-
-		result = append(result, stats)
+		s := statsMap[col.ID]
+		result = append(result, CollectorWithStats{
+			User:           col,
+			TotalAssigned:  s.TotalAssigned,
+			TotalCollected: s.TotalCollected,
+			TotalPending:   s.TotalPending,
+			TotalAmount:    s.TotalAmount,
+		})
 	}
 
 	return c.JSON(fiber.Map{

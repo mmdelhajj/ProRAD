@@ -431,6 +431,12 @@ CREATE TABLE IF NOT EXISTS subscribers (
 CREATE INDEX IF NOT EXISTS idx_subscribers_mac ON subscribers(mac_address);
 CREATE INDEX IF NOT EXISTS idx_subscribers_online ON subscribers(is_online);
 CREATE INDEX IF NOT EXISTS idx_subscribers_reseller ON subscribers(reseller_id);
+CREATE INDEX IF NOT EXISTS idx_subscribers_service ON subscribers(service_id);
+CREATE INDEX IF NOT EXISTS idx_subscribers_nas ON subscribers(nas_id);
+CREATE INDEX IF NOT EXISTS idx_subscribers_status ON subscribers(status);
+CREATE INDEX IF NOT EXISTS idx_subscribers_username ON subscribers(username);
+CREATE INDEX IF NOT EXISTS idx_subscribers_expiry ON subscribers(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_subscribers_deleted ON subscribers(deleted_at);
 
 -- Subscriber Bandwidth Rules
 CREATE TABLE IF NOT EXISTS subscriber_bandwidth_rules (
@@ -467,6 +473,7 @@ CREATE TABLE IF NOT EXISTS radreply (
     value VARCHAR(253) NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_radreply_username ON radreply(username);
+CREATE INDEX IF NOT EXISTS idx_radreply_user_attr ON radreply(username, attribute);
 
 CREATE TABLE IF NOT EXISTS radgroupcheck (
     id SERIAL PRIMARY KEY,
@@ -525,6 +532,9 @@ CREATE TABLE IF NOT EXISTS radacct (
 CREATE INDEX IF NOT EXISTS idx_radacct_username ON radacct(username);
 CREATE INDEX IF NOT EXISTS idx_radacct_start ON radacct(acctstarttime);
 CREATE INDEX IF NOT EXISTS idx_radacct_stop ON radacct(acctstoptime);
+CREATE INDEX IF NOT EXISTS idx_radacct_session ON radacct(acctsessionid, username);
+CREATE INDEX IF NOT EXISTS idx_radacct_nasip ON radacct(nasipaddress);
+CREATE INDEX IF NOT EXISTS idx_radacct_framedip ON radacct(framedipaddress);
 
 CREATE TABLE IF NOT EXISTS radpostauth (
     id SERIAL PRIMARY KEY,
@@ -558,6 +568,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
 CREATE INDEX IF NOT EXISTS idx_transactions_reseller ON transactions(reseller_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_transactions_subscriber ON transactions(subscriber_id);
 
 -- Invoices
 CREATE TABLE IF NOT EXISTS invoices (
@@ -578,6 +589,10 @@ CREATE TABLE IF NOT EXISTS invoices (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_invoices_subscriber ON invoices(subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_reseller ON invoices(reseller_id);
 
 -- Invoice Items
 CREATE TABLE IF NOT EXISTS invoice_items (

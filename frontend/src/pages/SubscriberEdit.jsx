@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { subscriberApi, serviceApi, nasApi, resellerApi, cdnApi } from '../services/api'
@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore'
 import { formatDateTime } from '../utils/timezone'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
-import ReactECharts from 'echarts-for-react'
+const ReactECharts = lazy(() => import('echarts-for-react'))
 import {
   UserIcon,
   ChartBarIcon,
@@ -1634,6 +1634,7 @@ export default function SubscriberEdit() {
           {/* Daily Usage Chart */}
           <div className="card p-3">
             <h3 className="text-[12px] font-semibold text-gray-900 dark:text-white mb-3 pb-1 border-b border-[#ccc] dark:border-[#555]">Daily</h3>
+            <Suspense fallback={<div style={{ height: '300px' }} />}>
             <ReactECharts
               option={{
                 tooltip: {
@@ -1693,6 +1694,7 @@ export default function SubscriberEdit() {
               }}
               style={{ height: '300px' }}
             />
+            </Suspense>
           </div>
 
           {/* Daily Quota Summary */}
@@ -1822,6 +1824,7 @@ export default function SubscriberEdit() {
               )}
             </div>
             {subscriber?.is_online ? (
+              <Suspense fallback={<div style={{ height: '400px' }} />}>
               <ReactECharts
                 ref={chartRef}
                 option={bandwidthChartOption}
@@ -1829,6 +1832,7 @@ export default function SubscriberEdit() {
                 lazyUpdate={true}
                 style={{ height: '400px' }}
               />
+              </Suspense>
             ) : (
               <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
                 Subscriber is offline. Live graph is only available when connected.
