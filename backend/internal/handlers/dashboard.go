@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -59,6 +60,12 @@ func (h *DashboardHandler) Stats(c *fiber.Ctx) error {
 	}
 
 	// Build cache key based on user type/reseller (different users see different stats)
+	resellerIDVal := uint(0)
+	if user.ResellerID != nil {
+		resellerIDVal = *user.ResellerID
+	}
+	log.Printf("Dashboard.Stats: user=%s userType=%d resellerID=%d", user.Username, user.UserType, resellerIDVal)
+
 	cacheKey := database.CacheKeyDashboardStats + "admin"
 	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
 		cacheKey = database.CacheKeyDashboardStats + "reseller:" + strconv.FormatUint(uint64(*user.ResellerID), 10)
@@ -150,26 +157,47 @@ func (h *DashboardHandler) Stats(c *fiber.Ctx) error {
 
 	// Reseller stats
 	resellerQuery.Count(&stats.TotalResellers)
-	database.DB.Model(&models.Reseller{}).Select("COALESCE(SUM(balance), 0)").Scan(&stats.TotalBalance)
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		// Reseller sees only their own balance
+		database.DB.Model(&models.Reseller{}).Where("id = ?", *user.ResellerID).Select("COALESCE(balance, 0)").Scan(&stats.TotalBalance)
+	} else {
+		database.DB.Model(&models.Reseller{}).Select("COALESCE(SUM(balance), 0)").Scan(&stats.TotalBalance)
+	}
 
-	// Revenue stats
-	database.DB.Model(&models.Transaction{}).
-		Where("created_at >= ? AND type IN (?, ?)", today, models.TransactionTypeNew, models.TransactionTypeRenewal).
-		Select("COALESCE(SUM(ABS(amount)), 0)").Scan(&stats.TodayRevenue)
+	// Revenue stats — filtered by reseller
+	todayRevenueQuery := database.DB.Model(&models.Transaction{}).
+		Where("created_at >= ? AND type IN (?, ?)", today, models.TransactionTypeNew, models.TransactionTypeRenewal)
+	monthRevenueQuery := database.DB.Model(&models.Transaction{}).
+		Where("created_at >= ? AND type IN (?, ?)", monthStart, models.TransactionTypeNew, models.TransactionTypeRenewal)
+	unpaidCountQuery := database.DB.Model(&models.Invoice{}).Where("status = ?", models.PaymentStatusPending)
+	unpaidAmountQuery := database.DB.Model(&models.Invoice{}).Where("status = ?", models.PaymentStatusPending)
 
-	database.DB.Model(&models.Transaction{}).
-		Where("created_at >= ? AND type IN (?, ?)", monthStart, models.TransactionTypeNew, models.TransactionTypeRenewal).
-		Select("COALESCE(SUM(ABS(amount)), 0)").Scan(&stats.MonthRevenue)
+	if user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		todayRevenueQuery = todayRevenueQuery.Where("reseller_id = ?", *user.ResellerID)
+		monthRevenueQuery = monthRevenueQuery.Where("reseller_id = ?", *user.ResellerID)
+		unpaidCountQuery = unpaidCountQuery.Where("reseller_id = ?", *user.ResellerID)
+		unpaidAmountQuery = unpaidAmountQuery.Where("reseller_id = ?", *user.ResellerID)
+	}
 
-	database.DB.Model(&models.Invoice{}).Where("status = ?", models.PaymentStatusPending).Count(&stats.UnpaidInvoices)
-	database.DB.Model(&models.Invoice{}).Where("status = ?", models.PaymentStatusPending).
-		Select("COALESCE(SUM(total - amount_paid), 0)").Scan(&stats.UnpaidAmount)
+	todayRevenueQuery.Select("COALESCE(SUM(ABS(amount)), 0)").Scan(&stats.TodayRevenue)
+	monthRevenueQuery.Select("COALESCE(SUM(ABS(amount)), 0)").Scan(&stats.MonthRevenue)
+	unpaidCountQuery.Count(&stats.UnpaidInvoices)
+	unpaidAmountQuery.Select("COALESCE(SUM(total - amount_paid), 0)").Scan(&stats.UnpaidAmount)
 
-	// System stats
-	database.DB.Model(&models.Nas{}).Where("is_active = ?", true).Count(&stats.TotalNas)
-	database.DB.Model(&models.Nas{}).Where("is_online = ?", true).Count(&stats.OnlineNas)
-	database.DB.Model(&models.Service{}).Where("is_active = ?", true).Count(&stats.TotalServices)
-	database.DB.Model(&models.RadAcct{}).Where("acctstoptime IS NULL").Count(&stats.ActiveSessions)
+	// System stats — admin only, resellers get 0
+	if user.UserType == models.UserTypeReseller {
+		stats.TotalNas = 0
+		stats.OnlineNas = 0
+		stats.TotalServices = 0
+		// Active sessions filtered by reseller's subscribers
+		resellerFilter := "reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)"
+		database.DB.Model(&models.RadAcct{}).Where("acctstoptime IS NULL AND username IN (SELECT username FROM subscribers WHERE "+resellerFilter+")", *user.ResellerID, *user.ResellerID).Count(&stats.ActiveSessions)
+	} else {
+		database.DB.Model(&models.Nas{}).Where("is_active = ?", true).Count(&stats.TotalNas)
+		database.DB.Model(&models.Nas{}).Where("is_online = ?", true).Count(&stats.OnlineNas)
+		database.DB.Model(&models.Service{}).Where("is_active = ?", true).Count(&stats.TotalServices)
+		database.DB.Model(&models.RadAcct{}).Where("acctstoptime IS NULL").Count(&stats.ActiveSessions)
+	}
 
 	// Cache the stats for 30 seconds to reduce database load
 	// This is especially important for systems with 30,000+ users
@@ -193,6 +221,11 @@ func (h *DashboardHandler) ChartData(c *fiber.Ctx) error {
 
 	startDate := time.Now().AddDate(0, 0, -days)
 
+	// Reseller filter
+	user := middleware.GetCurrentUser(c)
+	isReseller := user != nil && user.UserType == models.UserTypeReseller && user.ResellerID != nil
+	resellerFilter := "reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?)"
+
 	var data []struct {
 		Date  string `json:"date"`
 		Count int64  `json:"count"`
@@ -205,24 +238,26 @@ func (h *DashboardHandler) ChartData(c *fiber.Ctx) error {
 			Date  string `json:"date"`
 			Count int64  `json:"count"`
 		}
-		database.DB.Model(&models.Subscriber{}).
+		newQuery := database.DB.Model(&models.Subscriber{}).
 			Select("DATE(created_at) as date, COUNT(*) as count").
-			Where("created_at >= ?", startDate).
-			Group("DATE(created_at)").
-			Order("date").
-			Scan(&newData)
+			Where("created_at >= ?", startDate)
+		if isReseller {
+			newQuery = newQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		}
+		newQuery.Group("DATE(created_at)").Order("date").Scan(&newData)
 
 		// Expired subscribers
 		var expiredData []struct {
 			Date  string `json:"date"`
 			Count int64  `json:"count"`
 		}
-		database.DB.Model(&models.Subscriber{}).
+		expiredQuery := database.DB.Model(&models.Subscriber{}).
 			Select("DATE(expiry_date) as date, COUNT(*) as count").
-			Where("expiry_date >= ? AND expiry_date <= ?", startDate, time.Now()).
-			Group("DATE(expiry_date)").
-			Order("date").
-			Scan(&expiredData)
+			Where("expiry_date >= ? AND expiry_date <= ?", startDate, time.Now())
+		if isReseller {
+			expiredQuery = expiredQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		}
+		expiredQuery.Group("DATE(expiry_date)").Order("date").Scan(&expiredData)
 
 		return c.JSON(fiber.Map{
 			"success": true,
@@ -233,25 +268,26 @@ func (h *DashboardHandler) ChartData(c *fiber.Ctx) error {
 		})
 
 	case "revenue":
-		database.DB.Model(&models.Transaction{}).
+		revenueQuery := database.DB.Model(&models.Transaction{}).
 			Select("DATE(created_at) as date, SUM(ABS(amount)) as count").
-			Where("created_at >= ? AND type IN (?, ?)", startDate, models.TransactionTypeNew, models.TransactionTypeRenewal).
-			Group("DATE(created_at)").
-			Order("date").
-			Scan(&data)
+			Where("created_at >= ? AND type IN (?, ?)", startDate, models.TransactionTypeNew, models.TransactionTypeRenewal)
+		if isReseller {
+			revenueQuery = revenueQuery.Where("reseller_id = ?", *user.ResellerID)
+		}
+		revenueQuery.Group("DATE(created_at)").Order("date").Scan(&data)
 
 	case "services":
 		var serviceData []struct {
 			Name  string `json:"name"`
 			Count int64  `json:"count"`
 		}
-		database.DB.Model(&models.Subscriber{}).
+		serviceQuery := database.DB.Model(&models.Subscriber{}).
 			Select("services.name, COUNT(*) as count").
-			Joins("JOIN services ON services.id = subscribers.service_id").
-			Group("services.id, services.name").
-			Order("count DESC").
-			Limit(10).
-			Scan(&serviceData)
+			Joins("JOIN services ON services.id = subscribers.service_id")
+		if isReseller {
+			serviceQuery = serviceQuery.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
+		}
+		serviceQuery.Group("services.id, services.name").Order("count DESC").Limit(10).Scan(&serviceData)
 
 		return c.JSON(fiber.Map{
 			"success": true,

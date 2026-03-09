@@ -273,12 +273,14 @@ export default function Dashboard() {
               icon={SignalIcon}
               iconColor="#FF9800"
             />
-            <StatBox
-              label="Total Resellers"
-              value={stats?.total_resellers?.toLocaleString() || 0}
-              icon={UserGroupIcon}
-              iconColor="#9C27B0"
-            />
+            {isAdmin() && (
+              <StatBox
+                label="Total Resellers"
+                value={stats?.total_resellers?.toLocaleString() || 0}
+                icon={UserGroupIcon}
+                iconColor="#9C27B0"
+              />
+            )}
           </div>
         </div>
       </div>
