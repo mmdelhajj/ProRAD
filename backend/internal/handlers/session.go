@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/proisp/backend/internal/database"
+	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/mikrotik"
 	"github.com/proisp/backend/internal/models"
 	"github.com/proisp/backend/internal/radius"
@@ -53,52 +54,69 @@ func (h *SessionHandler) List(c *fiber.Ctx) error {
 
 	// Query radacct for active sessions
 	query := database.DB.Table("radacct").
-		Select(`radacct.id, radacct.username, radacct.nas_ip_address, radacct.framed_ip_address,
-			radacct.calling_station_id, radacct.acct_session_id, radacct.acct_start_time,
-			radacct.acct_session_time, radacct.acct_input_octets, radacct.acct_output_octets,
+		Select(`radacct.radacctid as id, radacct.username,
+			radacct.nasipaddress as nas_ip_address,
+			radacct.framedipaddress as framed_ip_address,
+			radacct.callingstationid as calling_station_id,
+			radacct.acctsessionid as acct_session_id,
+			radacct.acctstarttime as acct_start_time,
+			radacct.acctsessiontime as acct_session_time,
+			radacct.acctinputoctets as acct_input_octets,
+			radacct.acctoutputoctets as acct_output_octets,
 			COALESCE(subscribers.full_name, '') as full_name,
 			COALESCE(services.name, '') as service_name,
-			COALESCE(nas_devices.name, radacct.nas_ip_address) as nas_name`)
+			COALESCE(nas_devices.name, radacct.nasipaddress) as nas_name`)
 
 	// Left join to get subscriber info
 	query = query.Joins("LEFT JOIN subscribers ON radacct.username = subscribers.username")
 	query = query.Joins("LEFT JOIN services ON subscribers.service_id = services.id")
-	query = query.Joins("LEFT JOIN nas_devices ON radacct.nas_ip_address = nas_devices.ip_address")
+	query = query.Joins("LEFT JOIN nas_devices ON radacct.nasipaddress = nas_devices.ip_address")
 
 	// Filter by status
 	if status == "online" {
-		query = query.Where("radacct.acct_stop_time IS NULL")
+		query = query.Where("radacct.acctstoptime IS NULL")
 	} else if status == "offline" {
-		query = query.Where("radacct.acct_stop_time IS NOT NULL")
+		query = query.Where("radacct.acctstoptime IS NOT NULL")
 	}
 
 	// Filter by NAS
 	if nasIP != "" {
-		query = query.Where("radacct.nas_ip_address = ?", nasIP)
+		query = query.Where("radacct.nasipaddress = ?", nasIP)
 	}
 
 	// Search
 	if search != "" {
 		searchPattern := "%" + search + "%"
-		query = query.Where("radacct.username ILIKE ? OR radacct.framed_ip_address ILIKE ? OR radacct.calling_station_id ILIKE ?",
+		query = query.Where("radacct.username ILIKE ? OR radacct.framedipaddress ILIKE ? OR radacct.callingstationid ILIKE ?",
 			searchPattern, searchPattern, searchPattern)
+	}
+
+	// Reseller filter — only show sessions for reseller's own subscribers
+	user := middleware.GetCurrentUser(c)
+	if user != nil && user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		resellerFilter := "radacct.username IN (SELECT username FROM subscribers WHERE reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?))"
+		query = query.Where(resellerFilter, *user.ResellerID, *user.ResellerID)
 	}
 
 	// Count total
 	var total int64
 	countQuery := database.DB.Table("radacct")
 	if status == "online" {
-		countQuery = countQuery.Where("acct_stop_time IS NULL")
+		countQuery = countQuery.Where("acctstoptime IS NULL")
 	} else if status == "offline" {
-		countQuery = countQuery.Where("acct_stop_time IS NOT NULL")
+		countQuery = countQuery.Where("acctstoptime IS NOT NULL")
 	}
 	if nasIP != "" {
-		countQuery = countQuery.Where("nas_ip_address = ?", nasIP)
+		countQuery = countQuery.Where("nasipaddress = ?", nasIP)
 	}
 	if search != "" {
 		searchPattern := "%" + search + "%"
-		countQuery = countQuery.Where("username ILIKE ? OR framed_ip_address ILIKE ? OR calling_station_id ILIKE ?",
+		countQuery = countQuery.Where("username ILIKE ? OR framedipaddress ILIKE ? OR callingstationid ILIKE ?",
 			searchPattern, searchPattern, searchPattern)
+	}
+	// Apply same reseller filter to count
+	if user != nil && user.UserType == models.UserTypeReseller && user.ResellerID != nil {
+		countQuery = countQuery.Where("username IN (SELECT username FROM subscribers WHERE reseller_id IN (SELECT id FROM resellers WHERE id = ? OR parent_id = ?))", *user.ResellerID, *user.ResellerID)
 	}
 	countQuery.Count(&total)
 
@@ -119,7 +137,7 @@ func (h *SessionHandler) List(c *fiber.Ctx) error {
 		NASName          string     `gorm:"column:nas_name"`
 	}
 
-	query.Order("radacct.acct_start_time DESC").Offset(offset).Limit(limit).Scan(&results)
+	query.Order("radacct.acctstarttime DESC").Offset(offset).Limit(limit).Find(&results)
 
 	// Convert to response format
 	sessions := make([]ActiveSession, len(results))
@@ -233,7 +251,7 @@ func (h *SessionHandler) GetStats(c *fiber.Ctx) error {
 	var online int64
 
 	// Count active sessions from radacct
-	database.DB.Table("radacct").Where("acct_stop_time IS NULL").Count(&online)
+	database.DB.Table("radacct").Where("acctstoptime IS NULL").Count(&online)
 
 	// Sessions by NAS
 	type NASSession struct {
@@ -243,9 +261,9 @@ func (h *SessionHandler) GetStats(c *fiber.Ctx) error {
 	}
 	var byNAS []NASSession
 	database.DB.Table("radacct").
-		Select("nas_ip_address, COUNT(*) as online_count").
-		Where("acct_stop_time IS NULL").
-		Group("nas_ip_address").
+		Select("nasipaddress as nas_ip_address, COUNT(*) as online_count").
+		Where("acctstoptime IS NULL").
+		Group("nasipaddress").
 		Scan(&byNAS)
 
 	// Get NAS names
@@ -273,7 +291,7 @@ func (h *SessionHandler) DisconnectByUsername(c *fiber.Ctx) error {
 
 	// Get active sessions for this user
 	var sessions []models.RadAcct
-	database.DB.Where("username = ? AND acct_stop_time IS NULL", username).Find(&sessions)
+	database.DB.Where("username = ? AND acctstoptime IS NULL", username).Find(&sessions)
 
 	if len(sessions) == 0 {
 		return c.JSON(fiber.Map{
