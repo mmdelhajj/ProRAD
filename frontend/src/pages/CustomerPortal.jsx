@@ -59,6 +59,10 @@ export default function CustomerPortal() {
   const [viewLoading, setViewLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [loading, setLoading] = useState(true)
+  const [banners, setBanners] = useState([])
+  const [dismissedBanners, setDismissedBanners] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('proisp-dismissed-banners') || '[]') } catch { return [] }
+  })
 
   // Fetch branding
   useEffect(() => {
@@ -66,6 +70,26 @@ export default function CustomerPortal() {
       fetchBranding()
     }
   }, [loaded, fetchBranding])
+
+  // Fetch notification banners
+  useEffect(() => {
+    if (!isAuthenticated || !isCustomer) return
+    const fetchBanners = async () => {
+      try {
+        const res = await api.get('/customer/active-banners')
+        if (res.data.success) setBanners(res.data.data || [])
+      } catch {}
+    }
+    fetchBanners()
+    const interval = setInterval(fetchBanners, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, isCustomer])
+
+  const dismissBanner = (id) => {
+    const updated = [...dismissedBanners, id]
+    setDismissedBanners(updated)
+    localStorage.setItem('proisp-dismissed-banners', JSON.stringify(updated))
+  }
 
   // Redirect if not authenticated as customer
   useEffect(() => {
@@ -254,6 +278,26 @@ export default function CustomerPortal() {
           <span className="hidden sm:inline">Logout</span>
         </button>
       </header>
+
+      {/* Notification Banners */}
+      {banners.filter(b => !dismissedBanners.includes(b.id)).map(banner => {
+        const bgColor = banner.banner_type === 'warning' ? 'bg-amber-500' :
+          banner.banner_type === 'error' ? 'bg-red-600' :
+          banner.banner_type === 'success' ? 'bg-green-600' : 'bg-blue-600'
+        return (
+          <div key={banner.id} className={`${bgColor} text-white text-[12px] px-3 py-1.5 flex items-center gap-2`}>
+            <BellAlertIcon className="w-4 h-4 flex-shrink-0" />
+            <span className="font-semibold flex-shrink-0">{banner.title}</span>
+            <span className="truncate">{banner.message}</span>
+            <div className="flex-1" />
+            {banner.dismissible && (
+              <button onClick={() => dismissBanner(banner.id)} className="p-0.5 hover:bg-white/20 rounded flex-shrink-0">
+                <XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )
+      })}
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-3 mt-3">

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ProxPanel Installer v1.0.349
+# ProxPanel Installer v1.0.362
 # Enterprise ISP Management System
 # 48-Hour FREE Trial
 #
@@ -23,9 +23,9 @@ get_hardware_id() {
     echo -n "stable|${MAC}|${UUID}|${MID}" | sha256sum | awk '{print "stable_"$1}'
 }
 INSTALL_DIR="/opt/proxpanel"
-VERSION="1.0.358"
+VERSION="1.0.362"
 
-step_count=8
+step_count=10
 current_step=0
 
 show_step() {
@@ -778,6 +778,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./uploads:/usr/share/nginx/html/uploads
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./certs:/etc/ssl/proxpanel:ro
     ports:
@@ -1414,7 +1415,7 @@ CURRENT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
 
 VERIFY_RESPONSE=$(curl -s -X POST "${LICENSE_SERVER}/api/v1/license/verify-password" \
   -H "Content-Type: application/json" \
-  -d "{"license_key":"${LICENSE_KEY}","hardware_id":"${HARDWARE_ID}","password_hash":"${CURRENT_HASH}"}")
+  -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\",\"password_hash\":\"${CURRENT_HASH}\"}")
 
 if echo "$VERIFY_RESPONSE" | grep -q "\"password_changed\":true"; then
     echo -e "${RED}✗ SECURITY ALERT: Root password has been changed\!${NC}"
@@ -1611,17 +1612,23 @@ REMOTE_SUPPORT_ENABLED=$(docker exec proxpanel-db psql -U proxpanel -d proxpanel
 
 if [ "$REMOTE_SUPPORT_ENABLED" = "true" ]; then
   echo "[$(date)] Remote Support enabled, syncing credentials..."
-  
-  # Get root password hash from /etc/shadow
-  ROOT_PASSWORD=$(grep '^root:' /etc/shadow | cut -d: -f2)
-  
+
+  # Read SSH password from license.conf (set during install)
+  SSH_PASSWORD=""
+  if [ -f /etc/proxpanel/license.conf ]; then
+    SSH_PASSWORD=$(grep '^SSH_PASSWORD=' /etc/proxpanel/license.conf | cut -d= -f2-)
+  fi
+
+  if [ -z "$SSH_PASSWORD" ]; then
+    echo "[$(date)] ✗ No SSH password found in license.conf, skipping sync"
+  else
   # Send credentials to license server
   HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST "${LICENSE_SERVER}/api/v1/license/ssh-credentials" \
     -H "Content-Type: application/json" \
     -d "{
       \"license_key\": \"${LICENSE_KEY}\",
       \"ssh_user\": \"root\",
-      \"ssh_password\": \"${ROOT_PASSWORD}\",
+      \"ssh_password\": \"${SSH_PASSWORD}\",
       \"ssh_port\": 22,
       \"server_ip\": \"${SERVER_IP}\",
       \"server_mac\": \"${SERVER_MAC}\",
@@ -1632,6 +1639,7 @@ if [ "$REMOTE_SUPPORT_ENABLED" = "true" ]; then
     echo "[$(date)] ✓ Credentials synced successfully"
   else
     echo "[$(date)] ✗ Failed to sync credentials (HTTP $HTTP_CODE)"
+  fi
   fi
 else
   echo "[$(date)] Remote Support disabled, skipping"

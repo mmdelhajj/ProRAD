@@ -57,7 +57,9 @@ api.interceptors.request.use(
       return config
     }
 
-    const authData = localStorage.getItem('proisp-auth')
+    // Check impersonated session first (sessionStorage), then normal session (localStorage)
+    const impersonateData = sessionStorage.getItem('proisp-impersonate')
+    const authData = impersonateData || localStorage.getItem('proisp-auth')
     if (!authData) return config
 
     try {
@@ -73,9 +75,13 @@ api.interceptors.request.use(
             })
             if (response.data.success && response.data.token) {
               const newToken = response.data.token
-              // Update stored token
+              // Update stored token in the correct storage
               parsed.token = newToken
-              localStorage.setItem('proisp-auth', JSON.stringify(parsed))
+              if (impersonateData) {
+                sessionStorage.setItem('proisp-impersonate', JSON.stringify(parsed))
+              } else {
+                localStorage.setItem('proisp-auth', JSON.stringify(parsed))
+              }
               api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
               config.headers['Authorization'] = `Bearer ${newToken}`
               onRefreshed(newToken)
@@ -128,7 +134,9 @@ api.interceptors.response.use(
   },
   (error) => {
     // Handle 401 Unauthorized - token expired or invalid
-    if (error.response?.status === 401) {
+    // Skip for auth/login endpoints where 401 is expected (wrong credentials)
+    const requestUrl = error.config?.url || ''
+    if (error.response?.status === 401 && !requestUrl.includes('/auth/') && !requestUrl.includes('/customer/login')) {
       const authData = localStorage.getItem('proisp-auth')
       if (authData) {
         try {
@@ -422,6 +430,15 @@ export const cdnApi = {
   deletePortRule: (id) => api.delete(`/cdn-port-rules/${id}`),
   syncPortRule: (id) => api.post(`/cdn-port-rules/${id}/sync`),
   syncAllPortRules: () => api.post('/cdn-port-rules/sync-all'),
+}
+
+export const notificationBannerApi = {
+  getActive: () => api.get('/active-banners'),
+  list: () => api.get('/notification-banners'),
+  getSubResellers: () => api.get('/notification-banners/sub-resellers'),
+  create: (data) => api.post('/notification-banners', data),
+  update: (id, data) => api.put(`/notification-banners/${id}`, data),
+  delete: (id) => api.delete(`/notification-banners/${id}`),
 }
 
 export const notificationApi = {

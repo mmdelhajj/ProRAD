@@ -237,6 +237,7 @@ func main() {
 	sslHandler := handlers.NewSSLHandler()
 	tunnelHandler := handlers.NewTunnelHandler()
 	collectorHandler := handlers.NewCollectorHandler()
+	notificationBannerHandler := handlers.NewNotificationBannerHandler()
 
 	// API routes
 	api := app.Group("/api")
@@ -282,6 +283,7 @@ func main() {
 	customerProtected.Post("/tickets/:id/reply", customerHandler.ReplyTicket)
 	customerProtected.Get("/invoices", customerHandler.Invoices)
 	customerProtected.Get("/invoices/:id", customerHandler.GetInvoice)
+	customerProtected.Get("/active-banners", notificationBannerHandler.GetActiveForCustomer)
 
 	// Critical system routes - auth only, NO license check (for fixing license/restart issues)
 	criticalSystem := api.Group("", middleware.AuthRequired(cfg))
@@ -468,6 +470,16 @@ func main() {
 	resellerBranding.Delete("/logo", resellerBrandingHandler.DeleteLogo)
 	resellerBranding.Post("/ssl", resellerBrandingHandler.RequestSSL)
 	resellerBranding.Put("/domain", resellerBrandingHandler.UpdateDomain)
+
+	// Notification banner - active banners for display (no permission needed, any authenticated user)
+	protected.Get("/active-banners", notificationBannerHandler.GetActive)
+	// Notification banner CRUD (requires permission)
+	banners := protected.Group("/notification-banners", middleware.RequirePermission("communication.notifications"))
+	banners.Get("/", notificationBannerHandler.List)
+	banners.Get("/sub-resellers", notificationBannerHandler.GetSubResellers)
+	banners.Post("/", notificationBannerHandler.Create)
+	banners.Put("/:id", notificationBannerHandler.Update)
+	banners.Delete("/:id", notificationBannerHandler.Delete)
 
 	// Customer update notification routes (accessible to all authenticated users)
 	notificationRoutes := protected.Group("/notifications/updates")
@@ -750,6 +762,11 @@ func main() {
 		staleSessionCleanupService.Stop()
 		clusterFailoverService.Stop()
 		clusterService.Stop()
+		dailyQuotaResetService.Stop()
+		dailyNotificationService.Stop()
+		sharingDetectionService.Stop()
+		invoiceGenerationService.Stop()
+		portScanService.Stop()
 		mikrotik.ShutdownPool()
 		license.Stop()
 		app.Shutdown()

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useBrandingStore } from '../store/brandingStore'
 import toast from 'react-hot-toast'
@@ -237,7 +237,7 @@ export default function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const sessionReason = searchParams.get('reason')
-  const { login } = useAuthStore()
+  const { login, isAuthenticated, isCustomer } = useAuthStore()
   const {
     companyName, companyLogo, loginBackground, footerText, primaryColor,
     loginTagline, showLoginFeatures,
@@ -283,6 +283,15 @@ export default function Login() {
     setRequires2FA(false)
     setTwoFACode('')
   }
+
+  // If user navigated to /login manually while authenticated, log them out first
+  // This allows switching accounts (e.g., admin -> reseller)
+  useEffect(() => {
+    if (isAuthenticated && !sessionReason) {
+      const { logout } = useAuthStore.getState()
+      logout()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ ...winStyles.page, flexDirection: 'row' }}>

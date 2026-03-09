@@ -8,6 +8,7 @@ import { useThemeStore } from '../store/themeStore'
 import Clock from './Clock'
 import LicenseBanner from './LicenseBanner'
 import UpdateBanner from './UpdateBanner'
+import NotificationBanner from './NotificationBanner'
 import UpdateNotification from './UpdateNotification'
 import {
   HomeIcon,
@@ -121,6 +122,7 @@ const allNavigation = [
   { name: 'Sessions', href: '/sessions', icon: SignalIcon, permission: 'sessions.view' },
   { name: 'Bandwidth Rules', href: '/bandwidth', icon: AdjustmentsHorizontalIcon, permission: 'bandwidth.view' },
   { name: 'Communication', href: '/communication', icon: BellAlertIcon, permission: 'communication.access_module' },
+  { name: 'Notifications', href: '/notification-banners', icon: BellAlertIcon, permission: 'communication.notifications' },
   { name: 'Transactions', href: '/transactions', icon: CreditCardIcon, permission: 'transactions.view' },
   { name: 'Invoices', href: '/invoices', icon: DocumentTextIcon, permission: 'invoices.view' },
   { name: 'Prepaid Cards', href: '/prepaid', icon: TicketIcon, permission: 'prepaid.view' },
@@ -566,6 +568,7 @@ export default function Layout({ children }) {
       {/* License/Update banners */}
       <LicenseBanner />
       <UpdateBanner />
+      <NotificationBanner />
 
       {/* ================================================================
           MAIN AREA - Sidebar + Content

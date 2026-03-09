@@ -183,9 +183,6 @@ export default function SubscriberEdit() {
   const monthlyQuota = subscriberResponse?.monthly_quota
   const sessions = subscriberResponse?.sessions || []
 
-  // Debug logging
-  console.log('subscriberResponse:', subscriberResponse)
-  console.log('sessions:', sessions, 'length:', sessions?.length)
 
   const { data: services } = useQuery({
     queryKey: ['services-list'],

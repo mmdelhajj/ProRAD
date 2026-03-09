@@ -421,6 +421,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
     auto_recharge_days INTEGER DEFAULT 0,
     whatsapp_notifications BOOLEAN DEFAULT false,
     wan_check_status VARCHAR(20) DEFAULT 'unchecked',
+    port_open BOOLEAN DEFAULT false,
     deleted_by_id INTEGER,
     deleted_by_name VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -541,6 +542,7 @@ CREATE TABLE IF NOT EXISTS radpostauth (
     username VARCHAR(64) NOT NULL DEFAULT '',
     pass VARCHAR(64) NOT NULL DEFAULT '',
     reply VARCHAR(32) NOT NULL DEFAULT '',
+    callingstationid VARCHAR(50) DEFAULT '',
     authdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     class VARCHAR(64) DEFAULT ''
 );
@@ -1251,8 +1253,9 @@ CREATE TABLE IF NOT EXISTS daily_usage_history (
     UNIQUE(subscriber_id, date)
 );
 
--- WAN Management Check column (v1.0.352+)
+-- WAN Management Check columns (v1.0.352+)
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS wan_check_status VARCHAR(20) DEFAULT 'unchecked';
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS port_open BOOLEAN DEFAULT false;
 
 -- Deletion tracking columns (v1.0.352+)
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER;
@@ -1269,3 +1272,28 @@ ALTER TABLE invoices ADD COLUMN IF NOT EXISTS auto_generated BOOLEAN DEFAULT fal
 -- Default invoice generation setting
 INSERT INTO system_preferences (key, value, value_type)
 VALUES ('invoice_days_before_expiry', '7', 'int') ON CONFLICT (key) DO NOTHING;
+
+-- Add callingstationid to radpostauth for existing installs (v1.0.362+)
+ALTER TABLE radpostauth ADD COLUMN IF NOT EXISTS callingstationid VARCHAR(50) DEFAULT '';
+
+-- Notification Banners (v1.0.363+)
+CREATE TABLE IF NOT EXISTS notification_banners (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    banner_type VARCHAR(20) DEFAULT 'info',
+    target VARCHAR(20) DEFAULT 'all',
+    target_ids TEXT DEFAULT '',
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    dismissible BOOLEAN DEFAULT true,
+    enabled BOOLEAN DEFAULT true,
+    created_by_id INTEGER,
+    created_by_name VARCHAR(100),
+    reseller_id INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+INSERT INTO permissions (name, description) VALUES ('communication.notifications', 'Manage notification banners') ON CONFLICT (name) DO NOTHING;

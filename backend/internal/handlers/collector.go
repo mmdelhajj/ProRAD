@@ -10,6 +10,7 @@ import (
 	"github.com/proisp/backend/internal/database"
 	"github.com/proisp/backend/internal/middleware"
 	"github.com/proisp/backend/internal/models"
+	"gorm.io/gorm"
 )
 
 // CollectorHandler handles collector-related requests
@@ -668,7 +669,7 @@ func (h *CollectorHandler) autoRenewSubscriber(subscriberID uint) {
 	// Deduct reseller balance if applicable
 	if subscriber.ResellerID > 0 {
 		database.DB.Model(&models.Reseller{}).Where("id = ?", subscriber.ResellerID).
-			Update("balance", database.DB.Raw("balance - ?", subscriber.Price))
+			Update("balance", gorm.Expr("balance - ?", subscriber.Price))
 
 		// Create transaction
 		database.DB.Create(&models.Transaction{
