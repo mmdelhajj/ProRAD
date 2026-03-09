@@ -45,7 +45,7 @@ export default function Sessions() {
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: ['sessions'],
-    queryFn: () => sessionApi.list({ limit: 100 }).then((r) => r.data.data),
+    queryFn: () => sessionApi.list({ limit: 500 }).then((r) => r.data.data),
     refetchInterval: 10000, // Refresh every 10 seconds
   })
 

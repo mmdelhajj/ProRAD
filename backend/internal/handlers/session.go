@@ -47,8 +47,8 @@ func (h *SessionHandler) List(c *fiber.Ctx) error {
 	if page < 1 {
 		page = 1
 	}
-	if limit > 200 {
-		limit = 200
+	if limit > 1000 {
+		limit = 1000
 	}
 	offset := (page - 1) * limit
 
