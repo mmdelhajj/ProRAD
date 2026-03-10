@@ -897,6 +897,16 @@ func (s *QuotaSyncService) applySubscriberBandwidthRule(client *mikrotik.Client,
 	// Format rate limit for MikroTik (upload/download)
 	rateLimit := fmt.Sprintf("%dk/%dk", finalUploadK, finalDownloadK)
 
+	// Check if radreply already has the correct speed — skip API/CoA if unchanged
+	// This prevents constant MikroTik API + CoA bombardment every 30s cycle
+	var radReply models.RadReply
+	if err := database.DB.Where("username = ? AND attribute = ?", sub.Username, "Mikrotik-Rate-Limit").First(&radReply).Error; err == nil {
+		if radReply.Value == rateLimit {
+			// Speed already correct in RADIUS — no need to touch MikroTik
+			return true
+		}
+	}
+
 	if downloadMultiplier != 100 || uploadMultiplier != 100 {
 		log.Printf("SubscriberRule: Applying custom bandwidth for %s: base=%dk/%dk × %d%%/%d%% = %s (rule_id=%d)",
 			sub.Username, baseUploadK, baseDownloadK, uploadMultiplier, downloadMultiplier, rateLimit, rule.ID)
@@ -1364,11 +1374,36 @@ func isWithinTimeWindow(service *models.Service, now time.Time) bool {
 	}
 }
 
-// checkAndApplyTimeBasedSpeed applies or removes time-based speed adjustments
+// checkAndApplyTimeBasedSpeed tracks time-based speed state for Free Hours.
+// Since v1.0.246, the time-based ratio represents "Free Hours — Quota Discount"
+// (how much quota is FREE during the time window), NOT a speed boost.
+// The actual quota discount is applied in the delta calculation (freePercent logic).
+// Speed boosts should use the separate Bandwidth Rules feature.
 func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, nas *models.Nas, sub *models.Subscriber, sessionIP, sessionID string) {
 	if sub.ServiceID == 0 || sub.Service == nil {
 		return
 	}
+
+	service := sub.Service
+	now := getNow()
+	inTimeWindow := isWithinTimeWindow(service, now)
+
+	// Only track state — no speed changes. The quota discount logic in the
+	// main sync loop uses isWithinTimeWindow() directly, so this state tracking
+	// is just for consistency. No MikroTik API/CoA/queue operations needed.
+	s.mu.Lock()
+	if inTimeWindow {
+		s.timeBasedSpeedState[sub.Username] = &TimeSpeedState{
+			Applied:   true,
+			SessionID: sessionID,
+		}
+	} else {
+		delete(s.timeBasedSpeedState, sub.Username)
+	}
+	s.mu.Unlock()
+	return
+
+	// === LEGACY CODE BELOW (kept for reference, unreachable) ===
 
 	// Check if subscriber has a subscriber bandwidth rule
 	// If yes, the speed is already set correctly (with global bandwidth rule multiplier applied)
@@ -1376,9 +1411,10 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 	subscriberRule := getActiveSubscriberBandwidthRule(sub.ID, models.BandwidthRuleTypeInternet)
 	hasSubscriberRule := subscriberRule != nil
 
-	service := sub.Service
-	now := getNow()
-	inTimeWindow := isWithinTimeWindow(service, now)
+	_ = subscriberRule
+	_ = hasSubscriberRule
+	now = getNow()
+	inTimeWindow = isWithinTimeWindow(service, now)
 
 	// Get current state and check if session changed
 	s.mu.RLock()

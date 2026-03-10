@@ -250,17 +250,9 @@ export default function Subscribers() {
     queryFn: () => resellerApi.list().then((r) => r.data.data),
   })
 
-  const { data: wanCheckPort } = useQuery({
-    queryKey: ['wan-check-port'],
-    queryFn: () => settingsApi.get('wan_check_port').then((r) => parseInt(r.data?.data?.value) || 8084),
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const { data: wanCheckEnabled } = useQuery({
-    queryKey: ['wan-check-enabled'],
-    queryFn: () => settingsApi.get('wan_check_enabled').then((r) => r.data?.data?.value === 'true'),
-    staleTime: 5 * 60 * 1000,
-  })
+  // WAN check settings come from subscriber list meta (no settings.view permission needed)
+  const wanCheckEnabled = data?.meta?.wan_check_enabled || false
+  const wanCheckPort = parseInt(data?.meta?.wan_check_port) || 8084
 
   // Get selected subscribers
   const selectedSubscribers = useMemo(() => {
@@ -777,7 +769,7 @@ export default function Subscribers() {
                 <SignalIcon style={{ width: 14, height: 14 }} />
               </button>
             )}
-            {row.original.latitude && row.original.longitude && parseFloat(row.original.latitude) !== 0 && (
+            {!!(row.original.latitude && row.original.longitude) && parseFloat(row.original.latitude) !== 0 && parseFloat(row.original.longitude) !== 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); setMapModal(row.original) }}
                 style={{ color: '#2196F3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
@@ -1094,7 +1086,7 @@ export default function Subscribers() {
         ),
       }] : []),
     ],
-    [viewMode, visibleColumns, sortBy, page, limit, selectedIds, allSelected]
+    [viewMode, visibleColumns, sortBy, page, limit, selectedIds, allSelected, wanCheckEnabled, wanCheckPort]
   )
 
   const table = useReactTable({

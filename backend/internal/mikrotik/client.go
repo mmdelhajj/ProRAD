@@ -989,10 +989,11 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 
 	// First pass: collect all queue info
 	type queueInfo struct {
-		id     string
-		name   string
-		target string
-		dst    string
+		id      string
+		name    string
+		target  string
+		dst     string
+		dynamic string
 	}
 	var queues []queueInfo
 	var current queueInfo
@@ -1016,6 +1017,9 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 		}
 		if strings.HasPrefix(word, "=dst=") {
 			current.dst = strings.TrimPrefix(word, "=dst=")
+		}
+		if strings.HasPrefix(word, "=dynamic=") {
+			current.dynamic = strings.TrimPrefix(word, "=dynamic=")
 		}
 	}
 	// Don't forget last queue
@@ -1043,7 +1047,7 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 		for _, target := range interfaceTargets {
 			if q.name == target || q.target == target {
 				queueID = q.id
-				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s", q.id, q.name, q.target, username)
+				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s, dynamic=%s) for user %s", q.id, q.name, q.target, q.dynamic, username)
 				break
 			}
 		}
@@ -1051,13 +1055,17 @@ func (c *Client) UpdateUserRateLimitWithIP(username, ipAddress string, downloadK
 		if queueID == "" {
 			if strings.HasPrefix(q.name, domainPrefix) || strings.HasPrefix(q.target, domainPrefix) {
 				queueID = q.id
-				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s via domain prefix", q.id, q.name, q.target, username)
+				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s, dynamic=%s) for user %s via domain prefix", q.id, q.name, q.target, q.dynamic, username)
 			}
 		}
-		// Also match by IP target
+		// Also match by IP target — but ONLY dynamic queues (skip manual/static queues)
 		if queueID == "" && ipTarget != "" && q.target == ipTarget {
-			queueID = q.id
-			log.Printf("MikroTik: Found main queue %s (name=%s, target=%s) for user %s via IP", q.id, q.name, q.target, username)
+			if q.dynamic == "true" {
+				queueID = q.id
+				log.Printf("MikroTik: Found main queue %s (name=%s, target=%s, dynamic=%s) for user %s via IP", q.id, q.name, q.target, q.dynamic, username)
+			} else {
+				log.Printf("MikroTik: Skipping manual queue %s (name=%s, target=%s, dynamic=%s) for user %s — not modifying manual queues", q.id, q.name, q.target, q.dynamic, username)
+			}
 		}
 		if queueID != "" {
 			break
@@ -1179,10 +1187,11 @@ func (c *Client) RemoveDynamicQueueForRecreation(username string) error {
 
 	// Parse to find the dynamic queue (one without dst=, matching target)
 	type queueInfo struct {
-		id     string
-		name   string
-		target string
-		dst    string
+		id      string
+		name    string
+		target  string
+		dst     string
+		dynamic string
 	}
 	var queues []queueInfo
 	var current queueInfo
@@ -1205,6 +1214,9 @@ func (c *Client) RemoveDynamicQueueForRecreation(username string) error {
 		}
 		if strings.HasPrefix(word, "=dst=") {
 			current.dst = strings.TrimPrefix(word, "=dst=")
+		}
+		if strings.HasPrefix(word, "=dynamic=") {
+			current.dynamic = strings.TrimPrefix(word, "=dynamic=")
 		}
 	}
 	if current.id != "" {

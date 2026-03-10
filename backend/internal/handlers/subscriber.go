@@ -360,14 +360,27 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	filteredQuery().Where("fup_level = ?", 4).Count(&stats.FUP4)
 	filteredQuery().Where("monthly_fup_level >= ?", 1).Count(&stats.MonthlyFUP)
 
+	// Include WAN check settings in meta so resellers can see WAN status
+	// without needing settings.view permission
+	var wanEnabled, wanPort string
+	var wanPref models.SystemPreference
+	if err := database.DB.Where("key = ?", "wan_check_enabled").First(&wanPref).Error; err == nil {
+		wanEnabled = wanPref.Value
+	}
+	if err := database.DB.Where("key = ?", "wan_check_port").First(&wanPref).Error; err == nil {
+		wanPort = wanPref.Value
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    subscribers,
 		"meta": fiber.Map{
-			"page":       page,
-			"limit":      limit,
-			"total":      total,
-			"totalPages": (total + int64(limit) - 1) / int64(limit),
+			"page":             page,
+			"limit":            limit,
+			"total":            total,
+			"totalPages":       (total + int64(limit) - 1) / int64(limit),
+			"wan_check_enabled": wanEnabled == "true" || wanEnabled == "1",
+			"wan_check_port":   wanPort,
 		},
 		"stats": stats,
 	})
