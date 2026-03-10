@@ -293,12 +293,218 @@ export default function Login() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
+  /* ── Mobile-friendly login (clean, simple) ── */
+  const mobileLogin = (
+    <div style={{
+      minHeight: '100vh',
+      background: `linear-gradient(135deg, ${primaryColor || '#4a7ab5'} 0%, #2d5a87 100%)`,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px 20px',
+      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    }}>
+      {/* Logo / Company Name */}
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        {companyLogo ? (
+          <img src={companyLogo} alt={companyName || 'Logo'} style={{ height: 56, objectFit: 'contain' }} />
+        ) : (
+          <>
+            <div style={{
+              width: 64, height: 64, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.15)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.25)',
+            }}>
+              <WifiIcon style={{ width: 32, height: 32, color: '#fff' }} />
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '0.3px' }}>
+              {companyName || 'ISP Management'}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Login Card */}
+      <div style={{
+        width: '100%', maxWidth: 340, background: '#fff', borderRadius: 12,
+        padding: '28px 24px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+      }}>
+        {!requires2FA ? (
+          <>
+            {/* Session warnings */}
+            {sessionReason === 'idle' && (
+              <div style={{ padding: '8px 12px', marginBottom: 16, fontSize: 13, borderRadius: 8, background: '#fff8d0', color: '#665200', border: '1px solid #e8d44d' }}>
+                Logged out due to inactivity.
+              </div>
+            )}
+            {sessionReason === 'expired' && (
+              <div style={{ padding: '8px 12px', marginBottom: 16, fontSize: 13, borderRadius: 8, background: '#ffd8d8', color: '#600', border: '1px solid #e88' }}>
+                Session expired. Please sign in again.
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              {/* Username */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 6 }}>Username</label>
+                <div style={{ position: 'relative' }}>
+                  <UserIcon style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#999' }} />
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your username"
+                    autoComplete="username"
+                    style={{
+                      width: '100%', boxSizing: 'border-box', padding: '12px 12px 12px 40px',
+                      fontSize: 15, fontFamily: 'inherit', border: '1.5px solid #ddd', borderRadius: 8,
+                      background: '#f8f9fa', color: '#000', outline: 'none',
+                    }}
+                    onFocus={(e) => { e.target.style.borderColor = primaryColor || '#4a7ab5'; e.target.style.background = '#fff' }}
+                    onBlur={(e) => { e.target.style.borderColor = '#ddd'; e.target.style.background = '#f8f9fa' }}
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 6 }}>Password</label>
+                <div style={{ position: 'relative' }}>
+                  <LockClosedIcon style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#999' }} />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    style={{
+                      width: '100%', boxSizing: 'border-box', padding: '12px 12px 12px 40px',
+                      fontSize: 15, fontFamily: 'inherit', border: '1.5px solid #ddd', borderRadius: 8,
+                      background: '#f8f9fa', color: '#000', outline: 'none',
+                    }}
+                    onFocus={(e) => { e.target.style.borderColor = primaryColor || '#4a7ab5'; e.target.style.background = '#fff' }}
+                    onBlur={(e) => { e.target.style.borderColor = '#ddd'; e.target.style.background = '#f8f9fa' }}
+                  />
+                </div>
+              </div>
+
+              {/* Sign In button */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%', padding: '13px', fontSize: 16, fontWeight: 600, fontFamily: 'inherit',
+                  color: '#fff', background: primaryColor || '#4a7ab5', border: 'none', borderRadius: 8,
+                  cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {loading ? (
+                  <>
+                    <svg style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24">
+                      <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            {/* 2FA */}
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <div style={{
+                width: 52, height: 52, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: '#f0f4ff', borderRadius: 12,
+              }}>
+                <ShieldCheckIcon style={{ width: 28, height: 28, color: primaryColor || '#4a7ab5' }} />
+              </div>
+              <div style={{ fontWeight: 600, fontSize: 15, color: '#000', marginBottom: 4 }}>Verification Required</div>
+              <div style={{ fontSize: 13, color: '#666' }}>Enter the 6-digit code from your authenticator app</div>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 16 }}>
+                <input
+                  type="text"
+                  required
+                  value={twoFACode}
+                  onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  autoFocus
+                  style={{
+                    width: '100%', boxSizing: 'border-box', padding: '14px', fontSize: 24,
+                    fontFamily: "'Consolas', 'Courier New', monospace", textAlign: 'center', letterSpacing: '0.5em',
+                    border: '1.5px solid #ddd', borderRadius: 8, background: '#f8f9fa', color: '#000', outline: 'none',
+                  }}
+                  onFocus={(e) => { e.target.style.borderColor = primaryColor || '#4a7ab5' }}
+                  onBlur={(e) => { e.target.style.borderColor = '#ddd' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || twoFACode.length !== 6}
+                style={{
+                  width: '100%', padding: '13px', fontSize: 16, fontWeight: 600, fontFamily: 'inherit',
+                  color: '#fff', background: primaryColor || '#4a7ab5', border: 'none', borderRadius: 8,
+                  cursor: (loading || twoFACode.length !== 6) ? 'not-allowed' : 'pointer',
+                  opacity: (loading || twoFACode.length !== 6) ? 0.7 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {loading ? (
+                  <>
+                    <svg style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24">
+                      <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Verifying...
+                  </>
+                ) : (
+                  'Verify & Sign In'
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleBack}
+                style={{
+                  width: '100%', marginTop: 10, padding: '10px', fontSize: 14, fontFamily: 'inherit',
+                  color: '#666', background: '#f0f0f0', border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <ArrowLeftIcon style={{ width: 14, height: 14 }} />
+                Back to login
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
+        {footerText || (companyName ? `${companyName}` : 'ISP Management System')}
+      </div>
+    </div>
+  )
+
+  /* ── Desktop login (unchanged) ── */
+  const desktopLogin = (
     <div style={{ ...winStyles.page, flexDirection: 'row' }}>
-      {/* ─── Left Side: Branding & Features (desktop only) ─── */}
+      {/* ─── Left Side: Branding & Features ─── */}
       <div
-        className="hidden lg:flex lg:w-1/2"
-        style={winStyles.leftPanel(loginBackground, primaryColor)}
+        className="lg:w-1/2"
+        style={{ ...winStyles.leftPanel(loginBackground, primaryColor), display: 'flex' }}
       >
         {loginBackground && <div style={winStyles.leftOverlay} />}
 
@@ -357,30 +563,8 @@ export default function Login() {
       </div>
 
       {/* ─── Right Side: Login Dialog ─── */}
-      <div className="w-full lg:w-1/2" style={winStyles.rightPanel}>
+      <div className="lg:w-1/2" style={winStyles.rightPanel}>
         <div style={{ width: '100%', maxWidth: 400 }}>
-
-          {/* Mobile logo */}
-          <div className="lg:hidden" style={{ textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              {companyLogo ? (
-                <img src={companyLogo} alt={companyName || 'Logo'} style={{ height: 36, objectFit: 'contain' }} />
-              ) : (
-                <>
-                  <div style={{
-                    width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '2px solid', borderColor: '#dfdfdf #808080 #808080 #dfdfdf',
-                    background: '#d4d4d4', borderRadius: '1px',
-                  }}>
-                    <WifiIcon style={{ width: 20, height: 20, color: '#2d5a87' }} />
-                  </div>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: '#000' }}>
-                    {companyName || 'ISP Management'}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
 
           {/* ── Dialog window ── */}
           <div style={winStyles.dialog}>
@@ -412,14 +596,14 @@ export default function Login() {
                   <form onSubmit={handleSubmit}>
                     {/* Username */}
                     <div style={{ marginBottom: 10 }}>
-                      <label htmlFor="username" style={winStyles.label}>Username:</label>
+                      <label htmlFor="username-desktop" style={winStyles.label}>Username:</label>
                       <div style={{ position: 'relative' }}>
                         <UserIcon style={{
                           position: 'absolute', left: 5, top: '50%', transform: 'translateY(-50%)',
                           width: 14, height: 14, color: '#808080',
                         }} />
                         <input
-                          id="username"
+                          id="username-desktop"
                           type="text"
                           required
                           value={username}
@@ -435,14 +619,14 @@ export default function Login() {
 
                     {/* Password */}
                     <div style={{ marginBottom: 14 }}>
-                      <label htmlFor="password" style={winStyles.label}>Password:</label>
+                      <label htmlFor="password-desktop" style={winStyles.label}>Password:</label>
                       <div style={{ position: 'relative' }}>
                         <LockClosedIcon style={{
                           position: 'absolute', left: 5, top: '50%', transform: 'translateY(-50%)',
                           width: 14, height: 14, color: '#808080',
                         }} />
                         <input
-                          id="password"
+                          id="password-desktop"
                           type="password"
                           required
                           value={password}
@@ -507,9 +691,9 @@ export default function Login() {
 
                   <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: 10 }}>
-                      <label htmlFor="twoFACode" style={winStyles.label}>Authentication Code:</label>
+                      <label htmlFor="twoFACode-desktop" style={winStyles.label}>Authentication Code:</label>
                       <input
-                        id="twoFACode"
+                        id="twoFACode-desktop"
                         type="text"
                         required
                         value={twoFACode}
@@ -567,7 +751,19 @@ export default function Login() {
           </div>
         </div>
       </div>
+    </div>
+  )
 
+  return (
+    <>
+      {/* Mobile: clean simple login */}
+      <div className="lg:hidden">
+        {mobileLogin}
+      </div>
+      {/* Desktop: original Windows-style login */}
+      <div className="hidden lg:block">
+        {desktopLogin}
+      </div>
       {/* Keyframe for spinner */}
       <style>{`
         @keyframes spin {
@@ -575,6 +771,6 @@ export default function Login() {
           to { transform: rotate(360deg); }
         }
       `}</style>
-    </div>
+    </>
   )
 }

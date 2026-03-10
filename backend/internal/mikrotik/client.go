@@ -1223,15 +1223,20 @@ func (c *Client) RemoveDynamicQueueForRecreation(username string) error {
 		queues = append(queues, current)
 	}
 
-	// Find the main dynamic queue (no dst, matches target)
+	// Find the main dynamic queue (no dst, matches target, must be dynamic)
 	var queueID string
 	for _, q := range queues {
 		if q.dst != "" {
 			continue // Skip CDN queues
 		}
 		if q.name == interfaceTarget || q.target == interfaceTarget {
+			// Only remove dynamic queues — never touch manual/static queues
+			if q.dynamic != "true" {
+				log.Printf("MikroTik: Skipping non-dynamic queue %s (name=%s, dynamic=%s) — not removing manual queues", q.id, q.name, q.dynamic)
+				continue
+			}
 			queueID = q.id
-			log.Printf("MikroTik: Found dynamic queue %s (name=%s) to remove for recreation", q.id, q.name)
+			log.Printf("MikroTik: Found dynamic queue %s (name=%s, dynamic=%s) to remove for recreation", q.id, q.name, q.dynamic)
 			break
 		}
 	}

@@ -515,8 +515,8 @@ export default function Layout({ children }) {
           )}
           <Clock sessionRemaining={sessionRemaining} />
           <UpdateNotification />
-          {/* Window controls */}
-          <div className="hidden lg:flex items-center gap-0.5 ml-2">
+          {/* Window controls — profile & logout visible on all screens, others desktop only */}
+          <div className="flex items-center gap-0.5 ml-2">
             <Link
               to="/profile"
               className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
@@ -527,7 +527,7 @@ export default function Layout({ children }) {
             {(isAdmin() || isReseller()) && (
               <button
                 onClick={toggleEditMode}
-                className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
+                className="hidden lg:flex w-5 h-4 items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
                 title="Customize Menu"
               >
                 <Bars2Icon className="w-3 h-3" />
@@ -548,7 +548,7 @@ export default function Layout({ children }) {
                   document.documentElement.requestFullscreen()
                 }
               }}
-              className="w-5 h-4 flex items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
+              className="hidden lg:flex w-5 h-4 items-center justify-center text-[11px] hover:bg-white/20 rounded-sm"
               title="Toggle Fullscreen"
             >
               <StopIcon className="w-3 h-3" />

@@ -276,6 +276,26 @@ show_step "Installing Docker"
 
 export DEBIAN_FRONTEND=noninteractive
 
+# Configure DNS fallback — ensure Google/Cloudflare DNS available
+# Prevents boot/curl hangs when local DNS (e.g. MikroTik) is down
+if command -v systemd-resolve &>/dev/null || command -v resolvectl &>/dev/null; then
+    # systemd-resolved: add fallback DNS
+    mkdir -p /etc/systemd/resolved.conf.d
+    cat > /etc/systemd/resolved.conf.d/dns-fallback.conf << 'DNSEOF'
+[Resolve]
+FallbackDNS=8.8.8.8 1.1.1.1 8.8.4.4
+DNSEOF
+    systemctl restart systemd-resolved 2>/dev/null || true
+    show_ok "DNS fallback configured (Google + Cloudflare)"
+else
+    # No systemd-resolved — add to resolv.conf if only local DNS
+    if ! grep -q '8.8.8.8\|1.1.1.1' /etc/resolv.conf 2>/dev/null; then
+        echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+        echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+        show_ok "DNS fallback added to resolv.conf"
+    fi
+fi
+
 if command -v docker &> /dev/null && docker ps > /dev/null 2>&1; then
     show_ok "Docker already installed"
 else
@@ -1036,8 +1056,9 @@ fi
 HARDWARE_ID=$(get_hardware_id)
 CURRENT_HASH=$(grep "^root:" /etc/shadow | cut -d: -f2)
 
-# Verify with license server
-RESPONSE=$(curl -sk --connect-timeout 10 --max-time 30 \
+# Verify with license server (timeout 15s to prevent boot hang)
+RESPONSE=$(timeout 15 curl -sk --connect-timeout 5 --max-time 10 \
+    --dns-servers 8.8.8.8,1.1.1.1 \
     -X POST "${LICENSE_SERVER}/api/v1/license/verify-password" \
     -H "Content-Type: application/json" \
     -d "{\"license_key\":\"${LICENSE_KEY}\",\"hardware_id\":\"${HARDWARE_ID}\",\"current_hash\":\"${CURRENT_HASH}\"}" 2>/dev/null)
@@ -1131,7 +1152,8 @@ fi
 fetch_key() {
     local server="${LICENSE_SERVER:-https://license.proxrad.com}"
     local response
-    response=$(curl -sk --connect-timeout 10 --max-time 30 \
+    response=$(timeout 15 curl -sk --connect-timeout 5 --max-time 10 \
+        --dns-servers 8.8.8.8,1.1.1.1 \
         -X POST "$server/api/v1/license/luks-key" \
         -H "Content-Type: application/json" \
         -d "{\"license_key\":\"$LICENSE_KEY\",\"hardware_id\":\"stable_$(get_hardware_id)\"}" 2>/dev/null)
@@ -1533,6 +1555,7 @@ RequiresMountsFor=/var/lib/proxpanel-encrypted.img
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+TimeoutStartSec=60
 ExecStart=/bin/bash -c '\
   echo "=== ProxPanel Boot Security ==="; \
   echo "Verifying root password..."; \
@@ -1576,7 +1599,7 @@ mkdir -p /etc/systemd/system/docker.service.d
 cat > /etc/systemd/system/docker.service.d/wait-for-decrypt.conf << 'DOCKEREOF'
 [Unit]
 After=proxpanel-decrypt.service
-Requires=proxpanel-decrypt.service
+Wants=proxpanel-decrypt.service
 DOCKEREOF
 
 # Enable the decrypt service
