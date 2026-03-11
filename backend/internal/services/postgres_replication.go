@@ -94,8 +94,7 @@ func (pr *PostgresReplication) CreateReplicationSlot(slotName string) error {
 	}
 
 	// Create physical replication slot
-	sql := fmt.Sprintf("SELECT pg_create_physical_replication_slot('%s')", slotName)
-	if err := database.DB.Exec(sql).Error; err != nil {
+	if err := database.DB.Exec("SELECT pg_create_physical_replication_slot(?)", slotName).Error; err != nil {
 		return fmt.Errorf("failed to create replication slot: %v", err)
 	}
 
@@ -105,8 +104,7 @@ func (pr *PostgresReplication) CreateReplicationSlot(slotName string) error {
 
 // DropReplicationSlot removes a replication slot
 func (pr *PostgresReplication) DropReplicationSlot(slotName string) error {
-	sql := fmt.Sprintf("SELECT pg_drop_replication_slot('%s')", slotName)
-	if err := database.DB.Exec(sql).Error; err != nil {
+	if err := database.DB.Exec("SELECT pg_drop_replication_slot(?)", slotName).Error; err != nil {
 		log.Printf("PostgresReplication: Warning dropping slot %s: %v", slotName, err)
 	}
 	return nil

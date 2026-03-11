@@ -1682,7 +1682,7 @@ func (h *SubscriberHandler) ResetFUP(c *fiber.Ctx) error {
 
 	// Restore original speed in RADIUS radreply table (format: upload/download for MikroTik rx/tx)
 	if subscriber.Service.ID > 0 {
-		rateLimit := fmt.Sprintf("%dM/%dM", subscriber.Service.UploadSpeed, subscriber.Service.DownloadSpeed)
+		rateLimit := fmt.Sprintf("%dk/%dk", subscriber.Service.UploadSpeed, subscriber.Service.DownloadSpeed)
 		database.DB.Model(&models.RadReply{}).
 			Where("username = ? AND attribute = ?", subscriber.Username, "Mikrotik-Rate-Limit").
 			Update("value", rateLimit)
@@ -2955,7 +2955,12 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 				failed++
 				continue
 			}
-			database.DB.Model(&sub).Update("password", req.ActionValue)
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.ActionValue), bcrypt.DefaultCost)
+			if err != nil {
+				failed++
+				continue
+			}
+			database.DB.Model(&sub).Update("password", string(hashedPassword))
 			database.DB.Where("username = ? AND attribute = ?", sub.Username, "Cleartext-Password").Delete(&models.RadCheck{})
 			database.DB.Create(&models.RadCheck{
 				Username: sub.Username, Attribute: "Cleartext-Password", Op: ":=", Value: req.ActionValue,

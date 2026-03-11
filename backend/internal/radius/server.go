@@ -177,9 +177,10 @@ func findAvailableIP(conflictIP string) string {
 
 // Server represents a RADIUS server
 type Server struct {
-	authAddr string
-	acctAddr string
-	secrets  map[string][]byte // NAS IP -> Secret
+	authAddr  string
+	acctAddr  string
+	secretsMu sync.RWMutex
+	secrets   map[string][]byte // NAS IP -> Secret
 }
 
 // NewServer creates a new RADIUS server
@@ -198,9 +199,14 @@ func (s *Server) LoadSecrets() error {
 		return err
 	}
 
+	newSecrets := make(map[string][]byte, len(nasList))
 	for _, nas := range nasList {
-		s.secrets[nas.IPAddress] = []byte(nas.Secret)
+		newSecrets[nas.IPAddress] = []byte(nas.Secret)
 	}
+
+	s.secretsMu.Lock()
+	s.secrets = newSecrets
+	s.secretsMu.Unlock()
 
 	log.Printf("Loaded %d NAS secrets", len(s.secrets))
 	return nil
@@ -213,7 +219,9 @@ func (s *Server) GetSecret(remoteAddr net.Addr) ([]byte, error) {
 		return nil, err
 	}
 
+	s.secretsMu.RLock()
 	secret, ok := s.secrets[host]
+	s.secretsMu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("unknown NAS: %s", host)
 	}

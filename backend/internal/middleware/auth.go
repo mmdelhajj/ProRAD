@@ -172,7 +172,13 @@ func AuthRequired(cfg *config.Config) fiber.Handler {
 // AdminOnly middleware to restrict to admin users
 func AdminOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userType := c.Locals("userType").(models.UserType)
+		userType, ok := c.Locals("userType").(models.UserType)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"success": false,
+				"message": "Authentication required",
+			})
+		}
 		if userType != models.UserTypeAdmin {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"success": false,
@@ -186,7 +192,13 @@ func AdminOnly() fiber.Handler {
 // ResellerOrAdmin middleware to restrict to reseller or admin
 func ResellerOrAdmin() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userType := c.Locals("userType").(models.UserType)
+		userType, ok := c.Locals("userType").(models.UserType)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"success": false,
+				"message": "Authentication required",
+			})
+		}
 		if userType != models.UserTypeAdmin && userType != models.UserTypeReseller {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"success": false,
@@ -227,7 +239,13 @@ func GetCurrentResellerID(c *fiber.Ctx) *uint {
 // CollectorOnly middleware restricts access to collector users only (user_type=5)
 func CollectorOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userType := c.Locals("userType").(models.UserType)
+		userType, ok := c.Locals("userType").(models.UserType)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"success": false,
+				"message": "Authentication required",
+			})
+		}
 		if userType != models.UserTypeCollector {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"success": false,
@@ -241,7 +259,13 @@ func CollectorOnly() fiber.Handler {
 // AdminOrReseller middleware restricts access to admin or reseller users
 func AdminOrReseller() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userType := c.Locals("userType").(models.UserType)
+		userType, ok := c.Locals("userType").(models.UserType)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"success": false,
+				"message": "Authentication required",
+			})
+		}
 		if userType != models.UserTypeAdmin && userType != models.UserTypeReseller {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"success": false,
@@ -257,7 +281,13 @@ func AdminOrReseller() fiber.Handler {
 // Resellers must have the permission in their permission group
 func RequirePermission(permission string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userType := c.Locals("userType").(models.UserType)
+		userType, ok := c.Locals("userType").(models.UserType)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"success": false,
+				"message": "Authentication required",
+			})
+		}
 
 		// Admins have all permissions
 		if userType == models.UserTypeAdmin {
@@ -319,7 +349,13 @@ func hasPermission(user *models.User, permission string) bool {
 // RequireAnyPermission middleware checks if user has any of the specified permissions
 func RequireAnyPermission(permissions ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userType := c.Locals("userType").(models.UserType)
+		userType, ok := c.Locals("userType").(models.UserType)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"success": false,
+				"message": "Authentication required",
+			})
+		}
 
 		// Admins have all permissions
 		if userType == models.UserTypeAdmin {

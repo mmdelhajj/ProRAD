@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -573,9 +574,17 @@ var (
 func generateRandomToken() string {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	token := make([]byte, 64)
+	randomBytes := make([]byte, 64)
+	if _, err := rand.Read(randomBytes); err != nil {
+		// Fallback: should never happen
+		for i := range token {
+			token[i] = chars[time.Now().UnixNano()%int64(len(chars))]
+			time.Sleep(1 * time.Nanosecond)
+		}
+		return string(token)
+	}
 	for i := range token {
-		token[i] = chars[time.Now().UnixNano()%int64(len(chars))]
-		time.Sleep(1 * time.Nanosecond) // Ensure different values
+		token[i] = chars[randomBytes[i]%byte(len(chars))]
 	}
 	return string(token)
 }
