@@ -365,9 +365,17 @@ func (s *BandwidthRuleService) restoreSpeedsForRule(ruleID uint) {
 			continue
 		}
 
-		// Determine restore speed (considering current FUP level)
+		// Determine restore speed (considering subscriber bandwidth rule + FUP level)
 		var restoreDownloadK, restoreUploadK int64
-		if subscriber.FUPLevel > 0 {
+
+		// Check if subscriber has an active per-subscriber bandwidth rule
+		subRule := getActiveSubscriberBandwidthRuleInternet(subscriber.ID)
+		if subRule != nil {
+			// Restore to subscriber's custom speed (not service speed)
+			restoreDownloadK = int64(subRule.DownloadSpeed)
+			restoreUploadK = int64(subRule.UploadSpeed)
+			log.Printf("BandwidthRule: Restoring %s to subscriber rule speed %dk/%dk (rule_id=%d)", username, restoreUploadK, restoreDownloadK, subRule.ID)
+		} else if subscriber.FUPLevel > 0 {
 			// Restore to FUP speed
 			switch subscriber.FUPLevel {
 			case 1:
