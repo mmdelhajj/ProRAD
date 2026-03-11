@@ -779,7 +779,7 @@ export default function Subscribers() {
               </button>
             )}
             {row.original.fup_level > 0 && (
-              <span className={`fup-badge-${Math.min(row.original.fup_level, 3)}`}>
+              <span className={`fup-badge-${Math.min(row.original.fup_level, 6)}`}>
                 FUP{row.original.fup_level}
               </span>
             )}
@@ -1291,11 +1291,29 @@ export default function Subscribers() {
           </div>
           {stats.fup4 > 0 && (
             <div
-              className="flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm"
-              onClick={() => { setFupLevel('4'); setPage(1); }}
+              className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${fupLevel === '4' ? 'bg-[#f3e5f5] dark:bg-purple-900/40' : ''}`}
+              onClick={() => { setFupLevel(fupLevel === '4' ? '' : '4'); setPage(1); }}
             >
-              <span className="badge-purple">FUP4</span>
-              <strong className="text-[#6a1b9a] dark:text-purple-400">{stats.fup4 || 0}</strong>
+              <span className="fup-badge-4">FUP4</span>
+              <strong className="text-[#00897b] dark:text-teal-400">{stats.fup4 || 0}</strong>
+            </div>
+          )}
+          {stats.fup5 > 0 && (
+            <div
+              className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${fupLevel === '5' ? 'bg-[#e8eaf6] dark:bg-indigo-900/40' : ''}`}
+              onClick={() => { setFupLevel(fupLevel === '5' ? '' : '5'); setPage(1); }}
+            >
+              <span className="fup-badge-5">FUP5</span>
+              <strong className="text-[#3949ab] dark:text-indigo-400">{stats.fup5 || 0}</strong>
+            </div>
+          )}
+          {stats.fup6 > 0 && (
+            <div
+              className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded-sm ${fupLevel === '6' ? 'bg-[#eceff1] dark:bg-gray-700/40' : ''}`}
+              onClick={() => { setFupLevel(fupLevel === '6' ? '' : '6'); setPage(1); }}
+            >
+              <span className="fup-badge-6">FUP6</span>
+              <strong className="text-[#455a64] dark:text-gray-400">{stats.fup6 || 0}</strong>
             </div>
           )}
 
@@ -1550,6 +1568,8 @@ export default function Subscribers() {
                       <option value="2">FUP 2</option>
                       <option value="3">FUP 3</option>
                       <option value="4">FUP 4</option>
+                      <option value="5">FUP 5</option>
+                      <option value="6">FUP 6</option>
                     </select>
                   </div>
                   <div>

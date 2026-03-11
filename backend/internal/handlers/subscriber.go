@@ -322,6 +322,8 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 		FUP2       int64 `json:"fup2"`
 		FUP3       int64 `json:"fup3"`
 		FUP4       int64 `json:"fup4"`
+		FUP5       int64 `json:"fup5"`
+		FUP6       int64 `json:"fup6"`
 		MonthlyFUP int64 `json:"monthly_fup"`
 	}
 
@@ -358,6 +360,8 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	filteredQuery().Where("fup_level = ?", 2).Count(&stats.FUP2)
 	filteredQuery().Where("fup_level = ?", 3).Count(&stats.FUP3)
 	filteredQuery().Where("fup_level = ?", 4).Count(&stats.FUP4)
+	filteredQuery().Where("fup_level = ?", 5).Count(&stats.FUP5)
+	filteredQuery().Where("fup_level = ?", 6).Count(&stats.FUP6)
 	filteredQuery().Where("monthly_fup_level >= ?", 1).Count(&stats.MonthlyFUP)
 
 	// Include WAN check settings in meta so resellers can see WAN status
@@ -2548,7 +2552,7 @@ type ChangeBulkRequest struct {
 	NasID               uint               `json:"nas_id"`                // 0 = All
 	StatusFilter        string             `json:"status_filter"`         // all, active, inactive, expired, active_inactive
 	OnlineFilter        string             `json:"online_filter"`         // all, online, offline
-	FUPLevelFilter      string             `json:"fup_level_filter"`      // all, 0, 1, 2, 3
+	FUPLevelFilter      string             `json:"fup_level_filter"`      // all, 0, 1, 2, 3, 4, 5, 6
 	IncludeSubResellers bool               `json:"include_sub_resellers"`
 	Action              string             `json:"action"`
 	ActionValue         string             `json:"action_value"`
@@ -2641,6 +2645,12 @@ func (h *SubscriberHandler) ChangeBulk(c *fiber.Ctx) error {
 		query = query.Where("fup_level = ?", 2)
 	case "3":
 		query = query.Where("fup_level = ?", 3)
+	case "4":
+		query = query.Where("fup_level = ?", 4)
+	case "5":
+		query = query.Where("fup_level = ?", 5)
+	case "6":
+		query = query.Where("fup_level = ?", 6)
 	}
 
 	// Apply custom filters

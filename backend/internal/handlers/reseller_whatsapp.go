@@ -127,23 +127,12 @@ func (h *ResellerWhatsAppHandler) ProxRadLinkStatus(c *fiber.Ctx) error {
 
 	connected := info.Status == "connected" || info.Unique != ""
 
-	// Fallback: check accounts list when wa.info doesn't return unique
-	// acc.ID is proxsms.com's own DB ID (not related to sid or reseller ID)
-	if accounts, err := h.waService.GetProxRadAccounts(); err == nil {
-		for _, acc := range accounts {
-			if acc.Status == "connected" && acc.Unique != "" {
-				// If reseller already has a unique stored, only match that specific account
-				if reseller.WhatsAppAccountUnique != "" {
-					if acc.Unique == reseller.WhatsAppAccountUnique {
-						connected = true
-						info.Unique = acc.Unique
-						if acc.Phone != "" {
-							info.Phone = acc.Phone
-						}
-						break
-					}
-				} else {
-					// First-time connection: take the first connected account
+	// Fallback: check accounts list ONLY to re-match a previously stored account
+	// Never auto-grab another user's account on first connect — wait for QR scan result from wa.info
+	if reseller.WhatsAppAccountUnique != "" {
+		if accounts, err := h.waService.GetProxRadAccounts(); err == nil {
+			for _, acc := range accounts {
+				if acc.Status == "connected" && acc.Unique == reseller.WhatsAppAccountUnique {
 					connected = true
 					info.Unique = acc.Unique
 					if acc.Phone != "" {

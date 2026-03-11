@@ -170,6 +170,15 @@ type CreateServiceRequest struct {
 	FUP3Threshold     int64 `json:"fup3_threshold"`
 	FUP3DownloadSpeed int64 `json:"fup3_download_speed"`
 	FUP3UploadSpeed   int64 `json:"fup3_upload_speed"`
+	FUP4Threshold     int64 `json:"fup4_threshold"`
+	FUP4DownloadSpeed int64 `json:"fup4_download_speed"`
+	FUP4UploadSpeed   int64 `json:"fup4_upload_speed"`
+	FUP5Threshold     int64 `json:"fup5_threshold"`
+	FUP5DownloadSpeed int64 `json:"fup5_download_speed"`
+	FUP5UploadSpeed   int64 `json:"fup5_upload_speed"`
+	FUP6Threshold     int64 `json:"fup6_threshold"`
+	FUP6DownloadSpeed int64 `json:"fup6_download_speed"`
+	FUP6UploadSpeed   int64 `json:"fup6_upload_speed"`
 	// Monthly FUP (resets on renewal)
 	MonthlyFUP1Threshold     int64 `json:"monthly_fup1_threshold"`
 	MonthlyFUP1DownloadSpeed int64 `json:"monthly_fup1_download_speed"`
@@ -180,6 +189,15 @@ type CreateServiceRequest struct {
 	MonthlyFUP3Threshold     int64 `json:"monthly_fup3_threshold"`
 	MonthlyFUP3DownloadSpeed int64 `json:"monthly_fup3_download_speed"`
 	MonthlyFUP3UploadSpeed   int64 `json:"monthly_fup3_upload_speed"`
+	MonthlyFUP4Threshold     int64 `json:"monthly_fup4_threshold"`
+	MonthlyFUP4DownloadSpeed int64 `json:"monthly_fup4_download_speed"`
+	MonthlyFUP4UploadSpeed   int64 `json:"monthly_fup4_upload_speed"`
+	MonthlyFUP5Threshold     int64 `json:"monthly_fup5_threshold"`
+	MonthlyFUP5DownloadSpeed int64 `json:"monthly_fup5_download_speed"`
+	MonthlyFUP5UploadSpeed   int64 `json:"monthly_fup5_upload_speed"`
+	MonthlyFUP6Threshold     int64 `json:"monthly_fup6_threshold"`
+	MonthlyFUP6DownloadSpeed int64 `json:"monthly_fup6_download_speed"`
+	MonthlyFUP6UploadSpeed   int64 `json:"monthly_fup6_upload_speed"`
 	Price            float64 `json:"price"`
 	DayPrice         float64 `json:"day_price"`
 	ResetPrice       float64 `json:"reset_price"`
@@ -260,6 +278,15 @@ func (h *ServiceHandler) Create(c *fiber.Ctx) error {
 		FUP3Threshold:     req.FUP3Threshold,
 		FUP3DownloadSpeed: req.FUP3DownloadSpeed,
 		FUP3UploadSpeed:   req.FUP3UploadSpeed,
+		FUP4Threshold:     req.FUP4Threshold,
+		FUP4DownloadSpeed: req.FUP4DownloadSpeed,
+		FUP4UploadSpeed:   req.FUP4UploadSpeed,
+		FUP5Threshold:     req.FUP5Threshold,
+		FUP5DownloadSpeed: req.FUP5DownloadSpeed,
+		FUP5UploadSpeed:   req.FUP5UploadSpeed,
+		FUP6Threshold:     req.FUP6Threshold,
+		FUP6DownloadSpeed: req.FUP6DownloadSpeed,
+		FUP6UploadSpeed:   req.FUP6UploadSpeed,
 		// Monthly FUP (resets on renewal)
 		MonthlyFUP1Threshold:     req.MonthlyFUP1Threshold,
 		MonthlyFUP1DownloadSpeed: req.MonthlyFUP1DownloadSpeed,
@@ -270,6 +297,15 @@ func (h *ServiceHandler) Create(c *fiber.Ctx) error {
 		MonthlyFUP3Threshold:     req.MonthlyFUP3Threshold,
 		MonthlyFUP3DownloadSpeed: req.MonthlyFUP3DownloadSpeed,
 		MonthlyFUP3UploadSpeed:   req.MonthlyFUP3UploadSpeed,
+		MonthlyFUP4Threshold:     req.MonthlyFUP4Threshold,
+		MonthlyFUP4DownloadSpeed: req.MonthlyFUP4DownloadSpeed,
+		MonthlyFUP4UploadSpeed:   req.MonthlyFUP4UploadSpeed,
+		MonthlyFUP5Threshold:     req.MonthlyFUP5Threshold,
+		MonthlyFUP5DownloadSpeed: req.MonthlyFUP5DownloadSpeed,
+		MonthlyFUP5UploadSpeed:   req.MonthlyFUP5UploadSpeed,
+		MonthlyFUP6Threshold:     req.MonthlyFUP6Threshold,
+		MonthlyFUP6DownloadSpeed: req.MonthlyFUP6DownloadSpeed,
+		MonthlyFUP6UploadSpeed:   req.MonthlyFUP6UploadSpeed,
 		Price:            req.Price,
 		DayPrice:         req.DayPrice,
 		ResetPrice:       req.ResetPrice,
@@ -374,9 +410,15 @@ func (h *ServiceHandler) Update(c *fiber.Ctx) error {
 		"fup1_threshold", "fup1_download_speed", "fup1_upload_speed",
 		"fup2_threshold", "fup2_download_speed", "fup2_upload_speed",
 		"fup3_threshold", "fup3_download_speed", "fup3_upload_speed",
+		"fup4_threshold", "fup4_download_speed", "fup4_upload_speed",
+		"fup5_threshold", "fup5_download_speed", "fup5_upload_speed",
+		"fup6_threshold", "fup6_download_speed", "fup6_upload_speed",
 		"monthly_fup1_threshold", "monthly_fup1_download_speed", "monthly_fup1_upload_speed",
 		"monthly_fup2_threshold", "monthly_fup2_download_speed", "monthly_fup2_upload_speed",
 		"monthly_fup3_threshold", "monthly_fup3_download_speed", "monthly_fup3_upload_speed",
+		"monthly_fup4_threshold", "monthly_fup4_download_speed", "monthly_fup4_upload_speed",
+		"monthly_fup5_threshold", "monthly_fup5_download_speed", "monthly_fup5_upload_speed",
+		"monthly_fup6_threshold", "monthly_fup6_download_speed", "monthly_fup6_upload_speed",
 		"price", "day_price", "reset_price",
 		"expiry_value", "expiry_unit", "entire_month", "monthly_account",
 		"nas_id", "pool_name", "address_list_in", "address_list_out", "queue_type",

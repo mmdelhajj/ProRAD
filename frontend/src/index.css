@@ -429,6 +429,18 @@
   .fup-badge-3 {
     @apply fup-badge bg-[#f44336];
   }
+
+  .fup-badge-4 {
+    @apply fup-badge bg-[#00897b];
+  }
+
+  .fup-badge-5 {
+    @apply fup-badge bg-[#3949ab];
+  }
+
+  .fup-badge-6 {
+    @apply fup-badge bg-[#455a64];
+  }
 }
 
 /* ================================================================

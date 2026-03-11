@@ -54,6 +54,21 @@ type Service struct {
 	FUP3DownloadSpeed  int64 `gorm:"column:fup3_download_speed;default:0" json:"fup3_download_speed"`   // Kbps
 	FUP3UploadSpeed    int64 `gorm:"column:fup3_upload_speed;default:0" json:"fup3_upload_speed"`     // Kbps
 
+	// FUP4 - Fourth daily threshold
+	FUP4Threshold      int64 `gorm:"column:fup4_threshold;default:0" json:"fup4_threshold"`
+	FUP4DownloadSpeed  int64 `gorm:"column:fup4_download_speed;default:0" json:"fup4_download_speed"`
+	FUP4UploadSpeed    int64 `gorm:"column:fup4_upload_speed;default:0" json:"fup4_upload_speed"`
+
+	// FUP5 - Fifth daily threshold
+	FUP5Threshold      int64 `gorm:"column:fup5_threshold;default:0" json:"fup5_threshold"`
+	FUP5DownloadSpeed  int64 `gorm:"column:fup5_download_speed;default:0" json:"fup5_download_speed"`
+	FUP5UploadSpeed    int64 `gorm:"column:fup5_upload_speed;default:0" json:"fup5_upload_speed"`
+
+	// FUP6 - Sixth daily threshold
+	FUP6Threshold      int64 `gorm:"column:fup6_threshold;default:0" json:"fup6_threshold"`
+	FUP6DownloadSpeed  int64 `gorm:"column:fup6_download_speed;default:0" json:"fup6_download_speed"`
+	FUP6UploadSpeed    int64 `gorm:"column:fup6_upload_speed;default:0" json:"fup6_upload_speed"`
+
 	// Monthly FUP - resets when user renews subscription
 	// MonthlyFUP1 - First monthly threshold
 	MonthlyFUP1Threshold     int64 `gorm:"column:monthly_fup1_threshold;default:0" json:"monthly_fup1_threshold"`      // bytes, 0 = disabled
@@ -69,6 +84,21 @@ type Service struct {
 	MonthlyFUP3Threshold     int64 `gorm:"column:monthly_fup3_threshold;default:0" json:"monthly_fup3_threshold"`      // bytes, 0 = disabled
 	MonthlyFUP3DownloadSpeed int64 `gorm:"column:monthly_fup3_download_speed;default:0" json:"monthly_fup3_download_speed"` // Kbps
 	MonthlyFUP3UploadSpeed   int64 `gorm:"column:monthly_fup3_upload_speed;default:0" json:"monthly_fup3_upload_speed"`   // Kbps
+
+	// MonthlyFUP4 - Fourth monthly threshold
+	MonthlyFUP4Threshold     int64 `gorm:"column:monthly_fup4_threshold;default:0" json:"monthly_fup4_threshold"`
+	MonthlyFUP4DownloadSpeed int64 `gorm:"column:monthly_fup4_download_speed;default:0" json:"monthly_fup4_download_speed"`
+	MonthlyFUP4UploadSpeed   int64 `gorm:"column:monthly_fup4_upload_speed;default:0" json:"monthly_fup4_upload_speed"`
+
+	// MonthlyFUP5 - Fifth monthly threshold
+	MonthlyFUP5Threshold     int64 `gorm:"column:monthly_fup5_threshold;default:0" json:"monthly_fup5_threshold"`
+	MonthlyFUP5DownloadSpeed int64 `gorm:"column:monthly_fup5_download_speed;default:0" json:"monthly_fup5_download_speed"`
+	MonthlyFUP5UploadSpeed   int64 `gorm:"column:monthly_fup5_upload_speed;default:0" json:"monthly_fup5_upload_speed"`
+
+	// MonthlyFUP6 - Sixth monthly threshold
+	MonthlyFUP6Threshold     int64 `gorm:"column:monthly_fup6_threshold;default:0" json:"monthly_fup6_threshold"`
+	MonthlyFUP6DownloadSpeed int64 `gorm:"column:monthly_fup6_download_speed;default:0" json:"monthly_fup6_download_speed"`
+	MonthlyFUP6UploadSpeed   int64 `gorm:"column:monthly_fup6_upload_speed;default:0" json:"monthly_fup6_upload_speed"`
 
 	// Pricing
 	Price           float64 `gorm:"column:price;type:decimal(15,2);not null" json:"price"`

@@ -1023,7 +1023,7 @@ func (s *QuotaSyncService) restoreOriginalSpeedIfNeeded(client *mikrotik.Client,
 
 // checkAndEnforceFUP checks quota and enforces multi-tier FUP by changing rate limit
 // Supports both Daily FUP (resets daily) and Monthly FUP (resets on renew)
-// FUP Levels: 0=Normal, 1=FUP1, 2=FUP2, 3=FUP3
+// FUP Levels: 0=Normal, 1=FUP1, 2=FUP2, 3=FUP3, 4=FUP4, 5=FUP5, 6=FUP6
 // The effective FUP is the HIGHEST of daily and monthly FUP levels
 // Speeds are stored directly in service as Kbps (e.g., 700 = 700k)
 // Uses RADIUS CoA to push rate limit changes to active sessions
@@ -1047,7 +1047,19 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 	var dailyFUPLevel int
 	var dailyFUPDownload, dailyFUPUpload int64
 
-	if service.FUP3Threshold > 0 && dailyUsed >= service.FUP3Threshold && service.FUP3DownloadSpeed > 0 {
+	if service.FUP6Threshold > 0 && dailyUsed >= service.FUP6Threshold && service.FUP6DownloadSpeed > 0 {
+		dailyFUPLevel = 6
+		dailyFUPDownload = service.FUP6DownloadSpeed
+		dailyFUPUpload = service.FUP6UploadSpeed
+	} else if service.FUP5Threshold > 0 && dailyUsed >= service.FUP5Threshold && service.FUP5DownloadSpeed > 0 {
+		dailyFUPLevel = 5
+		dailyFUPDownload = service.FUP5DownloadSpeed
+		dailyFUPUpload = service.FUP5UploadSpeed
+	} else if service.FUP4Threshold > 0 && dailyUsed >= service.FUP4Threshold && service.FUP4DownloadSpeed > 0 {
+		dailyFUPLevel = 4
+		dailyFUPDownload = service.FUP4DownloadSpeed
+		dailyFUPUpload = service.FUP4UploadSpeed
+	} else if service.FUP3Threshold > 0 && dailyUsed >= service.FUP3Threshold && service.FUP3DownloadSpeed > 0 {
 		dailyFUPLevel = 3
 		dailyFUPDownload = service.FUP3DownloadSpeed
 		dailyFUPUpload = service.FUP3UploadSpeed
@@ -1065,7 +1077,19 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 	var monthlyFUPLevel int
 	var monthlyFUPDownload, monthlyFUPUpload int64
 
-	if service.MonthlyFUP3Threshold > 0 && monthlyUsed >= service.MonthlyFUP3Threshold && service.MonthlyFUP3DownloadSpeed > 0 {
+	if service.MonthlyFUP6Threshold > 0 && monthlyUsed >= service.MonthlyFUP6Threshold && service.MonthlyFUP6DownloadSpeed > 0 {
+		monthlyFUPLevel = 6
+		monthlyFUPDownload = service.MonthlyFUP6DownloadSpeed
+		monthlyFUPUpload = service.MonthlyFUP6UploadSpeed
+	} else if service.MonthlyFUP5Threshold > 0 && monthlyUsed >= service.MonthlyFUP5Threshold && service.MonthlyFUP5DownloadSpeed > 0 {
+		monthlyFUPLevel = 5
+		monthlyFUPDownload = service.MonthlyFUP5DownloadSpeed
+		monthlyFUPUpload = service.MonthlyFUP5UploadSpeed
+	} else if service.MonthlyFUP4Threshold > 0 && monthlyUsed >= service.MonthlyFUP4Threshold && service.MonthlyFUP4DownloadSpeed > 0 {
+		monthlyFUPLevel = 4
+		monthlyFUPDownload = service.MonthlyFUP4DownloadSpeed
+		monthlyFUPUpload = service.MonthlyFUP4UploadSpeed
+	} else if service.MonthlyFUP3Threshold > 0 && monthlyUsed >= service.MonthlyFUP3Threshold && service.MonthlyFUP3DownloadSpeed > 0 {
 		monthlyFUPLevel = 3
 		monthlyFUPDownload = service.MonthlyFUP3DownloadSpeed
 		monthlyFUPUpload = service.MonthlyFUP3UploadSpeed
@@ -1201,6 +1225,12 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 					quotaTotal = service.FUP2Threshold
 				case 3:
 					quotaTotal = service.FUP3Threshold
+				case 4:
+					quotaTotal = service.FUP4Threshold
+				case 5:
+					quotaTotal = service.FUP5Threshold
+				case 6:
+					quotaTotal = service.FUP6Threshold
 				}
 			} else {
 				quotaUsed = monthlyUsed
@@ -1211,6 +1241,12 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 					quotaTotal = service.MonthlyFUP2Threshold
 				case 3:
 					quotaTotal = service.MonthlyFUP3Threshold
+				case 4:
+					quotaTotal = service.MonthlyFUP4Threshold
+				case 5:
+					quotaTotal = service.MonthlyFUP5Threshold
+				case 6:
+					quotaTotal = service.MonthlyFUP6Threshold
 				}
 			}
 			go fireFUPAppliedRules(sub, targetFUPLevel, quotaUsed, quotaTotal)
@@ -1476,6 +1512,15 @@ func (s *QuotaSyncService) checkAndApplyTimeBasedSpeed(client *mikrotik.Client, 
 		case 3:
 			baseDownloadK = service.FUP3DownloadSpeed
 			baseUploadK = service.FUP3UploadSpeed
+		case 4:
+			baseDownloadK = service.FUP4DownloadSpeed
+			baseUploadK = service.FUP4UploadSpeed
+		case 5:
+			baseDownloadK = service.FUP5DownloadSpeed
+			baseUploadK = service.FUP5UploadSpeed
+		case 6:
+			baseDownloadK = service.FUP6DownloadSpeed
+			baseUploadK = service.FUP6UploadSpeed
 		default:
 			// Speeds are already in kb, no conversion needed
 			baseDownloadK = int64(service.DownloadSpeed)
@@ -1905,7 +1950,7 @@ func fireQuotaWarningRules(sub models.Subscriber, monthlyUsed int64) {
 
 	// Find the total monthly quota: use the highest non-zero monthly FUP threshold
 	var quotaTotal int64
-	for _, t := range []int64{sub.Service.MonthlyFUP3Threshold, sub.Service.MonthlyFUP2Threshold, sub.Service.MonthlyFUP1Threshold} {
+	for _, t := range []int64{sub.Service.MonthlyFUP6Threshold, sub.Service.MonthlyFUP5Threshold, sub.Service.MonthlyFUP4Threshold, sub.Service.MonthlyFUP3Threshold, sub.Service.MonthlyFUP2Threshold, sub.Service.MonthlyFUP1Threshold} {
 		if t > 0 {
 			quotaTotal = t
 			break

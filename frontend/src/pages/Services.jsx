@@ -27,6 +27,7 @@ export default function Services() {
   const { hasPermission } = useAuthStore()
   const [showModal, setShowModal] = useState(false)
   const [editingService, setEditingService] = useState(null)
+  const [expandedFUP, setExpandedFUP] = useState({})
   const [sorting, setSorting] = useState(() => {
     try {
       const saved = localStorage.getItem('services_sorting')
@@ -61,6 +62,15 @@ export default function Services() {
     fup3_threshold: '',
     fup3_download_speed: '',
     fup3_upload_speed: '',
+    fup4_threshold: '',
+    fup4_download_speed: '',
+    fup4_upload_speed: '',
+    fup5_threshold: '',
+    fup5_download_speed: '',
+    fup5_upload_speed: '',
+    fup6_threshold: '',
+    fup6_download_speed: '',
+    fup6_upload_speed: '',
     // Monthly FUP (resets on renew)
     monthly_fup1_threshold: '',
     monthly_fup1_download_speed: '',
@@ -71,6 +81,15 @@ export default function Services() {
     monthly_fup3_threshold: '',
     monthly_fup3_download_speed: '',
     monthly_fup3_upload_speed: '',
+    monthly_fup4_threshold: '',
+    monthly_fup4_download_speed: '',
+    monthly_fup4_upload_speed: '',
+    monthly_fup5_threshold: '',
+    monthly_fup5_download_speed: '',
+    monthly_fup5_upload_speed: '',
+    monthly_fup6_threshold: '',
+    monthly_fup6_download_speed: '',
+    monthly_fup6_upload_speed: '',
     is_active: true,
     // Time-based speed control (12-hour format)
     time_based_speed_enabled: false,
@@ -256,6 +275,15 @@ export default function Services() {
         fup3_threshold: service.fup3_threshold ? Math.round(service.fup3_threshold / (1024 * 1024 * 1024)) : '',
         fup3_download_speed: service.fup3_download_speed || '',
         fup3_upload_speed: service.fup3_upload_speed || '',
+        fup4_threshold: service.fup4_threshold ? Math.round(service.fup4_threshold / (1024 * 1024 * 1024)) : '',
+        fup4_download_speed: service.fup4_download_speed || '',
+        fup4_upload_speed: service.fup4_upload_speed || '',
+        fup5_threshold: service.fup5_threshold ? Math.round(service.fup5_threshold / (1024 * 1024 * 1024)) : '',
+        fup5_download_speed: service.fup5_download_speed || '',
+        fup5_upload_speed: service.fup5_upload_speed || '',
+        fup6_threshold: service.fup6_threshold ? Math.round(service.fup6_threshold / (1024 * 1024 * 1024)) : '',
+        fup6_download_speed: service.fup6_download_speed || '',
+        fup6_upload_speed: service.fup6_upload_speed || '',
         // Monthly FUP (resets on renew)
         monthly_fup1_threshold: service.monthly_fup1_threshold ? Math.round(service.monthly_fup1_threshold / (1024 * 1024 * 1024)) : '',
         monthly_fup1_download_speed: service.monthly_fup1_download_speed || '',
@@ -266,6 +294,15 @@ export default function Services() {
         monthly_fup3_threshold: service.monthly_fup3_threshold ? Math.round(service.monthly_fup3_threshold / (1024 * 1024 * 1024)) : '',
         monthly_fup3_download_speed: service.monthly_fup3_download_speed || '',
         monthly_fup3_upload_speed: service.monthly_fup3_upload_speed || '',
+        monthly_fup4_threshold: service.monthly_fup4_threshold ? Math.round(service.monthly_fup4_threshold / (1024 * 1024 * 1024)) : '',
+        monthly_fup4_download_speed: service.monthly_fup4_download_speed || '',
+        monthly_fup4_upload_speed: service.monthly_fup4_upload_speed || '',
+        monthly_fup5_threshold: service.monthly_fup5_threshold ? Math.round(service.monthly_fup5_threshold / (1024 * 1024 * 1024)) : '',
+        monthly_fup5_download_speed: service.monthly_fup5_download_speed || '',
+        monthly_fup5_upload_speed: service.monthly_fup5_upload_speed || '',
+        monthly_fup6_threshold: service.monthly_fup6_threshold ? Math.round(service.monthly_fup6_threshold / (1024 * 1024 * 1024)) : '',
+        monthly_fup6_download_speed: service.monthly_fup6_download_speed || '',
+        monthly_fup6_upload_speed: service.monthly_fup6_upload_speed || '',
         is_active: service.is_active ?? true,
         // Time-based speed control (convert 24h to 12h format)
         time_based_speed_enabled: service.time_based_speed_enabled ?? false,
@@ -440,6 +477,15 @@ export default function Services() {
         fup3_threshold: originalService.fup3_threshold || 0,
         fup3_download_speed: originalService.fup3_download_speed || 0,
         fup3_upload_speed: originalService.fup3_upload_speed || 0,
+        fup4_threshold: originalService.fup4_threshold || 0,
+        fup4_download_speed: originalService.fup4_download_speed || 0,
+        fup4_upload_speed: originalService.fup4_upload_speed || 0,
+        fup5_threshold: originalService.fup5_threshold || 0,
+        fup5_download_speed: originalService.fup5_download_speed || 0,
+        fup5_upload_speed: originalService.fup5_upload_speed || 0,
+        fup6_threshold: originalService.fup6_threshold || 0,
+        fup6_download_speed: originalService.fup6_download_speed || 0,
+        fup6_upload_speed: originalService.fup6_upload_speed || 0,
         monthly_fup1_threshold: originalService.monthly_fup1_threshold || 0,
         monthly_fup1_download_speed: originalService.monthly_fup1_download_speed || 0,
         monthly_fup1_upload_speed: originalService.monthly_fup1_upload_speed || 0,
@@ -449,6 +495,15 @@ export default function Services() {
         monthly_fup3_threshold: originalService.monthly_fup3_threshold || 0,
         monthly_fup3_download_speed: originalService.monthly_fup3_download_speed || 0,
         monthly_fup3_upload_speed: originalService.monthly_fup3_upload_speed || 0,
+        monthly_fup4_threshold: originalService.monthly_fup4_threshold || 0,
+        monthly_fup4_download_speed: originalService.monthly_fup4_download_speed || 0,
+        monthly_fup4_upload_speed: originalService.monthly_fup4_upload_speed || 0,
+        monthly_fup5_threshold: originalService.monthly_fup5_threshold || 0,
+        monthly_fup5_download_speed: originalService.monthly_fup5_download_speed || 0,
+        monthly_fup5_upload_speed: originalService.monthly_fup5_upload_speed || 0,
+        monthly_fup6_threshold: originalService.monthly_fup6_threshold || 0,
+        monthly_fup6_download_speed: originalService.monthly_fup6_download_speed || 0,
+        monthly_fup6_upload_speed: originalService.monthly_fup6_upload_speed || 0,
         time_based_speed_enabled: originalService.time_based_speed_enabled || false,
         time_from_hour: originalService.time_from_hour || 0,
         time_from_minute: originalService.time_from_minute || 0,
@@ -543,6 +598,15 @@ export default function Services() {
       fup3_threshold: formData.fup3_threshold ? parseInt(formData.fup3_threshold) * 1024 * 1024 * 1024 : 0,
       fup3_download_speed: parseInt(formData.fup3_download_speed) || 0,
       fup3_upload_speed: parseInt(formData.fup3_upload_speed) || 0,
+      fup4_threshold: formData.fup4_threshold ? parseInt(formData.fup4_threshold) * 1024 * 1024 * 1024 : 0,
+      fup4_download_speed: parseInt(formData.fup4_download_speed) || 0,
+      fup4_upload_speed: parseInt(formData.fup4_upload_speed) || 0,
+      fup5_threshold: formData.fup5_threshold ? parseInt(formData.fup5_threshold) * 1024 * 1024 * 1024 : 0,
+      fup5_download_speed: parseInt(formData.fup5_download_speed) || 0,
+      fup5_upload_speed: parseInt(formData.fup5_upload_speed) || 0,
+      fup6_threshold: formData.fup6_threshold ? parseInt(formData.fup6_threshold) * 1024 * 1024 * 1024 : 0,
+      fup6_download_speed: parseInt(formData.fup6_download_speed) || 0,
+      fup6_upload_speed: parseInt(formData.fup6_upload_speed) || 0,
       // Monthly FUP (resets on renewal)
       monthly_fup1_threshold: formData.monthly_fup1_threshold ? parseInt(formData.monthly_fup1_threshold) * 1024 * 1024 * 1024 : 0,
       monthly_fup1_download_speed: parseInt(formData.monthly_fup1_download_speed) || 0,
@@ -553,6 +617,15 @@ export default function Services() {
       monthly_fup3_threshold: formData.monthly_fup3_threshold ? parseInt(formData.monthly_fup3_threshold) * 1024 * 1024 * 1024 : 0,
       monthly_fup3_download_speed: parseInt(formData.monthly_fup3_download_speed) || 0,
       monthly_fup3_upload_speed: parseInt(formData.monthly_fup3_upload_speed) || 0,
+      monthly_fup4_threshold: formData.monthly_fup4_threshold ? parseInt(formData.monthly_fup4_threshold) * 1024 * 1024 * 1024 : 0,
+      monthly_fup4_download_speed: parseInt(formData.monthly_fup4_download_speed) || 0,
+      monthly_fup4_upload_speed: parseInt(formData.monthly_fup4_upload_speed) || 0,
+      monthly_fup5_threshold: formData.monthly_fup5_threshold ? parseInt(formData.monthly_fup5_threshold) * 1024 * 1024 * 1024 : 0,
+      monthly_fup5_download_speed: parseInt(formData.monthly_fup5_download_speed) || 0,
+      monthly_fup5_upload_speed: parseInt(formData.monthly_fup5_upload_speed) || 0,
+      monthly_fup6_threshold: formData.monthly_fup6_threshold ? parseInt(formData.monthly_fup6_threshold) * 1024 * 1024 * 1024 : 0,
+      monthly_fup6_download_speed: parseInt(formData.monthly_fup6_download_speed) || 0,
+      monthly_fup6_upload_speed: parseInt(formData.monthly_fup6_upload_speed) || 0,
       // Time-based speed control (convert 12h to 24h format)
       time_based_speed_enabled: formData.time_based_speed_enabled,
       time_from_hour: (() => {
@@ -709,7 +782,7 @@ export default function Services() {
         enableSorting: false,
         cell: ({ row }) => {
           const s = row.original
-          const hasFUP = s.fup1_download_speed > 0 || s.fup2_download_speed > 0 || s.fup3_download_speed > 0
+          const hasFUP = s.fup1_download_speed > 0 || s.fup2_download_speed > 0 || s.fup3_download_speed > 0 || s.fup4_download_speed > 0 || s.fup5_download_speed > 0 || s.fup6_download_speed > 0
           return (
             <div className="text-[11px]">
               {hasFUP ? (
@@ -722,6 +795,15 @@ export default function Services() {
                   )}
                   {s.fup3_threshold > 0 && s.fup3_download_speed > 0 && (
                     <div><span className="fup-badge-3">3</span> {Math.round(s.fup3_threshold / 1024 / 1024 / 1024)}G&rarr;{s.fup3_download_speed}k</div>
+                  )}
+                  {s.fup4_threshold > 0 && s.fup4_download_speed > 0 && (
+                    <div><span style={{display:'inline-block',width:16,height:16,borderRadius:'50%',backgroundColor:'#00897b',color:'#fff',textAlign:'center',fontSize:10,lineHeight:'16px',marginRight:4}}>4</span> {Math.round(s.fup4_threshold / 1024 / 1024 / 1024)}G&rarr;{s.fup4_download_speed}k</div>
+                  )}
+                  {s.fup5_threshold > 0 && s.fup5_download_speed > 0 && (
+                    <div><span style={{display:'inline-block',width:16,height:16,borderRadius:'50%',backgroundColor:'#3949ab',color:'#fff',textAlign:'center',fontSize:10,lineHeight:'16px',marginRight:4}}>5</span> {Math.round(s.fup5_threshold / 1024 / 1024 / 1024)}G&rarr;{s.fup5_download_speed}k</div>
+                  )}
+                  {s.fup6_threshold > 0 && s.fup6_download_speed > 0 && (
+                    <div><span style={{display:'inline-block',width:16,height:16,borderRadius:'50%',backgroundColor:'#455a64',color:'#fff',textAlign:'center',fontSize:10,lineHeight:'16px',marginRight:4}}>6</span> {Math.round(s.fup6_threshold / 1024 / 1024 / 1024)}G&rarr;{s.fup6_download_speed}k</div>
                   )}
                 </>
               ) : (
@@ -997,38 +1079,81 @@ export default function Services() {
                 </div>
               </div>
 
-              {/* Daily FUP */}
+              {/* Daily FUP - Accordion */}
               <div style={sectionStyle}>
                 <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 4 }}>Daily FUP (Resets Every Day)</div>
-                <p className="text-[11px] text-gray-500 mb-2">Speed in Kbps (e.g., 700 = 700k).</p>
-                {/* FUP1 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6, padding: 6, border: '1px solid #e0a060', backgroundColor: '#fff8f0' }}>
-                  <div><label className="label" style={{ color: '#e65100' }}>FUP1 Threshold (GB)</label><input type="number" name="fup1_threshold" value={formData.fup1_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#e65100' }}>Download (Kbps)</label><input type="number" name="fup1_download_speed" value={formData.fup1_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#e65100' }}>Upload (Kbps)</label><input type="number" name="fup1_upload_speed" value={formData.fup1_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                </div>
-                {/* FUP2 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6, padding: 6, border: '1px solid #e06060', backgroundColor: '#fff0f0' }}>
-                  <div><label className="label" style={{ color: '#c62828' }}>FUP2 Threshold (GB)</label><input type="number" name="fup2_threshold" value={formData.fup2_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#c62828' }}>Download (Kbps)</label><input type="number" name="fup2_download_speed" value={formData.fup2_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#c62828' }}>Upload (Kbps)</label><input type="number" name="fup2_upload_speed" value={formData.fup2_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                </div>
-                {/* FUP3 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: 6, border: '1px solid #a060c0', backgroundColor: '#f8f0ff' }}>
-                  <div><label className="label" style={{ color: '#6a1b9a' }}>FUP3 Threshold (GB)</label><input type="number" name="fup3_threshold" value={formData.fup3_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#6a1b9a' }}>Download (Kbps)</label><input type="number" name="fup3_download_speed" value={formData.fup3_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#6a1b9a' }}>Upload (Kbps)</label><input type="number" name="fup3_upload_speed" value={formData.fup3_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Speed in Kbps (e.g., 700 = 700k). Click tier to expand.</p>
+                {[
+                  { n: 1, prefix: 'fup1', label: 'FUP 1', color: '#e65100', border: '#e0a060', bg: '#fff8f0', darkBg: '#3b2a1a' },
+                  { n: 2, prefix: 'fup2', label: 'FUP 2', color: '#c62828', border: '#e06060', bg: '#fff0f0', darkBg: '#3b1a1a' },
+                  { n: 3, prefix: 'fup3', label: 'FUP 3', color: '#6a1b9a', border: '#a060c0', bg: '#f8f0ff', darkBg: '#2a1a3b' },
+                  { n: 4, prefix: 'fup4', label: 'FUP 4', color: '#00897b', border: '#60c0a0', bg: '#f0fff8', darkBg: '#1a3b2a' },
+                  { n: 5, prefix: 'fup5', label: 'FUP 5', color: '#3949ab', border: '#6080e0', bg: '#f0f0ff', darkBg: '#1a1a3b' },
+                  { n: 6, prefix: 'fup6', label: 'FUP 6', color: '#455a64', border: '#90a4ae', bg: '#f5f5f5', darkBg: '#2a2a2a' },
+                ].map(tier => {
+                  const t = formData[`${tier.prefix}_threshold`]
+                  const d = formData[`${tier.prefix}_download_speed`]
+                  const u = formData[`${tier.prefix}_upload_speed`]
+                  const hasData = (t && parseInt(t) > 0) || (d && parseInt(d) > 0)
+                  const isOpen = expandedFUP[`daily_${tier.n}`]
+                  return (
+                    <div key={tier.prefix} style={{ marginBottom: 4, borderLeft: `3px solid ${tier.color}`, borderRadius: 4, overflow: 'hidden' }}>
+                      <div
+                        onClick={() => setExpandedFUP(prev => ({ ...prev, [`daily_${tier.n}`]: !prev[`daily_${tier.n}`] }))}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: tier.color }}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <span>{isOpen ? '▼' : '▶'} {tier.label} {hasData ? `— ${t || 0}GB → ${d || 0}k/${u || 0}k` : ''}</span>
+                        {hasData && <span style={{ fontSize: 10, color: '#888' }}>configured</span>}
+                      </div>
+                      {isOpen && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: 6, border: `1px solid ${tier.border}` }} className="dark:bg-gray-800">
+                          <div><label className="label" style={{ color: tier.color }}>Threshold (GB)</label><input type="number" name={`${tier.prefix}_threshold`} value={formData[`${tier.prefix}_threshold`]} onChange={handleChange} className="input dark:bg-gray-700 dark:text-white dark:border-gray-600" style={{ ...inputStyle, width: '100%' }} /></div>
+                          <div><label className="label" style={{ color: tier.color }}>Download (Kbps)</label><input type="number" name={`${tier.prefix}_download_speed`} value={formData[`${tier.prefix}_download_speed`]} onChange={handleChange} className="input dark:bg-gray-700 dark:text-white dark:border-gray-600" style={{ ...inputStyle, width: '100%' }} /></div>
+                          <div><label className="label" style={{ color: tier.color }}>Upload (Kbps)</label><input type="number" name={`${tier.prefix}_upload_speed`} value={formData[`${tier.prefix}_upload_speed`]} onChange={handleChange} className="input dark:bg-gray-700 dark:text-white dark:border-gray-600" style={{ ...inputStyle, width: '100%' }} /></div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
-              {/* Monthly FUP */}
+              {/* Monthly FUP - Accordion */}
               <div style={sectionStyle}>
                 <div className="wb-group-title" style={{ fontSize: 11, marginBottom: 4 }}>Monthly FUP (Resets on Renewal)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: 6, border: '1px solid #60a0c0', backgroundColor: '#f0f8ff' }}>
-                  <div><label className="label" style={{ color: '#00695c' }}>Threshold (GB)</label><input type="number" name="monthly_fup1_threshold" value={formData.monthly_fup1_threshold} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#00695c' }}>Download (Kbps)</label><input type="number" name="monthly_fup1_download_speed" value={formData.monthly_fup1_download_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                  <div><label className="label" style={{ color: '#00695c' }}>Upload (Kbps)</label><input type="number" name="monthly_fup1_upload_speed" value={formData.monthly_fup1_upload_speed} onChange={handleChange} className="input" style={{ ...inputStyle, width: '100%' }} /></div>
-                </div>
+                {[
+                  { n: 1, prefix: 'monthly_fup1', label: 'Monthly FUP 1', color: '#00695c', border: '#60c0a0' },
+                  { n: 2, prefix: 'monthly_fup2', label: 'Monthly FUP 2', color: '#c62828', border: '#e06060' },
+                  { n: 3, prefix: 'monthly_fup3', label: 'Monthly FUP 3', color: '#6a1b9a', border: '#a060c0' },
+                  { n: 4, prefix: 'monthly_fup4', label: 'Monthly FUP 4', color: '#00897b', border: '#60c0a0' },
+                  { n: 5, prefix: 'monthly_fup5', label: 'Monthly FUP 5', color: '#3949ab', border: '#6080e0' },
+                  { n: 6, prefix: 'monthly_fup6', label: 'Monthly FUP 6', color: '#455a64', border: '#90a4ae' },
+                ].map(tier => {
+                  const t = formData[`${tier.prefix}_threshold`]
+                  const d = formData[`${tier.prefix}_download_speed`]
+                  const u = formData[`${tier.prefix}_upload_speed`]
+                  const hasData = (t && parseInt(t) > 0) || (d && parseInt(d) > 0)
+                  const isOpen = expandedFUP[`monthly_${tier.n}`]
+                  return (
+                    <div key={tier.prefix} style={{ marginBottom: 4, borderLeft: `3px solid ${tier.color}`, borderRadius: 4, overflow: 'hidden' }}>
+                      <div
+                        onClick={() => setExpandedFUP(prev => ({ ...prev, [`monthly_${tier.n}`]: !prev[`monthly_${tier.n}`] }))}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: tier.color }}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <span>{isOpen ? '▼' : '▶'} {tier.label} {hasData ? `— ${t || 0}GB → ${d || 0}k/${u || 0}k` : ''}</span>
+                        {hasData && <span style={{ fontSize: 10, color: '#888' }}>configured</span>}
+                      </div>
+                      {isOpen && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: 6, border: `1px solid ${tier.border}` }} className="dark:bg-gray-800">
+                          <div><label className="label" style={{ color: tier.color }}>Threshold (GB)</label><input type="number" name={`${tier.prefix}_threshold`} value={formData[`${tier.prefix}_threshold`]} onChange={handleChange} className="input dark:bg-gray-700 dark:text-white dark:border-gray-600" style={{ ...inputStyle, width: '100%' }} /></div>
+                          <div><label className="label" style={{ color: tier.color }}>Download (Kbps)</label><input type="number" name={`${tier.prefix}_download_speed`} value={formData[`${tier.prefix}_download_speed`]} onChange={handleChange} className="input dark:bg-gray-700 dark:text-white dark:border-gray-600" style={{ ...inputStyle, width: '100%' }} /></div>
+                          <div><label className="label" style={{ color: tier.color }}>Upload (Kbps)</label><input type="number" name={`${tier.prefix}_upload_speed`} value={formData[`${tier.prefix}_upload_speed`]} onChange={handleChange} className="input dark:bg-gray-700 dark:text-white dark:border-gray-600" style={{ ...inputStyle, width: '100%' }} /></div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Free Hours */}

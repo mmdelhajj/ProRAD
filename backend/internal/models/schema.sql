@@ -266,6 +266,15 @@ CREATE TABLE IF NOT EXISTS services (
     fup3_threshold BIGINT DEFAULT 0,
     fup3_download_speed BIGINT DEFAULT 0,
     fup3_upload_speed BIGINT DEFAULT 0,
+    fup4_threshold BIGINT DEFAULT 0,
+    fup4_download_speed BIGINT DEFAULT 0,
+    fup4_upload_speed BIGINT DEFAULT 0,
+    fup5_threshold BIGINT DEFAULT 0,
+    fup5_download_speed BIGINT DEFAULT 0,
+    fup5_upload_speed BIGINT DEFAULT 0,
+    fup6_threshold BIGINT DEFAULT 0,
+    fup6_download_speed BIGINT DEFAULT 0,
+    fup6_upload_speed BIGINT DEFAULT 0,
     monthly_fup1_threshold BIGINT DEFAULT 0,
     monthly_fup1_download_speed BIGINT DEFAULT 0,
     monthly_fup1_upload_speed BIGINT DEFAULT 0,
@@ -275,6 +284,15 @@ CREATE TABLE IF NOT EXISTS services (
     monthly_fup3_threshold BIGINT DEFAULT 0,
     monthly_fup3_download_speed BIGINT DEFAULT 0,
     monthly_fup3_upload_speed BIGINT DEFAULT 0,
+    monthly_fup4_threshold BIGINT DEFAULT 0,
+    monthly_fup4_download_speed BIGINT DEFAULT 0,
+    monthly_fup4_upload_speed BIGINT DEFAULT 0,
+    monthly_fup5_threshold BIGINT DEFAULT 0,
+    monthly_fup5_download_speed BIGINT DEFAULT 0,
+    monthly_fup5_upload_speed BIGINT DEFAULT 0,
+    monthly_fup6_threshold BIGINT DEFAULT 0,
+    monthly_fup6_download_speed BIGINT DEFAULT 0,
+    monthly_fup6_upload_speed BIGINT DEFAULT 0,
     price DECIMAL(15,2) NOT NULL,
     day_price DECIMAL(15,2) DEFAULT 0,
     reset_price DECIMAL(15,2) DEFAULT 0,
@@ -759,11 +777,11 @@ CREATE TABLE IF NOT EXISTS communication_rules (
     send_to_reseller BOOLEAN DEFAULT false,
     reseller_id INTEGER,
     permission_group INTEGER,
-    fup_levels VARCHAR(20) DEFAULT '1,2,3',
+    fup_levels VARCHAR(20) DEFAULT '1,2,3,4,5,6',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-ALTER TABLE communication_rules ADD COLUMN IF NOT EXISTS fup_levels VARCHAR(20) DEFAULT '1,2,3';
+ALTER TABLE communication_rules ADD COLUMN IF NOT EXISTS fup_levels VARCHAR(20) DEFAULT '1,2,3,4,5,6';
 
 -- Communication Logs
 CREATE TABLE IF NOT EXISTS communication_logs (
@@ -1297,3 +1315,27 @@ CREATE TABLE IF NOT EXISTS notification_banners (
 );
 
 INSERT INTO permissions (name, description) VALUES ('communication.notifications', 'Manage notification banners') ON CONFLICT (name) DO NOTHING;
+
+-- FUP 4-6 columns for services table (upgrade from 3 to 6 FUP tiers)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'services' AND column_name = 'fup4_threshold') THEN
+        ALTER TABLE services ADD COLUMN fup4_threshold BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup4_download_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup4_upload_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup5_threshold BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup5_download_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup5_upload_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup6_threshold BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup6_download_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN fup6_upload_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup4_threshold BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup4_download_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup4_upload_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup5_threshold BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup5_download_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup5_upload_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup6_threshold BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup6_download_speed BIGINT DEFAULT 0;
+        ALTER TABLE services ADD COLUMN monthly_fup6_upload_speed BIGINT DEFAULT 0;
+    END IF;
+END $$;

@@ -283,6 +283,15 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribers(rule *BandwidthRule, na
 			case 3:
 				baseDownload = sub.Service.FUP3DownloadSpeed
 				baseUpload = sub.Service.FUP3UploadSpeed
+			case 4:
+				baseDownload = sub.Service.FUP4DownloadSpeed
+				baseUpload = sub.Service.FUP4UploadSpeed
+			case 5:
+				baseDownload = sub.Service.FUP5DownloadSpeed
+				baseUpload = sub.Service.FUP5UploadSpeed
+			case 6:
+				baseDownload = sub.Service.FUP6DownloadSpeed
+				baseUpload = sub.Service.FUP6UploadSpeed
 			}
 		} else {
 			// Normal speed - already in Kbps
@@ -387,6 +396,15 @@ func (s *BandwidthRuleService) restoreSpeedsForRule(ruleID uint) {
 			case 3:
 				restoreDownloadK = subscriber.Service.FUP3DownloadSpeed
 				restoreUploadK = subscriber.Service.FUP3UploadSpeed
+			case 4:
+				restoreDownloadK = subscriber.Service.FUP4DownloadSpeed
+				restoreUploadK = subscriber.Service.FUP4UploadSpeed
+			case 5:
+				restoreDownloadK = subscriber.Service.FUP5DownloadSpeed
+				restoreUploadK = subscriber.Service.FUP5UploadSpeed
+			case 6:
+				restoreDownloadK = subscriber.Service.FUP6DownloadSpeed
+				restoreUploadK = subscriber.Service.FUP6UploadSpeed
 			}
 		} else {
 			// Restore to normal service speed (already in Kbps)
@@ -519,6 +537,15 @@ func (s *BandwidthRuleService) applyRuleToNasSubscribersCount(rule *BandwidthRul
 			case 3:
 				baseDownload = sub.Service.FUP3DownloadSpeed
 				baseUpload = sub.Service.FUP3UploadSpeed
+			case 4:
+				baseDownload = sub.Service.FUP4DownloadSpeed
+				baseUpload = sub.Service.FUP4UploadSpeed
+			case 5:
+				baseDownload = sub.Service.FUP5DownloadSpeed
+				baseUpload = sub.Service.FUP5UploadSpeed
+			case 6:
+				baseDownload = sub.Service.FUP6DownloadSpeed
+				baseUpload = sub.Service.FUP6UploadSpeed
 			}
 		} else {
 			// Normal speed - already in Kbps

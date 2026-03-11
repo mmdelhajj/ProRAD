@@ -14,7 +14,7 @@ export default function CommunicationRules() {
     template: '',
     enabled: true,
     send_to_reseller: false,
-    fup_levels: ['1', '2', '3'],
+    fup_levels: ['1', '2', '3', '4', '5', '6'],
   })
 
   const { data, isLoading } = useQuery({
@@ -83,7 +83,7 @@ export default function CommunicationRules() {
       template: '',
       enabled: true,
       send_to_reseller: false,
-      fup_levels: ['1', '2', '3'],
+      fup_levels: ['1', '2', '3', '4', '5', '6'],
     })
   }
 
@@ -345,6 +345,9 @@ export default function CommunicationRules() {
                         { value: '1', label: 'FUP 1' },
                         { value: '2', label: 'FUP 2' },
                         { value: '3', label: 'FUP 3' },
+                        { value: '4', label: 'FUP 4' },
+                        { value: '5', label: 'FUP 5' },
+                        { value: '6', label: 'FUP 6' },
                       ].map(({ value, label }) => (
                         <label key={value} className="flex items-center text-[11px] cursor-pointer">
                           <input
