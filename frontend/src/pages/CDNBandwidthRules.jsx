@@ -356,7 +356,7 @@ export default function CDNBandwidthRules() {
                   <input
                     type="range"
                     min="10"
-                    max="300"
+                    max="500"
                     step="10"
                     value={formData.speed_multiplier}
                     onChange={(e) => setFormData({ ...formData, speed_multiplier: parseInt(e.target.value) })}
@@ -369,6 +369,7 @@ export default function CDNBandwidthRules() {
                     <span>100%</span>
                     <span>200%</span>
                     <span>300%</span>
+                    <span>500%</span>
                   </div>
                 </div>
 

@@ -332,7 +332,7 @@ export default function BandwidthRules() {
                     <input
                       type="range"
                       min="10"
-                      max="300"
+                      max="500"
                       step="10"
                       value={formData.upload_multiplier}
                       onChange={(e) => setFormData({ ...formData, upload_multiplier: parseInt(e.target.value) })}
@@ -340,7 +340,7 @@ export default function BandwidthRules() {
                       style={{ borderRadius: '1px' }}
                     />
                     <div className="flex justify-between text-[9px] text-gray-400 dark:text-[#888] mt-0.5">
-                      <span>10%</span><span>100%</span><span>300%</span>
+                      <span>10%</span><span>100%</span><span>300%</span><span>500%</span>
                     </div>
                   </div>
                   <div>
@@ -350,7 +350,7 @@ export default function BandwidthRules() {
                     <input
                       type="range"
                       min="10"
-                      max="300"
+                      max="500"
                       step="10"
                       value={formData.download_multiplier}
                       onChange={(e) => setFormData({ ...formData, download_multiplier: parseInt(e.target.value) })}
@@ -358,7 +358,7 @@ export default function BandwidthRules() {
                       style={{ borderRadius: '1px' }}
                     />
                     <div className="flex justify-between text-[9px] text-gray-400 dark:text-[#888] mt-0.5">
-                      <span>10%</span><span>100%</span><span>300%</span>
+                      <span>10%</span><span>100%</span><span>300%</span><span>500%</span>
                     </div>
                   </div>
                 </div>
