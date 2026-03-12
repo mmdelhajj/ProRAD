@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Clipboard,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState, LoadingScreen, StatCard } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -234,7 +235,7 @@ const GenerateModal = ({ visible, onClose, onGenerate, generating, services }) =
               onPress={onClose}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={genStyles.closeBtn}>{'\u2715'}</Text>
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
             <Text style={genStyles.headerTitle}>Generate Prepaid Cards</Text>
             <View style={{ width: 24 }} />
@@ -339,7 +340,7 @@ const GenerateModal = ({ visible, onClose, onGenerate, generating, services }) =
                 <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
                 <Text style={genStyles.generateText}>
-                  {'\uD83D\uDCB3'} Generate Cards
+                  <Ionicons name="card-outline" size={18} color={colors.textInverse} /> Generate Cards
                 </Text>
               )}
             </TouchableOpacity>
@@ -626,7 +627,7 @@ const PrepaidScreen = ({ navigation }) => {
         ListFooterComponent={ListFooter}
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83D\uDCB3'}
+            iconName="card-outline"
             title="No Prepaid Cards"
             message="Generate your first prepaid cards for your subscribers."
             actionLabel="Generate Cards"

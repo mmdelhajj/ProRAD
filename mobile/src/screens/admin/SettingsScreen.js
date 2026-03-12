@@ -14,6 +14,7 @@ import {
   UIManager,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -46,12 +47,14 @@ const CollapsibleSection = ({ title, icon, children, defaultOpen = false }) => {
         activeOpacity={0.7}
       >
         <View style={sectionStyles.headerLeft}>
-          <Text style={sectionStyles.icon}>{icon}</Text>
+          <Ionicons name={icon} size={18} color={colors.primary} style={sectionStyles.icon} />
           <Text style={sectionStyles.title}>{title}</Text>
         </View>
-        <Text style={sectionStyles.chevron}>
-          {expanded ? '\u25B2' : '\u25BC'}
-        </Text>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={colors.textSecondary}
+        />
       </TouchableOpacity>
       {expanded && <View style={sectionStyles.body}>{children}</View>}
     </View>
@@ -81,7 +84,6 @@ const sectionStyles = StyleSheet.create({
     flex: 1,
   },
   icon: {
-    fontSize: 16,
     marginRight: spacing.sm,
   },
   title: {
@@ -89,8 +91,7 @@ const sectionStyles = StyleSheet.create({
     color: colors.text,
   },
   chevron: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
+    // kept for reference; now using Ionicons inline
   },
   body: {
     borderTopWidth: 1,
@@ -455,7 +456,7 @@ const SettingsScreen = ({ navigation }) => {
       {/* ================================================================ */}
       {/* RADIUS Settings                                                  */}
       {/* ================================================================ */}
-      <CollapsibleSection title="RADIUS Settings" icon={'\uD83D\uDCE1'} defaultOpen>
+      <CollapsibleSection title="RADIUS Settings" icon="radio-outline" defaultOpen>
         <SettingInput
           label="Daily Quota Reset Time"
           value={settings.daily_quota_reset_time}
@@ -496,7 +497,7 @@ const SettingsScreen = ({ navigation }) => {
       {/* ================================================================ */}
       {/* Notification Settings                                            */}
       {/* ================================================================ */}
-      <CollapsibleSection title="Notifications" icon={'\uD83D\uDD14'}>
+      <CollapsibleSection title="Notifications" icon="notifications-outline">
         <Text style={styles.subSectionTitle}>SMTP Email</Text>
         <SettingInput
           label="SMTP Host"
@@ -568,7 +569,7 @@ const SettingsScreen = ({ navigation }) => {
       {/* ================================================================ */}
       {/* System                                                           */}
       {/* ================================================================ */}
-      <CollapsibleSection title="System" icon={'\uD83D\uDDA5\uFE0F'}>
+      <CollapsibleSection title="System" icon="desktop-outline">
         <SettingInput
           label="Timezone"
           value={settings.system_timezone}
@@ -637,7 +638,7 @@ const SettingsScreen = ({ navigation }) => {
       {/* ================================================================ */}
       {/* License                                                          */}
       {/* ================================================================ */}
-      <CollapsibleSection title="License" icon={'\uD83D\uDD11'}>
+      <CollapsibleSection title="License" icon="key-outline">
         <SettingReadOnly label="License Key" value={license.license_key || license.key || settings.license_key} />
         <SettingReadOnly label="Tier" value={String(tierName)} />
         <SettingReadOnly
@@ -670,7 +671,7 @@ const SettingsScreen = ({ navigation }) => {
       {/* ================================================================ */}
       {/* Branding                                                         */}
       {/* ================================================================ */}
-      <CollapsibleSection title="Branding" icon={'\uD83C\uDFA8'}>
+      <CollapsibleSection title="Branding" icon="color-palette-outline">
         <SettingInput
           label="Company Name"
           value={settings.company_name}

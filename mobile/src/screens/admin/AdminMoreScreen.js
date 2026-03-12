@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -22,7 +23,7 @@ import { getBaseURL } from '../../services/api';
 const MENU_ITEMS = [
   {
     key: 'Resellers',
-    icon: '\uD83D\uDC65',
+    icon: 'people-circle-outline',
     label: 'Resellers',
     description: 'Manage reseller accounts',
     route: 'Resellers',
@@ -30,7 +31,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'NAS',
-    icon: '\uD83D\uDCE1',
+    icon: 'hardware-chip-outline',
     label: 'NAS / Routers',
     description: 'MikroTik router management',
     route: 'NAS',
@@ -38,7 +39,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Reports',
-    icon: '\uD83D\uDCCA',
+    icon: 'stats-chart-outline',
     label: 'Reports',
     description: 'Subscriber & revenue reports',
     route: 'Reports',
@@ -46,7 +47,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Backups',
-    icon: '\uD83D\uDCBE',
+    icon: 'cloud-download-outline',
     label: 'Backups',
     description: 'Database backup & restore',
     route: 'Backups',
@@ -54,7 +55,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Communication',
-    icon: '\uD83D\uDCE8',
+    icon: 'megaphone-outline',
     label: 'Communication',
     description: 'Notification rules & templates',
     route: 'Communication',
@@ -62,7 +63,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Tickets',
-    icon: '\uD83C\uDFAB',
+    icon: 'chatbubble-ellipses-outline',
     label: 'Tickets',
     description: 'Support ticket management',
     route: 'Tickets',
@@ -70,7 +71,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Audit',
-    icon: '\uD83D\uDCCB',
+    icon: 'shield-checkmark-outline',
     label: 'Audit Logs',
     description: 'System activity history',
     route: 'Audit',
@@ -78,7 +79,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'BandwidthRules',
-    icon: '\u26A1',
+    icon: 'speedometer-outline',
     label: 'Bandwidth Rules',
     description: 'Time-based speed rules',
     route: 'BandwidthRules',
@@ -86,7 +87,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Settings',
-    icon: '\u2699\uFE0F',
+    icon: 'settings-outline',
     label: 'Settings',
     description: 'System configuration',
     route: 'Settings',
@@ -94,7 +95,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'CDN',
-    icon: '\uD83C\uDF10',
+    icon: 'globe-outline',
     label: 'CDN',
     description: 'CDN & PCQ management',
     route: 'CDN',
@@ -102,7 +103,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Permissions',
-    icon: '\uD83D\uDD10',
+    icon: 'key-outline',
     label: 'Permissions',
     description: 'Permission groups & roles',
     route: 'Permissions',
@@ -110,7 +111,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Prepaid',
-    icon: '\uD83D\uDCB3',
+    icon: 'card-outline',
     label: 'Prepaid Cards',
     description: 'Generate & manage cards',
     route: 'Prepaid',
@@ -118,7 +119,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Users',
-    icon: '\uD83D\uDC64',
+    icon: 'person-add-outline',
     label: 'Users',
     description: 'Admin & reseller accounts',
     route: 'Users',
@@ -138,7 +139,7 @@ const MenuItem = ({ item, onPress }) => {
       activeOpacity={0.7}
     >
       <View style={itemStyles.iconContainer}>
-        <Text style={itemStyles.icon}>{item.icon}</Text>
+        <Ionicons name={item.icon} size={18} color={colors.primary} />
       </View>
       <View style={itemStyles.textContainer}>
         <Text style={itemStyles.label} numberOfLines={1}>
@@ -148,7 +149,7 @@ const MenuItem = ({ item, onPress }) => {
           {item.description}
         </Text>
       </View>
-      <Text style={itemStyles.chevron}>{'\u203A'}</Text>
+      <Ionicons name="chevron-forward" size={14} color={colors.textLight} style={itemStyles.chevron} />
     </TouchableOpacity>
   );
 };
@@ -174,7 +175,7 @@ const itemStyles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   icon: {
-    fontSize: 16,
+    // Kept for legacy; Ionicons used directly now
   },
   textContainer: {
     flex: 1,
@@ -192,8 +193,6 @@ const itemStyles = StyleSheet.create({
     lineHeight: 13,
   },
   chevron: {
-    ...typography.h4,
-    color: colors.textLight,
     position: 'absolute',
     top: spacing.sm,
     right: spacing.sm,
@@ -283,7 +282,10 @@ const AdminMoreScreen = ({ navigation }) => {
         onPress={handleLogout}
         activeOpacity={0.7}
       >
-        <Text style={styles.logoutText}>Log Out</Text>
+        <View style={styles.logoutContent}>
+          <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </View>
       </TouchableOpacity>
 
       <View style={{ height: spacing.tabBar }} />
@@ -348,6 +350,11 @@ const styles = StyleSheet.create({
     borderColor: colors.danger + '30',
     paddingVertical: spacing.md,
     alignItems: 'center',
+  },
+  logoutContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   logoutText: {
     ...typography.button,

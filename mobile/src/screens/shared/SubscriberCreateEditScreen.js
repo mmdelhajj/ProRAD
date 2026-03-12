@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -94,7 +95,7 @@ function DropdownPicker({ label, value, options, onSelect, placeholder, disabled
         >
           {selectedLabel || placeholder || 'Select...'}
         </Text>
-        <Text style={dropdownStyles.arrow}>{isOpen ? '\u25B2' : '\u25BC'}</Text>
+        <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={12} color={colors.textSecondary} />
       </TouchableOpacity>
 
       {isOpen && (
@@ -590,7 +591,7 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
   if (error && isEditing) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorIcon}>{'\u26A0\uFE0F'}</Text>
+        <Ionicons name="warning-outline" size={36} color={colors.warning} style={styles.errorIcon} />
         <Text style={styles.errorTitle}>Failed to Load</Text>
         <Text style={styles.errorMessage}>{error}</Text>
         <Button title="Go Back" onPress={() => navigation.goBack()} variant="primary" />
@@ -628,7 +629,10 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
           style={styles.backButton}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={styles.backText}>{'\u2039'} Back</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="arrow-back" size={14} color={colors.primary} style={{ marginRight: 2 }} />
+            <Text style={styles.backText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {isEditing ? 'Edit Subscriber' : 'New Subscriber'}
@@ -660,7 +664,10 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
         >
           {/* ========== SECTION: Account ========== */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Account Information</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="person-outline" size={15} color={colors.text} style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Account Information</Text>
+            </View>
             <View style={styles.sectionCard}>
               {/* Username */}
               <View style={styles.fieldContainer}>
@@ -701,9 +708,11 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
                     onPress={() => setShowPassword(!showPassword)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Text style={styles.passwordToggleText}>
-                      {showPassword ? '\uD83D\uDE48' : '\uD83D\uDC41'}
-                    </Text>
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={18}
+                      color={colors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -752,7 +761,10 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
 
           {/* ========== SECTION: Service & Status ========== */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Service & Status</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="cube-outline" size={15} color={colors.text} style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Service & Status</Text>
+            </View>
             <View style={styles.sectionCard}>
               {/* Service Dropdown */}
               <DropdownPicker
@@ -826,7 +838,10 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
 
           {/* ========== SECTION: Connection ========== */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Connection</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="globe-outline" size={15} color={colors.text} style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Connection</Text>
+            </View>
             <View style={styles.sectionCard}>
               {/* Static IP */}
               <View style={styles.fieldContainer}>
@@ -861,7 +876,10 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
 
           {/* ========== SECTION: Location ========== */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Location & Contact</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="location-outline" size={15} color={colors.text} style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Location & Contact</Text>
+            </View>
             <View style={styles.sectionCard}>
               {/* Address */}
               <View style={styles.fieldContainer}>
@@ -924,7 +942,10 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
 
           {/* ========== SECTION: Financial ========== */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Financial</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="cash-outline" size={15} color={colors.text} style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Financial</Text>
+            </View>
             <View style={styles.sectionCard}>
               {/* Override Price */}
               <View style={styles.switchRow}>
@@ -975,7 +996,10 @@ export default function SubscriberCreateEditScreen({ route, navigation }) {
 
           {/* ========== SECTION: Notes ========== */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Notes</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="document-text-outline" size={15} color={colors.text} style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Notes</Text>
+            </View>
             <View style={styles.sectionCard}>
               <TextInput
                 style={[styles.input, styles.notesInput]}
@@ -1113,11 +1137,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     marginTop: 8,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sectionIcon: {
+    marginRight: 4,
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
   },
   sectionCard: {
     backgroundColor: colors.surface,

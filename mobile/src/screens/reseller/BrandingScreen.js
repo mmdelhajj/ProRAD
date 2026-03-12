@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -516,7 +517,7 @@ const BrandingScreen = ({ navigation }) => {
                   onPress={handlePickLogo}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.logoUploadIcon}>{'\uD83D\uDDBC\uFE0F'}</Text>
+                  <Ionicons name="image-outline" size={24} color={colors.primary} style={{ marginBottom: spacing.xs }} />
                   <Text style={styles.logoUploadText}>Choose Logo Image</Text>
                   <Text style={styles.logoUploadHint}>
                     Square image recommended (e.g., 200x200)

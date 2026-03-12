@@ -19,6 +19,7 @@ import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -30,19 +31,19 @@ const STATUS_CONFIG = {
     label: 'Paid',
     bg: colors.success + '15',
     color: colors.success,
-    icon: '\u2713',
+    icon: 'checkmark-circle',
   },
   unpaid: {
     label: 'Unpaid',
     bg: colors.warning + '15',
     color: colors.warning,
-    icon: '\u23F3',
+    icon: 'hourglass-outline',
   },
   overdue: {
     label: 'Overdue',
     bg: colors.danger + '15',
     color: colors.danger,
-    icon: '\u26A0',
+    icon: 'warning-outline',
   },
 };
 
@@ -153,9 +154,10 @@ const InvoiceRow = ({ item, onPress }) => {
         <Text style={rowStyles.amount}>
           {formatCurrency(item.amount || item.total || 0)}
         </Text>
-        <View style={[rowStyles.badge, { backgroundColor: sc.bg }]}>
+        <View style={[rowStyles.badge, { backgroundColor: sc.bg, flexDirection: 'row', alignItems: 'center' }]}>
+          <Ionicons name={sc.icon} size={12} color={sc.color} style={{ marginRight: 3 }} />
           <Text style={[rowStyles.badgeText, { color: sc.color }]}>
-            {sc.icon} {sc.label}
+            {sc.label}
           </Text>
         </View>
       </View>
@@ -246,7 +248,7 @@ const InvoiceDetailModal = ({ invoice, visible, onClose, onMarkPaid, marking }) 
         {/* Header */}
         <View style={detailStyles.header}>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Text style={detailStyles.closeBtn}>{'\u2715'}</Text>
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
           <Text style={detailStyles.headerTitle}>Invoice Detail</Text>
           <View style={{ width: 24 }} />
@@ -262,9 +264,10 @@ const InvoiceDetailModal = ({ invoice, visible, onClose, onMarkPaid, marking }) 
             <Text style={detailStyles.invoiceNo}>
               Invoice #{invoice.invoice_number || invoice.id}
             </Text>
-            <View style={[detailStyles.statusBadge, { backgroundColor: sc.bg }]}>
+            <View style={[detailStyles.statusBadge, { backgroundColor: sc.bg, flexDirection: 'row', alignItems: 'center' }]}>
+              <Ionicons name={sc.icon} size={12} color={sc.color} style={{ marginRight: 3 }} />
               <Text style={[detailStyles.statusText, { color: sc.color }]}>
-                {sc.icon} {sc.label}
+                {sc.label}
               </Text>
             </View>
           </View>
@@ -321,9 +324,10 @@ const InvoiceDetailModal = ({ invoice, visible, onClose, onMarkPaid, marking }) 
               {marking ? (
                 <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Text style={detailStyles.markPaidText}>
-                  {'\u2713'} Mark as Paid
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="checkmark" size={16} color={colors.textInverse} style={{ marginRight: 6 }} />
+                  <Text style={detailStyles.markPaidText}>Mark as Paid</Text>
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -647,7 +651,7 @@ const InvoicesScreen = ({ navigation }) => {
         ListFooterComponent={ListFooter}
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83D\uDCC4'}
+            iconName="document-text-outline"
             title="No Invoices"
             message={
               filter

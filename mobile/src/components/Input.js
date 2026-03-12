@@ -7,6 +7,7 @@ import {
   Animated,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -114,9 +115,7 @@ const Input = ({
             style={styles.eyeButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.eyeText}>
-              {isSecureVisible ? '\u{1F441}' : '\u{1F512}'}
-            </Text>
+            <Ionicons name={isSecureVisible ? 'eye-outline' : 'eye-off-outline'} size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>

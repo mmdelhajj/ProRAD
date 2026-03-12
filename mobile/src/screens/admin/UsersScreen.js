@@ -20,6 +20,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import { Ionicons } from '@expo/vector-icons';
 import { userApi } from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -244,7 +245,7 @@ const UserFormModal = ({ visible, user, onClose, onSubmit, onDelete }) => {
           <View style={modalStyles.header}>
             <Text style={modalStyles.headerTitle}>{isEdit ? 'Edit User' : 'New User'}</Text>
             <TouchableOpacity onPress={onClose} activeOpacity={0.6}>
-              <Text style={modalStyles.closeButton}>{'\u2715'}</Text>
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -511,7 +512,7 @@ export default function UsersScreen() {
       </View>
 
       {error && !loading && users.length === 0 ? (
-        <EmptyState icon={'\u26A0\uFE0F'} title="Connection Error" message={error} actionLabel="Retry" onAction={() => fetchUsers()} />
+        <EmptyState iconName="warning-outline" title="Connection Error" message={error} actionLabel="Retry" onAction={() => fetchUsers()} />
       ) : (
         <FlatList
           data={users}
@@ -521,7 +522,7 @@ export default function UsersScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
           ListEmptyComponent={
-            <EmptyState icon={'\uD83D\uDC64'} title="No Users" message="No admin or manager users found." actionLabel="Add User" onAction={() => setShowCreate(true)} />
+            <EmptyState iconName="person-outline" title="No Users" message="No admin or manager users found." actionLabel="Add User" onAction={() => setShowCreate(true)} />
           }
         />
       )}

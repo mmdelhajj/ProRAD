@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -23,28 +24,28 @@ import { formatCurrency, formatBytes } from '../../utils/format';
 const REPORT_TYPES = [
   {
     key: 'subscribers',
-    icon: '\uD83D\uDC65',
+    iconName: 'people',
     title: 'Subscriber Report',
     description: 'Current subscriber statistics',
     color: colors.primary,
   },
   {
     key: 'revenue',
-    icon: '\uD83D\uDCB0',
+    iconName: 'cash-outline',
     title: 'Revenue Report',
     description: 'Revenue data and payment analysis',
     color: colors.success,
   },
   {
     key: 'usage',
-    icon: '\uD83D\uDCC8',
+    iconName: 'trending-up-outline',
     title: 'Usage Report',
     description: 'Bandwidth usage by subscriber',
     color: colors.info,
   },
   {
     key: 'services',
-    icon: '\uD83D\uDCE6',
+    iconName: 'cube-outline',
     title: 'Service Report',
     description: 'Service plan statistics',
     color: colors.secondary || '#6b7280',
@@ -115,9 +116,11 @@ const periodStyles = StyleSheet.create({
 // Stat Card
 // ---------------------------------------------------------------------------
 
-const StatCard = ({ label, value, color, icon }) => (
+const StatCard = ({ label, value, color, iconName }) => (
   <View style={[statStyles.card, { borderLeftColor: color || colors.primary }]}>
-    <Text style={statStyles.icon}>{icon}</Text>
+    {iconName && (
+      <Ionicons name={iconName} size={16} color={color || colors.primary} style={statStyles.icon} />
+    )}
     <Text style={[statStyles.value, { color: color || colors.text }]}>{value}</Text>
     <Text style={statStyles.label}>{label}</Text>
   </View>
@@ -132,7 +135,7 @@ const statStyles = StyleSheet.create({
     padding: spacing.sm,
     alignItems: 'center',
   },
-  icon: { fontSize: 16, marginBottom: spacing.xs },
+  icon: { marginBottom: spacing.xs },
   value: { ...typography.h3, fontWeight: '800', marginBottom: 2 },
   label: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
 });
@@ -151,7 +154,11 @@ const ReportTypeCard = ({ report, isSelected, onPress }) => (
     activeOpacity={0.7}
   >
     <View style={[cardStyles.iconBg, { backgroundColor: report.color + '15' }]}>
-      <Text style={cardStyles.icon}>{report.icon}</Text>
+      {report.iconName ? (
+        <Ionicons name={report.iconName} size={18} color={report.color} />
+      ) : (
+        <Text style={cardStyles.icon}>{report.icon}</Text>
+      )}
     </View>
     <Text style={cardStyles.title}>{report.title}</Text>
     <Text style={cardStyles.description}>{report.description}</Text>
@@ -198,37 +205,37 @@ const cardStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 
 const SubscriberReportView = ({ data }) => {
-  if (!data) return <EmptyState icon={'\uD83D\uDCCA'} title="No Data" message="No subscriber data found." />;
+  if (!data) return <EmptyState iconName="bar-chart-outline" title="No Data" message="No subscriber data found." />;
   return (
     <View>
       <View style={styles.statsRow}>
         <View style={styles.statHalf}>
-          <StatCard label="Total" value={String(data.total || 0)} icon={'\uD83D\uDC65'} color={colors.primary} />
+          <StatCard label="Total" value={String(data.total || 0)} iconName="people" color={colors.primary} />
         </View>
         <View style={styles.statHalf}>
-          <StatCard label="Active" value={String(data.active || 0)} icon={'\u2705'} color={colors.success} />
-        </View>
-      </View>
-      <View style={styles.statsRow}>
-        <View style={styles.statHalf}>
-          <StatCard label="Online" value={String(data.online || 0)} icon={'\uD83D\uDFE2'} color="#22c55e" />
-        </View>
-        <View style={styles.statHalf}>
-          <StatCard label="Expired" value={String(data.expired || 0)} icon={'\u26A0\uFE0F'} color={colors.warning} />
+          <StatCard label="Active" value={String(data.active || 0)} iconName="checkmark-circle" color={colors.success} />
         </View>
       </View>
       <View style={styles.statsRow}>
         <View style={styles.statHalf}>
-          <StatCard label="New This Month" value={String(data.newThisMonth || 0)} icon={'\u2795'} color={colors.info} />
+          <StatCard label="Online" value={String(data.online || 0)} iconName="wifi" color="#22c55e" />
         </View>
         <View style={styles.statHalf}>
-          <StatCard label="Expiring Soon" value={String(data.expiringSoon || 0)} icon={'\u23F3'} color={colors.danger} />
+          <StatCard label="Expired" value={String(data.expired || 0)} iconName="warning" color={colors.warning} />
+        </View>
+      </View>
+      <View style={styles.statsRow}>
+        <View style={styles.statHalf}>
+          <StatCard label="New This Month" value={String(data.newThisMonth || 0)} iconName="add-circle" color={colors.info} />
+        </View>
+        <View style={styles.statHalf}>
+          <StatCard label="Expiring Soon" value={String(data.expiringSoon || 0)} iconName="hourglass-outline" color={colors.danger} />
         </View>
       </View>
       {data.suspended > 0 && (
         <View style={styles.statsRow}>
           <View style={styles.statHalf}>
-            <StatCard label="Suspended" value={String(data.suspended)} icon={'\u26D4'} color={colors.danger} />
+            <StatCard label="Suspended" value={String(data.suspended)} iconName="close-circle" color={colors.danger} />
           </View>
           <View style={styles.statHalf} />
         </View>
@@ -242,15 +249,15 @@ const SubscriberReportView = ({ data }) => {
 // ---------------------------------------------------------------------------
 
 const RevenueReportView = ({ data }) => {
-  if (!data) return <EmptyState icon={'\uD83D\uDCCA'} title="No Data" message="No revenue data found." />;
+  if (!data) return <EmptyState iconName="bar-chart-outline" title="No Data" message="No revenue data found." />;
   return (
     <View>
       <View style={styles.statsRow}>
         <View style={styles.statHalf}>
-          <StatCard label="Total Revenue" value={formatCurrency(data.totalRevenue || 0)} icon={'\uD83D\uDCB0'} color={colors.success} />
+          <StatCard label="Total Revenue" value={formatCurrency(data.totalRevenue || 0)} iconName="cash-outline" color={colors.success} />
         </View>
         <View style={styles.statHalf}>
-          <StatCard label="Payments" value={String(data.paymentCount || 0)} icon={'\uD83D\uDCC8'} color={colors.primary} />
+          <StatCard label="Payments" value={String(data.paymentCount || 0)} iconName="trending-up-outline" color={colors.primary} />
         </View>
       </View>
 
@@ -291,16 +298,16 @@ const RevenueReportView = ({ data }) => {
 // ---------------------------------------------------------------------------
 
 const UsageReportView = ({ data }) => {
-  if (!data) return <EmptyState icon={'\uD83D\uDCCA'} title="No Data" message="No usage data found." />;
+  if (!data) return <EmptyState iconName="bar-chart-outline" title="No Data" message="No usage data found." />;
   const usage = data.totalUsage || {};
   return (
     <View>
       <View style={styles.statsRow}>
         <View style={styles.statHalf}>
-          <StatCard label="Total Download" value={formatBytes(usage.total_download || 0)} icon={'\u2B07\uFE0F'} color={colors.info} />
+          <StatCard label="Total Download" value={formatBytes(usage.total_download || 0)} iconName="arrow-down" color={colors.info} />
         </View>
         <View style={styles.statHalf}>
-          <StatCard label="Total Upload" value={formatBytes(usage.total_upload || 0)} icon={'\u2B06\uFE0F'} color={colors.primary} />
+          <StatCard label="Total Upload" value={formatBytes(usage.total_upload || 0)} iconName="arrow-up" color={colors.primary} />
         </View>
       </View>
 
@@ -348,7 +355,7 @@ const UsageReportView = ({ data }) => {
 
 const ServiceReportView = ({ data }) => {
   if (!data || !Array.isArray(data) || data.length === 0) {
-    return <EmptyState icon={'\uD83D\uDCCA'} title="No Data" message="No service data found." />;
+    return <EmptyState iconName="bar-chart-outline" title="No Data" message="No service data found." />;
   }
   const totalSubs = data.reduce((sum, s) => sum + (s.subscriber_count || 0), 0);
   const totalRevenue = data.reduce((sum, s) => sum + (s.revenue || 0), 0);
@@ -356,10 +363,10 @@ const ServiceReportView = ({ data }) => {
     <View>
       <View style={styles.statsRow}>
         <View style={styles.statHalf}>
-          <StatCard label="Services" value={String(data.length)} icon={'\uD83D\uDCE6'} color={colors.primary} />
+          <StatCard label="Services" value={String(data.length)} iconName="cube-outline" color={colors.primary} />
         </View>
         <View style={styles.statHalf}>
-          <StatCard label="Total Subscribers" value={String(totalSubs)} icon={'\uD83D\uDC65'} color={colors.info} />
+          <StatCard label="Total Subscribers" value={String(totalSubs)} iconName="people" color={colors.info} />
         </View>
       </View>
 

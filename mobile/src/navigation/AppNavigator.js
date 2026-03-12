@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, View, StyleSheet, Text, Platform, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions, useNavigation } from '@react-navigation/native';
@@ -100,23 +101,18 @@ const CustomerTicketsStack = createNativeStackNavigator();
 // Tab icon helper
 // ----------------------------------------------------------------
 
-function TabIcon({ label, focused }) {
-  const iconMap = {
-    'Home': '\uD83C\uDFE0',
-    'Subscribers': '\uD83D\uDC65',
-    'Sessions': '\uD83D\uDCE1',
-    'Services': '\uD83D\uDCE6',
-    'More': '\u2699\uFE0F',
-    'Usage': '\uD83D\uDCCA',
-    'Tickets': '\uD83C\uDFAB',
-    'Account': '\uD83D\uDC64',
+function TabIcon({ label, focused, color }) {
+  const icons = {
+    Home: focused ? 'home' : 'home-outline',
+    Subscribers: focused ? 'people' : 'people-outline',
+    Sessions: focused ? 'radio' : 'radio-outline',
+    Services: focused ? 'cube' : 'cube-outline',
+    More: focused ? 'grid' : 'grid-outline',
+    Usage: focused ? 'bar-chart' : 'bar-chart-outline',
+    Tickets: focused ? 'chatbubbles' : 'chatbubbles-outline',
+    Account: focused ? 'person' : 'person-outline',
   };
-
-  return (
-    <Text style={{ fontSize: 16, opacity: focused ? 1 : 0.5 }}>
-      {iconMap[label] || '\u2B55'}
-    </Text>
-  );
+  return <Ionicons name={icons[label] || 'ellipse'} size={22} color={color} />;
 }
 
 // ----------------------------------------------------------------
@@ -210,14 +206,25 @@ const tabBarScreenOptions = {
   tabBarInactiveTintColor: colors.textLight,
   tabBarStyle: {
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    height: 60,
-    paddingTop: 4,
-    paddingBottom: 6,
+    borderTopWidth: 0,
+    height: 64,
+    paddingTop: 6,
+    paddingBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   tabBarLabelStyle: {
     ...typography.tabBar,
+    fontWeight: '500',
   },
   tabBarIconStyle: {
     marginBottom: -2,
@@ -303,7 +310,7 @@ function AdminTabs() {
         component={AdminDashboardScreen}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon label="Home" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Home" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -311,7 +318,7 @@ function AdminTabs() {
         component={SubscribersStackNavigator}
         options={{
           tabBarLabel: 'Subscribers',
-          tabBarIcon: ({ focused }) => <TabIcon label="Subscribers" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Subscribers" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -319,7 +326,7 @@ function AdminTabs() {
         component={SessionsScreen}
         options={{
           tabBarLabel: 'Sessions',
-          tabBarIcon: ({ focused }) => <TabIcon label="Sessions" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Sessions" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -327,7 +334,7 @@ function AdminTabs() {
         component={ServicesScreen}
         options={{
           tabBarLabel: 'Services',
-          tabBarIcon: ({ focused }) => <TabIcon label="Services" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Services" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -335,7 +342,7 @@ function AdminTabs() {
         component={AdminMoreStackNavigator}
         options={{
           tabBarLabel: 'More',
-          tabBarIcon: ({ focused }) => <TabIcon label="More" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="More" focused={focused} color={color} />,
         }}
       />
     </Tab.Navigator>
@@ -350,7 +357,7 @@ function ResellerTabsInner() {
         component={ResellerDashboardScreen}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon label="Home" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Home" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -358,7 +365,7 @@ function ResellerTabsInner() {
         component={SubscribersStackNavigator}
         options={{
           tabBarLabel: 'Subscribers',
-          tabBarIcon: ({ focused }) => <TabIcon label="Subscribers" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Subscribers" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -366,7 +373,7 @@ function ResellerTabsInner() {
         component={SessionsScreen}
         options={{
           tabBarLabel: 'Sessions',
-          tabBarIcon: ({ focused }) => <TabIcon label="Sessions" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Sessions" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -374,7 +381,7 @@ function ResellerTabsInner() {
         component={ResellerMoreStackNavigator}
         options={{
           tabBarLabel: 'More',
-          tabBarIcon: ({ focused }) => <TabIcon label="More" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="More" focused={focused} color={color} />,
         }}
       />
     </Tab.Navigator>
@@ -398,7 +405,7 @@ function CustomerTabs() {
         component={CustomerDashboardScreen}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon label="Home" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Home" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -406,7 +413,7 @@ function CustomerTabs() {
         component={UsageScreen}
         options={{
           tabBarLabel: 'Usage',
-          tabBarIcon: ({ focused }) => <TabIcon label="Usage" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Usage" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -414,7 +421,7 @@ function CustomerTabs() {
         component={CustomerTicketsStackNavigator}
         options={{
           tabBarLabel: 'Tickets',
-          tabBarIcon: ({ focused }) => <TabIcon label="Tickets" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Tickets" focused={focused} color={color} />,
         }}
       />
       <Tab.Screen
@@ -422,7 +429,7 @@ function CustomerTabs() {
         component={AccountScreen}
         options={{
           tabBarLabel: 'Account',
-          tabBarIcon: ({ focused }) => <TabIcon label="Account" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Account" focused={focused} color={color} />,
         }}
       />
     </Tab.Navigator>
@@ -482,7 +489,7 @@ export default function AppNavigator() {
   if (!isReady) {
     return (
       <View style={loadingStyles.container}>
-        <Text style={loadingStyles.logo}>{'\uD83C\uDF10'}</Text>
+        <Ionicons name="globe-outline" size={36} color={colors.primary} />
         <Text style={loadingStyles.title}>ProxPanel</Text>
         <ActivityIndicator
           size="large"
@@ -565,7 +572,6 @@ const loadingStyles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   logo: {
-    fontSize: 36,
     marginBottom: spacing.sm,
   },
   title: {

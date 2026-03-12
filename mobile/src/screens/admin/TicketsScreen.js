@@ -14,6 +14,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -173,7 +174,7 @@ const TicketRow = ({ item, onPress }) => {
 
       <View style={ticketRowStyles.bottomRow}>
         <View style={ticketRowStyles.customerRow}>
-          <Text style={ticketRowStyles.customerIcon}>{'\uD83D\uDC64'}</Text>
+          <Ionicons name="person-outline" size={13} color={colors.textSecondary} style={ticketRowStyles.customerIcon} />
           <Text style={ticketRowStyles.customerName} numberOfLines={1}>
             {customerName}
           </Text>
@@ -238,7 +239,6 @@ const ticketRowStyles = StyleSheet.create({
     flex: 1,
   },
   customerIcon: {
-    fontSize: 13,
     marginRight: spacing.xs,
   },
   customerName: {
@@ -365,7 +365,10 @@ const TicketDetailModal = ({ visible, ticket, onClose, onReply, onCloseTicket })
         {/* Header */}
         <View style={modalStyles.header}>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
-            <Text style={modalStyles.closeText}>{'\u2190'} Back</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="arrow-back" size={16} color={colors.primary} />
+              <Text style={modalStyles.closeText}> Back</Text>
+            </View>
           </TouchableOpacity>
           <View style={modalStyles.headerCenter}>
             <Text style={modalStyles.headerTitle} numberOfLines={1}>
@@ -483,7 +486,7 @@ const TicketDetailModal = ({ visible, ticket, onClose, onReply, onCloseTicket })
               {isSending ? (
                 <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Text style={modalStyles.sendText}>{'\u2191'}</Text>
+                <Ionicons name="send-outline" size={16} color={colors.textInverse} />
               )}
             </TouchableOpacity>
           </View>
@@ -793,7 +796,7 @@ const TicketsScreen = ({ navigation }) => {
         keyExtractor={(item, index) => (item.id || item.ticket_id || index).toString()}
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83C\uDFAB'}
+            iconName="chatbubble-ellipses-outline"
             title="No Tickets"
             message={
               filter === 'all'

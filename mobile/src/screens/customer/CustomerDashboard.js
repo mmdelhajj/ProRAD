@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ProgressBar, Card, StatusBadge, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -75,9 +77,14 @@ const STATUS_BANNER_COLORS = {
 // InfoRow (key-value line inside a Card)
 // ---------------------------------------------------------------------------
 
-const InfoRow = ({ label, value, isLast }) => (
+const InfoRow = ({ label, value, isLast, iconName }) => (
   <View style={[infoStyles.row, !isLast && infoStyles.rowBorder]}>
-    <Text style={infoStyles.label}>{label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+      {iconName && (
+        <Ionicons name={iconName} size={15} color={colors.textSecondary} style={{ marginRight: spacing.xs }} />
+      )}
+      <Text style={infoStyles.label}>{label}</Text>
+    </View>
     <Text style={infoStyles.value} numberOfLines={1}>
       {value || '-'}
     </Text>
@@ -222,7 +229,12 @@ const CustomerDashboard = ({ navigation, route }) => {
       {/* ================================================================ */}
       {/* 1. Status Banner                                                 */}
       {/* ================================================================ */}
-      <View style={[styles.statusBanner, { backgroundColor: bannerColors.bg }]}>
+      <LinearGradient
+        colors={['#2563eb', '#1e40af']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.statusBanner}
+      >
         <View style={styles.bannerTop}>
           <StatusBadge
             status={statusKey}
@@ -250,19 +262,19 @@ const CustomerDashboard = ({ navigation, route }) => {
         {expiryLabel ? (
           <Text style={styles.bannerExpiry}>{expiryLabel}</Text>
         ) : null}
-      </View>
+      </LinearGradient>
 
       {/* ================================================================ */}
       {/* 2. Speed Info                                                    */}
       {/* ================================================================ */}
       <View style={styles.speedRow}>
         <View style={styles.speedCard}>
-          <Text style={styles.speedArrow}>{'\u2193'}</Text>
+          <Ionicons name="arrow-down" size={18} color={colors.primary} style={{ marginBottom: spacing.xs }} />
           <Text style={styles.speedValue}>{formatSpeed(downloadSpeed)}</Text>
           <Text style={styles.speedLabel}>Download</Text>
         </View>
         <View style={styles.speedCard}>
-          <Text style={styles.speedArrow}>{'\u2191'}</Text>
+          <Ionicons name="arrow-up" size={18} color={colors.primary} style={{ marginBottom: spacing.xs }} />
           <Text style={styles.speedValue}>{formatSpeed(uploadSpeed)}</Text>
           <Text style={styles.speedLabel}>Upload</Text>
         </View>
@@ -285,7 +297,10 @@ const CustomerDashboard = ({ navigation, route }) => {
       {dailyQuota > 0 && (
         <>
           <View style={styles.sectionHeaderInline}>
-            <Text style={styles.sectionTitle}>Daily Usage</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="analytics-outline" size={18} color={colors.text} style={{ marginRight: spacing.xs }} />
+              <Text style={styles.sectionTitle}>Daily Usage</Text>
+            </View>
             <Text style={styles.sectionCaption}>Resets at midnight</Text>
           </View>
 
@@ -311,7 +326,10 @@ const CustomerDashboard = ({ navigation, route }) => {
       {monthlyQuota > 0 && (
         <>
           <View style={styles.sectionHeaderInline}>
-            <Text style={styles.sectionTitle}>Monthly Usage</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="calendar-outline" size={18} color={colors.text} style={{ marginRight: spacing.xs }} />
+              <Text style={styles.sectionTitle}>Monthly Usage</Text>
+            </View>
             <Text style={styles.sectionCaption}>
               {monthlyResetDate ? `Resets on ${formatDate(monthlyResetDate, { month: 'short', day: 'numeric' })}` : 'Monthly quota'}
             </Text>
@@ -337,16 +355,20 @@ const CustomerDashboard = ({ navigation, route }) => {
       {/* 5. Connection Info                                               */}
       {/* ================================================================ */}
       <View style={styles.sectionHeaderInline}>
-        <Text style={styles.sectionTitle}>Connection Info</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="wifi" size={18} color={colors.text} style={{ marginRight: spacing.xs }} />
+          <Text style={styles.sectionTitle}>Connection Info</Text>
+        </View>
       </View>
 
       <Card style={styles.infoCard}>
-        <InfoRow label="IP Address" value={ipAddress} />
-        <InfoRow label="MAC Address" value={macAddress} />
-        <InfoRow label="Last Seen" value={lastSeen ? getTimeAgo(lastSeen) : '-'} />
+        <InfoRow label="IP Address" value={ipAddress} iconName="globe-outline" />
+        <InfoRow label="MAC Address" value={macAddress} iconName="hardware-chip-outline" />
+        <InfoRow label="Last Seen" value={lastSeen ? getTimeAgo(lastSeen) : '-'} iconName="time-outline" />
         <InfoRow
           label="Session Duration"
           value={data?.is_online && sessionDurationSec ? formatDuration(sessionDurationSec) : '-'}
+          iconName="hourglass-outline"
           isLast
         />
       </Card>
@@ -355,18 +377,22 @@ const CustomerDashboard = ({ navigation, route }) => {
       {/* 6. Account Info                                                  */}
       {/* ================================================================ */}
       <View style={styles.sectionHeaderInline}>
-        <Text style={styles.sectionTitle}>Account Info</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="person-outline" size={18} color={colors.text} style={{ marginRight: spacing.xs }} />
+          <Text style={styles.sectionTitle}>Account Info</Text>
+        </View>
       </View>
 
       <Card style={styles.infoCard}>
-        <InfoRow label="Full Name" value={fullName} />
-        <InfoRow label="Username" value={username} />
-        <InfoRow label="Phone" value={phone} />
-        <InfoRow label="Email" value={email} />
+        <InfoRow label="Full Name" value={fullName} iconName="person-outline" />
+        <InfoRow label="Username" value={username} iconName="at-outline" />
+        <InfoRow label="Phone" value={phone} iconName="call-outline" />
+        <InfoRow label="Email" value={email} iconName="mail-outline" />
         {price > 0 && (
           <InfoRow
             label="Monthly Price"
             value={`$${parseFloat(price).toFixed(2)}`}
+            iconName="cash-outline"
             isLast
           />
         )}
@@ -447,12 +473,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
   },
-  speedArrow: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
+  // speedArrow style removed - Ionicons used instead
   speedValue: {
     ...typography.h4,
     color: colors.text,

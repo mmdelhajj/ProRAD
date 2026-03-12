@@ -36,6 +36,16 @@ export const colors = {
   fup2: '#f97316',
   fup3: '#ef4444',
 
+  // Gradients
+  gradients: {
+    primary: ['#2563eb', '#1e40af'],
+    dark: ['#0f172a', '#1e293b'],
+    success: ['#10b981', '#059669'],
+  },
+
+  // Avatar colors
+  avatarColors: ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2', '#4f46e5'],
+
   // Dark mode
   dark: {
     background: '#0f172a',

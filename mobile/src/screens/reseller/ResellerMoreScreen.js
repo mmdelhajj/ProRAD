@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -22,7 +23,7 @@ import { getBaseURL } from '../../services/api';
 const MENU_ITEMS = [
   {
     key: 'Resellers',
-    icon: '\uD83D\uDC65',
+    icon: 'people-circle-outline',
     label: 'Sub-Resellers',
     description: 'Manage sub-resellers',
     route: 'Resellers',
@@ -30,7 +31,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Tickets',
-    icon: '\uD83C\uDFAB',
+    icon: 'chatbubble-ellipses-outline',
     label: 'Tickets',
     description: 'Support ticket management',
     route: 'Tickets',
@@ -38,7 +39,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'WhatsApp',
-    icon: '\uD83D\uDCAC',
+    icon: 'logo-whatsapp',
     label: 'WhatsApp',
     description: 'Messaging & notifications',
     route: 'WhatsApp',
@@ -46,14 +47,14 @@ const MENU_ITEMS = [
   },
   {
     key: 'Branding',
-    icon: '\uD83C\uDFA8',
+    icon: 'color-palette-outline',
     label: 'Branding',
     description: 'Customize your portal',
     route: 'Branding',
   },
   {
     key: 'Invoices',
-    icon: '\uD83D\uDCC4',
+    icon: 'receipt-outline',
     label: 'Invoices',
     description: 'View invoice history',
     route: 'Invoices',
@@ -61,7 +62,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Prepaid',
-    icon: '\uD83D\uDCB3',
+    icon: 'card-outline',
     label: 'Prepaid Cards',
     description: 'Manage prepaid cards',
     route: 'Prepaid',
@@ -69,7 +70,7 @@ const MENU_ITEMS = [
   },
   {
     key: 'Reports',
-    icon: '\uD83D\uDCCA',
+    icon: 'stats-chart-outline',
     label: 'Reports',
     description: 'Subscriber reports',
     route: 'Reports',
@@ -89,7 +90,7 @@ const MenuItem = ({ item, onPress }) => {
       activeOpacity={0.7}
     >
       <View style={itemStyles.iconContainer}>
-        <Text style={itemStyles.icon}>{item.icon}</Text>
+        <Ionicons name={item.icon} size={20} color={colors.primary} />
       </View>
       <View style={itemStyles.textContainer}>
         <Text style={itemStyles.label} numberOfLines={1}>
@@ -99,7 +100,7 @@ const MenuItem = ({ item, onPress }) => {
           {item.description}
         </Text>
       </View>
-      <Text style={itemStyles.chevron}>{'\u203A'}</Text>
+      <Ionicons name="chevron-forward" size={16} color={colors.textLight} style={{ position: 'absolute', top: spacing.sm, right: spacing.sm }} />
     </TouchableOpacity>
   );
 };
@@ -125,7 +126,7 @@ const itemStyles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   icon: {
-    fontSize: 16,
+    // Kept for backward compatibility; Ionicons used instead
   },
   textContainer: {
     flex: 1,
@@ -233,7 +234,10 @@ const ResellerMoreScreen = ({ navigation }) => {
         onPress={handleLogout}
         activeOpacity={0.7}
       >
-        <Text style={styles.logoutText}>Log Out</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </View>
       </TouchableOpacity>
 
       <View style={{ height: spacing.tabBar }} />

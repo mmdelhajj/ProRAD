@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { subscriberApi } from '../../services/api';
 import { Card, StatusBadge } from '../../components';
 import { colors } from '../../theme/colors';
@@ -474,7 +475,7 @@ export default function LiveBandwidthScreen({ route, navigation }) {
           style={styles.backButton}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={styles.backArrow}>{'\u2190'}</Text>
+          <Ionicons name="arrow-back" size={18} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerTitleArea}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -519,9 +520,7 @@ export default function LiveBandwidthScreen({ route, navigation }) {
           {/* Download */}
           <View style={styles.speedCard}>
             <View style={styles.speedArrowContainer}>
-              <Text style={[styles.speedArrow, { color: colors.success }]}>
-                {'\u2193'}
-              </Text>
+              <Ionicons name="arrow-down" size={16} color={colors.success} />
             </View>
             <Text
               style={[styles.speedValue, { color: colors.success }]}
@@ -537,9 +536,7 @@ export default function LiveBandwidthScreen({ route, navigation }) {
           {/* Upload */}
           <View style={styles.speedCard}>
             <View style={styles.speedArrowContainer}>
-              <Text style={[styles.speedArrow, { color: colors.primary }]}>
-                {'\u2191'}
-              </Text>
+              <Ionicons name="arrow-up" size={16} color={colors.primary} />
             </View>
             <Text
               style={[styles.speedValue, { color: colors.primary }]}
@@ -555,9 +552,7 @@ export default function LiveBandwidthScreen({ route, navigation }) {
           {/* Ping */}
           <View style={styles.speedCard}>
             <View style={styles.speedArrowContainer}>
-              <Text style={[styles.speedArrow, { color: getPingColor(pingMs) }]}>
-                {'\u25CF'}
-              </Text>
+              <Ionicons name="pulse-outline" size={16} color={getPingColor(pingMs)} />
             </View>
             <Text
               style={[styles.speedValue, { color: getPingColor(pingMs) }]}
@@ -667,7 +662,7 @@ export default function LiveBandwidthScreen({ route, navigation }) {
         onPress={() => setIsPaused((p) => !p)}
         activeOpacity={0.8}
       >
-        <Text style={styles.fabIcon}>{isPaused ? '\u25B6' : '\u23F8'}</Text>
+        <Ionicons name={isPaused ? 'play' : 'pause'} size={13} color={colors.textInverse} style={styles.fabIcon} />
         <Text style={styles.fabText}>{isPaused ? 'Resume' : 'Pause'}</Text>
       </TouchableOpacity>
     </SafeAreaView>

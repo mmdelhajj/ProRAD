@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -7,6 +8,7 @@ import Button from './Button';
 
 const EmptyState = ({
   icon,
+  iconName,
   title,
   message,
   actionLabel,
@@ -14,9 +16,13 @@ const EmptyState = ({
 }) => {
   return (
     <View style={styles.container}>
-      {icon && (
+      {(iconName || icon) && (
         <View style={styles.iconContainer}>
-          <Text style={styles.icon}>{icon}</Text>
+          {iconName ? (
+            <Ionicons name={iconName} size={28} color={colors.textLight} />
+          ) : (
+            <Text style={styles.icon}>{icon}</Text>
+          )}
         </View>
       )}
       {title && (

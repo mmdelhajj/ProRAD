@@ -18,6 +18,7 @@ import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -71,14 +72,14 @@ const REPORT_TYPES = [
   {
     key: 'subscribers',
     label: 'My Subscribers',
-    icon: '\uD83D\uDC65',
+    icon: 'people',
     description: 'Subscriber statistics and trends',
     color: colors.primary,
   },
   {
     key: 'revenue',
     label: 'My Revenue',
-    icon: '\uD83D\uDCB0',
+    icon: 'cash-outline',
     description: 'Revenue breakdown and totals',
     color: colors.success,
   },
@@ -156,7 +157,7 @@ const SubscriberReport = ({ data, loading, dateLabel }) => {
   if (!data) {
     return (
       <EmptyState
-        icon={'\uD83D\uDCC1'}
+        iconName="folder-outline"
         title="No Data"
         message="No subscriber data available for the selected period."
       />
@@ -173,7 +174,7 @@ const SubscriberReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="Total Subscribers"
             value={String(stats.total || stats.total_subscribers || 0)}
-            icon={'\uD83D\uDC65'}
+            iconName="people"
             color={colors.primary}
           />
         </View>
@@ -181,7 +182,7 @@ const SubscriberReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="Active"
             value={String(stats.active || stats.active_subscribers || 0)}
-            icon={'\u2705'}
+            iconName="checkmark-circle"
             color={colors.success}
           />
         </View>
@@ -192,7 +193,7 @@ const SubscriberReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="Online Now"
             value={String(stats.online || stats.online_count || 0)}
-            icon={'\uD83D\uDFE2'}
+            iconName="ellipse"
             color={colors.online}
           />
         </View>
@@ -200,7 +201,7 @@ const SubscriberReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="Expired"
             value={String(stats.expired || stats.expired_count || 0)}
-            icon={'\u26A0\uFE0F'}
+            iconName="warning-outline"
             color={colors.warning}
           />
         </View>
@@ -211,7 +212,7 @@ const SubscriberReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="New This Period"
             value={String(stats.new_subscribers || stats.new || 0)}
-            icon={'\u2795'}
+            iconName="add-circle-outline"
             color={colors.info}
           />
         </View>
@@ -219,7 +220,7 @@ const SubscriberReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="Inactive"
             value={String(stats.inactive || stats.inactive_count || 0)}
-            icon={'\u26D4'}
+            iconName="close-circle-outline"
             color={colors.inactive}
           />
         </View>
@@ -276,7 +277,7 @@ const RevenueReport = ({ data, loading, dateLabel }) => {
   if (!data) {
     return (
       <EmptyState
-        icon={'\uD83D\uDCC1'}
+        iconName="folder-outline"
         title="No Data"
         message="No revenue data available for the selected period."
       />
@@ -291,7 +292,7 @@ const RevenueReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="Total Revenue"
             value={formatCurrency(data.totalRevenue || 0)}
-            icon={'\uD83D\uDCB0'}
+            iconName="cash-outline"
             color={colors.success}
           />
         </View>
@@ -299,7 +300,7 @@ const RevenueReport = ({ data, loading, dateLabel }) => {
           <StatCard
             label="Payments"
             value={String(data.paymentCount || 0)}
-            icon={'\uD83D\uDCC8'}
+            iconName="trending-up-outline"
             color={colors.primary}
           />
         </View>
@@ -544,13 +545,13 @@ const ReportsScreen = ({ navigation }) => {
                   { backgroundColor: rpt.color + '15' },
                 ]}
               >
-                <Text style={styles.reportIcon}>{rpt.icon}</Text>
+                <Ionicons name={rpt.icon} size={18} color={rpt.color} />
               </View>
               <View style={styles.reportInfo}>
                 <Text style={styles.reportLabel}>{rpt.label}</Text>
                 <Text style={styles.reportDesc}>{rpt.description}</Text>
               </View>
-              <Text style={styles.reportChevron}>{'\u203A'}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -586,11 +587,11 @@ const ReportsScreen = ({ navigation }) => {
             }}
             activeOpacity={0.7}
           >
-            <Text style={styles.backIcon}>{'\u2190'}</Text>
+            <Ionicons name="arrow-back" size={16} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.reportTitleContainer}>
             <Text style={styles.reportTitle}>
-              {currentReport?.icon} {currentReport?.label}
+              {currentReport && <Ionicons name={currentReport.icon} size={18} color={currentReport.color} />} {currentReport?.label}
             </Text>
             <Text style={styles.reportDateLabel}>
               {dateLabel} report

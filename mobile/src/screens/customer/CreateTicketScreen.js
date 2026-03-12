@@ -7,6 +7,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Input } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -77,7 +78,7 @@ const CreateTicketScreen = ({ navigation }) => {
           style={styles.closeButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.closeText}>{'\u2715'}</Text>
+          <Ionicons name="close" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New Ticket</Text>
         <View style={styles.headerSpacer} />

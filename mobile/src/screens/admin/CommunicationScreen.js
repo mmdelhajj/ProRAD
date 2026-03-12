@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -59,9 +60,9 @@ const TRIGGER_COLORS = {
 };
 
 const CHANNEL_ICONS = {
-  whatsapp: '\uD83D\uDCAC',
-  sms: '\uD83D\uDCF1',
-  email: '\uD83D\uDCE7',
+  whatsapp: 'logo-whatsapp',
+  sms: 'chatbubble-outline',
+  email: 'mail-outline',
 };
 
 const EMPTY_FORM = {
@@ -188,7 +189,7 @@ const RuleRow = ({ rule, onEdit, onToggle }) => {
   const triggerLabel =
     TRIGGER_EVENTS.find((t) => t.value === rule.trigger_event)?.label ||
     rule.trigger_event;
-  const channelIcon = CHANNEL_ICONS[rule.channel] || '\uD83D\uDCE8';
+  const channelIcon = CHANNEL_ICONS[rule.channel] || 'mail-outline';
   const triggerColor = TRIGGER_COLORS[rule.trigger_event] || colors.textSecondary;
 
   return (
@@ -203,7 +204,7 @@ const RuleRow = ({ rule, onEdit, onToggle }) => {
             <Text style={rowStyles.name} numberOfLines={1}>
               {rule.name || 'Unnamed Rule'}
             </Text>
-            <Text style={rowStyles.channel}>{channelIcon}</Text>
+            <Ionicons name={channelIcon} size={16} color={colors.textSecondary} style={{ marginLeft: spacing.sm }} />
           </View>
           <View style={rowStyles.tagsRow}>
             <View style={[rowStyles.tag, { backgroundColor: triggerColor + '15' }]}>
@@ -872,7 +873,7 @@ const CommunicationScreen = () => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83D\uDCE8'}
+            iconName="mail-outline"
             title="No Communication Rules"
             message="Create notification rules to alert subscribers about expiry, FUP, and quotas."
           />

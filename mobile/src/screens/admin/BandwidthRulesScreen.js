@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -174,7 +175,7 @@ const ServiceMultiSelect = ({ services, selectedIds, onToggle }) => {
                 </Text>
               </View>
               <View style={[svcStyles.check, active && svcStyles.checkActive]}>
-                {active && <Text style={svcStyles.checkMark}>{'\u2713'}</Text>}
+                {active && <Ionicons name="checkmark" size={12} color="#fff" />}
               </View>
             </TouchableOpacity>
           );
@@ -263,7 +264,7 @@ const RuleRow = ({ rule, onEdit, onToggle }) => {
           </View>
 
           <View style={rRowStyles.timeRow}>
-            <Text style={rRowStyles.timeIcon}>{'\u23F0'}</Text>
+            <Ionicons name="time-outline" size={13} color={colors.textSecondary} style={{ marginRight: spacing.xs }} />
             <Text style={rRowStyles.timeText}>{timeRange}</Text>
           </View>
 
@@ -499,7 +500,7 @@ const RuleModal = ({ visible, rule, services, onClose, onSave, onDelete, saving 
               />
             </View>
             <View style={formStyles.timeSeparator}>
-              <Text style={formStyles.timeSepText}>{'\u2192'}</Text>
+              <Ionicons name="arrow-forward" size={18} color={colors.textLight} />
             </View>
             <View style={formStyles.timeCol}>
               <TimeInput
@@ -875,7 +876,7 @@ const BandwidthRulesScreen = () => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon={'\u26A1'}
+            iconName="flash-outline"
             title="No Bandwidth Rules"
             message="Create time-based speed rules to boost or limit bandwidth during specific hours."
           />

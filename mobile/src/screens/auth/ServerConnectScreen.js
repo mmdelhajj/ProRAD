@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import axios from 'axios';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -163,7 +165,7 @@ function QRScannerTab({ onServerFound, isConnecting }) {
     return (
       <View style={styles.centeredContainer}>
         <View style={styles.permissionIcon}>
-          <Text style={styles.permissionIconText}>&#128247;</Text>
+          <Ionicons name="camera-outline" size={24} color={colors.textSecondary} />
         </View>
         <Text style={styles.permissionTitle}>Camera Access Required</Text>
         <Text style={styles.permissionDescription}>
@@ -295,7 +297,8 @@ function URLInputTab({ onConnect, isConnecting, error }) {
 
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Ionicons name="close-circle" size={16} color={colors.danger} style={{ marginRight: 6 }} />
+          <Text style={[styles.errorText, { flex: 1 }]}>{error}</Text>
         </View>
       ) : null}
 
@@ -414,7 +417,7 @@ function SuccessOverlay({ serverName, visible }) {
         ]}
       >
         <View style={styles.successCheckCircle}>
-          <Text style={styles.successCheckMark}>&#10003;</Text>
+          <Ionicons name="checkmark" size={28} color={colors.textInverse} />
         </View>
         <Text style={styles.successTitle}>Connected!</Text>
         {serverName ? (
@@ -581,7 +584,7 @@ export default function ServerConnectScreen({ navigation }) {
   // ---------- Render ----------
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <LinearGradient colors={['#2563eb', '#1e40af']} style={[styles.screen, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -606,72 +609,76 @@ export default function ServerConnectScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* Tab bar */}
-          <View style={styles.tabBar}>
-            {TABS.map((tab) => {
-              const isActive = activeTab === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[styles.tab, isActive && styles.tabActive]}
-                  onPress={() => {
-                    setActiveTab(tab.key);
-                    Haptics.impactAsync(
-                      Haptics.ImpactFeedbackStyle.Light,
-                    ).catch(() => {});
-                  }}
-                  activeOpacity={0.7}
-                  disabled={isConnecting}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      isActive && styles.tabTextActive,
-                    ]}
-                    numberOfLines={1}
+          {/* White card wrapper for form content */}
+          <View style={styles.formCard}>
+            {/* Tab bar */}
+            <View style={styles.tabBar}>
+              {TABS.map((tab) => {
+                const isActive = activeTab === tab.key;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[styles.tab, isActive && styles.tabActive]}
+                    onPress={() => {
+                      setActiveTab(tab.key);
+                      Haptics.impactAsync(
+                        Haptics.ImpactFeedbackStyle.Light,
+                      ).catch(() => {});
+                    }}
+                    activeOpacity={0.7}
+                    disabled={isConnecting}
                   >
-                    {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Tab content */}
-          <View style={styles.tabContentWrapper}>
-            {activeTab === 'qr' && (
-              <QRScannerTab
-                onServerFound={handleQRFound}
-                isConnecting={isConnecting}
-              />
-            )}
-
-            {activeTab === 'url' && (
-              <URLInputTab
-                onConnect={handleURLConnect}
-                isConnecting={isConnecting}
-                error={error}
-              />
-            )}
-
-          </View>
-
-          {/* QR tab also shows connection error inline */}
-          {activeTab === 'qr' && error ? (
-            <View style={[styles.errorBox, { marginHorizontal: spacing.xl }]}>
-              <Text style={styles.errorText}>{error}</Text>
+                    <Text
+                      style={[
+                        styles.tabText,
+                        isActive && styles.tabTextActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          ) : null}
 
-          {/* Connecting indicator (shown during QR flow) */}
-          {activeTab === 'qr' && isConnecting ? (
-            <View style={styles.connectingBox}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.connectingText}>
-                Connecting to server...
-              </Text>
+            {/* Tab content */}
+            <View style={styles.tabContentWrapper}>
+              {activeTab === 'qr' && (
+                <QRScannerTab
+                  onServerFound={handleQRFound}
+                  isConnecting={isConnecting}
+                />
+              )}
+
+              {activeTab === 'url' && (
+                <URLInputTab
+                  onConnect={handleURLConnect}
+                  isConnecting={isConnecting}
+                  error={error}
+                />
+              )}
+
             </View>
-          ) : null}
+
+            {/* QR tab also shows connection error inline */}
+            {activeTab === 'qr' && error ? (
+              <View style={[styles.errorBox, { marginHorizontal: spacing.sm }]}>
+                <Ionicons name="close-circle" size={16} color={colors.danger} style={{ marginRight: 6 }} />
+                <Text style={[styles.errorText, { flex: 1 }]}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Connecting indicator (shown during QR flow) */}
+            {activeTab === 'qr' && isConnecting ? (
+              <View style={styles.connectingBox}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.connectingText}>
+                  Connecting to server...
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
           {/* Saved servers toggle */}
           {savedServers.length > 0 && (
@@ -681,6 +688,12 @@ export default function ServerConnectScreen({ navigation }) {
                 onPress={() => setShowSavedServers(!showSavedServers)}
                 activeOpacity={0.7}
               >
+                <Ionicons
+                  name={showSavedServers ? 'chevron-up-outline' : 'server-outline'}
+                  size={16}
+                  color="#93c5fd"
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={styles.savedServersToggleText}>
                   {showSavedServers ? 'Hide saved servers' : 'Already connected? View saved servers'}
                 </Text>
@@ -706,7 +719,7 @@ export default function ServerConnectScreen({ navigation }) {
 
       {/* Success overlay */}
       <SuccessOverlay serverName={successName} visible={showSuccess} />
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -722,21 +735,17 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingBottom: spacing.base,
   },
 
-  // Header
+  // Header (on gradient, no background color)
   header: {
     alignItems: 'center',
     paddingTop: spacing.base,
     paddingBottom: spacing.md,
     paddingHorizontal: spacing.base,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   logoContainer: {
     marginBottom: spacing.sm,
@@ -745,35 +754,42 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.sm,
   },
   logoText: {
     ...typography.h1,
-    color: colors.textInverse,
+    color: '#ffffff',
     fontSize: 22,
   },
   headerTitle: {
     ...typography.h3,
-    color: colors.text,
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   headerSubtitle: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     lineHeight: 16,
     maxWidth: 320,
   },
 
+  // White form card
+  formCard: {
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.base,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    ...shadows.md,
+  },
+
   // Tab bar
   tabBar: {
     flexDirection: 'row',
-    marginHorizontal: spacing.base,
-    marginTop: spacing.md,
     marginBottom: spacing.md,
     backgroundColor: colors.surfaceHover,
     borderRadius: borderRadius.sm,
@@ -797,9 +813,8 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
   },
 
-  // Tab content wrapper
+  // Tab content wrapper (inside card, no margin needed)
   tabContentWrapper: {
-    marginHorizontal: spacing.base,
   },
 
   // QR Scanner
@@ -922,9 +937,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.sm,
   },
-  permissionIconText: {
-    fontSize: 20,
-  },
+  // permissionIconText removed - using Ionicons instead
   permissionTitle: {
     ...typography.h4,
     color: colors.text,
@@ -986,6 +999,8 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fef2f2',
     borderWidth: 1,
     borderColor: '#fecaca',
@@ -1050,14 +1065,14 @@ const styles = StyleSheet.create({
   },
   savedServersToggleText: {
     ...typography.bodySmall,
-    color: colors.primary,
+    color: '#93c5fd',
     fontWeight: '500',
   },
   savedServersBadge: {
     ...typography.caption,
     fontWeight: '700',
-    color: colors.textInverse,
-    backgroundColor: colors.primary,
+    color: '#ffffff',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     paddingHorizontal: spacing.sm,
     paddingVertical: 1,
     borderRadius: borderRadius.sm,
@@ -1067,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   savedServersTitle: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: spacing.sm,
   },
   serversList: {
@@ -1131,7 +1146,7 @@ const styles = StyleSheet.create({
   },
   noServersText: {
     ...typography.bodySmall,
-    color: colors.textLight,
+    color: 'rgba(255,255,255,0.6)',
   },
 
   // Success overlay
@@ -1159,11 +1174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
-  successCheckMark: {
-    fontSize: 24,
-    color: colors.textInverse,
-    fontWeight: '700',
-  },
+  // successCheckMark removed - using Ionicons instead
   successTitle: {
     ...typography.h3,
     color: colors.text,

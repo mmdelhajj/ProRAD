@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, Button, Input, LoadingScreen, StatusBadge } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -346,8 +347,11 @@ const CustomerAccountScreen = ({ navigation }) => {
         onPress={() => setShowPasswordForm(!showPasswordForm)}
         style={styles.actionRow}
       >
-        <Text style={styles.actionText}>{'\uD83D\uDD12'} Change Password</Text>
-        <Text style={styles.actionChevron}>{showPasswordForm ? '\u2303' : '\u203A'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="lock-closed-outline" size={16} color={colors.text} style={{ marginRight: 6 }} />
+          <Text style={styles.actionText}>Change Password</Text>
+        </View>
+        <Ionicons name={showPasswordForm ? 'chevron-up' : 'chevron-forward'} size={16} color={colors.textLight} />
       </TouchableOpacity>
 
       {showPasswordForm && (
@@ -393,8 +397,11 @@ const CustomerAccountScreen = ({ navigation }) => {
         onPress={handleChangeServer}
         style={styles.actionRow}
       >
-        <Text style={styles.actionText}>{'\uD83D\uDD17'} Change Server</Text>
-        <Text style={styles.actionChevron}>{'\u203A'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="swap-horizontal-outline" size={16} color={colors.text} style={{ marginRight: 6 }} />
+          <Text style={styles.actionText}>Change Server</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
       </TouchableOpacity>
 
       {/* Logout */}
@@ -403,7 +410,10 @@ const CustomerAccountScreen = ({ navigation }) => {
         onPress={handleLogout}
         style={[styles.actionRow, styles.logoutRow]}
       >
-        <Text style={styles.logoutText}>{'\uD83D\uDEAA'} Logout</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="log-out-outline" size={16} color={colors.danger} style={{ marginRight: 6 }} />
+          <Text style={styles.logoutText}>Logout</Text>
+        </View>
       </TouchableOpacity>
 
       {/* App version */}

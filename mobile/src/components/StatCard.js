@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -14,15 +15,16 @@ const StatCard = ({
   label,
   value,
   icon,
+  iconName,
   color = colors.primary,
   trend,
   trendValue,
   onPress,
 }) => {
-  const getTrendIcon = () => {
-    if (trend === 'up') return '\u2191';
-    if (trend === 'down') return '\u2193';
-    return '\u2192';
+  const getTrendIconName = () => {
+    if (trend === 'up') return 'arrow-up';
+    if (trend === 'down') return 'arrow-down';
+    return 'arrow-forward';
   };
 
   const getTrendColor = () => {
@@ -36,16 +38,23 @@ const StatCard = ({
       <View style={[styles.topBorder, { backgroundColor: color }]} />
       <View style={styles.body}>
         <View style={styles.headerRow}>
-          {icon && (
+          {(iconName || icon) && (
             <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
-              <Text style={[styles.iconText, { color }]}>{icon}</Text>
+              {iconName ? (
+                <Ionicons name={iconName} size={20} color={color} />
+              ) : (
+                <Text style={[styles.iconText, { color }]}>{icon}</Text>
+              )}
             </View>
           )}
           {trend && trendValue && (
             <View style={[styles.trendBadge, { backgroundColor: getTrendColor() + '15' }]}>
-              <Text style={[styles.trendText, { color: getTrendColor() }]}>
-                {getTrendIcon()} {trendValue}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name={getTrendIconName()} size={10} color={getTrendColor()} />
+                <Text style={[styles.trendText, { color: getTrendColor(), marginLeft: 2 }]}>
+                  {trendValue}
+                </Text>
+              </View>
             </View>
           )}
         </View>
@@ -99,8 +108,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',

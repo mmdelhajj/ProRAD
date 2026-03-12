@@ -21,6 +21,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import { Ionicons } from '@expo/vector-icons';
 import { resellerApi } from '../../services/api';
 import { formatCurrency } from '../../utils/format';
 import useAuthStore from '../../store/authStore';
@@ -410,7 +411,7 @@ const ResellerDetailModal = ({ reseller, visible, onClose, onAction }) => {
         <View style={detailModalStyles.header}>
           <Text style={detailModalStyles.headerTitle} numberOfLines={1}>{username}</Text>
           <TouchableOpacity onPress={onClose} activeOpacity={0.6}>
-            <Text style={detailModalStyles.closeButton}>{'\u2715'}</Text>
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -549,7 +550,7 @@ const CreateResellerModal = ({ visible, onClose, onSubmit }) => {
           <View style={createModalStyles.header}>
             <Text style={createModalStyles.headerTitle}>New Reseller</Text>
             <TouchableOpacity onPress={onClose} activeOpacity={0.6}>
-              <Text style={createModalStyles.closeButton}>{'\u2715'}</Text>
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <ScrollView style={createModalStyles.body} contentContainerStyle={createModalStyles.bodyContent} keyboardShouldPersistTaps="handled">
@@ -774,7 +775,7 @@ export default function ResellersScreen({ navigation }) {
           </View>
         </View>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>{'\uD83D\uDD0D'}</Text>
+          <Ionicons name="search-outline" size={16} color={colors.textSecondary} style={{ marginRight: spacing.sm }} />
           <TextInput
             style={styles.searchInput}
             value={searchText}
@@ -787,7 +788,7 @@ export default function ResellersScreen({ navigation }) {
           />
           {searchText.length > 0 && (
             <TouchableOpacity onPress={() => setSearchText('')}>
-              <Text style={styles.clearSearch}>{'\u2715'}</Text>
+              <Ionicons name="close" size={18} color={colors.textLight} style={{ paddingLeft: spacing.sm }} />
             </TouchableOpacity>
           )}
         </View>
@@ -796,7 +797,7 @@ export default function ResellersScreen({ navigation }) {
       {/* Error state */}
       {error && !loading && resellers.length === 0 ? (
         <EmptyState
-          icon={'\u26A0\uFE0F'}
+          iconName="warning-outline"
           title="Connection Error"
           message={error}
           actionLabel="Retry"
@@ -814,7 +815,7 @@ export default function ResellersScreen({ navigation }) {
           }
           ListEmptyComponent={
             <EmptyState
-              icon={'\uD83D\uDC65'}
+              iconName="people-outline"
               title="No Resellers"
               message={debouncedSearch ? `No resellers found for "${debouncedSearch}".` : 'No resellers have been created yet.'}
               actionLabel={debouncedSearch ? 'Clear Search' : 'Add Reseller'}

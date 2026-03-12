@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -173,12 +174,14 @@ const SessionRow = ({ session, onDisconnect }) => {
           {/* Rate display */}
           {(downloadRate > 0 || uploadRate > 0) ? (
             <View style={rowStyles.rateLine}>
-              <Text style={rowStyles.rateDown}>
-                {'\u2B07'} {formatBytes(downloadRate)}/s
-              </Text>
-              <Text style={rowStyles.rateUp}>
-                {'\u2B06'} {formatBytes(uploadRate)}/s
-              </Text>
+              <View style={rowStyles.rateItem}>
+                <Ionicons name="arrow-down" size={12} color={colors.success} />
+                <Text style={rowStyles.rateDown}> {formatBytes(downloadRate)}/s</Text>
+              </View>
+              <View style={rowStyles.rateItem}>
+                <Ionicons name="arrow-up" size={12} color={colors.info} />
+                <Text style={rowStyles.rateUp}> {formatBytes(uploadRate)}/s</Text>
+              </View>
             </View>
           ) : null}
         </View>
@@ -289,6 +292,10 @@ const rowStyles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 2,
     gap: 6,
+  },
+  rateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   rateDown: {
     fontSize: 12,
@@ -457,7 +464,7 @@ const SessionsScreen = () => {
 
         {/* Search bar */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>{'\uD83D\uDD0D'}</Text>
+          <Ionicons name="search-outline" size={14} color={colors.textLight} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by username..."
@@ -473,7 +480,7 @@ const SessionsScreen = () => {
               onPress={() => setSearch('')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.clearSearch}>{'\u2715'}</Text>
+              <Ionicons name="close-circle" size={14} color={colors.textLight} style={styles.clearSearch} />
             </TouchableOpacity>
           )}
         </View>
@@ -496,7 +503,7 @@ const SessionsScreen = () => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83D\uDCE1'}
+            iconName="wifi-outline"
             title="No Active Sessions"
             message={
               search

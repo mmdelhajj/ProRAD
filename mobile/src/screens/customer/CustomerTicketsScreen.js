@@ -7,6 +7,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -161,7 +162,7 @@ const CustomerTicketsScreen = ({ navigation }) => {
           onPress={handleCreateTicket}
           style={styles.addButton}
         >
-          <Text style={styles.addButtonText}>+</Text>
+          <Ionicons name="add" size={18} color={colors.textInverse} />
         </TouchableOpacity>
       </View>
 
@@ -182,7 +183,7 @@ const CustomerTicketsScreen = ({ navigation }) => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83C\uDFAB'}
+            iconName="chatbubble-ellipses-outline"
             title="No tickets yet"
             message="Tap + to create one."
             actionLabel="Create Ticket"
@@ -198,7 +199,7 @@ const CustomerTicketsScreen = ({ navigation }) => {
           onPress={handleCreateTicket}
           style={styles.fab}
         >
-          <Text style={styles.fabText}>+</Text>
+          <Ionicons name="add" size={24} color={colors.textInverse} />
         </TouchableOpacity>
       )}
     </View>

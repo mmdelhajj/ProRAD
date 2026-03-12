@@ -5,6 +5,8 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -12,22 +14,25 @@ import { shadows } from '../theme/shadows';
 
 const LoadingScreen = ({ message }) => {
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={colors.gradients.dark}
+      style={styles.container}
+    >
       <View style={styles.logoContainer}>
         <View style={styles.logoBadge}>
-          <Text style={styles.logoText}>P</Text>
+          <Ionicons name="globe-outline" size={28} color="#ffffff" />
         </View>
         <Text style={styles.brandName}>ProxPanel</Text>
       </View>
       <ActivityIndicator
         size="large"
-        color={colors.primary}
+        color="#ffffff"
         style={styles.spinner}
       />
       <Text style={styles.message}>
         {message || 'Loading...'}
       </Text>
-    </View>
+    </LinearGradient>
   );
 };
 
@@ -36,7 +41,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
   },
   logoContainer: {
     alignItems: 'center',
@@ -46,21 +50,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-    ...shadows.md,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.textInverse,
-    letterSpacing: -1,
   },
   brandName: {
     ...typography.h3,
-    color: colors.text,
+    color: '#ffffff',
     letterSpacing: 0.3,
   },
   spinner: {
@@ -68,7 +65,7 @@ const styles = StyleSheet.create({
   },
   message: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
 });
 

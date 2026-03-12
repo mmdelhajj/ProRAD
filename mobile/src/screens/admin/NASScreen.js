@@ -21,6 +21,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import { Ionicons } from '@expo/vector-icons';
 import { nasApi } from '../../services/api';
 
 // ---------------------------------------------------------------------------
@@ -328,7 +329,7 @@ const NASDetailModal = ({ nas, visible, onClose, onSave, onDelete, onTestConnect
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={onClose} activeOpacity={0.6}>
-                <Text style={modalStyles.closeButton}>{'\u2715'}</Text>
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -654,7 +655,7 @@ const CreateNASModal = ({ visible, onClose, onSubmit }) => {
           <View style={modalStyles.header}>
             <Text style={modalStyles.headerTitle}>Add NAS</Text>
             <TouchableOpacity onPress={onClose} activeOpacity={0.6}>
-              <Text style={modalStyles.closeButton}>{'\u2715'}</Text>
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -814,7 +815,7 @@ export default function NASScreen() {
       </View>
 
       {error && !loading && nasList.length === 0 ? (
-        <EmptyState icon={'\u26A0\uFE0F'} title="Connection Error" message={error} actionLabel="Retry" onAction={() => fetchNAS()} />
+        <EmptyState iconName="warning-outline" title="Connection Error" message={error} actionLabel="Retry" onAction={() => fetchNAS()} />
       ) : (
         <FlatList
           data={nasList}
@@ -824,7 +825,7 @@ export default function NASScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
           ListEmptyComponent={
-            <EmptyState icon={'\uD83D\uDDA5\uFE0F'} title="No NAS Devices" message="No NAS devices have been configured yet." actionLabel="Add NAS" onAction={() => setShowCreate(true)} />
+            <EmptyState iconName="desktop-outline" title="No NAS Devices" message="No NAS devices have been configured yet." actionLabel="Add NAS" onAction={() => setShowCreate(true)} />
           }
         />
       )}

@@ -21,6 +21,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import { Ionicons } from '@expo/vector-icons';
 import { cdnApi, nasApi } from '../../services/api';
 import api from '../../services/api';
 
@@ -344,7 +345,7 @@ const CDNScreen = ({ navigation }) => {
       >
         <View style={styles.cardHeader}>
           <View style={styles.cardLeft}>
-            <Text style={styles.cardIcon}>{'\uD83C\uDF10'}</Text>
+            <Ionicons name="globe-outline" size={20} color={colors.text} />
             <View>
               <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
               {svc && (
@@ -406,7 +407,7 @@ const CDNScreen = ({ navigation }) => {
       >
         <View style={styles.cardHeader}>
           <View style={styles.cardLeft}>
-            <Text style={styles.cardIcon}>{'\u26A1'}</Text>
+            <Ionicons name="flash-outline" size={20} color={colors.text} />
             <View>
               <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.cardSubtitle}>
@@ -677,7 +678,7 @@ const CDNScreen = ({ navigation }) => {
       {/* Header */}
       <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? insets.top + spacing.sm : spacing.xl }]}>
         <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>{'\u2039'}</Text>
+          <Ionicons name="arrow-back" size={16} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>CDN & Port Rules</Text>
         <TouchableOpacity
@@ -725,7 +726,7 @@ const CDNScreen = ({ navigation }) => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon={activeTab === 'cdn' ? '\uD83C\uDF10' : '\u26A1'}
+            iconName={activeTab === 'cdn' ? 'globe-outline' : 'flash-outline'}
             title={activeTab === 'cdn' ? 'No CDN Configs' : 'No Port Rules'}
             message={
               activeTab === 'cdn'

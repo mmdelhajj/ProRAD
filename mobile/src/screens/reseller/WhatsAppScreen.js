@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState, LoadingScreen, StatusBadge } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -51,7 +52,7 @@ const ConnectionCard = ({ status, onLink, onUnlink, loading }) => {
 
       {isConnected && phone ? (
         <View style={connStyles.phoneRow}>
-          <Text style={connStyles.phoneIcon}>{'\uD83D\uDCF1'}</Text>
+          <Ionicons name="call-outline" size={14} color={colors.success} style={{ marginRight: spacing.xs }} />
           <Text style={connStyles.phoneText}>{phone}</Text>
         </View>
       ) : null}
@@ -265,7 +266,7 @@ const SubscriberItem = ({ item, onToggle, toggling }) => {
           <ActivityIndicator size="small" color={colors.textSecondary} />
         ) : (
           <Text style={subStyles.bellIcon}>
-            {enabled ? '\uD83D\uDD14' : '\uD83D\uDD15'}
+            <Ionicons name={enabled ? 'notifications' : 'notifications-off'} size={16} color={enabled ? colors.success : colors.inactive} />
           </Text>
         )}
       </TouchableOpacity>
@@ -687,7 +688,7 @@ const WhatsAppScreen = ({ navigation }) => {
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={
             <EmptyState
-              icon={'\uD83D\uDCAC'}
+              iconName="chatbubbles-outline"
               title="No Subscribers"
               message="No subscribers found for WhatsApp notifications."
             />

@@ -14,6 +14,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import { Ionicons } from '@expo/vector-icons';
 import { LoadingScreen, EmptyState, Card, SectionHeader } from '../../components';
 import { backupApi } from '../../services/api';
 import { formatBytes, formatDate, getTimeAgo } from '../../utils/format';
@@ -51,7 +52,7 @@ const BackupRow = ({ item, onRestore, onDelete, isRestoring, isDeleting }) => {
     <View style={rowStyles.container}>
       <View style={rowStyles.header}>
         <View style={rowStyles.iconBg}>
-          <Text style={rowStyles.icon}>{'\uD83D\uDCBE'}</Text>
+          <Ionicons name="save-outline" size={18} color={colors.primary} />
         </View>
         <View style={rowStyles.info}>
           <Text style={rowStyles.filename} numberOfLines={1}>
@@ -548,7 +549,7 @@ const BackupsScreen = ({ navigation }) => {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83D\uDCBE'}
+            iconName="save-outline"
             title="No Backups"
             message="No backup files found. Create your first backup to protect your data."
             actionLabel="Create Backup"

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -38,11 +39,20 @@ const getStatusKey = (subscriber) => {
   return 'offline';
 };
 
+const getAvatarColor = (name) => {
+  if (!name) return colors.avatarColors[0];
+  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return colors.avatarColors[hash % colors.avatarColors.length];
+};
+
 const SubscriberRow = ({ subscriber, onPress }) => {
   if (!subscriber) return null;
 
   const statusKey = getStatusKey(subscriber);
   const isOnline = subscriber.is_online;
+  const displayName = subscriber.full_name || subscriber.username || '?';
+  const initial = displayName.charAt(0).toUpperCase();
+  const avatarColor = getAvatarColor(displayName);
 
   const dailyPercent =
     subscriber.daily_quota && subscriber.daily_quota > 0
@@ -59,13 +69,11 @@ const SubscriberRow = ({ subscriber, onPress }) => {
       style={styles.container}
     >
       <View style={styles.row}>
-        {/* Online dot */}
-        <View
-          style={[
-            styles.onlineDot,
-            { backgroundColor: isOnline ? colors.online : colors.offline },
-          ]}
-        />
+        {/* Avatar with online indicator */}
+        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+          <Text style={styles.avatarText}>{initial}</Text>
+          <View style={[styles.onlineIndicator, { backgroundColor: isOnline ? colors.online : colors.offline }]} />
+        </View>
 
         {/* Main content */}
         <View style={styles.content}>
@@ -121,14 +129,16 @@ const SubscriberRow = ({ subscriber, onPress }) => {
           {(dailyUsed > 0 || monthlyUsed > 0) ? (
             <View style={styles.usageRow}>
               {dailyUsed > 0 ? (
-                <Text style={styles.usageText}>
-                  {'\u2193'} Today: {formatBytes(dailyUsed)}
-                </Text>
+                <View style={styles.usageItem}>
+                  <Ionicons name="arrow-down" size={10} color={colors.textSecondary} />
+                  <Text style={styles.usageText}> Today: {formatBytes(dailyUsed)}</Text>
+                </View>
               ) : null}
               {monthlyUsed > 0 ? (
-                <Text style={styles.usageText}>
-                  {'\u{1F4C5}'} Month: {formatBytes(monthlyUsed)}
-                </Text>
+                <View style={styles.usageItem}>
+                  <Ionicons name="calendar-outline" size={10} color={colors.textSecondary} />
+                  <Text style={styles.usageText}> Month: {formatBytes(monthlyUsed)}</Text>
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -141,7 +151,7 @@ const SubscriberRow = ({ subscriber, onPress }) => {
         </View>
 
         {/* Chevron */}
-        <Text style={styles.chevron}>{'\u203A'}</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.textLight} style={styles.chevron} />
       </View>
     </TouchableOpacity>
   );
@@ -159,11 +169,29 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.base,
   },
-  onlineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.md,
+    position: 'relative',
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  onlineIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
   content: {
     flex: 1,
@@ -235,6 +263,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.xs,
   },
+  usageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   usageText: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -245,10 +277,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   chevron: {
-    fontSize: 18,
-    color: colors.textLight,
     marginLeft: spacing.sm,
-    fontWeight: '300',
   },
 });
 

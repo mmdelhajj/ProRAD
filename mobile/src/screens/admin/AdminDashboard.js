@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatCard, Card, SectionHeader, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -236,7 +238,10 @@ const AdminDashboard = ({ navigation, route }) => {
   const fupActive =
     (stats?.fup1 ?? stats?.fup_level_1 ?? 0) +
     (stats?.fup2 ?? stats?.fup_level_2 ?? 0) +
-    (stats?.fup3 ?? stats?.fup_level_3 ?? 0);
+    (stats?.fup3 ?? stats?.fup_level_3 ?? 0) +
+    (stats?.fup4 ?? stats?.fup_level_4 ?? 0) +
+    (stats?.fup5 ?? stats?.fup_level_5 ?? 0) +
+    (stats?.fup6 ?? stats?.fup_level_6 ?? 0);
 
   const cpuUsage = metrics?.cpu_percent ?? metrics?.cpu?.usage ?? metrics?.cpu ?? 0;
   const ramUsage = metrics?.memory_percent ?? metrics?.memory?.usage ?? metrics?.memory ?? 0;
@@ -274,19 +279,24 @@ const AdminDashboard = ({ navigation, route }) => {
       {/* ================================================================ */}
       {/* 1. Welcome Banner                                                */}
       {/* ================================================================ */}
-      <View style={styles.welcomeBanner}>
+      <LinearGradient
+        colors={['#2563eb', '#1e40af']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.welcomeBanner}
+      >
         <View style={styles.welcomeContent}>
-          <Text style={styles.greetingText}>
+          <Text style={[styles.greetingText, { color: '#FFFFFF' }]}>
             {getGreeting()}, {username}
           </Text>
           <View style={styles.serverRow}>
-            <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
-            <Text style={styles.serverName}>
+            <View style={[styles.statusDot, { backgroundColor: '#4ade80' }]} />
+            <Text style={[styles.serverName, { color: 'rgba(255,255,255,0.85)' }]}>
               {stats?.server_name || 'ProxPanel Server'}
             </Text>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* ================================================================ */}
       {/* 2. System Health (moved above Overview)                          */}
@@ -313,7 +323,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="Online Users"
               value={onlineUsers}
-              icon={'\u{1F4F6}'}
+              iconName="wifi"
               color={colors.success}
             />
           </View>
@@ -321,7 +331,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="Offline Users"
               value={offlineUsers}
-              icon={'\u{1F534}'}
+              iconName="close-circle"
               color={colors.danger}
             />
           </View>
@@ -333,7 +343,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="Active"
               value={activeSubscribers}
-              icon={'\u2713'}
+              iconName="checkmark-circle"
               color={colors.primary}
             />
           </View>
@@ -341,7 +351,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="Expired"
               value={expiredSubscribers}
-              icon={'\u23F0'}
+              iconName="time"
               color={colors.warning}
             />
           </View>
@@ -353,7 +363,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="Inactive"
               value={inactiveSubscribers}
-              icon={'\u23F8'}
+              iconName="pause-circle"
               color={colors.inactive}
             />
           </View>
@@ -361,7 +371,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="Total Subscribers"
               value={totalSubscribers}
-              icon={'\u{1F465}'}
+              iconName="people"
               color={colors.text}
             />
           </View>
@@ -373,7 +383,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="Monthly Revenue"
               value={formatCurrency(monthlyRevenue)}
-              icon="$"
+              iconName="cash-outline"
               color={colors.success}
             />
           </View>
@@ -381,7 +391,7 @@ const AdminDashboard = ({ navigation, route }) => {
             <StatCard
               label="FUP Active"
               value={fupActive}
-              icon={'\u26A0'}
+              iconName="speedometer-outline"
               color={colors.fup2}
             />
           </View>
@@ -438,12 +448,11 @@ const styles = StyleSheet.create({
 
   // Welcome Banner
   welcomeBanner: {
-    backgroundColor: colors.surface,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderBottomLeftRadius: borderRadius.sm,
-    borderBottomRightRadius: borderRadius.sm,
+    borderRadius: 16,
+    overflow: 'hidden',
     ...shadows.sm,
   },
   welcomeContent: {

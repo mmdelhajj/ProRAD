@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { SubscriberRow, StatusBadge, Button, LoadingScreen, EmptyState } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -37,6 +38,9 @@ const FILTER_CHIPS = [
   { key: 'fup1', label: 'FUP 1' },
   { key: 'fup2', label: 'FUP 2' },
   { key: 'fup3', label: 'FUP 3' },
+  { key: 'fup4', label: 'FUP 4' },
+  { key: 'fup5', label: 'FUP 5' },
+  { key: 'fup6', label: 'FUP 6' },
 ];
 
 const SORT_OPTIONS = [
@@ -112,6 +116,15 @@ function buildParams({ page, search, activeFilter, sortBy, sortOrder }) {
       break;
     case 'fup3':
       params.fup_level = 3;
+      break;
+    case 'fup4':
+      params.fup_level = 4;
+      break;
+    case 'fup5':
+      params.fup_level = 5;
+      break;
+    case 'fup6':
+      params.fup_level = 6;
       break;
     default:
       break;
@@ -266,7 +279,7 @@ export default function SubscriberListScreen({ navigation }) {
         }
       };
 
-      const [online, offline, active, expired, inactive, fup1, fup2, fup3] =
+      const [online, offline, active, expired, inactive, fup1, fup2, fup3, fup4, fup5, fup6] =
         await Promise.all([
           fetchCount('online'),
           fetchCount('offline'),
@@ -276,6 +289,9 @@ export default function SubscriberListScreen({ navigation }) {
           fetchCount('fup1'),
           fetchCount('fup2'),
           fetchCount('fup3'),
+          fetchCount('fup4'),
+          fetchCount('fup5'),
+          fetchCount('fup6'),
         ]);
 
       if (isMounted.current) {
@@ -288,6 +304,9 @@ export default function SubscriberListScreen({ navigation }) {
           fup1,
           fup2,
           fup3,
+          fup4,
+          fup5,
+          fup6,
           all: active + expired + inactive,
         });
       }
@@ -460,7 +479,7 @@ export default function SubscriberListScreen({ navigation }) {
 
   const displayedCount = subscribers.length;
   const currentSortLabel = SORT_OPTIONS.find((o) => o.key === sortBy)?.label || 'Username';
-  const sortArrow = sortOrder === 'asc' ? '\u2191' : '\u2193';
+  const sortArrowName = sortOrder === 'asc' ? 'arrow-up' : 'arrow-down';
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -497,7 +516,7 @@ export default function SubscriberListScreen({ navigation }) {
                     isSelected && styles.checkCircleActive,
                   ]}
                 >
-                  {isSelected && <Text style={styles.checkMark}>{'\u2713'}</Text>}
+                  {isSelected && <Ionicons name="checkmark" size={14} color={colors.textInverse} />}
                 </View>
               </View>
             )}
@@ -510,7 +529,7 @@ export default function SubscriberListScreen({ navigation }) {
                 onPress={() => handleTorchPress(item)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.torchIcon}>{'\uD83D\uDCF6'}</Text>
+                <Ionicons name="cellular" size={16} color={colors.primary} />
               </TouchableOpacity>
             )}
           </View>
@@ -541,7 +560,7 @@ export default function SubscriberListScreen({ navigation }) {
     if (error) {
       return (
         <EmptyState
-          icon={'\u26A0\uFE0F'}
+          iconName="warning-outline"
           title="Connection Error"
           message={error}
           actionLabel="Retry"
@@ -553,7 +572,7 @@ export default function SubscriberListScreen({ navigation }) {
     if (debouncedSearch) {
       return (
         <EmptyState
-          icon={'\uD83D\uDD0D'}
+          iconName="search-outline"
           title="No Results"
           message={`No subscribers found for "${debouncedSearch}".`}
           actionLabel="Clear Search"
@@ -564,7 +583,7 @@ export default function SubscriberListScreen({ navigation }) {
 
     return (
       <EmptyState
-        icon={'\uD83D\uDC65'}
+        iconName="people-outline"
         title="No Subscribers"
         message="There are no subscribers matching the current filters."
         actionLabel="Add Subscriber"
@@ -607,7 +626,7 @@ export default function SubscriberListScreen({ navigation }) {
       {/* ---- Search bar ---- */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>{'\uD83D\uDD0D'}</Text>
+          <Ionicons name="search-outline" size={16} color={colors.textLight} style={styles.searchIcon} />
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
@@ -622,7 +641,7 @@ export default function SubscriberListScreen({ navigation }) {
           />
           {searchText.length > 0 && (
             <TouchableOpacity onPress={handleClearSearch} style={styles.clearBtn}>
-              <Text style={styles.clearBtnText}>{'\u2715'}</Text>
+              <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -678,8 +697,9 @@ export default function SubscriberListScreen({ navigation }) {
           activeOpacity={0.7}
         >
           <Text style={styles.sortButtonText}>
-            {currentSortLabel} {sortArrow}
+            {currentSortLabel}{' '}
           </Text>
+          <Ionicons name={sortArrowName} size={12} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -705,8 +725,11 @@ export default function SubscriberListScreen({ navigation }) {
                   ]}
                 >
                   {option.label}
-                  {isActive ? ` ${sortArrow}` : ''}
+                  {isActive ? ' ' : ''}
                 </Text>
+                {isActive && (
+                  <Ionicons name={sortArrowName} size={12} color={colors.primary} />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -747,7 +770,7 @@ export default function SubscriberListScreen({ navigation }) {
           onPress={handleFABPress}
           activeOpacity={0.85}
         >
-          <Text style={styles.fabIcon}>+</Text>
+          <Ionicons name="add" size={24} color={colors.textInverse} />
         </TouchableOpacity>
       )}
 
@@ -945,6 +968,8 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   sortDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderBottomWidth: 1,

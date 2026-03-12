@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   StatCard,
   Card,
@@ -138,12 +140,13 @@ const ResellerDashboard = ({ navigation, route }) => {
       {/* ================================================================ */}
       {/* 1. Balance Banner                                                */}
       {/* ================================================================ */}
-      <View
-        style={[
-          styles.balanceBanner,
-          { backgroundColor: balance >= 0 ? colors.success : colors.danger },
-        ]}
+      <LinearGradient
+        colors={balance >= 0 ? ['#2563eb', '#1e40af'] : [colors.danger, '#991b1b']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.balanceBanner}
       >
+        <Ionicons name="wallet-outline" size={22} color="rgba(255,255,255,0.85)" style={{ marginBottom: spacing.xs }} />
         <Text style={styles.balanceLabel}>Available Balance</Text>
         <Text style={styles.balanceValue}>
           {formatCurrency(balance)}
@@ -153,7 +156,7 @@ const ResellerDashboard = ({ navigation, route }) => {
             Your balance is negative. Please recharge to continue adding subscribers.
           </Text>
         )}
-      </View>
+      </LinearGradient>
 
       {/* ================================================================ */}
       {/* 2. Stats Grid (2 columns)                                        */}
@@ -167,7 +170,7 @@ const ResellerDashboard = ({ navigation, route }) => {
             <StatCard
               label="Total Subscribers"
               value={totalSubscribers}
-              icon={'\u{1F465}'}
+              iconName="people"
               color={colors.primary}
             />
           </View>
@@ -175,7 +178,7 @@ const ResellerDashboard = ({ navigation, route }) => {
             <StatCard
               label="Online Now"
               value={onlineNow}
-              icon={'\u{1F4F6}'}
+              iconName="wifi"
               color={colors.success}
             />
           </View>
@@ -187,7 +190,7 @@ const ResellerDashboard = ({ navigation, route }) => {
             <StatCard
               label="Active"
               value={activeCount}
-              icon={'\u2713'}
+              iconName="checkmark-circle"
               color={colors.primary}
             />
           </View>
@@ -195,7 +198,7 @@ const ResellerDashboard = ({ navigation, route }) => {
             <StatCard
               label="Expired"
               value={expiredCount}
-              icon={'\u23F0'}
+              iconName="time"
               color={colors.warning}
             />
           </View>
@@ -207,7 +210,7 @@ const ResellerDashboard = ({ navigation, route }) => {
             <StatCard
               label="Inactive"
               value={inactiveCount}
-              icon={'\u23F8'}
+              iconName="close-circle"
               color={colors.inactive}
             />
           </View>
@@ -226,19 +229,19 @@ const ResellerDashboard = ({ navigation, route }) => {
         contentContainerStyle={styles.quickActionsScroll}
       >
         <QuickAction
-          icon="+"
+          iconName="person-add-outline"
           label="New Subscriber"
           color={colors.primary}
           onPress={() => navigation?.navigate?.('Subscribers', { screen: 'SubscriberCreateEdit' })}
         />
         <QuickAction
-          icon={'\u{1F4AC}'}
+          iconName="logo-whatsapp"
           label="Send WhatsApp"
           color={colors.success}
           onPress={() => navigation?.navigate?.('More', { screen: 'WhatsApp' })}
         />
         <QuickAction
-          icon={'\u{1F3AB}'}
+          iconName="chatbubbles-outline"
           label="View Tickets"
           color={colors.secondary}
           onPress={() => navigation?.navigate?.('More', { screen: 'Tickets' })}

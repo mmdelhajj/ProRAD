@@ -14,6 +14,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -268,7 +269,7 @@ const ServiceDetailModal = ({ service, visible, onClose, onEdit, onDelete, isAdm
             {service.name || 'Service'}
           </Text>
           <TouchableOpacity onPress={onClose} activeOpacity={0.6}>
-            <Text style={modalStyles.closeButton}>{'\u2715'}</Text>
+            <Ionicons name="close" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -540,7 +541,7 @@ const ServiceRow = ({ service, onPress }) => {
           <Text style={serviceRowStyles.price}>
             {price != null && price > 0 ? formatCurrency(price) : 'Free'}
           </Text>
-          <Text style={serviceRowStyles.chevron}>{'\u203A'}</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
         </View>
       </View>
     </TouchableOpacity>
@@ -792,7 +793,7 @@ const ServicesScreen = () => {
           </Text>
           {isAdmin && (
             <TouchableOpacity style={styles.addBtn} onPress={() => openForm()}>
-              <Text style={styles.addBtnText}>+</Text>
+              <Ionicons name="add" size={18} color={colors.textInverse} />
             </TouchableOpacity>
           )}
         </View>
@@ -815,7 +816,7 @@ const ServicesScreen = () => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83D\uDCE6'}
+            iconName="cube-outline"
             title="No Services"
             message="No service plans have been configured yet."
             actionLabel={isAdmin ? 'Create Service' : undefined}

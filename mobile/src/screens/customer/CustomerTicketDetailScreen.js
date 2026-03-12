@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -262,7 +263,10 @@ const CustomerTicketDetailScreen = ({ navigation, route }) => {
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.backText}>{'\u2039'} Back</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="arrow-back" size={16} color={colors.primary} />
+            <Text style={[styles.backText, { marginLeft: 2 }]}>Back</Text>
+          </View>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -341,7 +345,7 @@ const CustomerTicketDetailScreen = ({ navigation, route }) => {
             {isSending ? (
               <ActivityIndicator size="small" color={colors.textInverse} />
             ) : (
-              <Text style={styles.sendButtonText}>{'\u2191'}</Text>
+              <Ionicons name="send-outline" size={16} color={colors.textInverse} />
             )}
           </TouchableOpacity>
         </View>

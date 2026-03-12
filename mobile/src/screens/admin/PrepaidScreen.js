@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -356,7 +357,7 @@ const GenerateForm = ({ services, onGenerate, generating }) => {
     >
       {/* Info Card */}
       <View style={genStyles.infoCard}>
-        <Text style={genStyles.infoIcon}>{'\uD83D\uDCB3'}</Text>
+        <Ionicons name="card-outline" size={18} color={colors.primary} style={genStyles.infoIcon} />
         <Text style={genStyles.infoText}>
           Generate prepaid cards that subscribers can use to activate or renew their service.
         </Text>
@@ -810,7 +811,7 @@ const PrepaidScreen = () => {
               onEndReachedThreshold={0.3}
               ListEmptyComponent={
                 <EmptyState
-                  icon={'\uD83D\uDCB3'}
+                  iconName="card-outline"
                   title="No Prepaid Cards"
                   message={
                     search || statusFilter

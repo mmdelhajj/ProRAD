@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -19,6 +20,7 @@ try {
 
 const QuickAction = ({
   icon,
+  iconName,
   label,
   color = colors.primary,
   onPress,
@@ -37,7 +39,11 @@ const QuickAction = ({
       style={styles.container}
     >
       <View style={[styles.iconCircle, { backgroundColor: color + '12' }]}>
-        <Text style={[styles.iconText, { color }]}>{icon}</Text>
+        {iconName ? (
+          <Ionicons name={iconName} size={22} color={color} />
+        ) : (
+          <Text style={[styles.iconText, { color }]}>{icon}</Text>
+        )}
       </View>
       <Text style={styles.label} numberOfLines={2}>
         {label}

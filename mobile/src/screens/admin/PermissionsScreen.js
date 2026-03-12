@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -29,127 +30,127 @@ const PERMISSION_CATEGORIES = [
   {
     key: 'dashboard',
     label: 'Dashboard',
-    icon: '\uD83D\uDCCA',
+    icon: 'stats-chart-outline',
     color: colors.primary,
   },
   {
     key: 'subscribers',
     label: 'Subscribers',
-    icon: '\uD83D\uDC64',
+    icon: 'person-outline',
     color: colors.success,
   },
   {
     key: 'services',
     label: 'Services',
-    icon: '\uD83D\uDCE6',
+    icon: 'cube-outline',
     color: colors.info,
   },
   {
     key: 'sessions',
     label: 'Sessions',
-    icon: '\uD83D\uDD17',
+    icon: 'link-outline',
     color: colors.warning,
   },
   {
     key: 'nas',
     label: 'NAS / Routers',
-    icon: '\uD83D\uDCE1',
+    icon: 'hardware-chip-outline',
     color: colors.secondary,
   },
   {
     key: 'resellers',
     label: 'Resellers',
-    icon: '\uD83D\uDC65',
+    icon: 'people-outline',
     color: '#8b5cf6',
   },
   {
     key: 'invoices',
     label: 'Invoices',
-    icon: '\uD83D\uDCC4',
+    icon: 'document-text-outline',
     color: colors.info,
   },
   {
     key: 'transactions',
     label: 'Transactions',
-    icon: '\uD83D\uDCB0',
+    icon: 'cash-outline',
     color: colors.success,
   },
   {
     key: 'prepaid',
     label: 'Prepaid Cards',
-    icon: '\uD83D\uDCB3',
+    icon: 'card-outline',
     color: colors.warning,
   },
   {
     key: 'reports',
     label: 'Reports',
-    icon: '\uD83D\uDCC8',
+    icon: 'trending-up-outline',
     color: colors.primary,
   },
   {
     key: 'tickets',
     label: 'Tickets',
-    icon: '\uD83C\uDFAB',
+    icon: 'ticket-outline',
     color: colors.danger,
   },
   {
     key: 'backups',
     label: 'Backups',
-    icon: '\uD83D\uDCBE',
+    icon: 'save-outline',
     color: colors.textSecondary,
   },
   {
     key: 'settings',
     label: 'Settings',
-    icon: '\u2699\uFE0F',
+    icon: 'settings-outline',
     color: colors.textSecondary,
   },
   {
     key: 'audit',
     label: 'Audit',
-    icon: '\uD83D\uDCCB',
+    icon: 'clipboard-outline',
     color: '#6366f1',
   },
   {
     key: 'communication',
     label: 'Communication',
-    icon: '\uD83D\uDCE8',
+    icon: 'mail-outline',
     color: colors.info,
   },
   {
     key: 'bandwidth',
     label: 'Bandwidth',
-    icon: '\u26A1',
+    icon: 'flash-outline',
     color: colors.warning,
   },
   {
     key: 'fup',
     label: 'FUP',
-    icon: '\uD83D\uDCC9',
+    icon: 'trending-down-outline',
     color: colors.danger,
   },
   {
     key: 'sharing',
     label: 'Sharing Detection',
-    icon: '\uD83D\uDD0D',
+    icon: 'search-outline',
     color: colors.secondary,
   },
   {
     key: 'cdn',
     label: 'CDN',
-    icon: '\uD83C\uDF10',
+    icon: 'globe-outline',
     color: colors.primary,
   },
   {
     key: 'permissions',
     label: 'Permissions',
-    icon: '\uD83D\uDD10',
+    icon: 'key-outline',
     color: '#7c3aed',
   },
   {
     key: 'users',
     label: 'Users',
-    icon: '\uD83D\uDC68\u200D\uD83D\uDCBB',
+    icon: 'laptop-outline',
     color: colors.text,
   },
 ];
@@ -196,7 +197,7 @@ const GroupRow = ({ group, onPress }) => {
     >
       <View style={rowStyles.row}>
         <View style={rowStyles.iconWrap}>
-          <Text style={rowStyles.icon}>{'\uD83D\uDD10'}</Text>
+          <Ionicons name="key-outline" size={14} color="#7c3aed" />
         </View>
         <View style={rowStyles.info}>
           <Text style={rowStyles.name} numberOfLines={1}>
@@ -304,7 +305,7 @@ const PermissionCategorySection = ({ category, permissions, selectedIds, onToggl
   const catMeta =
     PERMISSION_CATEGORIES.find((c) => c.key === category) || {
       label: category,
-      icon: '\uD83D\uDD12',
+      icon: 'lock-closed-outline',
       color: colors.textSecondary,
     };
 
@@ -330,7 +331,7 @@ const PermissionCategorySection = ({ category, permissions, selectedIds, onToggl
         onPress={toggleAll}
         activeOpacity={0.7}
       >
-        <Text style={catStyles.icon}>{catMeta.icon}</Text>
+        <Ionicons name={catMeta.icon} size={16} color={catMeta.color} style={{ marginRight: spacing.sm }} />
         <Text style={[catStyles.title, { color: catMeta.color }]}>
           {catMeta.label}
         </Text>
@@ -859,7 +860,7 @@ const PermissionsScreen = () => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon={'\uD83D\uDD10'}
+            iconName="key-outline"
             title="No Permission Groups"
             message="Create permission groups to control what resellers can access."
           />

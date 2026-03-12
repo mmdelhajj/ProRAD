@@ -27,6 +27,7 @@ import {
   SectionHeader,
   LoadingScreen,
 } from '../../components';
+import { Ionicons } from '@expo/vector-icons';
 import { subscriberApi, serviceApi } from '../../services/api';
 import {
   formatBytes,
@@ -331,7 +332,7 @@ export default function SubscriberDetailScreen({ route, navigation }) {
   if (error && !subscriber) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorIcon}>{'\u26A0\uFE0F'}</Text>
+        <Ionicons name="warning-outline" size={36} color={colors.warning} style={{ marginBottom: 8 }} />
         <Text style={styles.errorTitle}>Failed to Load</Text>
         <Text style={styles.errorMessage}>{error}</Text>
         <Button title="Retry" onPress={() => fetchSubscriber()} variant="primary" />
@@ -431,7 +432,10 @@ export default function SubscriberDetailScreen({ route, navigation }) {
           style={styles.backButton}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={styles.backText}>{'\u2039'} Back</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="chevron-back" size={16} color={colors.primary} />
+            <Text style={styles.backText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           Subscriber
@@ -547,7 +551,8 @@ export default function SubscriberDetailScreen({ route, navigation }) {
         {/* ==================== LIVE BANDWIDTH BUTTON ==================== */}
         <View style={styles.liveBandwidthWrapper}>
           <Button
-            title={'\uD83D\uDCCA  View Live Bandwidth'}
+            title="View Live Bandwidth"
+            icon={<Ionicons name="bar-chart-outline" size={18} color={colors.textInverse} style={{ marginRight: 6 }} />}
             onPress={handleLiveBandwidth}
             variant="primary"
             size="lg"
@@ -560,37 +565,37 @@ export default function SubscriberDetailScreen({ route, navigation }) {
         <Card style={styles.cardSpacing}>
           <View style={styles.actionsGrid}>
             <QuickAction
-              icon={'\uD83D\uDCC5'}
+              iconName="refresh-circle-outline"
               label="Renew"
               color={colors.success}
               onPress={handleRenew}
             />
             <QuickAction
-              icon={'\u23FB'}
+              iconName="power-outline"
               label="Disconnect"
               color={colors.danger}
               onPress={handleDisconnect}
             />
             <QuickAction
-              icon={'\uD83D\uDD04'}
+              iconName="refresh-outline"
               label="Reset FUP"
               color={colors.warning}
               onPress={handleResetFUP}
             />
             <QuickAction
-              icon={'\uD83D\uDD17'}
+              iconName="hardware-chip-outline"
               label="Reset MAC"
               color={colors.primary}
               onPress={handleResetMAC}
             />
             <QuickAction
-              icon={'\uD83D\uDDC4'}
+              iconName="pie-chart-outline"
               label="Reset Quota"
               color="#8b5cf6"
               onPress={handleResetQuota}
             />
             <QuickAction
-              icon={'\u2795'}
+              iconName="calendar-outline"
               label="Add Days"
               color="#14b8a6"
               onPress={() => {
@@ -599,25 +604,25 @@ export default function SubscriberDetailScreen({ route, navigation }) {
               }}
             />
             <QuickAction
-              icon={'\uD83D\uDD00'}
+              iconName="swap-horizontal-outline"
               label="Change Service"
               color="#6366f1"
               onPress={openChangeServiceModal}
             />
             <QuickAction
-              icon={'\uD83D\uDCF6'}
+              iconName="pulse-outline"
               label="Ping"
               color="#06b6d4"
               onPress={handlePing}
             />
             <QuickAction
-              icon={isActive ? '\u26D4' : '\u2705'}
+              iconName="toggle-outline"
               label={isActive ? 'Deactivate' : 'Activate'}
               color={isActive ? colors.danger : colors.success}
               onPress={handleToggleActive}
             />
             <QuickAction
-              icon={'\uD83D\uDD11'}
+              iconName="eye-outline"
               label="Show Password"
               color={colors.textSecondary}
               onPress={handleShowPassword}
@@ -704,9 +709,10 @@ export default function SubscriberDetailScreen({ route, navigation }) {
           )}
           {overridePrice != null && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>
-                {'\u2B50'} Override Price
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="star" size={14} color={colors.warning} style={{ marginRight: 4 }} />
+                <Text style={styles.infoLabel}>Override Price</Text>
+              </View>
               <Text style={[styles.infoValue, { color: colors.warning, fontWeight: '700' }]}>
                 {formatCurrency(overridePrice)}
               </Text>
@@ -814,7 +820,7 @@ export default function SubscriberDetailScreen({ route, navigation }) {
                             isSelected && styles.checkBoxSelected,
                           ]}
                         >
-                          {isSelected && <Text style={styles.checkMark}>✓</Text>}
+                          {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
                         </View>
                       </View>
                       <View style={styles.serviceInfo}>
@@ -825,7 +831,7 @@ export default function SubscriberDetailScreen({ route, navigation }) {
                         <Text style={styles.serviceDetails}>
                           {item.download_speed_str || `${item.download_speed || 0}k`} /{' '}
                           {item.upload_speed_str || `${item.upload_speed || 0}k`}
-                          {item.price != null ? `  \u2022  ${formatCurrency(item.price)}` : ''}
+                          {item.price != null ? `  |  ${formatCurrency(item.price)}` : ''}
                         </Text>
                       </View>
                     </TouchableOpacity>

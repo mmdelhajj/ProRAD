@@ -12,6 +12,8 @@ import {
   Image,
   Animated,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
 import Constants from 'expo-constants';
 import useAuthStore from '../../store/authStore';
@@ -174,11 +176,11 @@ export default function LoginScreen({ navigation, route }) {
     navigation.navigate('ServerConnect');
   }, [navigation]);
 
-  // Get biometric icon text
-  const getBiometricIcon = () => {
-    if (biometricType === 'face') return '\uD83D\uDE42'; // face
-    if (biometricType === 'fingerprint') return '\uD83D\uDD90\uFE0F'; // hand/fingerprint
-    return '\uD83D\uDD12'; // lock
+  // Get biometric icon name for Ionicons
+  const getBiometricIconName = () => {
+    if (biometricType === 'face') return 'scan-outline';
+    if (biometricType === 'fingerprint') return 'finger-print-outline';
+    return 'lock-closed-outline';
   };
 
   const getBiometricLabel = () => {
@@ -202,198 +204,208 @@ export default function LoginScreen({ navigation, route }) {
     // Default ProISP logo placeholder
     return (
       <View style={styles.defaultLogo}>
-        <Text style={styles.defaultLogoIcon}>{'\uD83C\uDF10'}</Text>
+        <Ionicons name="globe-outline" size={32} color={colors.primary} />
       </View>
     );
   };
 
   return (
-    <KeyboardAvoidingView
+    <LinearGradient
+      colors={['#2563eb', '#1e40af']}
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          {/* Session Expired Banner */}
-          {sessionBanner === 'expired' && (
-            <View style={styles.bannerExpired}>
-              <Text style={styles.bannerText}>
-                Your session has expired. Please sign in again.
-              </Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+            {/* Session Expired Banner */}
+            {sessionBanner === 'expired' && (
+              <View style={styles.bannerExpired}>
+                <Text style={styles.bannerText}>
+                  Your session has expired. Please sign in again.
+                </Text>
+              </View>
+            )}
+
+            {/* Idle Timeout Banner */}
+            {sessionBanner === 'idle' && (
+              <View style={styles.bannerIdle}>
+                <Text style={styles.bannerIdleText}>
+                  You were logged out due to inactivity.
+                </Text>
+              </View>
+            )}
+
+            {/* Logo */}
+            <View style={styles.logoContainer}>
+              {renderLogo()}
             </View>
-          )}
 
-          {/* Idle Timeout Banner */}
-          {sessionBanner === 'idle' && (
-            <View style={styles.bannerIdle}>
-              <Text style={styles.bannerIdleText}>
-                You were logged out due to inactivity.
-              </Text>
+            {/* Server Name */}
+            <Text style={styles.serverName}>
+              {serverName || 'ProxPanel'}
+            </Text>
+
+            {/* Subtitle */}
+            <Text style={styles.subtitle}>Sign in to your account</Text>
+
+            {/* Error Banner */}
+            {error && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={14} color={colors.danger} style={styles.errorIcon} />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity onPress={clearError} style={styles.errorDismiss}>
+                  <Ionicons name="close" size={14} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Username Input */}
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIconContainer}>
+                <Ionicons name="person-outline" size={16} color={colors.textLight} />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Username"
+                placeholderTextColor={colors.textLight}
+                value={username}
+                onChangeText={(text) => {
+                  setUsername(text);
+                  if (error) clearError();
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                editable={!isLoading}
+              />
             </View>
-          )}
 
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            {renderLogo()}
-          </View>
-
-          {/* Server Name */}
-          <Text style={styles.serverName}>
-            {serverName || 'ProxPanel'}
-          </Text>
-
-          {/* Subtitle */}
-          <Text style={styles.subtitle}>Sign in to your account</Text>
-
-          {/* Error Banner */}
-          {error && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorIcon}>{'\u26A0'}</Text>
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity onPress={clearError} style={styles.errorDismiss}>
-                <Text style={styles.errorDismissText}>{'\u2715'}</Text>
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIconContainer}>
+                <Ionicons name="lock-closed-outline" size={16} color={colors.textLight} />
+              </View>
+              <TextInput
+                ref={passwordRef}
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Password"
+                placeholderTextColor={colors.textLight}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (error) clearError();
+                }}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                  size={18}
+                  color={colors.textLight}
+                  style={styles.eyeIconStyle}
+                />
               </TouchableOpacity>
             </View>
-          )}
 
-          {/* Username Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Text style={styles.inputIcon}>{'\uD83D\uDC64'}</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Username"
-              placeholderTextColor={colors.textLight}
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-                if (error) clearError();
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="username"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              editable={!isLoading}
-            />
-          </View>
-
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Text style={styles.inputIcon}>{'\uD83D\uDD12'}</Text>
-            </View>
-            <TextInput
-              ref={passwordRef}
-              style={[styles.input, styles.passwordInput]}
-              placeholder="Password"
-              placeholderTextColor={colors.textLight}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (error) clearError();
-              }}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="password"
-              returnKeyType="go"
-              onSubmitEditing={handleLogin}
-              editable={!isLoading}
-            />
+            {/* Remember Me */}
             <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowPassword(!showPassword)}
-              disabled={isLoading}
-            >
-              <Text style={styles.eyeIcon}>
-                {showPassword ? '\uD83D\uDC41\uFE0F' : '\uD83D\uDC41\uFE0F\u200D\uD83D\uDDE8\uFE0F'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Remember Me */}
-          <TouchableOpacity
-            style={styles.rememberRow}
-            onPress={() => setRememberMe(!rememberMe)}
-            disabled={isLoading}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-              {rememberMe && <Text style={styles.checkmark}>{'\u2713'}</Text>}
-            </View>
-            <Text style={styles.rememberText}>Remember me</Text>
-          </TouchableOpacity>
-
-          {/* Sign In Button */}
-          <TouchableOpacity
-            style={[
-              styles.signInButton,
-              (!username.trim() || !password.trim() || isLoading) && styles.signInButtonDisabled,
-            ]}
-            onPress={handleLogin}
-            disabled={!username.trim() || !password.trim() || isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={colors.textInverse} size="small" />
-            ) : (
-              <Text style={styles.signInButtonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Biometric Login */}
-          {biometricAvailable && rememberMe && (
-            <TouchableOpacity
-              style={styles.biometricButton}
-              onPress={handleBiometricLogin}
+              style={styles.rememberRow}
+              onPress={() => setRememberMe(!rememberMe)}
               disabled={isLoading}
               activeOpacity={0.7}
             >
-              <Text style={styles.biometricIcon}>{getBiometricIcon()}</Text>
-              <Text style={styles.biometricText}>{getBiometricLabel()}</Text>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Ionicons name="checkmark" size={12} color={colors.textInverse} />}
+              </View>
+              <Text style={styles.rememberText}>Remember me</Text>
             </TouchableOpacity>
-          )}
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-          </View>
+            {/* Sign In Button */}
+            <TouchableOpacity
+              style={[
+                styles.signInButton,
+                (!username.trim() || !password.trim() || isLoading) && styles.signInButtonDisabled,
+              ]}
+              onPress={handleLogin}
+              disabled={!username.trim() || !password.trim() || isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={colors.textInverse} size="small" />
+              ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
 
-          {/* Change Server */}
-          <TouchableOpacity
-            style={styles.changeServerButton}
-            onPress={handleChangeServer}
-            disabled={isLoading}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.changeServerText}>Change Server</Text>
-          </TouchableOpacity>
+            {/* Biometric Login */}
+            {biometricAvailable && rememberMe && (
+              <TouchableOpacity
+                style={styles.biometricButton}
+                onPress={handleBiometricLogin}
+                disabled={isLoading}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={getBiometricIconName()} size={20} color={colors.primary} style={styles.biometricIconStyle} />
+                <Text style={styles.biometricText}>{getBiometricLabel()}</Text>
+              </TouchableOpacity>
+            )}
 
-          {/* Server URL info */}
-          {serverUrl && (
-            <Text style={styles.serverUrlText} numberOfLines={1}>
-              Connected to: {serverUrl}
-            </Text>
-          )}
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+            </View>
 
-          {/* App Version */}
+            {/* Change Server */}
+            <TouchableOpacity
+              style={styles.changeServerButton}
+              onPress={handleChangeServer}
+              disabled={isLoading}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.changeServerText}>Change Server</Text>
+            </TouchableOpacity>
+
+            {/* Server URL info */}
+            {serverUrl && (
+              <Text style={styles.serverUrlText} numberOfLines={1}>
+                Connected to: {serverUrl}
+              </Text>
+            )}
+          </Animated.View>
+
+          {/* App Version - outside card, on gradient */}
           <Text style={styles.versionText}>v{APP_VERSION}</Text>
-        </Animated.View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -460,9 +472,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.sm,
   },
-  defaultLogoIcon: {
-    fontSize: 26,
-  },
 
   // Server name & subtitle
   serverName: {
@@ -491,7 +500,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   errorIcon: {
-    fontSize: 13,
     marginRight: spacing.sm,
   },
   errorText: {
@@ -502,11 +510,6 @@ const styles = StyleSheet.create({
   errorDismiss: {
     paddingLeft: spacing.sm,
     paddingVertical: spacing.xs,
-  },
-  errorDismissText: {
-    fontSize: 13,
-    color: colors.danger,
-    fontWeight: '600',
   },
 
   // Inputs
@@ -530,9 +533,6 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: colors.border,
   },
-  inputIcon: {
-    fontSize: 14,
-  },
   input: {
     flex: 1,
     height: '100%',
@@ -541,18 +541,17 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   passwordInput: {
-    paddingRight: 32,
+    paddingRight: 40,
   },
   eyeButton: {
     position: 'absolute',
     right: 0,
-    width: 32,
+    width: 40,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eyeIcon: {
-    fontSize: 14,
+  eyeIconStyle: {
     opacity: 0.6,
   },
 
@@ -577,12 +576,6 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-  },
-  checkmark: {
-    color: colors.textInverse,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: -1,
   },
   rememberText: {
     ...typography.bodySmall,
@@ -618,8 +611,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     backgroundColor: colors.surface,
   },
-  biometricIcon: {
-    fontSize: 16,
+  biometricIconStyle: {
     marginRight: spacing.sm,
   },
   biometricText: {
@@ -658,10 +650,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
-  // Version
+  // Version - on gradient background, white/semi-transparent
   versionText: {
     ...typography.caption,
-    color: colors.textLight,
+    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
     marginTop: spacing.md,
   },

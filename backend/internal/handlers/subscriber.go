@@ -202,7 +202,7 @@ func (h *SubscriberHandler) List(c *fiber.Ctx) error {
 	// FUP level filter
 	if fupLevel != "" {
 		fupLevelInt, err := strconv.Atoi(fupLevel)
-		if err == nil && fupLevelInt >= 0 && fupLevelInt <= 4 {
+		if err == nil && fupLevelInt >= 0 && fupLevelInt <= 6 {
 			query = query.Where("fup_level = ?", fupLevelInt)
 		}
 	}

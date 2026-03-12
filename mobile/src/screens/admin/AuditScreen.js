@@ -18,6 +18,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import { Ionicons } from '@expo/vector-icons';
 import { auditApi } from '../../services/api';
 import { formatDate, getTimeAgo } from '../../utils/format';
 
@@ -222,7 +223,7 @@ const AuditDetailModal = ({ entry, visible, onClose }) => {
         <View style={detailStyles.header}>
           <Text style={detailStyles.headerTitle}>Audit Entry</Text>
           <TouchableOpacity onPress={onClose} activeOpacity={0.6}>
-            <Text style={detailStyles.closeButton}>{'\u2715'}</Text>
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <ScrollView style={detailStyles.body} contentContainerStyle={detailStyles.bodyContent} showsVerticalScrollIndicator={false}>
@@ -533,7 +534,7 @@ export default function AuditScreen() {
     if (error) {
       return (
         <EmptyState
-          icon={'\u26A0\uFE0F'}
+          iconName="warning-outline"
           title="Connection Error"
           message={error}
           actionLabel="Retry"
@@ -543,7 +544,7 @@ export default function AuditScreen() {
     }
     return (
       <EmptyState
-        icon={'\uD83D\uDCCB'}
+        iconName="clipboard-outline"
         title="No Audit Logs"
         message={
           debouncedSearch || actionFilter
@@ -571,7 +572,7 @@ export default function AuditScreen() {
       {/* Search */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>{'\uD83D\uDD0D'}</Text>
+          <Ionicons name="search-outline" size={16} color={colors.textSecondary} style={{ marginRight: spacing.xs }} />
           <TextInput
             style={styles.searchInput}
             value={searchText}
@@ -584,7 +585,7 @@ export default function AuditScreen() {
           />
           {searchText.length > 0 && (
             <TouchableOpacity onPress={() => setSearchText('')}>
-              <Text style={styles.clearSearch}>{'\u2715'}</Text>
+              <Ionicons name="close-circle" size={16} color={colors.textLight} style={{ paddingLeft: spacing.xs }} />
             </TouchableOpacity>
           )}
         </View>

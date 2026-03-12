@@ -7,6 +7,7 @@ import {
   View,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -41,6 +42,53 @@ const Button = ({
   const sizeStyles = getSizeStyles(size);
   const isDisabled = disabled || loading;
 
+  const buttonContent = loading ? (
+    <ActivityIndicator
+      size="small"
+      color={variantStyles.spinnerColor}
+      style={styles.spinner}
+    />
+  ) : (
+    <View style={styles.contentRow}>
+      {icon && <View style={styles.iconWrapper}>{icon}</View>}
+      <Text
+        style={[
+          styles.text,
+          variantStyles.text,
+          sizeStyles.text,
+          isDisabled && styles.disabledText,
+        ]}
+        numberOfLines={1}
+      >
+        {title}
+      </Text>
+    </View>
+  );
+
+  if (variant === 'primary' && !isDisabled) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={handlePress}
+        disabled={isDisabled}
+        style={[fullWidth && styles.fullWidth]}
+      >
+        <LinearGradient
+          colors={colors.gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[
+            styles.base,
+            sizeStyles.container,
+            shadows.sm,
+          ]}
+        >
+          {buttonContent}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       activeOpacity={0.75}
@@ -55,28 +103,7 @@ const Button = ({
         isDisabled && variantStyles.disabled,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variantStyles.spinnerColor}
-          style={styles.spinner}
-        />
-      ) : (
-        <View style={styles.contentRow}>
-          {icon && <View style={styles.iconWrapper}>{icon}</View>}
-          <Text
-            style={[
-              styles.text,
-              variantStyles.text,
-              sizeStyles.text,
-              isDisabled && styles.disabledText,
-            ]}
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
-        </View>
-      )}
+      {buttonContent}
     </TouchableOpacity>
   );
 };
