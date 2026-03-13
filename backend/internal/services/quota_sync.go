@@ -1119,13 +1119,31 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 		monthlyFUPUpload = service.MonthlyFUP1UploadSpeed
 	}
 
-	// Determine effective FUP level (highest of daily and monthly)
-	// Use the SLOWEST speed (which is the one with higher FUP level, or lower speed values)
+	// Determine effective FUP: pick the SLOWER speed (more restrictive)
 	var targetFUPLevel int
 	var fupDownload, fupUpload int64
 	var fupSource string
 
-	if dailyFUPLevel >= monthlyFUPLevel && dailyFUPLevel > 0 {
+	if dailyFUPLevel > 0 && monthlyFUPLevel > 0 {
+		// Both daily and monthly FUP active — pick the SLOWER speed
+		if monthlyFUPDownload > 0 && monthlyFUPDownload < dailyFUPDownload {
+			// Monthly FUP is slower — use it
+			fupDownload = monthlyFUPDownload
+			fupUpload = monthlyFUPUpload
+			fupSource = "monthly"
+		} else {
+			// Daily FUP is slower (or equal) — use it
+			fupDownload = dailyFUPDownload
+			fupUpload = dailyFUPUpload
+			fupSource = "daily"
+		}
+		// Use the higher level number for DB tracking
+		if monthlyFUPLevel > dailyFUPLevel {
+			targetFUPLevel = monthlyFUPLevel
+		} else {
+			targetFUPLevel = dailyFUPLevel
+		}
+	} else if dailyFUPLevel > 0 {
 		targetFUPLevel = dailyFUPLevel
 		fupDownload = dailyFUPDownload
 		fupUpload = dailyFUPUpload
@@ -1135,15 +1153,6 @@ func (s *QuotaSyncService) checkAndEnforceFUP(client *mikrotik.Client, nas *mode
 		fupDownload = monthlyFUPDownload
 		fupUpload = monthlyFUPUpload
 		fupSource = "monthly"
-	}
-
-	// If both have same level but different speeds, use the slower one
-	if dailyFUPLevel == monthlyFUPLevel && dailyFUPLevel > 0 {
-		if monthlyFUPDownload < dailyFUPDownload && monthlyFUPDownload > 0 {
-			fupDownload = monthlyFUPDownload
-			fupUpload = monthlyFUPUpload
-			fupSource = "monthly"
-		}
 	}
 
 	// Check if block mode is enabled for the FUP source
