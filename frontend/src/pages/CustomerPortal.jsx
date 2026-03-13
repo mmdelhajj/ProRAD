@@ -141,7 +141,9 @@ export default function CustomerPortal() {
     try {
       const res = await api.get('/customer/usage')
       if (res.data.success) {
-        setUsageHistory(res.data.data)
+        const raw = res.data.data
+        // Handle both nested { daily: [...] } and flat array responses
+        setUsageHistory(Array.isArray(raw) ? raw : (raw?.daily || []))
       }
     } catch (err) {
       console.error('Failed to fetch usage history', err)
