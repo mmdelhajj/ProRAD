@@ -217,9 +217,9 @@ func (h *CustomerPortalHandler) Dashboard(c *fiber.Ctx) error {
 		status = "stopped"
 	}
 
-	// Calculate current speed based on FUP level
-	currentDownload := int64(subscriber.Service.DownloadSpeed) * 1000 // Convert Mbps to Kbps
-	currentUpload := int64(subscriber.Service.UploadSpeed) * 1000
+	// Current speed — speeds are already stored in kb format
+	currentDownload := subscriber.Service.DownloadSpeed
+	currentUpload := subscriber.Service.UploadSpeed
 
 	// Use the higher FUP level (daily or monthly)
 	effectiveFUP := subscriber.FUPLevel
@@ -250,8 +250,8 @@ func (h *CustomerPortalHandler) Dashboard(c *fiber.Ctx) error {
 	// Get IP from active session
 	ipAddress := subscriber.IPAddress
 	var activeSession models.RadAcct
-	if err := database.DB.Where("username = ? AND acct_stop_time IS NULL", username).
-		Order("acct_start_time DESC").First(&activeSession).Error; err == nil {
+	if err := database.DB.Where("username = ? AND acctstoptime IS NULL", username).
+		Order("acctstarttime DESC").First(&activeSession).Error; err == nil {
 		ipAddress = activeSession.FramedIPAddress
 	}
 
@@ -299,8 +299,8 @@ func (h *CustomerPortalHandler) Sessions(c *fiber.Ctx) error {
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
 
 	var sessions []models.RadAcct
-	if err := database.DB.Where("username = ? AND acct_start_time >= ?", username, thirtyDaysAgo).
-		Order("acct_start_time DESC").
+	if err := database.DB.Where("username = ? AND acctstarttime >= ?", username, thirtyDaysAgo).
+		Order("acctstarttime DESC").
 		Limit(100).
 		Find(&sessions).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -333,39 +333,36 @@ func (h *CustomerPortalHandler) Sessions(c *fiber.Ctx) error {
 func (h *CustomerPortalHandler) UsageHistory(c *fiber.Ctx) error {
 	username := c.Locals("customer_username").(string)
 
-	// Get sessions grouped by day for the last 30 days
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-
-	var sessions []models.RadAcct
-	if err := database.DB.Where("username = ? AND acct_start_time >= ?", username, thirtyDaysAgo).
-		Order("acct_start_time ASC").
-		Find(&sessions).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// Find subscriber for live counters and monthly usage
+	var subscriber models.Subscriber
+	if err := database.DB.Preload("Service").Where("username = ?", username).First(&subscriber).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
-			"message": "Failed to fetch usage history",
+			"message": "Subscriber not found",
 		})
 	}
 
-	// Group by date
-	usageByDate := make(map[string]struct {
-		Download int64
-		Upload   int64
-		Sessions int
-	})
+	// Query daily_usage_history — the accurate source (saved periodically + at reset)
+	type HistoryRow struct {
+		Date          string `json:"date"`
+		DownloadBytes int64  `json:"download_bytes"`
+		UploadBytes   int64  `json:"upload_bytes"`
+	}
+	var historyRows []HistoryRow
+	database.DB.Raw(`
+		SELECT date::text, download_bytes, upload_bytes
+		FROM daily_usage_history
+		WHERE subscriber_id = ? AND date >= CURRENT_DATE - INTERVAL '30 days'
+		ORDER BY date ASC
+	`, subscriber.ID).Scan(&historyRows)
 
-	for _, s := range sessions {
-		if s.AcctStartTime == nil {
-			continue
-		}
-		date := s.AcctStartTime.Format("2006-01-02")
-		entry := usageByDate[date]
-		entry.Download += s.AcctOutputOctets
-		entry.Upload += s.AcctInputOctets
-		entry.Sessions++
-		usageByDate[date] = entry
+	// Build map for quick lookup
+	historyMap := make(map[string]HistoryRow)
+	for _, row := range historyRows {
+		historyMap[row.Date] = row
 	}
 
-	// Convert to array sorted by date
+	// Build daily array — use history for past days, live counters for today
 	type DailyUsage struct {
 		Date     string `json:"date"`
 		Download int64  `json:"download"`
@@ -373,28 +370,43 @@ func (h *CustomerPortalHandler) UsageHistory(c *fiber.Ctx) error {
 		Sessions int    `json:"sessions"`
 	}
 
-	result := make([]DailyUsage, 0, len(usageByDate))
-	for date, usage := range usageByDate {
+	today := time.Now().Format("2006-01-02")
+	result := make([]DailyUsage, 0, len(historyRows)+1)
+
+	for _, row := range historyRows {
+		if row.Date == today {
+			continue // will add today with live counters below
+		}
 		result = append(result, DailyUsage{
-			Date:     date,
-			Download: usage.Download,
-			Upload:   usage.Upload,
-			Sessions: usage.Sessions,
+			Date:     row.Date,
+			Download: row.DownloadBytes,
+			Upload:   row.UploadBytes,
 		})
 	}
 
-	// Sort by date
-	for i := 0; i < len(result)-1; i++ {
-		for j := i + 1; j < len(result); j++ {
-			if result[i].Date > result[j].Date {
-				result[i], result[j] = result[j], result[i]
-			}
-		}
+	// Today's entry: use live counters from subscriber record (always accurate)
+	result = append(result, DailyUsage{
+		Date:     today,
+		Download: subscriber.DailyDownloadUsed,
+		Upload:   subscriber.DailyUploadUsed,
+	})
+
+	// Monthly quota info
+	var monthlyQuota int64
+	if subscriber.Service != nil {
+		monthlyQuota = subscriber.Service.MonthlyQuota
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    result,
+		"data": fiber.Map{
+			"daily": result,
+			"monthly": fiber.Map{
+				"download_used":  subscriber.MonthlyDownloadUsed,
+				"upload_used":    subscriber.MonthlyUploadUsed,
+				"download_quota": monthlyQuota,
+			},
+		},
 	})
 }
 

@@ -226,7 +226,13 @@ const CustomerUsageScreen = () => {
     try {
       const res = await customerApi.usage();
       if (res?.data) {
-        setData(res.data.data || res.data);
+        const raw = res.data.data || res.data;
+        // Handle both nested { daily: [...] } and flat array responses
+        if (Array.isArray(raw)) {
+          setData({ daily: raw });
+        } else {
+          setData(raw);
+        }
       }
     } catch (err) {
       console.error('CustomerUsageScreen fetch error:', err);

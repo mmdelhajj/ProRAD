@@ -310,6 +310,22 @@ func (s *QuotaSyncService) syncAllQuotas() {
 		nas := subs[0].Nas
 		s.syncNasSubscribers(nas, subs)
 	}
+
+	// Every 10 minutes, snapshot current daily usage to history.
+	// This ensures history is saved even if the daily reset is missed (API restart, etc.)
+	now := getNow()
+	if now.Minute()%10 == 0 {
+		today := now.Format("2006-01-02")
+		database.DB.Exec(`
+			INSERT INTO daily_usage_history (subscriber_id, date, download_bytes, upload_bytes)
+			SELECT id, ?::date, daily_download_used, daily_upload_used
+			FROM subscribers
+			WHERE deleted_at IS NULL AND (daily_download_used > 0 OR daily_upload_used > 0)
+			ON CONFLICT (subscriber_id, date) DO UPDATE SET
+				download_bytes = GREATEST(daily_usage_history.download_bytes, EXCLUDED.download_bytes),
+				upload_bytes   = GREATEST(daily_usage_history.upload_bytes,   EXCLUDED.upload_bytes)
+		`, today)
+	}
 }
 
 // syncNasSubscribers syncs quota for subscribers on a specific NAS
