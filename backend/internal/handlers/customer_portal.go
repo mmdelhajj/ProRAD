@@ -221,24 +221,45 @@ func (h *CustomerPortalHandler) Dashboard(c *fiber.Ctx) error {
 	currentDownload := subscriber.Service.DownloadSpeed
 	currentUpload := subscriber.Service.UploadSpeed
 
-	// Use the higher FUP level (daily or monthly)
-	effectiveFUP := subscriber.FUPLevel
-	if subscriber.MonthlyFUPLevel > effectiveFUP {
-		effectiveFUP = subscriber.MonthlyFUPLevel
+	// Daily FUP speed
+	var dailyDL, dailyUL int64
+	switch subscriber.FUPLevel {
+	case 1:
+		dailyDL, dailyUL = subscriber.Service.FUP1DownloadSpeed, subscriber.Service.FUP1UploadSpeed
+	case 2:
+		dailyDL, dailyUL = subscriber.Service.FUP2DownloadSpeed, subscriber.Service.FUP2UploadSpeed
+	case 3:
+		dailyDL, dailyUL = subscriber.Service.FUP3DownloadSpeed, subscriber.Service.FUP3UploadSpeed
 	}
 
-	if effectiveFUP > 0 {
-		switch effectiveFUP {
-		case 1:
-			currentDownload = subscriber.Service.FUP1DownloadSpeed
-			currentUpload = subscriber.Service.FUP1UploadSpeed
-		case 2:
-			currentDownload = subscriber.Service.FUP2DownloadSpeed
-			currentUpload = subscriber.Service.FUP2UploadSpeed
-		case 3:
-			currentDownload = subscriber.Service.FUP3DownloadSpeed
-			currentUpload = subscriber.Service.FUP3UploadSpeed
+	// Monthly FUP speed
+	var monthlyDL, monthlyUL int64
+	switch subscriber.MonthlyFUPLevel {
+	case 1:
+		monthlyDL, monthlyUL = subscriber.Service.MonthlyFUP1DownloadSpeed, subscriber.Service.MonthlyFUP1UploadSpeed
+	case 2:
+		monthlyDL, monthlyUL = subscriber.Service.MonthlyFUP2DownloadSpeed, subscriber.Service.MonthlyFUP2UploadSpeed
+	case 3:
+		monthlyDL, monthlyUL = subscriber.Service.MonthlyFUP3DownloadSpeed, subscriber.Service.MonthlyFUP3UploadSpeed
+	case 4:
+		monthlyDL, monthlyUL = subscriber.Service.MonthlyFUP4DownloadSpeed, subscriber.Service.MonthlyFUP4UploadSpeed
+	case 5:
+		monthlyDL, monthlyUL = subscriber.Service.MonthlyFUP5DownloadSpeed, subscriber.Service.MonthlyFUP5UploadSpeed
+	case 6:
+		monthlyDL, monthlyUL = subscriber.Service.MonthlyFUP6DownloadSpeed, subscriber.Service.MonthlyFUP6UploadSpeed
+	}
+
+	// Pick the effective FUP speed (slower of daily vs monthly, matching quota_sync logic)
+	if dailyDL > 0 && monthlyDL > 0 {
+		if monthlyDL < dailyDL {
+			currentDownload, currentUpload = monthlyDL, monthlyUL
+		} else {
+			currentDownload, currentUpload = dailyDL, dailyUL
 		}
+	} else if dailyDL > 0 {
+		currentDownload, currentUpload = dailyDL, dailyUL
+	} else if monthlyDL > 0 {
+		currentDownload, currentUpload = monthlyDL, monthlyUL
 	}
 
 	// Determine effective price (override_price takes precedence over service price)
@@ -342,7 +363,7 @@ func (h *CustomerPortalHandler) UsageHistory(c *fiber.Ctx) error {
 		})
 	}
 
-	// Query daily_usage_history — the accurate source (saved periodically + at reset)
+	// 1) Query daily_usage_history — the accurate source (saved periodically + at reset)
 	type HistoryRow struct {
 		Date          string `json:"date"`
 		DownloadBytes int64  `json:"download_bytes"`
@@ -362,7 +383,31 @@ func (h *CustomerPortalHandler) UsageHistory(c *fiber.Ctx) error {
 		historyMap[row.Date] = row
 	}
 
-	// Build daily array — use history for past days, live counters for today
+	// 2) Fallback: query radacct for days missing from history (grouped by session start date)
+	type RadacctDay struct {
+		Date     string `json:"date"`
+		Download int64  `json:"download"`
+		Upload   int64  `json:"upload"`
+		Sessions int    `json:"sessions"`
+	}
+	var radacctDays []RadacctDay
+	database.DB.Raw(`
+		SELECT acctstarttime::date::text AS date,
+		       COALESCE(SUM(acctoutputoctets), 0) AS download,
+		       COALESCE(SUM(acctinputoctets), 0) AS upload,
+		       COUNT(*) AS sessions
+		FROM radacct
+		WHERE username = ? AND acctstarttime >= CURRENT_DATE - INTERVAL '30 days'
+		GROUP BY acctstarttime::date
+		ORDER BY date ASC
+	`, username).Scan(&radacctDays)
+
+	radacctMap := make(map[string]RadacctDay)
+	for _, rd := range radacctDays {
+		radacctMap[rd.Date] = rd
+	}
+
+	// 3) Build daily array: history > radacct fallback, live counters for today
 	type DailyUsage struct {
 		Date     string `json:"date"`
 		Download int64  `json:"download"`
@@ -371,25 +416,37 @@ func (h *CustomerPortalHandler) UsageHistory(c *fiber.Ctx) error {
 	}
 
 	today := time.Now().Format("2006-01-02")
-	result := make([]DailyUsage, 0, len(historyRows)+1)
+	result := make([]DailyUsage, 0, 31)
 
-	for _, row := range historyRows {
-		if row.Date == today {
-			continue // will add today with live counters below
+	// Generate last 30 days
+	for i := 29; i >= 0; i-- {
+		date := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
+		if date == today {
+			continue // handled separately below
 		}
-		result = append(result, DailyUsage{
-			Date:     row.Date,
-			Download: row.DownloadBytes,
-			Upload:   row.UploadBytes,
-		})
+		if h, ok := historyMap[date]; ok {
+			// Accurate source
+			entry := DailyUsage{Date: h.Date, Download: h.DownloadBytes, Upload: h.UploadBytes}
+			if rd, ok2 := radacctMap[date]; ok2 {
+				entry.Sessions = rd.Sessions
+			}
+			result = append(result, entry)
+		} else if rd, ok := radacctMap[date]; ok {
+			// Fallback to radacct (better than empty)
+			result = append(result, DailyUsage{Date: rd.Date, Download: rd.Download, Upload: rd.Upload, Sessions: rd.Sessions})
+		}
 	}
 
-	// Today's entry: use live counters from subscriber record (always accurate)
-	result = append(result, DailyUsage{
+	// Today: use live counters from subscriber record (always accurate)
+	todayEntry := DailyUsage{
 		Date:     today,
 		Download: subscriber.DailyDownloadUsed,
 		Upload:   subscriber.DailyUploadUsed,
-	})
+	}
+	if rd, ok := radacctMap[today]; ok {
+		todayEntry.Sessions = rd.Sessions
+	}
+	result = append(result, todayEntry)
 
 	// Monthly quota info
 	var monthlyQuota int64
