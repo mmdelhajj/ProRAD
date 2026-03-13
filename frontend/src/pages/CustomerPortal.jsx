@@ -379,9 +379,11 @@ export default function CustomerPortal() {
                     <p className="text-[12px] font-bold text-gray-900 dark:text-[#e0e0e0]">
                       {dashboard.current_download_speed}k / {dashboard.current_upload_speed}k
                     </p>
-                    {dashboard.fup_level > 0 && (
-                      <p className="text-[11px] text-[#FF9800]">FUP Level {dashboard.fup_level}</p>
-                    )}
+                    {dashboard.monthly_fup_level > 0 ? (
+                      <p className="text-[11px] text-[#FF9800]">Monthly FUP</p>
+                    ) : dashboard.fup_level > 0 ? (
+                      <p className="text-[11px] text-[#FF9800]">Daily FUP</p>
+                    ) : null}
                   </div>
                 </div>
               </div>
