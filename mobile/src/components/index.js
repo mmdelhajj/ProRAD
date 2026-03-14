@@ -9,3 +9,4 @@ export { default as LoadingScreen } from './LoadingScreen';
 export { default as SubscriberRow } from './SubscriberRow';
 export { default as QuickAction } from './QuickAction';
 export { default as SectionHeader } from './SectionHeader';
+export { default as CircularProgress } from './CircularProgress';

@@ -9,7 +9,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ProgressBar, Card, StatusBadge, LoadingScreen } from '../../components';
+import { ProgressBar, CircularProgress, Card, StatusBadge, LoadingScreen } from '../../components';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -305,17 +305,18 @@ const CustomerDashboard = ({ navigation, route }) => {
           </View>
 
           <Card style={styles.usageCard}>
-            <ProgressBar
-              label="Download"
-              value={dailyDownloadUsed}
-              total={dailyQuota}
-            />
-            <View style={{ height: spacing.base }} />
-            <ProgressBar
-              label="Upload"
-              value={dailyUploadUsed}
-              total={dailyUploadQuota || dailyQuota}
-            />
+            <View style={styles.circularRow}>
+              <CircularProgress
+                label="Download"
+                value={dailyDownloadUsed}
+                total={dailyQuota}
+              />
+              <CircularProgress
+                label="Upload"
+                value={dailyUploadUsed}
+                total={dailyUploadQuota || dailyQuota}
+              />
+            </View>
           </Card>
         </>
       )}
@@ -336,17 +337,18 @@ const CustomerDashboard = ({ navigation, route }) => {
           </View>
 
           <Card style={styles.usageCard}>
-            <ProgressBar
-              label="Download"
-              value={monthlyDownloadUsed}
-              total={monthlyQuota}
-            />
-            <View style={{ height: spacing.base }} />
-            <ProgressBar
-              label="Upload"
-              value={monthlyUploadUsed}
-              total={monthlyUploadQuota || monthlyQuota}
-            />
+            <View style={styles.circularRow}>
+              <CircularProgress
+                label="Download"
+                value={monthlyDownloadUsed}
+                total={monthlyQuota}
+              />
+              <CircularProgress
+                label="Upload"
+                value={monthlyUploadUsed}
+                total={monthlyUploadQuota || monthlyQuota}
+              />
+            </View>
           </Card>
         </>
       )}
@@ -535,6 +537,12 @@ const styles = StyleSheet.create({
   },
 
   // Usage / Info cards
+  circularRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
   usageCard: {
     marginHorizontal: spacing.md,
   },
