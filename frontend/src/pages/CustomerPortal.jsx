@@ -31,6 +31,53 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+// Circular progress ring component
+function CircularProgressRing({ value = 0, total = 0, label, size = 110, strokeWidth = 10 }) {
+  const percentage = total > 0 ? Math.min((value / total) * 100, 100) : 0
+  const roundedPercent = Math.round(percentage * 10) / 10
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const dashoffset = circumference - (circumference * percentage) / 100
+  const center = size / 2
+
+  const getColor = () => {
+    if (percentage >= 95) return '#ef4444'
+    if (percentage >= 80) return '#f59e0b'
+    return '#10b981'
+  }
+  const color = getColor()
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size}>
+          <circle
+            cx={center} cy={center} r={radius}
+            fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth}
+            className="dark:stroke-[#334155]"
+          />
+          <circle
+            cx={center} cy={center} r={radius}
+            fill="none" stroke={color} strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashoffset}
+            transform={`rotate(-90 ${center} ${center})`}
+            style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[15px] font-bold" style={{ color }}>{roundedPercent}%</span>
+        </div>
+      </div>
+      <span className="text-[11px] font-semibold text-gray-900 dark:text-[#e0e0e0] mt-1">
+        {formatBytes(value)}{total > 0 ? ` / ${formatBytes(total)}` : ''}
+      </span>
+      {label && <span className="text-[11px] text-gray-500 dark:text-[#aaa]">{label}</span>}
+    </div>
+  )
+}
+
 // Format duration
 function formatDuration(seconds) {
   const hours = Math.floor(seconds / 3600)
@@ -436,30 +483,20 @@ export default function CustomerPortal() {
                 <div className="wb-group-title flex items-center gap-1">
                   <CalendarDaysIcon className="w-4 h-4 text-[#316AC5]" />
                   Daily Usage
+                  <span className="ml-auto text-[10px] text-gray-400 dark:text-[#888] font-normal">Resets at midnight</span>
                 </div>
-                <div className="wb-group-body space-y-2">
-                  <div>
-                    <div className="flex justify-between text-[12px] mb-0.5">
-                      <span className="text-gray-500 dark:text-[#aaa]">Download</span>
-                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">
-                        {formatBytes(dashboard.daily_download_used)}
-                        {dashboard.daily_quota > 0 && ` / ${formatBytes(dashboard.daily_quota)}`}
-                      </span>
-                    </div>
-                    {dashboard.daily_quota > 0 && (
-                      <div className="wb-usage-bar">
-                        <div
-                          className="wb-usage-bar-fill bg-[#316AC5]"
-                          style={{ width: `${Math.min((dashboard.daily_download_used / dashboard.daily_quota) * 100, 100)}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-[12px] mb-0.5">
-                      <span className="text-gray-500 dark:text-[#aaa]">Upload</span>
-                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">{formatBytes(dashboard.daily_upload_used)}</span>
-                    </div>
+                <div className="wb-group-body">
+                  <div className="flex justify-around items-center py-2">
+                    <CircularProgressRing
+                      label="Download"
+                      value={dashboard.daily_download_used}
+                      total={dashboard.daily_quota}
+                    />
+                    <CircularProgressRing
+                      label="Upload"
+                      value={dashboard.daily_upload_used}
+                      total={dashboard.daily_upload_quota || dashboard.daily_quota}
+                    />
                   </div>
                 </div>
               </div>
@@ -469,30 +506,24 @@ export default function CustomerPortal() {
                 <div className="wb-group-title flex items-center gap-1">
                   <ChartBarIcon className="w-4 h-4 text-[#4CAF50]" />
                   Monthly Usage
+                  {dashboard.monthly_reset_date && (
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-[#888] font-normal">
+                      Resets {formatDate(dashboard.monthly_reset_date)}
+                    </span>
+                  )}
                 </div>
-                <div className="wb-group-body space-y-2">
-                  <div>
-                    <div className="flex justify-between text-[12px] mb-0.5">
-                      <span className="text-gray-500 dark:text-[#aaa]">Download</span>
-                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">
-                        {formatBytes(dashboard.monthly_download_used)}
-                        {dashboard.monthly_quota > 0 && ` / ${formatBytes(dashboard.monthly_quota)}`}
-                      </span>
-                    </div>
-                    {dashboard.monthly_quota > 0 && (
-                      <div className="wb-usage-bar">
-                        <div
-                          className="wb-usage-bar-fill bg-[#4CAF50]"
-                          style={{ width: `${Math.min((dashboard.monthly_download_used / dashboard.monthly_quota) * 100, 100)}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-[12px] mb-0.5">
-                      <span className="text-gray-500 dark:text-[#aaa]">Upload</span>
-                      <span className="font-medium text-gray-900 dark:text-[#e0e0e0]">{formatBytes(dashboard.monthly_upload_used)}</span>
-                    </div>
+                <div className="wb-group-body">
+                  <div className="flex justify-around items-center py-2">
+                    <CircularProgressRing
+                      label="Download"
+                      value={dashboard.monthly_download_used}
+                      total={dashboard.monthly_quota}
+                    />
+                    <CircularProgressRing
+                      label="Upload"
+                      value={dashboard.monthly_upload_used}
+                      total={dashboard.monthly_upload_quota || dashboard.monthly_quota}
+                    />
                   </div>
                 </div>
               </div>
