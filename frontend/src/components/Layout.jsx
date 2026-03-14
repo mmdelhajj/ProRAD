@@ -144,6 +144,9 @@ const allNavigation = [
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebarCollapsed') === 'true' } catch { return false }
+  })
   const [expandedGroups, setExpandedGroups] = useState({ 'CDN': true })
   const [editMode, setEditMode] = useState(false)
   const [orderedNav, setOrderedNav] = useState([])
@@ -324,6 +327,13 @@ export default function Layout({ children }) {
     setEditMode(!editMode)
   }
 
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(prev => {
+      localStorage.setItem('sidebarCollapsed', String(!prev))
+      return !prev
+    })
+  }
+
   // Edit mode controls bar
   const EditModeControls = () => (
     <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[#a0a0a0] dark:border-[#374151] bg-amber-50 dark:bg-amber-900/30">
@@ -500,6 +510,14 @@ export default function Layout({ children }) {
           >
             <Bars3Icon className="w-4 h-4" />
           </button>
+          {/* Desktop sidebar toggle */}
+          <button
+            onClick={toggleSidebarCollapsed}
+            className="hidden lg:flex p-0.5 hover:bg-white/20 rounded-sm"
+            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          >
+            <Bars3Icon className="w-4 h-4" />
+          </button>
           <span className="truncate font-semibold">
             {username}@{serverIP} — {companyName || 'MES ISP Management'} {appVersion}
           </span>
@@ -606,6 +624,7 @@ export default function Layout({ children }) {
         </div>
 
         {/* Desktop sidebar */}
+        {!sidebarCollapsed && (
         <div className="hidden lg:flex lg:flex-col lg:w-[185px] bg-white dark:bg-[#1f2937] border-r border-[#a0a0a0] dark:border-[#374151] flex-shrink-0">
           <div
             onClick={toggleTheme}
@@ -619,6 +638,7 @@ export default function Layout({ children }) {
             {renderTreeItems(false)}
           </nav>
         </div>
+        )}
 
         {/* ============================================================
             CONTENT AREA
